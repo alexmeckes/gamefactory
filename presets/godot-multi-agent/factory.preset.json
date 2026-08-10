@@ -1,0 +1,16 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "name": "godot-multi-agent",
+  "extensions": [
+    "../../extensions/tournament",
+    "../../extensions/agent-team",
+    "../../extensions/git",
+    "../../extensions/godot"
+  ],
+  "capabilities": [
+    "workflow:tournament",
+    "workspace:git.worktree",
+    "agent:agent.team",
+    "evaluator:godot.scenario"
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "id": "godot-demo",
+  "objective": "Increase the deterministic fun_score without breaking the Godot scenario.",
+  "projectRoot": ".",
+  "workflow": "autoresearch",
+  "requires": [
+    "workspace:git.worktree",
+    "agent:command.agent",
+    "evaluator:godot.scenario"
+  ],
+  "mutablePaths": ["tuning.json"],
+  "immutablePaths": ["addons/gamefactory/**", "campaign.json", "factory.config.json"],
+  "parameters": {
+    "workspace": "git.worktree",
+    "agent": "command.agent",
+    "agentCommand": ["node", "tools/tune.mjs"],
+    "evaluators": ["godot.scenario"],
+    "godot": {
+      "importCheck": true,
+      "rendered": false,
+      "timeoutSeconds": 60,
+      "scenario": {
+        "provider": "godot.factory/v1",
+        "version": "1",
+        "path": "res://main.tscn",
+        "parameters": { "seed": 7, "ticks": 30, "physics_hz": 60 }
+      }
+    }
+  },
+  "acceptance": {
+    "primaryMetric": "fun_score",
+    "direction": "maximize",
+    "minimumDelta": 0.01
+  },
+  "budget": { "maximumExperiments": 3, "maximumConsecutiveCrashes": 2 }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "gamefactory",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "extensions/*",
+    "presets/*"
+  ],
+  "scripts": {
+    "clean": "node scripts/clean.mjs",
+    "build": "tsc -b",
+    "test": "npm run build && node scripts/run-tests.mjs",
+    "smoke:godot": "node scripts/godot-smoke.mjs",
+    "smoke:godot:multi-agent": "node scripts/godot-smoke.mjs campaign.multi-agent.json",
+    "factory": "node packages/cli/dist/index.js",
+    "check": "npm run build && npm test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "typescript": "^5.7.0"
+  }
+}

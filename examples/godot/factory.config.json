@@ -1,0 +1,12 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "extensions": [
+    "../../extensions/autoresearch",
+    "../../extensions/git",
+    "../../extensions/command-agent",
+    "../../extensions/agent-team",
+    "../../extensions/tournament",
+    "../../extensions/godot"
+  ],
+  "resultLog": ".factory/results/godot-demo.jsonl"
+}

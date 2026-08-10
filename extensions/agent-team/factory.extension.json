@@ -1,0 +1,10 @@
+{
+  "name": "gamefactory.agent-team",
+  "version": "0.1.0",
+  "apiVersion": "1.0",
+  "entry": "dist/index.js",
+  "activation": ["agent:agent.team"],
+  "contributes": { "agent": ["agent.team"] },
+  "permissions": ["process:configured-command", "filesystem:candidate", "git:status"],
+  "description": "A bounded scout, planner, implementer, and critic pipeline with one worktree writer."
+}

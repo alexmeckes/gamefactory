@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.factory/
+coverage/
+*.log
+.DS_Store
+.godot/
+exports/

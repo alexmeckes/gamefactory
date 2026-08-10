@@ -1,0 +1,5 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "extensions": ["../../extensions/mock", "../../extensions/autoresearch"],
+  "resultLog": ".factory/results/mock-demo.jsonl"
+}

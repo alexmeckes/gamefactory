@@ -1,0 +1,16 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/core" },
+    { "path": "./packages/extension-sdk" },
+    { "path": "./packages/testing" },
+    { "path": "./extensions/autoresearch" },
+    { "path": "./extensions/mock" },
+    { "path": "./extensions/command-agent" },
+    { "path": "./extensions/agent-team" },
+    { "path": "./extensions/git" },
+    { "path": "./extensions/godot" },
+    { "path": "./extensions/tournament" },
+    { "path": "./packages/cli" }
+  ]
+}

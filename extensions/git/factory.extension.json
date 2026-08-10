@@ -1,0 +1,10 @@
+{
+  "name": "gamefactory.git",
+  "version": "0.1.0",
+  "apiVersion": "1.0",
+  "entry": "dist/index.js",
+  "activation": ["workspace:git.worktree"],
+  "contributes": { "workspace": ["git.worktree"] },
+  "permissions": ["process:git", "filesystem:worktrees"],
+  "description": "Isolates every candidate in a detached Git worktree and cherry-picks only accepted commits."
+}

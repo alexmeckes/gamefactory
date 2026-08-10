@@ -1,0 +1,17 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "name": "godot-minimal",
+  "extensions": [
+    "../../extensions/autoresearch",
+    "../../extensions/git",
+    "../../extensions/command-agent",
+    "../../extensions/godot"
+  ],
+  "capabilities": [
+    "workflow:autoresearch",
+    "workspace:git.worktree",
+    "agent:command.agent",
+    "engine:godot.engine",
+    "evaluator:godot.scenario"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "name": "gamefactory.tournament",
+  "version": "0.1.0",
+  "apiVersion": "1.0",
+  "entry": "dist/index.js",
+  "activation": ["workflow:tournament"],
+  "contributes": { "workflow": ["tournament"] },
+  "description": "Bounded parallel candidate tournaments with deterministic selection and serialized acceptance."
+}

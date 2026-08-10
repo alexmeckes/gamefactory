@@ -1,0 +1,8 @@
+{
+  "name": "@gamefactory/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": { "gamefactory": "dist/index.js" },
+  "dependencies": { "@gamefactory/core": "0.1.0" }
+}

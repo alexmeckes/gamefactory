@@ -1,0 +1,14 @@
+{
+  "name": "gamefactory.godot",
+  "version": "0.1.0",
+  "apiVersion": "1.0",
+  "entry": "dist/index.js",
+  "activation": ["engine:godot.engine", "scenario:godot.scenario", "evaluator:godot.scenario"],
+  "contributes": {
+    "engine": ["godot.engine"],
+    "scenario": ["godot.scenario"],
+    "evaluator": ["godot.scenario"]
+  },
+  "permissions": ["process:godot", "filesystem:artifacts"],
+  "description": "Godot 4 host adapter: import checks, deterministic in-engine scenarios, telemetry, and optional rendered capture."
+}

@@ -1,0 +1,27 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "id": "mock-demo",
+  "objective": "Prove that the bounded improvement loop keeps wins and discards regressions.",
+  "projectRoot": ".",
+  "workflow": "autoresearch",
+  "requires": [
+    "workspace:mock.workspace",
+    "agent:mock.agent",
+    "evaluator:mock.score"
+  ],
+  "parameters": {
+    "workspace": "mock.workspace",
+    "agent": "mock.agent",
+    "evaluators": ["mock.score"]
+  },
+  "acceptance": {
+    "primaryMetric": "score",
+    "direction": "maximize",
+    "minimumDelta": 0.01
+  },
+  "budget": {
+    "maximumExperiments": 4,
+    "maximumConsecutiveCrashes": 2,
+    "plateauExperiments": 3
+  }
+}
