@@ -361,8 +361,16 @@ export default function FactoryConsole() {
         setConnection(value.live ? "receiving live trace" : "bridge connected · replay ready");
       } catch (error) {
         if (controller.signal.aborted) return;
-        setConnection(error instanceof Error ? error.message : "local bridge offline or access denied");
-        if (!paired) setBridgePanel(true);
+        const message = error instanceof TypeError
+          ? `no authenticated bridge responded at ${endpoint}`
+          : error instanceof Error ? error.message : "local bridge offline or access denied";
+        setConnection(message);
+        if (!paired) {
+          window.sessionStorage.removeItem(BRIDGE_SESSION_KEY);
+          requestRef.current = undefined;
+          setBridgePanel(true);
+          return;
+        }
       }
       if (!controller.signal.aborted) pollRef.current = window.setTimeout(() => void poll(), 700);
     };
