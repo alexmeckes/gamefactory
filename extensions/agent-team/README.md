@@ -15,6 +15,7 @@ The legacy configuration runs read-only scouts in parallel, one read-only planne
       "maxOutputCharacters": 20000,
       "provider": "openai",
       "model": "your-model-id",
+      "billingMode": "subscription",
       "scouts": [
         { "id": "systems", "command": ["pi", "--mode", "scout"] },
         { "id": "gameplay", "command": ["pi", "--mode", "scout"] }
@@ -100,7 +101,7 @@ Node fields:
 - `maximumAttempts` retries a failed command activation and defaults to 1.
 - `required: false` permits a failed optional node without failing the whole graph. Dependents can use `when` with the `failed` outcome to run a fallback.
 - `repair` lets a read-only reviewer route `revise` (or configured outcomes) back to a directly preceding writer. The writer receives the review as an additional structured input, then all reviewers for that writer run again.
-- `provider` and `model` identify the invocation backend. They may be set once on `agentTeam` and overridden per contributor. Identity is retained even when the backend cannot report tokens or cost.
+- `provider` and `model` identify the configured invocation backend. `billingMode` is `subscription`, `credits`, `metered`, or `unknown`. These may be set once on `agentTeam` and overridden per contributor. Configured identity is labeled as configured rather than presented as provider-verified telemetry.
 
 `maximumTotalAttempts` caps every subprocess invocation, including retries and reviews. `maximumRepairAttempts` caps total writer revision rounds across the graph. Each repair edge also has its own `maximumAttempts`. Unresolved repairs are reported in result metadata instead of creating an unbounded loop.
 
@@ -123,7 +124,9 @@ A contributor may return ordinary text, a JSON object, or log lines followed by 
     "reasoningTokens": 90,
     "costUsd": 0.012,
     "costSource": "provider-reported",
-    "pricingVersion": "2026-08-01"
+    "pricingVersion": "2026-08-01",
+    "billingMode": "metered",
+    "identitySource": "provider-reported"
   },
   "artifacts": [
     { "kind": "telemetry", "path": ".factory/evidence/movement.json" }

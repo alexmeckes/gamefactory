@@ -73,11 +73,13 @@ test("command agent records configured model identity and structured usage", asy
   const script = resolve(candidateRoot, "agent.mjs");
   try {
     await writeFile(script, `console.log(JSON.stringify({ summary: "model work complete", usage: { inputTokens: 120, cachedInputTokens: 80, outputTokens: 30, reasoningTokens: 12, costUsd: 0.07, costSource: "provider-reported" } }));\n`, "utf8");
-    const result = await run(campaign(candidateRoot, script, { provider: "openai", model: "test-model" }), candidateRoot, "exp-usage");
+    const result = await run(campaign(candidateRoot, script, { provider: "openai", model: "test-model", billingMode: "subscription" }), candidateRoot, "exp-usage");
     assert.equal(result.summary, "model work complete");
     assert.deepEqual(result.usage, {
       provider: "openai",
       model: "test-model",
+      billingMode: "subscription",
+      identitySource: "configured",
       inputTokens: 120,
       cachedInputTokens: 80,
       outputTokens: 30,

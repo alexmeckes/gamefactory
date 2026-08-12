@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, relative, resolve } from "node:path";
-import { parseInvocationUsage, type AgentDriver, type AgentResult, type ArtifactReference, type FactoryTraceEventInput, type InvocationUsage } from "@gamefactory/core";
+import { parseInvocationUsage, type AgentDriver, type AgentResult, type ArtifactReference, type FactoryTraceEventInput, type InvocationUsage, type UsageBillingMode } from "@gamefactory/core";
 import { defineExtension } from "@gamefactory/extension-sdk";
 
 const DEFAULT_TIMEOUT_SECONDS = 15 * 60;
@@ -66,6 +66,7 @@ interface CommandAgentSettings {
   evidenceDirectory?: string;
   provider?: string;
   model?: string;
+  billingMode?: UsageBillingMode;
 }
 
 interface ProcessOutcome {
@@ -137,6 +138,9 @@ function settingsFor(request: AgentRequest): CommandAgentSettings {
       throw new Error(`parameters.commandAgent.${field} must be a non-empty string with at most 256 characters`);
     }
   }
+  if (configured.billingMode !== undefined && !["subscription", "credits", "metered", "unknown"].includes(String(configured.billingMode))) {
+    throw new Error("parameters.commandAgent.billingMode must be subscription, credits, metered, or unknown");
+  }
   return {
     timeoutSeconds,
     maximumOutputBytes,
@@ -144,7 +148,8 @@ function settingsFor(request: AgentRequest): CommandAgentSettings {
     environment,
     ...(typeof configured.evidenceDirectory === "string" ? { evidenceDirectory: configured.evidenceDirectory } : {}),
     ...(typeof configured.provider === "string" ? { provider: configured.provider.trim() } : {}),
-    ...(typeof configured.model === "string" ? { model: configured.model.trim() } : {})
+    ...(typeof configured.model === "string" ? { model: configured.model.trim() } : {}),
+    ...(typeof configured.billingMode === "string" ? { billingMode: configured.billingMode as UsageBillingMode } : {})
   };
 }
 
@@ -157,7 +162,12 @@ async function emitCommandTrace(request: AgentRequest, event: FactoryTraceEventI
 }
 
 function commandOutputMetadata(stdout: string, settings: CommandAgentSettings): { summary?: string; usage?: InvocationUsage } {
-  const defaults = { ...(settings.provider ? { provider: settings.provider } : {}), ...(settings.model ? { model: settings.model } : {}) };
+  const defaults = {
+    ...(settings.provider ? { provider: settings.provider } : {}),
+    ...(settings.model ? { model: settings.model } : {}),
+    ...(settings.billingMode ? { billingMode: settings.billingMode } : {}),
+    ...(settings.provider || settings.model ? { identitySource: "configured" as const } : {})
+  };
   let record: Record<string, unknown> | undefined;
   for (const value of [stdout.trim(), ...stdout.trim().split(/\r?\n/).reverse()]) {
     if (!value) continue;
@@ -375,7 +385,7 @@ export class CommandAgent implements AgentDriver {
     if (!executable) throw new Error("Agent command has no executable");
     const settings = settingsFor(request);
     const traceNodeId = `agent:${request.experimentId}:command.agent:attempt-1`;
-    const traceData = { invocationId: traceNodeId, parentInvocationId: `experiment:${request.experimentId}`, ...(settings.provider ? { provider: settings.provider } : {}), ...(settings.model ? { model: settings.model } : {}) };
+    const traceData = { invocationId: traceNodeId, parentInvocationId: `experiment:${request.experimentId}`, ...(settings.provider ? { provider: settings.provider } : {}), ...(settings.model ? { model: settings.model } : {}), ...(settings.billingMode ? { billingMode: settings.billingMode } : {}), ...(settings.provider || settings.model ? { identitySource: "configured" as const } : {}) };
     await emitCommandTrace(request, { type: "node:created", nodeId: traceNodeId, experimentId: request.experimentId, parentNodeId: `experiment:${request.experimentId}`, label: this.id, role: "worker", attempt: 1, data: traceData });
     await emitCommandTrace(request, { type: "edge:created", nodeId: `edge:experiment:${request.experimentId}:${traceNodeId}`, experimentId: request.experimentId, sourceNodeId: `experiment:${request.experimentId}`, targetNodeId: traceNodeId, role: "agent" });
     await emitCommandTrace(request, { type: "node:started", nodeId: traceNodeId, experimentId: request.experimentId, label: this.id, role: "worker", attempt: 1, data: traceData });

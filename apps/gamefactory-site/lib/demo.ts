@@ -3,17 +3,8 @@ import type { Experiment, FactorySnapshot, GraphEdge, GraphNode, Usage } from ".
 const baseTime = new Date("2026-08-12T13:37:49.387Z").getTime();
 const at = (seconds: number) => new Date(baseTime + seconds * 1000).toISOString();
 
-function usage(model: string, input: number, output: number, cost: number): Usage {
-  return {
-    provider: "openai",
-    model,
-    inputTokens: input,
-    cachedInputTokens: Math.round(input * 0.18),
-    outputTokens: output,
-    reasoningTokens: Math.round(output * 0.31),
-    totalTokens: input + output,
-    costUsd: cost,
-  };
+function subscriptionUsage(): Usage {
+  return { billingMode: "subscription" };
 }
 
 const nodes: GraphNode[] = [];
@@ -53,14 +44,14 @@ for (const [slot, candidate] of candidates.entries()) {
   const decision = `${candidate.id}:decision`;
   const outcome = `${candidate.id}:outcome`;
   const agents = [
-    { id: "systems-scout", role: "scout", delta: 1, model: "gpt-5.4-mini", summary: "Mapped movement, survival, and collection constraints." },
-    { id: "lead-builder", role: "implementer", delta: 2, model: "gpt-5.4", summary: `Raised player speed to ${candidate.speed} while preserving the scenario contract.` },
-    { id: "playtest-critic", role: "critic", delta: 3, model: "gpt-5.4-mini", summary: "Ran deterministic play traces and checked difficulty shape." },
+    { id: "systems-scout", role: "scout", delta: 1, summary: "Mapped movement, survival, and collection constraints." },
+    { id: "lead-builder", role: "implementer", delta: 2, summary: `Raised player speed to ${candidate.speed} while preserving the scenario contract.` },
+    { id: "playtest-critic", role: "critic", delta: 3, summary: "Ran deterministic play traces and checked difficulty shape." },
   ];
 
   node({ id: candidate.id, experimentId: candidate.id, clusterId: candidate.id, kind: "candidate", label: `Candidate ${String.fromCharCode(65 + slot)}`, detail: `player_speed ${candidate.speed}`, column: 1, order: candidate.order, enteredSequence: candidate.start, completedSequence: candidate.finish, finalState: "complete" });
   node({ id: workspace, experimentId: candidate.id, clusterId: candidate.id, kind: "workspace", label: "Git worktree", detail: "Isolated candidate", column: 2, order: candidate.order, enteredSequence: candidate.start + 3, completedSequence: candidate.finish - 3, finalState: "complete" });
-  node({ id: team, experimentId: candidate.id, clusterId: candidate.id, kind: "agent", label: "Agent team · 3", detail: "Scout → builder → playtester", column: 3, order: candidate.order, enteredSequence: candidate.start + 5, completedSequence: candidate.finish - 18, finalState: "complete", usage: usage("gpt-5.4", 21840 + slot * 920, 4170 + slot * 260, 0.31 + slot * 0.04) });
+  node({ id: team, experimentId: candidate.id, clusterId: candidate.id, kind: "agent", label: "Agent team · 3", detail: "Scout → builder → playtester", column: 3, order: candidate.order, enteredSequence: candidate.start + 5, completedSequence: candidate.finish - 18, finalState: "complete", usage: subscriptionUsage() });
 
   edge("run:pulse-runner-demo", candidate.id, candidate.start, "fan-out");
   edge(candidate.id, workspace, candidate.start + 3);
@@ -68,7 +59,7 @@ for (const [slot, candidate] of candidates.entries()) {
 
   const contributions = agents.map((agent, agentIndex) => {
     const id = `${candidate.id}:${agent.id}`;
-    const agentUsage = usage(agent.model, 5200 + slot * 440 + agentIndex * 310, 920 + agentIndex * 170, 0.075 + agentIndex * 0.018);
+    const agentUsage = subscriptionUsage();
     node({
       id,
       experimentId: candidate.id,
@@ -123,7 +114,7 @@ for (const [slot, candidate] of candidates.entries()) {
     primaryMetric: candidate.score,
     agentSummary: `Three-agent team proposed and tested player_speed ${candidate.speed}.`,
     contributors: contributions,
-    usage: usage("gpt-5.4", 21840 + slot * 920, 4170 + slot * 260, 0.31 + slot * 0.04),
+    usage: subscriptionUsage(),
     artifacts: [
       { id: `${candidate.id}-frame`, kind: "image", label: "Godot playtest frame", mediaType: "image/png", sizeBytes: 218400, available: false },
       { id: `${candidate.id}-telemetry`, kind: "telemetry", label: "Deterministic telemetry", mediaType: "application/x-ndjson", sizeBytes: 48200, available: false },
@@ -167,19 +158,17 @@ export const demoSnapshot: FactorySnapshot = {
   },
   usage: {
     invocations: 9,
-    tokenInvocations: 9,
-    pricedInvocations: 9,
-    unpricedInvocations: 0,
-    totalTokens: 80670,
-    inputTokens: 68100,
-    cachedInputTokens: 12258,
-    outputTokens: 12570,
-    reasoningTokens: 3897,
-    costUsd: 1.05,
-    models: [
-      { provider: "openai", model: "gpt-5.4", invocations: 3, tokenInvocations: 3, pricedInvocations: 3, totalTokens: 78780, costUsd: 0.93 },
-      { provider: "openai", model: "gpt-5.4-mini", invocations: 6, tokenInvocations: 6, pricedInvocations: 6, totalTokens: 1890, costUsd: 0.12 },
-    ],
+    tokenInvocations: 0,
+    pricedInvocations: 0,
+    unpricedInvocations: 9,
+    totalTokens: 0,
+    inputTokens: 0,
+    cachedInputTokens: 0,
+    outputTokens: 0,
+    reasoningTokens: 0,
+    costUsd: 0,
+    billingModes: ["subscription"],
+    models: [],
   },
   counters: { experiments: 3, active: 0, kept: 1, discarded: 2, blocked: 0, crashed: 0 },
 };

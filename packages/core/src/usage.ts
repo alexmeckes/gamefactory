@@ -1,4 +1,6 @@
 export type UsageCostSource = "provider-reported" | "estimated";
+export type UsageBillingMode = "subscription" | "credits" | "metered" | "unknown";
+export type UsageIdentitySource = "provider-reported" | "configured";
 
 export interface InvocationUsage {
   provider?: string;
@@ -11,6 +13,8 @@ export interface InvocationUsage {
   costUsd?: number;
   costSource?: UsageCostSource;
   pricingVersion?: string;
+  billingMode?: UsageBillingMode;
+  identitySource?: UsageIdentitySource;
 }
 
 function optionalString(value: unknown, field: string): string | undefined {
@@ -31,9 +35,9 @@ function optionalTokenCount(value: unknown, field: string): number | undefined {
 
 export function parseInvocationUsage(
   value: unknown,
-  defaults: Pick<InvocationUsage, "provider" | "model"> = {}
+  defaults: Pick<InvocationUsage, "provider" | "model" | "billingMode" | "identitySource"> = {}
 ): InvocationUsage | undefined {
-  if (value === undefined && !defaults.provider && !defaults.model) return undefined;
+  if (value === undefined && !defaults.provider && !defaults.model && !defaults.billingMode && !defaults.identitySource) return undefined;
   if (value !== undefined && (!value || typeof value !== "object" || Array.isArray(value))) {
     throw new Error("usage must be an object");
   }
@@ -45,6 +49,14 @@ export function parseInvocationUsage(
   const costSource = record.costSource;
   if (costSource !== undefined && costSource !== "provider-reported" && costSource !== "estimated") {
     throw new Error("usage.costSource must be provider-reported or estimated");
+  }
+  const billingMode = record.billingMode ?? defaults.billingMode;
+  if (billingMode !== undefined && billingMode !== "subscription" && billingMode !== "credits" && billingMode !== "metered" && billingMode !== "unknown") {
+    throw new Error("usage.billingMode must be subscription, credits, metered, or unknown");
+  }
+  const identitySource = record.identitySource ?? defaults.identitySource;
+  if (identitySource !== undefined && identitySource !== "provider-reported" && identitySource !== "configured") {
+    throw new Error("usage.identitySource must be provider-reported or configured");
   }
   const result: InvocationUsage = {};
   const provider = optionalString(record.provider, "provider") ?? defaults.provider;
@@ -59,6 +71,8 @@ export function parseInvocationUsage(
   }
   if (typeof costUsd === "number") result.costUsd = costUsd;
   if (costSource) result.costSource = costSource;
+  if (billingMode) result.billingMode = billingMode;
+  if (identitySource) result.identitySource = identitySource;
   return Object.keys(result).length > 0 ? result : undefined;
 }
 
@@ -85,7 +99,7 @@ export function aggregateInvocationUsage(usages: Array<InvocationUsage | undefin
   if (totals.length === usages.length) result.totalTokens = totals.reduce((total, value) => total + value, 0);
   const costs = reported.map((usage) => usage.costUsd).filter((value): value is number => value !== undefined);
   if (costs.length === usages.length) result.costUsd = costs.reduce((total, value) => total + value, 0);
-  const common = (field: "provider" | "model" | "costSource" | "pricingVersion"): string | undefined => {
+  const common = (field: "provider" | "model" | "costSource" | "pricingVersion" | "billingMode" | "identitySource"): string | undefined => {
     const values = [...new Set(reported.map((usage) => usage[field]).filter((value): value is string => value !== undefined))];
     return values.length === 1 ? values[0] : undefined;
   };
@@ -93,9 +107,13 @@ export function aggregateInvocationUsage(usages: Array<InvocationUsage | undefin
   const model = common("model");
   const costSource = common("costSource") as UsageCostSource | undefined;
   const pricingVersion = common("pricingVersion");
+  const billingMode = common("billingMode") as UsageBillingMode | undefined;
+  const identitySource = common("identitySource") as UsageIdentitySource | undefined;
   if (provider) result.provider = provider;
   if (model) result.model = model;
   if (costSource) result.costSource = costSource;
   if (pricingVersion) result.pricingVersion = pricingVersion;
+  if (billingMode) result.billingMode = billingMode;
+  if (identitySource) result.identitySource = identitySource;
   return result;
 }

@@ -13,6 +13,8 @@ export type NodeState =
   | "baseline"
   | "skipped";
 
+export type BillingMode = "subscription" | "credits" | "metered" | "unknown";
+
 export interface Usage {
   provider?: string;
   model?: string;
@@ -22,6 +24,10 @@ export interface Usage {
   reasoningTokens?: number;
   totalTokens?: number;
   costUsd?: number;
+  costSource?: "provider-reported" | "estimated";
+  pricingVersion?: string;
+  billingMode?: BillingMode;
+  identitySource?: "provider-reported" | "configured";
 }
 
 export interface GraphNode {
@@ -161,6 +167,7 @@ export interface FactorySnapshot {
     outputTokens: number;
     reasoningTokens: number;
     costUsd: number;
+    billingModes?: BillingMode[];
     models: Array<{
       provider?: string;
       model?: string;
@@ -169,6 +176,7 @@ export interface FactorySnapshot {
       pricedInvocations: number;
       totalTokens: number;
       costUsd: number;
+      billingModes?: BillingMode[];
     }>;
   };
   counters: {

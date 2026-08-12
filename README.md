@@ -19,7 +19,7 @@ What is implemented:
 - optional task-specific agent DAGs with structured handoffs, conditions, retries, and bounded critic repairs;
 - parallel candidate tournaments with deterministic winner selection;
 - fsync-backed experiment phase journals with idempotent restart recovery;
-- a graph-first realtime flight recorder with live agent/subagent attempts, model and token/cost accounting, bounded progress, dependency edges, historical replay, evaluator waterfalls, metrics, and artifact inspection;
+- a graph-first realtime flight recorder with live agent/subagent attempts, model, token, and billing-basis accounting, bounded progress, dependency edges, historical replay, evaluator waterfalls, metrics, and artifact inspection;
 - shared workflow-runtime primitives for scheduling, evaluation, preservation, finalization, and recovery;
 - versioned design intent, divergent prototype discovery, and enforced human gates;
 - multiple-choice game intake with explicit delegation to design agents;

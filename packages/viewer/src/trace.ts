@@ -11,6 +11,8 @@ import {
   type FactoryConfig,
   type FactoryTraceEvent,
   type InvocationUsage,
+  type UsageBillingMode,
+  type UsageIdentitySource,
   type WorkflowJournalEntry,
   type WorkflowJournalPhase,
   invocationTokenTotal,
@@ -147,6 +149,7 @@ export interface ViewerModelUsage {
   pricedInvocations: number;
   totalTokens: number;
   costUsd: number;
+  billingModes: UsageBillingMode[];
 }
 
 export interface ViewerUsageSummary {
@@ -160,6 +163,7 @@ export interface ViewerUsageSummary {
   outputTokens: number;
   reasoningTokens: number;
   costUsd: number;
+  billingModes: UsageBillingMode[];
   models: ViewerModelUsage[];
 }
 
@@ -336,7 +340,7 @@ function numberValue(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
-function safeUsage(value: unknown, defaults: Pick<InvocationUsage, "provider" | "model"> = {}): InvocationUsage | undefined {
+function safeUsage(value: unknown, defaults: Pick<InvocationUsage, "provider" | "model" | "billingMode" | "identitySource"> = {}): InvocationUsage | undefined {
   try {
     return parseInvocationUsage(value, defaults);
   } catch {
@@ -896,11 +900,13 @@ function mergeTraceGraph(graph: ViewerGraph, traceEvents: FactoryTraceEvent[], s
     const started = eventsForNode.find((event) => event.type === "node:started") ?? first;
     const artifactCount = eventsForNode.filter((event) => event.type === "artifact:produced").reduce((sum, event) => sum + (numberValue(asObject(event.data)?.count) ?? 0), 0);
     const dataEvents = [...eventsForNode].reverse().map((event) => asObject(event.data)).filter((data): data is Record<string, unknown> => data !== undefined);
-    const identityData = dataEvents.find((data) => stringValue(data.provider) || stringValue(data.model));
+    const identityData = dataEvents.find((data) => stringValue(data.provider) || stringValue(data.model) || stringValue(data.billingMode) || stringValue(data.identitySource));
     const usageData = dataEvents.find((data) => asObject(data.usage));
     const usage = safeUsage(usageData?.usage, {
       ...(stringValue(identityData?.provider) ? { provider: stringValue(identityData?.provider)! } : {}),
-      ...(stringValue(identityData?.model) ? { model: stringValue(identityData?.model)! } : {})
+      ...(stringValue(identityData?.model) ? { model: stringValue(identityData?.model)! } : {}),
+      ...(stringValue(identityData?.billingMode) ? { billingMode: stringValue(identityData?.billingMode)! as UsageBillingMode } : {}),
+      ...(stringValue(identityData?.identitySource) ? { identitySource: stringValue(identityData?.identitySource)! as UsageIdentitySource } : {})
     });
     const invocationId = dataEvents.map((data) => stringValue(data.invocationId)).find((value) => value !== undefined);
     const parentInvocationId = dataEvents.map((data) => stringValue(data.parentInvocationId)).find((value) => value !== undefined) ?? first.parentNodeId;
@@ -985,6 +991,7 @@ export function summarizeGraphUsage(graph: ViewerGraph, sequence = Number.POSITI
   let outputTokens = 0;
   let reasoningTokens = 0;
   let costUsd = 0;
+  const billingModes = new Set<UsageBillingMode>();
   for (const node of invocations.values()) {
     const usage = node.usage!;
     const tokens = invocationTokenTotal(usage);
@@ -996,6 +1003,7 @@ export function summarizeGraphUsage(graph: ViewerGraph, sequence = Number.POSITI
       pricedInvocations += 1;
       costUsd += usage.costUsd;
     }
+    if (usage.billingMode) billingModes.add(usage.billingMode);
     inputTokens += usage.inputTokens ?? 0;
     cachedInputTokens += usage.cachedInputTokens ?? 0;
     outputTokens += usage.outputTokens ?? 0;
@@ -1008,7 +1016,8 @@ export function summarizeGraphUsage(graph: ViewerGraph, sequence = Number.POSITI
       tokenInvocations: 0,
       pricedInvocations: 0,
       totalTokens: 0,
-      costUsd: 0
+      costUsd: 0,
+      billingModes: []
     };
     model.invocations += 1;
     if (tokens !== undefined) {
@@ -1019,6 +1028,7 @@ export function summarizeGraphUsage(graph: ViewerGraph, sequence = Number.POSITI
       model.pricedInvocations += 1;
       model.costUsd += usage.costUsd;
     }
+    if (usage.billingMode && !model.billingModes.includes(usage.billingMode)) model.billingModes.push(usage.billingMode);
     models.set(key, model);
   }
   return {
@@ -1032,6 +1042,7 @@ export function summarizeGraphUsage(graph: ViewerGraph, sequence = Number.POSITI
     outputTokens,
     reasoningTokens,
     costUsd,
+    billingModes: [...billingModes].sort(),
     models: [...models.values()].sort((left, right) => right.costUsd - left.costUsd || right.totalTokens - left.totalTokens || (left.model ?? "").localeCompare(right.model ?? ""))
   };
 }

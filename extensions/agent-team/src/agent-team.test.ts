@@ -344,7 +344,7 @@ test("agent graph conditions branch on structured predecessor outcomes", async (
   try {
     const result = await new AgentTeam().run({
       campaign: graphCampaign(root, [
-        graphCommand("alpha", { permissions: "read", provider: "openai", model: "test-model" }),
+        graphCommand("alpha", { permissions: "read", provider: "openai", model: "test-model", billingMode: "subscription" }),
         graphCommand("conditional", {
           permissions: "read",
           dependsOn: ["alpha"],
@@ -438,7 +438,7 @@ test("agent graph emits live topology, bounded progress, and attempt completion 
   try {
     await new AgentTeam().run({
       campaign: graphCampaign(root, [
-        graphCommand("alpha", { permissions: "read", provider: "openai", model: "test-model" }),
+        graphCommand("alpha", { permissions: "read", provider: "openai", model: "test-model", billingMode: "subscription" }),
         graphCommand("beta", { permissions: "read" }),
         graphCommand("join", { permissions: "read", dependsOn: ["alpha", "beta"] })
       ]),
@@ -461,6 +461,8 @@ test("agent graph emits live topology, bounded progress, and attempt completion 
     assert.deepEqual((alphaComplete?.data as { usage?: unknown })?.usage, {
       provider: "openai",
       model: "test-model",
+      billingMode: "subscription",
+      identitySource: "configured",
       inputTokens: 100,
       outputTokens: 25,
       costUsd: 0.01,

@@ -10,7 +10,8 @@ import type {
   AgentRole,
   ArtifactReference,
   FactoryTraceEventInput,
-  InvocationUsage
+  InvocationUsage,
+  UsageBillingMode
 } from "@gamefactory/core";
 import { aggregateInvocationUsage, parseInvocationUsage } from "@gamefactory/core";
 import { defineExtension } from "@gamefactory/extension-sdk";
@@ -23,6 +24,7 @@ interface ContributorConfig {
   command: string[];
   provider?: string;
   model?: string;
+  billingMode?: UsageBillingMode;
 }
 
 interface LegacyAgentTeamConfig {
@@ -215,7 +217,7 @@ async function ensureAgentTraceNode(request: AgentRequest, config: ContributorCo
   announcedTraceNodes.set(request, announced);
   if (announced.has(nodeId)) return nodeId;
   announced.add(nodeId);
-  await emitAgentTrace(request, { type: "node:created", nodeId, experimentId: request.experimentId, parentNodeId: teamTraceNode(request), label: config.id, role: stage, data: { readOnly, ...(config.provider ? { provider: config.provider } : {}), ...(config.model ? { model: config.model } : {}) } });
+  await emitAgentTrace(request, { type: "node:created", nodeId, experimentId: request.experimentId, parentNodeId: teamTraceNode(request), label: config.id, role: stage, data: { readOnly, ...(config.provider ? { provider: config.provider } : {}), ...(config.model ? { model: config.model } : {}), ...(config.billingMode ? { billingMode: config.billingMode } : {}), ...(config.provider || config.model ? { identitySource: "configured" } : {}) } });
   await emitAgentTrace(request, { type: "edge:created", nodeId: `edge:${teamTraceNode(request)}:${nodeId}`, experimentId: request.experimentId, sourceNodeId: teamTraceNode(request), targetNodeId: nodeId, role: "agent" });
   return nodeId;
 }
@@ -269,7 +271,7 @@ function identityString(value: unknown, location: string): string | undefined {
   return value.trim();
 }
 
-function contributor(value: unknown, defaultId: string, location: string, defaults: Pick<ContributorConfig, "provider" | "model"> = {}): ContributorConfig {
+function contributor(value: unknown, defaultId: string, location: string, defaults: Pick<ContributorConfig, "provider" | "model" | "billingMode"> = {}): ContributorConfig {
   if (isStringArray(value)) return { id: defaultId, command: [...value], ...defaults };
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${location} must be a command string array or an object with id and command`);
@@ -282,10 +284,14 @@ function contributor(value: unknown, defaultId: string, location: string, defaul
   if (!isStringArray(record.command)) throw new Error(`${location}.command must be a non-empty string array`);
   const provider = identityString(record.provider, `${location}.provider`) ?? defaults.provider;
   const model = identityString(record.model, `${location}.model`) ?? defaults.model;
-  return { id, command: [...record.command], ...(provider ? { provider } : {}), ...(model ? { model } : {}) };
+  const rawBillingMode = record.billingMode ?? defaults.billingMode;
+  if (rawBillingMode !== undefined && rawBillingMode !== "subscription" && rawBillingMode !== "credits" && rawBillingMode !== "metered" && rawBillingMode !== "unknown") {
+    throw new Error(`${location}.billingMode must be subscription, credits, metered, or unknown`);
+  }
+  return { id, command: [...record.command], ...(provider ? { provider } : {}), ...(model ? { model } : {}), ...(rawBillingMode ? { billingMode: rawBillingMode } : {}) };
 }
 
-function contributorList(value: unknown, stage: "scout" | "critic", defaults: Pick<ContributorConfig, "provider" | "model"> = {}): ContributorConfig[] {
+function contributorList(value: unknown, stage: "scout" | "critic", defaults: Pick<ContributorConfig, "provider" | "model" | "billingMode"> = {}): ContributorConfig[] {
   if (!Array.isArray(value) || value.length === 0) throw new Error(`parameters.agentTeam.${stage}s must be a non-empty array`);
   if (value.length > 64) throw new Error(`parameters.agentTeam.${stage}s cannot contain more than 64 contributors`);
   const contributors = value.map((item, index) => contributor(item, `${stage}-${index + 1}`, `parameters.agentTeam.${stage}s[${index}]`, defaults));
@@ -363,7 +369,7 @@ function repairEdge(value: unknown, location: string): RepairEdge | undefined {
   };
 }
 
-function graphNode(value: unknown, index: number, defaults: Pick<ContributorConfig, "provider" | "model"> = {}): GraphNodeConfig {
+function graphNode(value: unknown, index: number, defaults: Pick<ContributorConfig, "provider" | "model" | "billingMode"> = {}): GraphNodeConfig {
   const location = `parameters.agentTeam.graph.nodes[${index}]`;
   const base = contributor(value, `node-${index + 1}`, location, defaults);
   const record = value as Record<string, unknown>;
@@ -444,9 +450,14 @@ function readConfig(request: AgentRequest): AgentTeamConfig {
   const record = value as Record<string, unknown>;
   const provider = identityString(record.provider, "parameters.agentTeam.provider");
   const model = identityString(record.model, "parameters.agentTeam.model");
-  const defaults: Pick<ContributorConfig, "provider" | "model"> = {
+  const rawBillingMode = record.billingMode;
+  if (rawBillingMode !== undefined && rawBillingMode !== "subscription" && rawBillingMode !== "credits" && rawBillingMode !== "metered" && rawBillingMode !== "unknown") {
+    throw new Error("parameters.agentTeam.billingMode must be subscription, credits, metered, or unknown");
+  }
+  const defaults: Pick<ContributorConfig, "provider" | "model" | "billingMode"> = {
     ...(provider ? { provider } : {}),
-    ...(model ? { model } : {})
+    ...(model ? { model } : {}),
+    ...(rawBillingMode ? { billingMode: rawBillingMode as UsageBillingMode } : {})
   };
   const maxOutputCharacters = integer(record.maxOutputCharacters, 20_000, 1, 1_000_000, "parameters.agentTeam.maxOutputCharacters");
   const maximumParallel = integer(record.maximumParallel, 4, 1, 32, "parameters.agentTeam.maximumParallel");
@@ -727,6 +738,8 @@ async function invokeContributor(
     parentInvocationId: agentGraphTraceNode(request, config.id),
     ...(config.provider ? { provider: config.provider } : {}),
     ...(config.model ? { model: config.model } : {}),
+    ...(config.billingMode ? { billingMode: config.billingMode } : {}),
+    ...(config.provider || config.model ? { identitySource: "configured" } : {}),
     readOnly,
     permissions: readOnly ? "read" : "write",
     reason: options.reason,
@@ -753,7 +766,7 @@ async function invokeContributor(
     role: stage,
     attempt: options.attempt,
     message: options.reason.kind,
-    data: { readOnly, invocationId: traceNodeId, parentInvocationId: graphNodeId, ...(config.provider ? { provider: config.provider } : {}), ...(config.model ? { model: config.model } : {}), reason: { kind: options.reason.kind, ...(options.reason.source ? { source: options.reason.source } : {}), ...(options.reason.repairAttempt !== undefined ? { repairAttempt: options.reason.repairAttempt } : {}) } }
+    data: { readOnly, invocationId: traceNodeId, parentInvocationId: graphNodeId, ...(config.provider ? { provider: config.provider } : {}), ...(config.model ? { model: config.model } : {}), ...(config.billingMode ? { billingMode: config.billingMode } : {}), ...(config.provider || config.model ? { identitySource: "configured" } : {}), reason: { kind: options.reason.kind, ...(options.reason.source ? { source: options.reason.source } : {}), ...(options.reason.repairAttempt !== undefined ? { repairAttempt: options.reason.repairAttempt } : {}) } }
   });
   await emitAgentTrace(request, {
     type: "edge:created",
@@ -801,7 +814,12 @@ async function invokeContributor(
   const status = result.code === 0 && !result.spawnError && !parseFailure && !result.failure ? "complete" : "failed";
   const outcome = status === "failed" ? "failed" : parsed?.outcome ?? "complete";
   const summary = parsed?.summary ?? lastLine(result.stdout, `${stage} ${config.id} ${status}`);
-  const usage = parseInvocationUsage(parsed?.usage, { ...(config.provider ? { provider: config.provider } : {}), ...(config.model ? { model: config.model } : {}) });
+  const usage = parseInvocationUsage(parsed?.usage, {
+    ...(config.provider ? { provider: config.provider } : {}),
+    ...(config.model ? { model: config.model } : {}),
+    ...(config.billingMode ? { billingMode: config.billingMode } : {}),
+    ...(config.provider || config.model ? { identitySource: "configured" as const } : {})
+  });
   const declaredArtifacts = parsed?.artifacts ?? [];
   const artifacts: ArtifactReference[] = [
     { kind: "log", path: stdoutPath, mediaType: "text/plain", label: `${stage} ${config.id} stdout`, metadata: { stage, contributorId: config.id, nodeId: options.nodeId, attempt: options.attempt } },

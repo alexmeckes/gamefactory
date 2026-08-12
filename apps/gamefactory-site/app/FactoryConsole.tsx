@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { demoSnapshot } from "@/lib/demo";
-import type { FactorySnapshot, GraphEdge, GraphNode, ReplayBundle, Usage } from "@/lib/types";
+import type { BillingMode, FactorySnapshot, GraphEdge, GraphNode, ReplayBundle, Usage } from "@/lib/types";
 
 const NODE_WIDTH = 178;
 const NODE_HEIGHT = 76;
@@ -16,7 +16,9 @@ type SourceMode = "live" | "replay" | "demo";
 
 function tokenTotal(usage?: Usage) {
   if (!usage) return undefined;
-  return usage.totalTokens ?? ((usage.inputTokens ?? 0) + (usage.outputTokens ?? 0));
+  if (usage.totalTokens !== undefined) return usage.totalTokens;
+  if (usage.inputTokens === undefined && usage.outputTokens === undefined) return undefined;
+  return (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
 }
 
 function formatTokens(value?: number) {
@@ -30,6 +32,37 @@ function formatMoney(value?: number) {
   return value === undefined ? "unreported" : `$${value.toFixed(value < 1 ? 3 : 2)}`;
 }
 
+type BillingInfo = {
+  billingMode?: BillingMode;
+  billingModes?: BillingMode[];
+  costUsd?: number;
+  costSource?: "provider-reported" | "estimated";
+  pricedInvocations?: number;
+  invocations?: number;
+};
+
+function billingModes(usage?: BillingInfo) {
+  return usage?.billingModes ?? (usage?.billingMode ? [usage.billingMode] : []);
+}
+
+function billingValue(usage?: BillingInfo) {
+  const modes = billingModes(usage);
+  if (modes.length === 1 && modes[0] === "subscription") return "Included in plan";
+  if (modes.length === 1 && modes[0] === "credits") return "Credits";
+  if (modes.length === 1 && modes[0] === "unknown") return "Not reported";
+  if (modes.includes("metered") && usage?.costUsd !== undefined) return formatMoney(usage.costUsd);
+  if (usage?.costUsd !== undefined && usage.costSource !== "estimated") return formatMoney(usage.costUsd);
+  return "Not reported";
+}
+
+function billingDetail(usage: FactorySnapshot["usage"]) {
+  const modes = billingModes(usage);
+  if (modes.length === 1 && modes[0] === "subscription") return "subscription usage, not API spend";
+  if (modes.length === 1 && modes[0] === "credits") return "usage charged against plan credits";
+  if (modes.includes("metered")) return `${usage.pricedInvocations} / ${usage.invocations} invocations reported spend`;
+  return "adapter did not report billing mode";
+}
+
 function formatDuration(value?: number) {
   if (value === undefined) return "—";
   const seconds = Math.max(0, Math.round(value / 1000));
@@ -39,7 +72,8 @@ function formatDuration(value?: number) {
 
 function modelLabel(usage?: Usage) {
   if (!usage) return "model unreported";
-  return [usage.provider, usage.model].filter(Boolean).join(" / ") || "model unreported";
+  const label = [usage.provider, usage.model].filter(Boolean).join(" / ") || "model unreported";
+  return usage.identitySource ? `${label} · ${usage.identitySource}` : label;
 }
 
 function stateAt(node: GraphNode, cursor: number) {
@@ -164,20 +198,21 @@ function EdgeLine({ edge, positions }: { edge: GraphEdge; positions: Map<string,
 
 function UsageBar({ snapshot }: { snapshot: FactorySnapshot }) {
   const usage = snapshot.usage;
+  const models = usage.models.map((item) => item.model).filter((model): model is string => Boolean(model));
   return (
     <section className="usage-bar" aria-label="Run usage">
       <div><span>Invocations</span><strong>{usage.invocations}</strong></div>
       <div><span>Total tokens</span><strong>{formatTokens(usage.tokenInvocations ? usage.totalTokens : undefined)}</strong></div>
       <div><span>Reasoning</span><strong>{formatTokens(usage.tokenInvocations ? usage.reasoningTokens : undefined)}</strong></div>
-      <div><span>Run cost</span><strong>{formatMoney(usage.pricedInvocations ? usage.costUsd : undefined)}</strong></div>
-      <div className="models"><span>Models</span><strong>{usage.models.map((item) => item.model ?? "unreported").join(" · ") || "unreported"}</strong></div>
+      <div title={billingDetail(usage)}><span>Billing</span><strong>{billingValue(usage)}</strong></div>
+      <div className="models"><span>Models</span><strong>{models.join(" · ") || "unreported"}</strong></div>
     </section>
   );
 }
 
 function Inspector({ node, snapshot, cursor }: { node?: GraphNode; snapshot: FactorySnapshot; cursor: number }) {
   if (!node) {
-    return <aside className="inspector empty-inspector"><span className="section-kicker">Inspection</span><h2>Select a node</h2><p>Open any candidate, agent, evaluator, or decision to inspect its lineage, evidence, model, tokens, and cost.</p></aside>;
+    return <aside className="inspector empty-inspector"><span className="section-kicker">Inspection</span><h2>Select a node</h2><p>Open any candidate, agent, evaluator, or decision to inspect its lineage, evidence, model, tokens, and billing basis.</p></aside>;
   }
   const experiment = snapshot.experiments.find((item) => item.id === node.experimentId);
   const contribution = experiment?.contributors.find((item) => item.invocationId === node.invocationId || item.agentId === node.label);
@@ -191,8 +226,9 @@ function Inspector({ node, snapshot, cursor }: { node?: GraphNode; snapshot: Fac
       <dl className="facts">
         <div><dt>Model</dt><dd>{modelLabel(usage)}</dd></div>
         <div><dt>Tokens</dt><dd>{formatTokens(tokenTotal(usage))}</dd></div>
-        <div><dt>Cost</dt><dd>{formatMoney(usage?.costUsd)}</dd></div>
+        <div><dt>Billing</dt><dd>{billingValue(usage)}</dd></div>
         <div><dt>Artifacts</dt><dd>{node.artifacts || contribution?.artifacts || 0}</dd></div>
+        {usage?.costUsd !== undefined && usage.costSource === "estimated" ? <div><dt>API equivalent</dt><dd>{formatMoney(usage.costUsd)} · estimate</dd></div> : null}
       </dl>
       {node.invocationId ? <div className="lineage"><span className="section-kicker">Invocation lineage</span><code>{node.parentInvocationId ?? "factory root"}</code><span className="lineage-arrow">↓</span><code>{node.invocationId}</code></div> : null}
       {experiment ? (
@@ -301,7 +337,7 @@ export default function FactoryConsole() {
 
       <section className="hero" id="top">
         <div><p className="eyebrow">{snapshot.live ? "Live orchestration trace" : source === "demo" ? "Interactive example trace" : "Recorded orchestration trace"}</p><h1>{snapshot.campaign.id}</h1><p className="objective">{snapshot.campaign.objective}</p></div>
-        <div className="run-ident"><span>workflow / {snapshot.campaign.workflow}</span><span>run / {snapshot.runId}</span><span>sequence / {cursor} of {snapshot.sequence}</span></div>
+        <div className="run-ident"><span>workflow / {snapshot.campaign.workflow}</span><span>run / {snapshot.runId}</span><span>sequence / {cursor} of {snapshot.sequence}</span>{source === "demo" ? <span>telemetry / example · models intentionally unreported</span> : null}</div>
       </section>
 
       <section className="stat-grid" aria-label="Run summary">

@@ -33,6 +33,10 @@ test("renders the GameFactory observatory", async () => {
   assert.match(html, /Who did what, when, and why/);
   assert.match(html, /Portable replay/);
   assert.match(html, /Pulse Runner/);
+  assert.match(html, /Included in plan/);
+  assert.match(html, /Total tokens<\/span><strong>unreported/);
+  assert.match(html, /models intentionally unreported/i);
+  assert.doesNotMatch(html, /gpt-5\.4/i);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Your site is taking shape/);
 });
 
