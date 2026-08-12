@@ -1,0 +1,9 @@
+{
+  "name": "gamefactory.design-intake",
+  "version": "0.1.0",
+  "apiVersion": "1.0",
+  "entry": "dist/index.js",
+  "activation": ["intake:game.design"],
+  "contributes": { "intake": ["game.design"] },
+  "description": "A short multiple-choice game-design intake in which every creative decision can be delegated to exploration agents."
+}

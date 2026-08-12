@@ -5,6 +5,7 @@ export * from "./config.js";
 export * from "./decision.js";
 export * from "./extension-manager.js";
 export * from "./logger.js";
+export * from "./journal.js";
 export * from "./registry.js";
 export * from "./results.js";
 export * from "./runner.js";

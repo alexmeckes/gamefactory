@@ -132,7 +132,7 @@ export class GitWorktreeWorkspace implements WorkspaceDriver {
 
   async acceptCandidate({ campaign, candidate, signal }: { campaign: Campaign; candidate: Candidate; signal: AbortSignal }): Promise<{ revision?: string; candidateRevision?: string; changed?: boolean }> {
     const { worktree, repositoryRoot } = managedWorktree(campaign, candidate);
-    const status = (await run("git", ["status", "--porcelain"], worktree, signal)).stdout;
+    const status = (await run("git", ["status", "--porcelain", "--untracked-files=all"], worktree, signal)).stdout;
     const files = changedFiles(status).filter((path) => !isFactoryArtifact(path));
     enforcePaths(campaign, candidate, files);
     if (files.length === 0) {

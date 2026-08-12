@@ -2,7 +2,10 @@
   "files": [],
   "references": [
     { "path": "./packages/core" },
+    { "path": "./packages/asset-sdk" },
+    { "path": "./packages/design-sdk" },
     { "path": "./packages/extension-sdk" },
+    { "path": "./packages/workflow-sdk" },
     { "path": "./packages/testing" },
     { "path": "./extensions/autoresearch" },
     { "path": "./extensions/mock" },
@@ -11,6 +14,10 @@
     { "path": "./extensions/git" },
     { "path": "./extensions/godot" },
     { "path": "./extensions/tournament" },
+    { "path": "./extensions/asset-foundry" },
+    { "path": "./extensions/design-intake" },
+    { "path": "./extensions/design-lab" },
+    { "path": "./extensions/discovery" },
     { "path": "./packages/cli" }
   ]
 }

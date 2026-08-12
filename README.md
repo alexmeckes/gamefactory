@@ -16,7 +16,14 @@ What is implemented:
 - detached Git worktree isolation;
 - model-neutral command-agent integration;
 - specialist agent teams with parallel scouts/critics and one protected writer;
+- optional task-specific agent DAGs with structured handoffs, conditions, retries, and bounded critic repairs;
 - parallel candidate tournaments with deterministic winner selection;
+- fsync-backed experiment phase journals with idempotent restart recovery;
+- shared workflow-runtime primitives for scheduling, evaluation, preservation, finalization, and recovery;
+- versioned design intent, divergent prototype discovery, and enforced human gates;
+- multiple-choice game intake with explicit delegation to design agents;
+- engine-backed synthetic player cohorts across personas, scenarios, and seeds;
+- modality-neutral asset briefs, command-backed generation, versioned style packs, provenance manifests, and PNG gates;
 - Godot 4 import gating, fixed-tick in-engine scenarios, telemetry, and capture;
 - an extension SDK, contract-test helpers, CLI, preset, and runnable examples.
 
@@ -32,8 +39,16 @@ npm run factory -- list --config examples/mock/factory.config.json
 npm run factory -- run examples/mock/campaign.json --config examples/mock/factory.config.json
 ```
 
-The Godot example additionally requires a Godot 4 executable named `godot` (or
-set `parameters.godot.binary`) and a clean Git worktree:
+Start a game from an ordinary description with five short multiple-choice decisions. Every question includes `Figure it out`, which leaves that decision open for design agents instead of applying a hidden default:
+
+```sh
+npm run factory -- intake "A strange cooperative game about navigating a living library" --config examples/godot/factory.config.json --output examples/godot/game.brief.json
+```
+
+The Godot example is a playable arena game named Pulse Runner. Open
+`examples/godot/project.godot` in Godot to play it. Factory runs additionally
+require a Godot 4 executable named `godot` (or set `parameters.godot.binary`)
+and a clean Git worktree:
 
 ```sh
 npm run factory -- doctor examples/godot/campaign.json --config examples/godot/factory.config.json
@@ -50,15 +65,29 @@ critics before Godot evaluation; only the strongest passing candidate is kept.
 Set `FACTORY_SMOKE_VERBOSE=true` to print the complete provenance and artifact
 ledger instead of the compact smoke summary.
 
+Run `npm run smoke:godot:assets` to generate three competing enemy-drone
+sprites, validate their alpha, provenance, and pinned style pack, import only
+on-style survivors into Pulse Runner, capture actual gameplay, and accept
+exactly one production asset.
+
+Run `npm run smoke:godot:discovery` to compare three divergent tuning
+prototypes across novice, optimizer, and survivor policies. The 36 real Godot
+playtests produce a recommendation and preserved evidence, but intentionally do
+not merge a creative direction.
+
 Start with [the architecture](docs/architecture.md), then read the
 [extension guide](docs/extensions.md), [Godot guide](docs/godot.md), and
-[multi-agent guide](docs/multi-agent.md), then the [safety notes](docs/safety.md).
+[multi-agent guide](docs/multi-agent.md), [design and playtesting guide](docs/design.md),
+then read the [asset foundry guide](docs/assets.md)
+and [safety notes](docs/safety.md).
 
 ## Repository map
 
 - `packages/core` — stable kernel.
+- `packages/design-sdk` — versioned design intent and human-playtest contracts.
 - `packages/extension-sdk` — tiny authoring helpers.
-- `packages/cli` — `run`, `doctor`, `list`, and `explain`.
+- `packages/workflow-sdk` — reusable control-plane and recovery mechanics for workflow extensions.
+- `packages/cli` — `intake`, `run`, `doctor`, `list`, and `explain`.
 - `extensions/*` — workflows, agent orchestration, Git, Godot, and test adapters.
 - `bridges/godot` — copyable in-engine addon.
 - `presets/godot-minimal` — the minimal serious Godot capability set.

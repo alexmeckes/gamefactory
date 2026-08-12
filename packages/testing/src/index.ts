@@ -22,6 +22,7 @@ export function recordingApi(): { api: FactoryAPI; registrations: string[] } {
     registrations,
     api: {
       extensionName: "contract-test",
+      get: (_kind, id) => { throw new Error(`No contract-test capability registered for ${id}`); },
       register: (kind, id) => {
         registrations.push(`${kind}:${id}`);
         return { dispose() {} };

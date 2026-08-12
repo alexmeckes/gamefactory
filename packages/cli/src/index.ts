@@ -1,10 +1,20 @@
 #!/usr/bin/env node
-import { resolve } from "node:path";
-import { ConsoleLogger, FactoryRunner, loadCampaign, loadFactoryConfig } from "@gamefactory/core";
+import { mkdir, writeFile } from "node:fs/promises";
+import { createInterface } from "node:readline/promises";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
+import { ConsoleLogger, FactoryRunner, loadCampaign, loadFactoryConfig, type IntakeDriver } from "@gamefactory/core";
+import { chooseIntakeOption } from "./intake.js";
 
 function usage(): never {
-  console.error(`GameFactory\n\nUsage:\n  gamefactory run <campaign.json> [--config factory.config.json]\n  gamefactory doctor <campaign.json> [--config factory.config.json]\n  gamefactory list [--config factory.config.json]\n  gamefactory explain <capability> [--config factory.config.json]`);
+  console.error(`GameFactory\n\nUsage:\n  gamefactory intake "<game idea>" [--provider game.design] [--output game.brief.json] [--force] [--config factory.config.json]\n  gamefactory run <campaign.json> [--config factory.config.json]\n  gamefactory doctor <campaign.json> [--config factory.config.json]\n  gamefactory list [--config factory.config.json]\n  gamefactory explain <capability> [--config factory.config.json]`);
   process.exit(2);
+}
+
+function outputPath(cwd: string, value: string): string {
+  const target = resolve(cwd, value);
+  const traversal = relative(cwd, target);
+  if (traversal.startsWith("..") || isAbsolute(traversal)) throw new Error("Intake output must stay inside the current project");
+  return target;
 }
 
 function option(name: string, fallback: string): string {
@@ -34,6 +44,33 @@ async function main(): Promise<void> {
     if (command === "explain") {
       if (!subject) usage();
       console.log(JSON.stringify(runner.extensions.explain([subject]), null, 2));
+      return;
+    }
+    if (command === "intake") {
+      if (!subject || subject.startsWith("--")) usage();
+      const providerId = option("--provider", "game.design");
+      await runner.extensions.activateFor(`intake:${providerId}`);
+      const provider = runner.registry.get<IntakeDriver>("intake", providerId);
+      const readline = createInterface({ input: process.stdin, output: process.stdout });
+      try {
+        const result = await provider.run({
+          brief: subject,
+          projectRoot: cwd,
+          signal: controller.signal,
+          ask: (question) => chooseIntakeOption(question, readline, process.stdout, controller.signal)
+        });
+        const target = outputPath(cwd, option("--output", "game.brief.json"));
+        await mkdir(dirname(target), { recursive: true });
+        try {
+          await writeFile(target, `${JSON.stringify(result.document, null, 2)}\n`, { encoding: "utf8", flag: process.argv.includes("--force") ? "w" : "wx" });
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code === "EEXIST") throw new Error(`${relative(cwd, target)} already exists; pass --force to replace it`);
+          throw error;
+        }
+        console.log(JSON.stringify({ output: relative(cwd, target), provider: result.provider, summary: result.summary }, null, 2));
+      } finally {
+        readline.close();
+      }
       return;
     }
     if (command !== "run" && command !== "doctor") usage();

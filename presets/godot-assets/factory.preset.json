@@ -1,0 +1,19 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "name": "godot-assets",
+  "extensions": [
+    "../../extensions/tournament",
+    "../../extensions/git",
+    "../../extensions/asset-foundry",
+    "../../extensions/godot"
+  ],
+  "capabilities": [
+    "workflow:tournament",
+    "workspace:git.worktree",
+    "agent:asset.command",
+    "evaluator:asset.technical",
+    "evaluator:asset.style",
+    "engine:godot.engine",
+    "evaluator:godot.scenario"
+  ]
+}

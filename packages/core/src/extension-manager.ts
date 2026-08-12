@@ -108,6 +108,7 @@ export class ExtensionManager {
     const disposables: Disposable[] = [];
     const api: FactoryAPI = {
       extensionName: name,
+      get: <T>(kind: CapabilityKind, id: string) => this.registry.get<T>(kind, id),
       register: <T>(kind: CapabilityKind, id: string, value: T) => {
         const disposable = this.registry.register(kind, id, value, name);
         disposables.push(disposable);

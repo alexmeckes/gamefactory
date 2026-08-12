@@ -1,0 +1,72 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "id": "godot-asset-foundry-demo",
+  "objective": "Generate competing enemy drone sprites, validate their provenance and technical fitness, test them inside Pulse Runner, and accept exactly one winner.",
+  "projectRoot": ".",
+  "workflow": "tournament",
+  "requires": [
+    "workspace:git.worktree",
+    "agent:asset.command",
+    "evaluator:asset.technical",
+    "evaluator:asset.style",
+    "evaluator:godot.scenario"
+  ],
+  "mutablePaths": ["assets/enemies/drone.png", "assets.manifest.json"],
+  "immutablePaths": [
+    "addons/gamefactory/**",
+    "asset-brief.json",
+    "asset-sources/**",
+    "campaign*.json",
+    "factory.config.json",
+    "main.gd",
+    "main.tscn",
+    "project.godot",
+    "style-profile.json",
+    "tools/**"
+  ],
+  "parameters": {
+    "tournament": {
+      "workspace": "git.worktree",
+      "agents": ["asset.command"],
+      "evaluators": [
+        { "id": "asset.technical", "cost": 1 },
+        { "id": "asset.style", "cost": 2 },
+        { "id": "godot.scenario", "cost": 10 }
+      ],
+      "candidateCount": 3,
+      "concurrency": 2
+    },
+    "asset": {
+      "briefPath": "asset-brief.json",
+      "manifestPath": "assets.manifest.json",
+      "generatorCommand": ["node", "tools/generate-asset.mjs"]
+    },
+    "godot": {
+      "importCheck": true,
+      "rendered": true,
+      "timeoutSeconds": 60,
+      "scenario": {
+        "provider": "godot.factory/v1",
+        "version": "1",
+        "path": "res://main.tscn",
+        "parameters": {
+          "seed": 7,
+          "ticks": 120,
+          "physics_hz": 60,
+          "duration_seconds": 2,
+          "capture_ticks": [60]
+        }
+      }
+    }
+  },
+  "acceptance": {
+    "primaryMetric": "style_alignment",
+    "direction": "maximize",
+    "minimumDelta": 0.001
+  },
+  "budget": {
+    "maximumExperiments": 3,
+    "maximumConsecutiveCrashes": 2,
+    "wallTimeMinutes": 3
+  }
+}

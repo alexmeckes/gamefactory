@@ -1,0 +1,78 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "id": "godot-design-discovery-demo",
+  "objective": "Explore three distinct Pulse Runner design hypotheses, test them with multiple synthetic player behaviors, and recommend a direction without automatically committing it.",
+  "projectRoot": ".",
+  "workflow": "discovery",
+  "requires": [
+    "workspace:git.worktree",
+    "agent:command.agent",
+    "engine:godot.engine",
+    "scenario:godot.scenario",
+    "evaluator:design.intent",
+    "evaluator:playtest.agents"
+  ],
+  "mutablePaths": ["tuning.json"],
+  "immutablePaths": [
+    "addons/gamefactory/**",
+    "asset-brief.json",
+    "asset-sources/**",
+    "campaign*.json",
+    "design.intent.json",
+    "factory.config.json",
+    "main.gd",
+    "main.tscn",
+    "project.godot",
+    "style-profile.json",
+    "tools/**"
+  ],
+  "parameters": {
+    "discovery": {
+      "workspace": "git.worktree",
+      "agents": ["command.agent"],
+      "evaluators": [
+        { "id": "design.intent", "cost": 0 },
+        { "id": "playtest.agents", "cost": 10 }
+      ],
+      "prototypeCount": 3,
+      "shortlistCount": 2,
+      "concurrency": 2,
+      "selection": "recommend"
+    },
+    "agentCommand": ["node", "tools/discover.mjs"],
+    "agentInstructions": [
+      "Treat mustPreserve items as hard boundaries, preferences as negotiable, and freeToExplore plus explorationQuestions as agent-owned space.",
+      "Form and record a materially distinct hypothesis before implementing it; do not merely tune toward the visible primary metric.",
+      "Prefer informative contrast with the other prototype slots over a superficially safe local optimum."
+    ],
+    "design": {
+      "intent": {
+        "path": "design.intent.json",
+        "id": "pulse-runner-core",
+        "version": "1.1.0",
+        "sha256": "efcb0cfefe859a8bca7746b05f15f193bdbd08b3aa625a04f380926bbb0bc861"
+      }
+    },
+    "playtest": {
+      "engine": "godot.engine",
+      "scenarioRunner": "godot.scenario",
+      "importCheck": true,
+      "maximumRuns": 48
+    },
+    "godot": {
+      "importCheck": true,
+      "rendered": false,
+      "timeoutSeconds": 60
+    }
+  },
+  "acceptance": {
+    "primaryMetric": "scenario_score.mean",
+    "direction": "maximize",
+    "hardGates": ["design.intent", "playtest.agents"]
+  },
+  "budget": {
+    "maximumExperiments": 3,
+    "maximumConsecutiveCrashes": 2,
+    "wallTimeMinutes": 4
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "name": "godot-design",
+  "extensions": [
+    "../../extensions/discovery",
+    "../../extensions/git",
+    "../../extensions/command-agent",
+    "../../extensions/design-lab",
+    "../../extensions/godot"
+  ],
+  "capabilities": [
+    "workflow:discovery",
+    "workspace:git.worktree",
+    "agent:command.agent",
+    "engine:godot.engine",
+    "scenario:godot.scenario",
+    "evaluator:design.intent",
+    "evaluator:playtest.agents",
+    "evaluator:playtest.human"
+  ]
+}

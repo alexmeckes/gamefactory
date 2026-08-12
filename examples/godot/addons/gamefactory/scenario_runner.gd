@@ -51,6 +51,11 @@ func run_scenario() -> void:
 	var seed_value: int = int(parameters.get("seed", 1))
 	seed(seed_value)
 	Engine.physics_ticks_per_second = physics_hz
+	var requested_capture_ticks: Array = parameters.get("capture_ticks", [])
+	var capture_ticks: Array[int] = []
+	for capture_tick in requested_capture_ticks:
+		capture_ticks.append(int(capture_tick))
+	var captured_ticks: Array[int] = []
 	var telemetry_path := output_dir.path_join("telemetry.jsonl")
 	var telemetry := FileAccess.open(telemetry_path, FileAccess.WRITE)
 	if subject.has_method("factory_setup"):
@@ -65,18 +70,47 @@ func run_scenario() -> void:
 			if custom is Dictionary:
 				sample.merge(custom, true)
 		telemetry.store_line(JSON.stringify(sample))
-	var metrics := {"ticks_completed": ticks, "completion": 1.0}
+		if capture_ticks.has(tick):
+			await RenderingServer.frame_post_draw
+			var image := root.get_texture().get_image()
+			if image and image.save_png(output_dir.path_join("frame-%06d.png" % tick)) == OK:
+				captured_ticks.append(tick)
+	var metrics := {
+		"ticks_completed": ticks,
+		"completion": 1.0,
+		"simulated_seconds": float(ticks) / float(physics_hz)
+	}
 	var violations: Array = []
 	if subject.has_method("factory_collect"):
 		var collected = subject.call("factory_collect")
 		if collected is Dictionary:
 			metrics.merge(collected.get("metrics", {}), true)
 			violations.append_array(collected.get("violations", []))
+	var artifacts: Array = [{
+		"kind": "telemetry",
+		"path": telemetry_path,
+		"mediaType": "application/x-ndjson",
+		"label": "Deterministic scenario telemetry"
+	}]
+	for capture_tick in captured_ticks:
+		artifacts.append({
+			"kind": "image",
+			"path": output_dir.path_join("frame-%06d.png" % int(capture_tick)),
+			"mediaType": "image/png",
+			"label": "Scenario frame %s" % capture_tick
+		})
 	write_json(output_dir.path_join("result.json"), {
 		"status": "pass" if violations.is_empty() else "fail",
 		"metrics": metrics,
 		"violations": violations,
-		"artifacts": [{"kind": "telemetry", "path": telemetry_path, "mediaType": "application/x-ndjson"}],
-		"metadata": {"seed": seed_value, "physics_hz": physics_hz}
+		"artifacts": artifacts,
+		"metadata": {
+			"provider": request.get("provider", "godot.factory/v1"),
+			"version": request.get("version", "1"),
+			"seed": seed_value,
+			"physics_hz": physics_hz,
+			"requested_capture_ticks": requested_capture_ticks,
+			"captured_ticks": captured_ticks
+		}
 	})
 	quit(0 if violations.is_empty() else 1)

@@ -1,7 +1,7 @@
 {
   "apiVersion": "gamefactory.dev/v1",
   "id": "godot-multi-agent-demo",
-  "objective": "Have specialist teams propose competing deterministic fun_score improvements and select the strongest passing candidate.",
+  "objective": "Have specialist teams propose competing Pulse Runner balance changes and select the strongest deterministic playable candidate.",
   "projectRoot": ".",
   "workflow": "tournament",
   "requires": [
@@ -41,14 +41,14 @@
         "provider": "godot.factory/v1",
         "version": "1",
         "path": "res://main.tscn",
-        "parameters": { "seed": 7, "ticks": 30, "physics_hz": 60 }
+        "parameters": { "seed": 7, "ticks": 300, "physics_hz": 60, "duration_seconds": 5 }
       }
     }
   },
   "acceptance": {
     "primaryMetric": "fun_score",
     "direction": "maximize",
-    "minimumDelta": 0.01
+    "minimumDelta": 0.005
   },
   "budget": {
     "maximumExperiments": 3,

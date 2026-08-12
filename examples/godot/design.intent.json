@@ -1,0 +1,203 @@
+{
+  "apiVersion": "gamefactory.design/v1",
+  "id": "pulse-runner-core",
+  "version": "1.1.0",
+  "title": "Pulse Runner core experience",
+  "audience": {
+    "description": "Players who want an immediately readable, short-session arcade challenge with room for movement mastery.",
+    "needs": [
+      "understand the goal without a tutorial wall",
+      "feel responsible for both successful collections and avoidable damage",
+      "see useful improvement across repeated short runs"
+    ],
+    "exclusions": [
+      "players seeking long-form narrative progression",
+      "players seeking idle or low-attention play"
+    ]
+  },
+  "playerExperience": {
+    "fantasy": "Thread a nimble runner through a hostile neon arena and turn controlled risk into momentum.",
+    "emotions": ["focus", "tension", "relief", "mastery"],
+    "pillars": [
+      {
+        "id": "kinetic-clarity",
+        "statement": "Every threat, reward, and movement consequence remains readable at arcade speed.",
+        "priority": 3
+      },
+      {
+        "id": "chosen-risk",
+        "statement": "Better scores come from visible risks that the player elects to take.",
+        "priority": 2
+      },
+      {
+        "id": "short-mastery",
+        "statement": "A complete attempt is short, but movement skill produces measurable improvement.",
+        "priority": 2
+      }
+    ],
+    "antiPillars": [
+      "unavoidable damage",
+      "opaque scoring",
+      "waiting for the game to become interesting",
+      "visual noise that hides collision intent"
+    ]
+  },
+  "coreLoop": {
+    "verbs": ["move", "avoid", "collect", "route", "retry"],
+    "description": "Read the arena, choose a pulse route, evade moving drones, collect for score, and immediately retry with better control.",
+    "sessionLengthMinutes": [0.5, 5]
+  },
+  "creativeBounds": {
+    "mustPreserve": [
+      "short-session top-down movement remains the primary interaction",
+      "threat and collision consequences remain readable",
+      "a failed or completed attempt can restart immediately"
+    ],
+    "preferences": [
+      "simple keyboard controls",
+      "a neon arena presentation",
+      "direct and legible scoring"
+    ],
+    "freeToExplore": [
+      "the player movement model and its expressive techniques",
+      "hazard behaviors, formations, and encounter rhythms",
+      "reward placement, value, movement, and respawn logic",
+      "pacing curves and escalation structures",
+      "risk, combo, multiplier, and recovery systems",
+      "camera, animation, audio, and feedback treatments"
+    ]
+  },
+  "explorationQuestions": [
+    {
+      "id": "risk-without-unfairness",
+      "question": "What creates player-chosen risk without making damage feel arbitrary?",
+      "whyItMatters": "Chosen risk is a pillar, but the implementation should emerge from prototypes rather than a prescribed reward pattern.",
+      "signals": ["players can explain why damage happened", "higher rewards correlate with voluntary exposure", "safe play remains viable"]
+    },
+    {
+      "id": "plural-mastery",
+      "question": "How can players with different priorities develop distinct, successful styles?",
+      "whyItMatters": "A single dominant route would make the synthetic personas and repeated runs less meaningful.",
+      "signals": ["successful traces differ by persona", "multiple routes or tactics remain competitive", "improvement is not only faster input"]
+    },
+    {
+      "id": "first-seconds",
+      "question": "What teaches the core loop through play in the first few seconds?",
+      "whyItMatters": "The audience wants immediate readability without a tutorial wall.",
+      "signals": ["first actions advance the loop", "mistakes are interpretable", "the objective becomes apparent without prose"]
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "speed-enables-expression",
+      "predictedDynamic": "A sufficiently expressive movement model lets skilled players pursue aggressive routes while novices can still correct obvious mistakes.",
+      "intendedExperience": "Growing mastery rather than helplessness.",
+      "evidence": ["collection rate by persona", "damage distribution", "distance travelled"],
+      "falsifiers": ["novice cohort is regularly defeated", "optimizer and novice traces become indistinguishable"]
+    },
+    {
+      "id": "rewards-create-chosen-risk",
+      "predictedDynamic": "Legible reward opportunities cause players to trade safe positioning for more valuable routes.",
+      "intendedExperience": "Tension followed by relief and earned momentum.",
+      "evidence": ["pickups and damage move together across personas", "survivor collects less than optimizer"],
+      "falsifiers": ["the safest persona also collects the most", "all personas take equivalent damage"]
+    }
+  ],
+  "playtests": {
+    "provider": "godot.factory/v1",
+    "version": "1",
+    "path": "res://main.tscn",
+    "personas": [
+      {
+        "id": "novice",
+        "label": "Hesitant novice",
+        "description": "Pursues the obvious nearby reward, reacts slowly, and underweights danger.",
+        "goals": ["understand collection", "survive the short run"],
+        "behaviors": ["delayed direction changes", "weak hazard avoidance"],
+        "kind": "scripted",
+        "parameters": {
+          "objective": "collector",
+          "avoidance_weight": 0.85,
+          "reaction_ticks": 10
+        }
+      },
+      {
+        "id": "optimizer",
+        "label": "Score optimizer",
+        "description": "Routes directly toward the nearest pulse while making fast, efficient hazard corrections.",
+        "goals": ["maximize collection", "maintain momentum"],
+        "behaviors": ["fast reactions", "balanced reward and avoidance"],
+        "kind": "scripted",
+        "parameters": {
+          "objective": "collector",
+          "avoidance_weight": 1.8,
+          "reaction_ticks": 1
+        }
+      },
+      {
+        "id": "survivor",
+        "label": "Risk-averse survivor",
+        "description": "Prioritizes space from drones and only weakly pursues the nearest reward.",
+        "goals": ["avoid damage", "collect only when safe"],
+        "behaviors": ["strong hazard avoidance", "conservative pursuit"],
+        "kind": "scripted",
+        "parameters": {
+          "objective": "survivor",
+          "avoidance_weight": 3.2,
+          "reaction_ticks": 2
+        }
+      }
+    ],
+    "scenarios": [
+      {
+        "id": "first-contact",
+        "label": "Three-second first-contact slice",
+        "parameters": {
+          "ticks": 180,
+          "physics_hz": 60,
+          "duration_seconds": 3
+        }
+      },
+      {
+        "id": "pressure",
+        "label": "Eight-second sustained-pressure slice",
+        "parameters": {
+          "ticks": 480,
+          "physics_hz": 60,
+          "duration_seconds": 8
+        }
+      }
+    ],
+    "seeds": [7, 19],
+    "concurrency": 3,
+    "metrics": [
+      { "metric": "completion", "aggregate": "mean", "weight": 1, "min": 1, "hard": true },
+      { "metric": "scenario_score", "aggregate": "mean", "weight": 2, "min": 0.3 },
+      { "metric": "health_remaining", "aggregate": "p10", "weight": 2, "min": 1, "hard": true },
+      { "metric": "damage_taken", "aggregate": "p90", "weight": 1, "max": 4, "hard": true },
+      { "metric": "pickups", "aggregate": "mean", "weight": 1, "min": 0.5 },
+      { "metric": "distance_travelled", "aggregate": "mean", "weight": 1, "min": 150 }
+    ]
+  },
+  "constraints": {
+    "accessibility": [
+      "movement must support keyboard directional input without simultaneous button chords",
+      "critical objects cannot rely on color alone in a production art pass",
+      "damage feedback must have a non-flashing alternative"
+    ],
+    "performance": [
+      "maintain 60 Hz simulation on the desktop target",
+      "avoid per-frame allocations in the core arena loop"
+    ],
+    "platforms": ["Windows desktop", "keyboard"]
+  },
+  "unknowns": [
+    "whether first-time players understand pulse collection without reading the help line",
+    "whether the 45-second production round sustains interest after the short automated slices",
+    "whether damage and collection feel fair to humans with different motor abilities"
+  ],
+  "metadata": {
+    "owner": "Pulse Runner design direction",
+    "changePolicy": "Version and re-baseline personas before changing pillars, hypotheses, or quality bars."
+  }
+}

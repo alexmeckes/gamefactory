@@ -27,6 +27,14 @@ Use separate commands or the same Pi/Codex command with role-aware prompts. The
 request contains `stage`, `instructions`, upstream evidence, campaign history,
 the objective, and the candidate root.
 
+The legacy pipeline remains a simple automation recipe. For task-specific
+Codex-style orchestration, `agentTeam.graph` defines a bounded DAG of readers
+and writers with dependencies, structured JSON handoffs, conditions, retries,
+and critic-to-writer repair edges. Readers may fan out; writers are always
+serialized within a candidate. The graph validates cycles, dependencies, paths,
+permissions, and attempt caps before launching commands. See
+`extensions/agent-team/README.md` for the complete schema.
+
 ## Tournament workflow
 
 `workflow:tournament` creates several independent candidates from one baseline:
@@ -46,6 +54,7 @@ The control plane remains serialized:
 
 - budget leases are reserved before branches start;
 - JSONL writes share a per-path queue;
+- lifecycle transitions are written to a durable phase journal;
 - events are delivered in order;
 - Git acceptance is locked per repository and verifies the original base commit;
 - only the winner can mutate the baseline;

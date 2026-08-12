@@ -23,7 +23,7 @@ test("Git workspace maps a subproject, enforces paths, and cherry-picks accepted
     projectRoot,
     workflow: "autoresearch",
     requires: [],
-    mutablePaths: ["value.txt"],
+    mutablePaths: ["value.txt", "assets/enemies/drone.png"],
     immutablePaths: ["locked.txt"],
     acceptance: { primaryMetric: "score", direction: "maximize" }
   };
@@ -43,6 +43,14 @@ test("Git workspace maps a subproject, enforces paths, and cherry-picks accepted
     openCandidates.splice(openCandidates.indexOf(accepted), 1);
     assert.ok(result.revision);
     assert.equal((await readFile(resolve(projectRoot, "value.txt"), "utf8")).trim(), "new");
+
+    const nested = await workspace.createCandidate({ campaign, experimentId: "nested", signal });
+    openCandidates.push(nested);
+    await mkdir(resolve(nested.root, "assets", "enemies"), { recursive: true });
+    await writeFile(resolve(nested.root, "assets", "enemies", "drone.png"), "nested asset\n", "utf8");
+    await workspace.acceptCandidate({ campaign, candidate: nested, signal });
+    openCandidates.splice(openCandidates.indexOf(nested), 1);
+    assert.equal((await readFile(resolve(projectRoot, "assets", "enemies", "drone.png"), "utf8")).trim(), "nested asset");
 
     const rejected = await workspace.createCandidate({ campaign, experimentId: "reject", signal });
     openCandidates.push(rejected);

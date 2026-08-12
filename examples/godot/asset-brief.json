@@ -1,0 +1,35 @@
+{
+  "apiVersion": "gamefactory.assets/v1",
+  "id": "pulse-runner.enemy-drone",
+  "modality": "image",
+  "role": "top-down enemy drone sprite",
+  "prompt": "Create a red neon enemy drone with a strong top-down silhouette that remains readable at 64x64 pixels in Pulse Runner's dark arena.",
+  "output": {
+    "path": "assets/enemies/drone.png",
+    "mediaType": "image/png"
+  },
+  "technical": {
+    "width": 1254,
+    "height": 1254,
+    "marginPixels": 32,
+    "coverageTarget": 0.4,
+    "coverageTolerance": 0.35
+  },
+  "constraints": [
+    "one centered drone",
+    "transparent background",
+    "no text or watermark",
+    "red silhouette must contrast with the dark blue arena",
+    "production file must retain complete generation provenance"
+  ],
+  "style": {
+    "profilePath": "style-profile.json",
+    "profileId": "pulse-runner-neon",
+    "profileVersion": "1.0.0",
+    "profileSha256": "720f06bf3d5337cf3be0707f804d80441cd935704e201dcddee24211d1c50faa"
+  },
+  "metadata": {
+    "game": "Pulse Runner",
+    "displaySize": [48, 48]
+  }
+}
