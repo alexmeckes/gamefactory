@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { lstat, mkdir, readFile, readlink, realpath, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, readdir, readlink, realpath, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type {
@@ -237,6 +237,32 @@ const candidateQueues = new Map<string, Promise<void>>();
 const COMPATIBILITY_ENVIRONMENT = ["PATH", "PATHEXT", "SystemRoot", "WINDIR", "COMSPEC", "TEMP", "TMP", "TMPDIR", "LANG", "LC_ALL", "LC_CTYPE", "TERM", "NO_COLOR"] as const;
 const CODEX_HOST_ENVIRONMENT = ["HOME", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "APPDATA", "LOCALAPPDATA", "CODEX_HOME"] as const;
 const codexAppServers = new CodexAppServerPool();
+
+async function defaultCodexLauncher(): Promise<string[]> {
+  if (process.platform === "win32" && process.env.LOCALAPPDATA) {
+    const binaryRoot = resolve(process.env.LOCALAPPDATA, "OpenAI", "Codex", "bin");
+    try {
+      const candidates = await Promise.all((await readdir(binaryRoot, { withFileTypes: true }))
+        .filter((entry) => entry.isDirectory())
+        .map(async (entry) => {
+          const path = resolve(binaryRoot, entry.name, "codex.exe");
+          try {
+            const stats = await lstat(path);
+            return stats.isFile() ? { path, modified: stats.mtimeMs } : undefined;
+          } catch {
+            return undefined;
+          }
+        }));
+      const newest = candidates
+        .filter((candidate): candidate is { path: string; modified: number } => candidate !== undefined)
+        .sort((left, right) => right.modified - left.modified)[0];
+      if (newest) return [newest.path, "app-server", "--listen", "stdio://"];
+    } catch {
+      // Fall through to PATH for standalone CLI installations.
+    }
+  }
+  return ["codex", "app-server", "--listen", "stdio://"];
+}
 
 function childEnvironment(additions: Record<string, string>): NodeJS.ProcessEnv {
   const environment: NodeJS.ProcessEnv = {};
@@ -908,8 +934,11 @@ async function invokeContributor(
   inputs: PriorOutput[],
   options: InvocationOptions
 ): Promise<ContributorRun> {
+  const launcher = config.adapter === "codex-app-server" && config.command === undefined
+    ? await defaultCodexLauncher()
+    : config.command ?? [];
   const command = config.adapter === "codex-app-server"
-    ? renderCommand(config.command ?? ["codex", "app-server", "--listen", "stdio://"], request, stage, config.id, options.nodeId, options.attempt)
+    ? renderCommand(launcher, request, stage, config.id, options.nodeId, options.attempt)
     : renderCommand(config.command ?? [], request, stage, config.id, options.nodeId, options.attempt);
   const [executable, ...args] = command;
   if (!executable) throw new Error(`${stage} ${config.id} has no executable`);

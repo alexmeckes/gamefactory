@@ -245,7 +245,7 @@ class CodexAppServerConnection {
     const threadResult = object(await this.request("thread/start", {
       cwd: request.cwd,
       approvalPolicy: "never",
-      sandbox: request.readOnly ? "readOnly" : "workspaceWrite",
+      sandbox: request.readOnly ? "read-only" : "workspace-write",
       serviceName: "gamefactory",
       ...(request.model ? { model: request.model } : {})
     })) ?? {};
@@ -260,17 +260,6 @@ class CodexAppServerConnection {
     const completion = new Promise<{ status: string; error?: string }>((resolve, reject) => { resolveTurn = resolve; rejectTurn = reject; });
     const listener: TurnListener = { threadId, output: "", events: [], onEvent: request.onEvent, resolve: resolveTurn, reject: rejectTurn };
     this.listeners.set(threadId, listener);
-    const outputSchema = {
-      type: "object",
-      properties: {
-        summary: { type: "string" },
-        outcome: { type: "string" },
-        findings: {},
-        context: {}
-      },
-      required: ["summary", "outcome"],
-      additionalProperties: true
-    };
     const turnResult = object(await this.request("turn/start", {
       threadId,
       input: [{ type: "text", text: request.prompt }],
@@ -279,7 +268,6 @@ class CodexAppServerConnection {
       sandboxPolicy: request.readOnly
         ? { type: "readOnly", access: { type: "fullAccess" } }
         : { type: "workspaceWrite", writableRoots: [request.cwd], networkAccess: false },
-      outputSchema,
       ...(request.model ? { model: request.model } : {})
     })) ?? {};
     const turnId = string(object(turnResult.turn)?.id);

@@ -18,6 +18,7 @@ lines.on("line", (line) => {
     return;
   }
   if (message.method === "thread/start") {
+    if (message.params.sandbox !== "read-only") return send({ id: message.id, error: { message: "wrong legacy sandbox value" } });
     thread += 1;
     send({ id: message.id, result: { thread: { id: "thread-" + thread, modelProvider: "openai" }, instructionSources: [message.params.cwd + "/AGENTS.md"] } });
     return;

@@ -105,10 +105,13 @@ lines.on("line", (line) => {
   const message = JSON.parse(line);
   if (message.method === "initialized") return;
   if (message.method === "initialize") return send({ id: message.id, result: { userAgent: "fixture" } });
-  if (message.method === "thread/start") return send({
+  if (message.method === "thread/start") {
+    if (message.params.sandbox !== "read-only") return send({ id: message.id, error: { message: "wrong legacy sandbox value" } });
+    return send({
     id: message.id,
     result: { thread: { id: "thread-real-adapter", modelProvider: "openai" }, instructionSources: [message.params.cwd + "/AGENTS.md"] }
-  });
+    });
+  }
   if (message.method !== "turn/start") return;
   const threadId = message.params.threadId;
   const turnId = "turn-real-adapter";
