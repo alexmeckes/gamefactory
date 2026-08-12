@@ -396,7 +396,19 @@ export interface ExtensionManifest {
 export interface ExtensionDescriptor {
   root: string;
   manifestPath: string;
+  manifestSha256: string;
   manifest: ExtensionManifest;
+}
+
+export interface ActiveExtension {
+  name: string;
+  version: string;
+  activatedAt: string;
+  capabilities: string[];
+  activation: string[];
+  manifestSha256: string;
+  permissions: string[];
+  description?: string;
 }
 
 export interface Disposable {

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import type { Campaign, Candidate } from "@gamefactory/core";
+import type { Campaign, Candidate, FactoryTraceEventInput } from "@gamefactory/core";
 import { parseStyleProfile, styleProfileSha256 } from "@gamefactory/asset-sdk";
 import { AssetStyleEvaluator, AssetTechnicalEvaluator, CommandAssetFoundryAgent, inspectPng } from "./index.js";
 
@@ -98,12 +98,14 @@ test("command foundry creates a hashed manifest and technical evaluator validate
     const configuredCampaign = campaign(root, [process.execPath, generatorPath]);
     const candidate: Candidate = { id: "candidate-1", root, metadata: {} };
     const controller = new AbortController();
+    const traceEvents: FactoryTraceEventInput[] = [];
     const result = await new CommandAssetFoundryAgent().run({
       campaign: configuredCampaign,
       candidate,
       experimentId: "tournament-r0001-c001",
       history: [],
-      signal: controller.signal
+      signal: controller.signal,
+      trace: { runId: "run-1", campaignId: configuredCampaign.id, emit: async (event) => { traceEvents.push(event); } }
     });
     assert.match(result.summary, /fixture\.generator/);
     const manifest = JSON.parse(await readFile(resolve(root, "assets.manifest.json"), "utf8"));
@@ -111,6 +113,9 @@ test("command foundry creates a hashed manifest and technical evaluator validate
     assert.match(manifest.files[0].sha256, /^[a-f0-9]{64}$/);
     assert.equal(manifest.style.profileId, "fixture-style");
     assert.equal(manifest.style.references[0].sha256, "0613e341717929f22866f004241d20cbf9120b14cb6717b85aab31ac4c3d9180");
+    const resourceNodes = traceEvents.filter((event) => event.type === "node:created" && event.role === "resource");
+    assert.deepEqual(resourceNodes.map((event) => event.label), ["Asset brief · fixture.drone", "Style · fixture-style@1.0.0"]);
+    assert.ok(traceEvents.some((event) => event.type === "edge:created" && event.sourceNodeId === "extension:gamefactory.asset-foundry" && event.targetNodeId?.endsWith(":style-profile")));
 
     const evaluation = await new AssetTechnicalEvaluator().evaluate({
       campaign: configuredCampaign,

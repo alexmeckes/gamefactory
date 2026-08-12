@@ -16,7 +16,7 @@ import {
   type StyleCriterion,
   type StyleProfile
 } from "@gamefactory/asset-sdk";
-import type { AgentContribution, AgentDriver, AgentResult, ArtifactReference, Candidate, Evaluation, Evaluator, Violation } from "@gamefactory/core";
+import type { AgentContribution, AgentDriver, AgentRequest, AgentResult, ArtifactReference, Candidate, Evaluation, Evaluator, JournalJsonValue, Violation } from "@gamefactory/core";
 import { combineDisposables, defineExtension } from "@gamefactory/extension-sdk";
 import { inspectPng } from "./png.js";
 
@@ -83,7 +83,22 @@ function artifact(path: string, kind: ArtifactReference["kind"], label: string, 
 
 async function readBrief(candidate: Candidate, briefPath: string) {
   const path = resolveProjectAssetPath(candidate.root, briefPath);
-  return { path, brief: parseAssetBrief(JSON.parse(await readFile(path, "utf8"))) };
+  const content = await readFile(path);
+  return { path, sha256: createHash("sha256").update(content).digest("hex"), brief: parseAssetBrief(JSON.parse(content.toString("utf8"))) };
+}
+
+async function emitResourceTrace(request: AgentRequest, input: {
+  id: string;
+  label: string;
+  message: string;
+  data: JournalJsonValue;
+}): Promise<void> {
+  if (!request.trace) return;
+  const nodeId = `resource:${request.experimentId}:${input.id}`;
+  await request.trace.emit({ type: "node:created", nodeId, experimentId: request.experimentId, parentNodeId: `extension:gamefactory.asset-foundry`, label: input.label, role: "resource", message: input.message, data: input.data });
+  await request.trace.emit({ type: "edge:created", nodeId: `edge:extension:gamefactory.asset-foundry->${nodeId}`, experimentId: request.experimentId, sourceNodeId: "extension:gamefactory.asset-foundry", targetNodeId: nodeId, role: "dependency", message: "provides creative input" });
+  await request.trace.emit({ type: "edge:created", nodeId: `edge:${nodeId}->experiment:${request.experimentId}`, experimentId: request.experimentId, sourceNodeId: nodeId, targetNodeId: `experiment:${request.experimentId}`, role: "evidence", message: "constrains candidate" });
+  await request.trace.emit({ type: "node:completed", nodeId, experimentId: request.experimentId, label: input.label, role: "resource", status: "complete", message: input.message, data: input.data });
 }
 
 interface ResolvedStyleProfile {
@@ -125,8 +140,43 @@ export class CommandAssetFoundryAgent implements AgentDriver {
 
   async run(request: Parameters<AgentDriver["run"]>[0]): Promise<AgentResult> {
     const config = foundryConfig(request.campaign);
-    const { path: briefPath, brief } = await readBrief(request.candidate, config.briefPath);
+    const { path: briefPath, sha256: briefSha256, brief } = await readBrief(request.candidate, config.briefPath);
     const style = await readStyleProfile(request.candidate, brief);
+    await emitResourceTrace(request, {
+      id: "asset-brief",
+      label: `Asset brief · ${brief.id}`,
+      message: `${brief.role} · ${brief.modality}`,
+      data: {
+        provenanceType: "creative-input",
+        resourceType: "asset-brief",
+        id: brief.id,
+        modality: brief.modality,
+        role: brief.role,
+        path: config.briefPath.replaceAll("\\", "/"),
+        sha256: briefSha256
+      }
+    });
+    if (style && brief.style) {
+      await emitResourceTrace(request, {
+        id: "style-profile",
+        label: `Style · ${style.profile.id}@${style.profile.version}`,
+        message: style.profile.description,
+        data: {
+          provenanceType: "creative-input",
+          resourceType: "style-profile",
+          id: style.profile.id,
+          version: style.profile.version,
+          path: brief.style.profilePath.replaceAll("\\", "/"),
+          sha256: style.sha256,
+          modalities: Object.keys(style.profile.modalities),
+          references: style.profile.references.map((reference, index) => ({
+            role: reference.role,
+            path: reference.path.replaceAll("\\", "/"),
+            sha256: style.references[index]?.sha256 ?? reference.sha256 ?? ""
+          }))
+        }
+      });
+    }
     const outputPath = resolveProjectAssetPath(request.candidate.root, brief.output.path);
     const manifestPath = resolveProjectAssetPath(request.candidate.root, config.manifestPath);
     const runDirectory = resolve(request.candidate.root, ".factory", "asset-foundry", request.experimentId);

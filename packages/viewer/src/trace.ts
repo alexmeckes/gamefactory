@@ -118,7 +118,7 @@ export interface ViewerEvent {
   sourceSequence: number;
 }
 
-export type ViewerGraphNodeKind = "campaign" | "candidate" | "workspace" | "agent" | "contributor" | "evaluator" | "decision" | "outcome";
+export type ViewerGraphNodeKind = "campaign" | "extension" | "resource" | "candidate" | "workspace" | "agent" | "contributor" | "evaluator" | "decision" | "outcome";
 export type ViewerGraphNodeState = "waiting" | "running" | "complete" | "pass" | "fail" | "inconclusive" | "keep" | "discard" | "blocked" | "crash" | "cancelled" | "baseline" | "skipped";
 
 export interface ViewerGraphNode {
@@ -139,6 +139,7 @@ export interface ViewerGraphNode {
   invocationId?: string;
   parentInvocationId?: string;
   usage?: InvocationUsage;
+  provenance?: Record<string, unknown>;
 }
 
 export interface ViewerModelUsage {
@@ -630,7 +631,7 @@ function buildViewerGraph(runId: string, experiments: ViewerExperiment[], live: 
       detail: experiment.summary ?? (experiment.id === "baseline" ? "Measure the starting revision" : "Candidate branch"),
       experimentId: experiment.id,
       clusterId,
-      column: 1,
+      column: 3,
       order,
       enteredSequence,
       ...(completeSequence !== undefined ? { completedSequence: completeSequence } : {}),
@@ -658,7 +659,7 @@ function buildViewerGraph(runId: string, experiments: ViewerExperiment[], live: 
         detail: experiment.candidateId ?? "Candidate worktree",
         experimentId: experiment.id,
         clusterId,
-        column: 2,
+        column: 4,
         order,
         enteredSequence: candidateSequence,
         ...(agentSequence !== undefined ? { completedSequence: agentSequence } : {}),
@@ -680,7 +681,7 @@ function buildViewerGraph(runId: string, experiments: ViewerExperiment[], live: 
         detail: experiment.agentSummary ?? "Candidate implementation",
         experimentId: experiment.id,
         clusterId,
-        column: 3,
+        column: 5,
         order,
         enteredSequence: candidateSequence ?? enteredSequence,
         ...(agentSequence !== undefined ? { completedSequence: agentSequence } : {}),
@@ -706,7 +707,7 @@ function buildViewerGraph(runId: string, experiments: ViewerExperiment[], live: 
             detail: `${contributor.role} · ${contributor.summary}`,
             experimentId: experiment.id,
             clusterId,
-            column: 4,
+            column: 6,
             order: order + index / 100,
             enteredSequence: candidateSequence ?? enteredSequence,
             ...(agentSequence !== undefined ? { completedSequence: agentSequence } : {}),
@@ -737,7 +738,7 @@ function buildViewerGraph(runId: string, experiments: ViewerExperiment[], live: 
         detail: evaluation.summary ?? `${Object.keys(evaluation.metrics).length} metrics · ${evaluation.violations} violations`,
         experimentId: experiment.id,
         clusterId,
-        column: 5,
+        column: 7,
         order: order + index / 100,
         enteredSequence: agentSequence ?? candidateSequence ?? enteredSequence,
         ...(evaluatedSequence !== undefined ? { completedSequence: evaluatedSequence } : {}),
@@ -762,7 +763,7 @@ function buildViewerGraph(runId: string, experiments: ViewerExperiment[], live: 
         detail: experiment.status === "keep" ? "Selected for acceptance" : experiment.status === "blocked" ? "Stopped for review" : "Not selected",
         experimentId: experiment.id,
         clusterId,
-        column: 6,
+        column: 8,
         order,
         enteredSequence: evaluatedSequence ?? enteredSequence,
         completedSequence: decisionSequence,
@@ -784,7 +785,7 @@ function buildViewerGraph(runId: string, experiments: ViewerExperiment[], live: 
         detail: experiment.status === "keep" ? "Candidate applied to the project" : experiment.complete ? "Workspace cleaned" : "Finalization in progress",
         experimentId: experiment.id,
         clusterId,
-        column: 7,
+        column: 9,
         order,
         enteredSequence: decisionSequence ?? evaluatedSequence ?? enteredSequence,
         ...(completeSequence !== undefined ? { completedSequence: completeSequence } : {}),
@@ -902,6 +903,7 @@ function mergeTraceGraph(graph: ViewerGraph, traceEvents: FactoryTraceEvent[], s
     const dataEvents = [...eventsForNode].reverse().map((event) => asObject(event.data)).filter((data): data is Record<string, unknown> => data !== undefined);
     const identityData = dataEvents.find((data) => stringValue(data.provider) || stringValue(data.model) || stringValue(data.billingMode) || stringValue(data.identitySource));
     const usageData = dataEvents.find((data) => asObject(data.usage));
+    const provenance = dataEvents.find((data) => stringValue(data.provenanceType));
     const usage = safeUsage(usageData?.usage, {
       ...(stringValue(identityData?.provider) ? { provider: stringValue(identityData?.provider)! } : {}),
       ...(stringValue(identityData?.model) ? { model: stringValue(identityData?.model)! } : {}),
@@ -924,17 +926,20 @@ function mergeTraceGraph(graph: ViewerGraph, traceEvents: FactoryTraceEvent[], s
       if (usage) existing.usage = usage;
       if (invocationId) existing.invocationId = invocationId;
       if (parentInvocationId) existing.parentInvocationId = parentInvocationId;
+      if (provenance) existing.provenance = provenance;
       continue;
     }
     const experimentId = first.experimentId;
     const cluster = experimentId ? clusters.find((item) => item.experimentId === experimentId) : undefined;
     const role = first.role ?? "worker";
     const kind: ViewerGraphNodeKind = role === "campaign" ? "campaign"
+      : role === "extension" ? "extension"
+      : role === "resource" ? "resource"
       : role === "experiment" ? "candidate"
       : role === "evaluator" ? "evaluator"
       : role === "agent-team" ? "agent"
       : "contributor";
-    const column = kind === "campaign" ? 0 : kind === "candidate" ? 1 : kind === "agent" ? 3 : kind === "evaluator" ? 6 : first.attempt !== undefined ? 5 : 4;
+    const column = kind === "campaign" ? 0 : kind === "extension" ? 1 : kind === "resource" ? 2 : kind === "candidate" ? 3 : kind === "agent" ? 5 : kind === "evaluator" ? 7 : first.attempt !== undefined ? 6 : 6;
     const node: ViewerGraphNode = {
       id,
       kind,
@@ -951,7 +956,8 @@ function mergeTraceGraph(graph: ViewerGraph, traceEvents: FactoryTraceEvent[], s
       metrics: 0,
       ...(invocationId ? { invocationId } : {}),
       ...(parentInvocationId ? { parentInvocationId } : {}),
-      ...(usage ? { usage } : {})
+      ...(usage ? { usage } : {}),
+      ...(provenance ? { provenance } : {})
     };
     nodes.push(node);
     if (cluster) cluster.nodeIds.push(id);

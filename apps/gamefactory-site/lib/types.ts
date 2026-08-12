@@ -48,6 +48,7 @@ export interface GraphNode {
   invocationId?: string;
   parentInvocationId?: string;
   usage?: Usage;
+  provenance?: Record<string, unknown>;
 }
 
 export interface GraphEdge {

@@ -100,6 +100,8 @@ export const FACTORY_VIEWER_HTML = String.raw`<!doctype html>
     .graph-node.campaign { width: 148px; border-color: rgba(244,184,96,.45); background: linear-gradient(145deg,rgba(244,184,96,.13),#161b1d); }
     .graph-node.contributor { border-color: rgba(189,145,255,.3); }
     .graph-node.evaluator { border-color: rgba(119,168,255,.32); }
+    .graph-node.extension { border-color: rgba(91,214,195,.44); background: linear-gradient(145deg,rgba(91,214,195,.09),#161b1d); }
+    .graph-node.resource { border-color: rgba(244,184,96,.42); background: linear-gradient(145deg,rgba(244,184,96,.08),#161b1d); }
     .graph-node.decision { border-radius: 18px 5px 18px 5px; border-color: rgba(244,184,96,.48); }
     .node-kind { color: var(--dim); font: 600 8px/1 ui-monospace, SFMono-Regular, Menlo, monospace; text-transform: uppercase; letter-spacing: .11em; }
     .node-label { margin-top: 7px; font: 650 10px/1.25 ui-monospace, SFMono-Regular, Menlo, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -187,7 +189,7 @@ export const FACTORY_VIEWER_HTML = String.raw`<!doctype html>
       <section id="stats" class="stats"></section>
       <section id="usage" class="usage-strip" aria-label="Model usage"></section>
       <section class="panel replay"><div class="replay-body"><button id="playButton" type="button">▶ Replay</button><button id="followButton" type="button">Follow live</button><input id="replayRange" class="range" type="range" min="0" max="0" value="0" aria-label="Replay position"><div id="cursorLabel" class="cursor-label">Waiting for trace</div></div></section>
-      <section class="panel graph-panel"><div class="panel-head"><div class="panel-title"><span class="panel-index">01</span> Factory graph</div><div class="view-toolbar"><button id="graphViewButton" class="active" type="button">Graph</button><button id="timelineViewButton" type="button">Timeline</button><span class="toolbar-separator"></span><button id="expandButton" type="button">Expand all</button><button id="collapseButton" type="button">Collapse</button><span class="toolbar-separator"></span><button class="graph-filter active" data-filter="agent" type="button">Agents</button><button class="graph-filter active" data-filter="evaluator" type="button">Evals</button><button class="graph-filter active" data-filter="decision" type="button">Decisions</button></div></div><div id="graph" class="graph-wrap"></div><div id="timeline" class="timeline hidden"></div></section>
+      <section class="panel graph-panel"><div class="panel-head"><div class="panel-title"><span class="panel-index">01</span> Factory graph</div><div class="view-toolbar"><button id="graphViewButton" class="active" type="button">Graph</button><button id="timelineViewButton" type="button">Timeline</button><span class="toolbar-separator"></span><button id="expandButton" type="button">Expand all</button><button id="collapseButton" type="button">Collapse</button><span class="toolbar-separator"></span><button class="graph-filter active" data-filter="extension" type="button">Extensions</button><button class="graph-filter active" data-filter="resource" type="button">Creative inputs</button><button class="graph-filter active" data-filter="agent" type="button">Agents</button><button class="graph-filter active" data-filter="evaluator" type="button">Evals</button><button class="graph-filter active" data-filter="decision" type="button">Decisions</button></div></div><div id="graph" class="graph-wrap"></div><div id="timeline" class="timeline hidden"></div></section>
       <div class="grid">
         <div class="stack">
           <section class="panel"><div class="panel-head"><div class="panel-title"><span class="panel-index">02</span> Primary metric</div><div id="metricNote" class="panel-note"></div></div><div id="metrics" class="metric-list"></div></section>
@@ -210,7 +212,7 @@ export const FACTORY_VIEWER_HTML = String.raw`<!doctype html>
       var selectedNodeId = null;
       var graphMode = "graph";
       var expandedClusters = {};
-      var graphFilters = { agent:true, evaluator:true, decision:true };
+      var graphFilters = { extension:true, resource:true, agent:true, evaluator:true, decision:true };
       var replayTimer = null;
       var stream = null;
       var phaseDecision = { "acceptance-intent": true };
@@ -283,6 +285,11 @@ export const FACTORY_VIEWER_HTML = String.raw`<!doctype html>
       function usageDetails(usage,invocationId,parentInvocationId) {
         if(!usage&&!invocationId&&!parentInvocationId)return "";var rows=[];if(invocationId)rows.push(["Invocation",invocationId]);if(parentInvocationId)rows.push(["Parent",parentInvocationId]);if(usage){if(usage.provider)rows.push(["Provider",usage.provider]);if(usage.model)rows.push(["Model",usage.model+(usage.identitySource?" · "+usage.identitySource:"")]);if(usage.inputTokens!=null)rows.push(["Input tokens",fmtNumber(usage.inputTokens)]);if(usage.cachedInputTokens!=null)rows.push(["Cached input",fmtNumber(usage.cachedInputTokens)]);if(usage.outputTokens!=null)rows.push(["Output tokens",fmtNumber(usage.outputTokens)]);if(usage.reasoningTokens!=null)rows.push(["Reasoning tokens",fmtNumber(usage.reasoningTokens)]);var total=usageTokenTotal(usage);if(total!=null)rows.push(["Total tokens",fmtNumber(total)]);rows.push(["Billing",billingValue(usage)]);if(usage.costUsd!=null&&usage.costSource==="estimated")rows.push(["API equivalent",fmtCost(usage.costUsd)+" · estimate"]);if(usage.pricingVersion)rows.push(["Pricing",usage.pricingVersion]);}return rows.map(function(row){return '<div class="artifact"><span>'+esc(row[0])+'</span><span class="artifact-kind" title="'+esc(row[1])+'">'+esc(row[1])+'</span></div>';}).join("");
       }
+      function provenanceDetails(provenance) {
+        if(!provenance)return "";var rows=[];var preferred=["provenanceType","resourceType","id","version","activationReason","capabilities","permissions","path","sha256","manifestSha256","configSha256","modalities","references"];
+        preferred.forEach(function(key){var value=provenance[key];if(value==null)return;if(Array.isArray(value)){value=value.map(function(item){return typeof item==="object"?JSON.stringify(item):String(item);}).join(" · ");}else if(typeof value==="object")value=JSON.stringify(value);rows.push([key.replace(/([A-Z])/g," $1"),String(value)]);});
+        return rows.map(function(row){return '<div class="artifact"><span>'+esc(row[0])+'</span><span class="artifact-kind" title="'+esc(row[1])+'">'+esc(row[1])+'</span></div>';}).join("");
+      }
       function renderReplay() {
         var range=$("replayRange"); range.max=String(snapshot.sequence); range.value=String(cursor);
         $("cursorLabel").textContent=replayTimestamp();
@@ -311,6 +318,8 @@ export const FACTORY_VIEWER_HTML = String.raw`<!doctype html>
         return "running";
       }
       function graphFilterGroup(node) {
+        if(node.kind==="extension")return "extension";
+        if(node.kind==="resource")return "resource";
         if(node.kind==="agent"||node.kind==="contributor")return "agent";
         if(node.kind==="evaluator")return "evaluator";
         if(node.kind==="decision"||node.kind==="outcome")return "decision";
@@ -320,7 +329,8 @@ export const FACTORY_VIEWER_HTML = String.raw`<!doctype html>
         var root=snapshot.graph.nodes.find(function(node){return node.kind==="campaign";});
         var visibleClusters=snapshot.graph.clusters.filter(function(cluster){return cluster.enteredSequence<=cursor;});
         if(!root){$("graph").innerHTML='<div class="graph-empty">The graph will appear when the run is recorded.</div>';return;}
-        var positions={}, clusterBoxes=[], laneTop=30, maxX=400;
+        var positions={}, clusterBoxes=[], globalNodes=snapshot.graph.nodes.filter(function(node){return node.kind!=="campaign"&&!node.clusterId&&node.enteredSequence<=cursor;}), globalHeight=globalNodes.length?globalNodes.length*82+26:0, laneTop=30+globalHeight, maxX=400;
+        globalNodes.sort(function(a,b){return a.order-b.order||a.enteredSequence-b.enteredSequence;}).forEach(function(node,index){var x=220+(node.column-1)*194,y=30+index*82;positions[node.id]={x:x,y:y,w:160,h:68,node:node,cluster:null};maxX=Math.max(maxX,x+190);});
         visibleClusters.forEach(function(cluster,lane){
           var isExpanded=Boolean(expandedClusters[cluster.id]);
           var clusterNodes=snapshot.graph.nodes.filter(function(node){return node.clusterId===cluster.id&&node.enteredSequence<=cursor&&(isExpanded||node.kind==="candidate");});
@@ -380,6 +390,8 @@ export const FACTORY_VIEWER_HTML = String.raw`<!doctype html>
         $("feed").innerHTML=events.length?events.map(function(e){return '<div class="feed-row"><span class="feed-seq">#'+e.sequence+'</span><span class="feed-exp" title="'+esc(e.experimentId)+'">'+esc(e.experimentId)+'</span><span class="feed-phase">'+esc(e.phase)+'</span><span>'+esc(e.note)+'</span></div>';}).join(""):'<div class="empty">No events at this replay position.</div>';
       }
       function renderDetail(experiments) {
+        var globalNode=snapshot.graph.nodes.find(function(node){return node.id===selectedNodeId&&node.enteredSequence<=cursor&&!node.experimentId;});
+        if(globalNode){$("detailStatus").innerHTML=statusBadge(graphNodeState(globalNode));$("detail").innerHTML='<div class="section-label">Selected node · '+esc(globalNode.kind)+'</div><h2 class="detail-title">'+esc(globalNode.label)+'</h2><div class="detail-summary">'+esc(globalNode.detail||"No node summary was recorded.")+'</div><div class="artifact"><span>Entered trace</span><span class="artifact-kind">#'+globalNode.enteredSequence+'</span></div>'+provenanceDetails(globalNode.provenance)+usageDetails(globalNode.usage,globalNode.invocationId,globalNode.parentInvocationId);return;}
         var exp=experiments.find(function(e){return e.id===selectedId;}) || experiments[experiments.length-1];
         if(!exp){$("detailStatus").innerHTML='';$("detail").innerHTML='<div class="empty">Select an experiment after it enters the trace.</div>';return;}
         selectedId=exp.id; var hasResult=resultVisible(exp);var selectedNode=snapshot.graph.nodes.find(function(node){return node.id===selectedNodeId&&node.enteredSequence<=cursor;});$("detailStatus").innerHTML=statusBadge(selectedNode?graphNodeState(selectedNode):currentStatus(exp));
@@ -391,7 +403,7 @@ export const FACTORY_VIEWER_HTML = String.raw`<!doctype html>
         var previewHtml=previews.map(function(a){return '<a href="'+esc(a.url)+'" target="_blank" rel="noreferrer"><img class="artifact-preview" src="'+esc(a.url)+'" alt="'+esc(a.label)+'"></a>';}).join("");
         var artifactHtml=hasResult?exp.artifacts.slice(0,60).map(function(a){var tag=a.available?'a':'div';var href=a.available?' href="'+esc(a.url)+'" target="_blank" rel="noreferrer"':'';return '<'+tag+' class="artifact"'+href+'><span>'+esc(a.label)+'</span><span class="artifact-kind">'+esc(a.kind)+'</span></'+tag+'>';}).join(""):'';
         var metrics=hasResult?Object.keys(exp.metrics).sort().slice(0,12).map(function(key){return '<div class="artifact"><span>'+esc(key)+'</span><span class="artifact-kind">'+fmtNumber(exp.metrics[key])+'</span></div>';}).join(""):'';
-        var nodeHtml=selectedNode&&selectedNode.kind!=="candidate"?'<div class="section-label">Selected node · '+esc(selectedNode.kind)+'</div><h2 class="detail-title">'+esc(selectedNode.label)+'</h2><div class="detail-summary">'+esc(selectedNode.detail||"No node summary was recorded.")+'</div><div class="artifact"><span>Entered trace</span><span class="artifact-kind">#'+selectedNode.enteredSequence+'</span></div>'+usageDetails(selectedNode.usage,selectedNode.invocationId,selectedNode.parentInvocationId):'';
+        var nodeHtml=selectedNode&&selectedNode.kind!=="candidate"?'<div class="section-label">Selected node · '+esc(selectedNode.kind)+'</div><h2 class="detail-title">'+esc(selectedNode.label)+'</h2><div class="detail-summary">'+esc(selectedNode.detail||"No node summary was recorded.")+'</div><div class="artifact"><span>Entered trace</span><span class="artifact-kind">#'+selectedNode.enteredSequence+'</span></div>'+provenanceDetails(selectedNode.provenance)+usageDetails(selectedNode.usage,selectedNode.invocationId,selectedNode.parentInvocationId):'';
         $("detail").innerHTML=nodeHtml+'<div class="section-label">Experiment</div><h2 class="detail-title">'+esc(exp.id)+'</h2><div class="detail-summary">'+esc((hasResult?exp.summary:null)||"This candidate is still moving through the factory.")+'</div><div class="section-label">Lifecycle</div><div class="phase-list">'+phaseHtml+'</div>'+(metrics?'<div class="section-label">Metrics</div>'+metrics:'')+(evalHtml?'<div class="section-label">Evaluator waterfall</div>'+evalHtml:'')+(agentHtml?'<div class="section-label">Agent work</div>'+agentHtml:'')+(artifactHtml?'<div class="section-label">Evidence · '+exp.artifacts.length+'</div>'+previewHtml+artifactHtml+(exp.artifacts.length>60?'<div class="empty">Showing the first 60 artifacts.</div>':''):'');
       }
       function bindExperimentClicks() { document.querySelectorAll("[data-exp]:not([data-node])").forEach(function(node){node.addEventListener("click",function(){selectedId=node.getAttribute("data-exp");selectedNodeId=null;render();});}); }

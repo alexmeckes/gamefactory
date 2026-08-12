@@ -30,7 +30,10 @@ test("renders the GameFactory observatory", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
   const html = await response.text();
   assert.match(html, /<title>GameFactory Observatory<\/title>/i);
-  assert.match(html, /Who did what, when, and why/);
+  assert.match(html, /Who did what, with which capabilities and creative inputs/);
+  assert.match(html, /gamefactory\.asset-foundry/);
+  assert.match(html, /pulse-runner-neon@1\.0\.0/);
+  assert.match(html, /Creative inputs/);
   assert.match(html, /Portable replay/);
   assert.match(html, /Pulse Runner/);
   assert.match(html, /Included in plan/);

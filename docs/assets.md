@@ -48,6 +48,8 @@ flowchart LR
 
 A brief pins a style profile by path, ID, version, and canonical JSON SHA-256. Canonical hashing makes the identity stable across harmless whitespace and line-ending changes. The foundry verifies that identity, byte-hashes every canonical reference, and writes the complete lineage into `assets.manifest.json`. The profile is immutable during a tournament, so candidates cannot quietly rewrite the art direction used to judge them.
 
+The flight recorder renders the asset brief and pinned style profile as creative-input nodes, distinct from the `asset-foundry` extension that executes them. Selecting a node exposes its version, hash, path, modalities, and reference identities; the graph connects the extension to those inputs and those inputs to every constrained candidate.
+
 For images, `asset.style` can score opaque coverage, contrast, RGB channel means, red signal-color dominance, horizontal and vertical silhouette symmetry, transparent corners, and safe margin. Criteria have weights and optional ranges or target tolerances. A criterion marked `hard` fails the candidate immediately; the remaining score ranks candidates that are still on-style. Reference similarity compares the same normalized measurements against every pinned anchor.
 
 Textual `requiredTraits` and `prohibitedTraits` are useful to generators and semantic judges, but the deterministic evaluator does not pretend it understands them. A production pipeline can add a cheap vision-model judge and an explicit human approval gate after deterministic style checks and before expensive engine scenarios.

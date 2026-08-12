@@ -10,9 +10,19 @@ const COLUMN_GAP = 224;
 const ROW_GAP = 96;
 const GRAPH_X = 30;
 const GRAPH_Y = 56;
-const columnLabels = ["Run", "Candidate", "Workspace", "Team", "Agents", "Evaluation", "Decision", "Result"];
+const columnLabels = ["Run", "Extensions", "Creative inputs", "Candidate", "Workspace", "Team", "Agents", "Evaluation", "Decision", "Result"];
 
 type SourceMode = "live" | "replay" | "demo";
+type GraphFilter = "extension" | "resource" | "agent" | "evaluator" | "decision";
+
+function graphFilterGroup(node: GraphNode): GraphFilter | undefined {
+  if (node.kind === "extension") return "extension";
+  if (node.kind === "resource") return "resource";
+  if (node.kind === "agent" || node.kind === "contributor") return "agent";
+  if (node.kind === "evaluator") return "evaluator";
+  if (node.kind === "decision" || node.kind === "outcome") return "decision";
+  return undefined;
+}
 
 function tokenTotal(usage?: Usage) {
   if (!usage) return undefined;
@@ -120,11 +130,12 @@ function downloadReplay(snapshot: FactorySnapshot) {
   URL.revokeObjectURL(url);
 }
 
-function GraphCanvas({ snapshot, cursor, selectedId, onSelect }: {
+function GraphCanvas({ snapshot, cursor, selectedId, onSelect, filters }: {
   snapshot: FactorySnapshot;
   cursor: number;
   selectedId?: string;
   onSelect: (node: GraphNode) => void;
+  filters: Record<GraphFilter, boolean>;
 }) {
   const layout = useMemo(() => {
     const orders = [...new Set(snapshot.graph.nodes.map((node) => node.order))].sort((a, b) => a - b);
@@ -144,7 +155,10 @@ function GraphCanvas({ snapshot, cursor, selectedId, onSelect }: {
     };
   }, [snapshot]);
 
-  const visibleNodes = snapshot.graph.nodes.filter((node) => node.enteredSequence <= cursor);
+  const visibleNodes = snapshot.graph.nodes.filter((node) => {
+    const group = graphFilterGroup(node);
+    return node.enteredSequence <= cursor && (!group || filters[group]);
+  });
   const visibleIds = new Set(visibleNodes.map((node) => node.id));
   const visibleEdges = snapshot.graph.edges.filter(
     (edge) => edge.enteredSequence <= cursor && visibleIds.has(edge.source) && visibleIds.has(edge.target),
@@ -212,24 +226,37 @@ function UsageBar({ snapshot }: { snapshot: FactorySnapshot }) {
 
 function Inspector({ node, snapshot, cursor }: { node?: GraphNode; snapshot: FactorySnapshot; cursor: number }) {
   if (!node) {
-    return <aside className="inspector empty-inspector"><span className="section-kicker">Inspection</span><h2>Select a node</h2><p>Open any candidate, agent, evaluator, or decision to inspect its lineage, evidence, model, tokens, and billing basis.</p></aside>;
+    return <aside className="inspector empty-inspector"><span className="section-kicker">Inspection</span><h2>Select a node</h2><p>Open an extension, creative input, candidate, agent, evaluator, or decision to inspect its exact provenance and downstream work.</p></aside>;
   }
   const experiment = snapshot.experiments.find((item) => item.id === node.experimentId);
   const contribution = experiment?.contributors.find((item) => item.invocationId === node.invocationId || item.agentId === node.label);
   const usage = node.usage ?? contribution?.usage;
   const phases = experiment?.phases.filter((phase) => phase.sequence <= cursor) ?? [];
+  const provenance = node.provenance;
+  const provenanceKeys = ["provenanceType", "resourceType", "id", "version", "activationReason", "capabilities", "permissions", "path", "sha256", "manifestSha256", "configSha256", "modalities", "references"];
+  const provenanceRows = provenanceKeys.flatMap((key) => {
+    const value = provenance?.[key];
+    if (value === undefined) return [];
+    const label = key.replace(/([A-Z])/g, " $1");
+    const display = Array.isArray(value)
+      ? value.map((item) => typeof item === "object" ? JSON.stringify(item) : String(item)).join(" · ")
+      : typeof value === "object" ? JSON.stringify(value) : String(value);
+    return [{ label, display }];
+  });
   return (
     <aside className="inspector">
       <div className="inspector-heading"><span className="section-kicker">{node.kind}</span><span className={`state-pill state-${stateAt(node, cursor)}`}>{stateAt(node, cursor)}</span></div>
       <h2>{node.label}</h2>
       <p>{contribution?.summary ?? node.detail ?? "No summary reported."}</p>
-      <dl className="facts">
-        <div><dt>Model</dt><dd>{modelLabel(usage)}</dd></div>
-        <div><dt>Tokens</dt><dd>{formatTokens(tokenTotal(usage))}</dd></div>
-        <div><dt>Billing</dt><dd>{billingValue(usage)}</dd></div>
-        <div><dt>Artifacts</dt><dd>{node.artifacts || contribution?.artifacts || 0}</dd></div>
-        {usage?.costUsd !== undefined && usage.costSource === "estimated" ? <div><dt>API equivalent</dt><dd>{formatMoney(usage.costUsd)} · estimate</dd></div> : null}
-      </dl>
+      {provenanceRows.length ? <><span className="section-kicker section-space">Exact provenance</span><dl className="provenance-list">{provenanceRows.map((row) => <div key={row.label}><dt>{row.label}</dt><dd title={row.display}>{row.display}</dd></div>)}</dl></> : (
+        <dl className="facts">
+          <div><dt>Model</dt><dd>{modelLabel(usage)}</dd></div>
+          <div><dt>Tokens</dt><dd>{formatTokens(tokenTotal(usage))}</dd></div>
+          <div><dt>Billing</dt><dd>{billingValue(usage)}</dd></div>
+          <div><dt>Artifacts</dt><dd>{node.artifacts || contribution?.artifacts || 0}</dd></div>
+          {usage?.costUsd !== undefined && usage.costSource === "estimated" ? <div><dt>API equivalent</dt><dd>{formatMoney(usage.costUsd)} · estimate</dd></div> : null}
+        </dl>
+      )}
       {node.invocationId ? <div className="lineage"><span className="section-kicker">Invocation lineage</span><code>{node.parentInvocationId ?? "factory root"}</code><span className="lineage-arrow">↓</span><code>{node.invocationId}</code></div> : null}
       {experiment ? (
         <>
@@ -252,6 +279,7 @@ export default function FactoryConsole() {
   const [playing, setPlaying] = useState(false);
   const [selectedId, setSelectedId] = useState<string>();
   const [dropActive, setDropActive] = useState(false);
+  const [graphFilters, setGraphFilters] = useState<Record<GraphFilter, boolean>>({ extension: true, resource: true, agent: true, evaluator: true, decision: true });
   const fileInput = useRef<HTMLInputElement>(null);
   const streamRef = useRef<EventSource>();
   const selectedNode = snapshot.graph.nodes.find((node) => node.id === selectedId);
@@ -347,9 +375,9 @@ export default function FactoryConsole() {
 
       <section className="workspace-grid">
         <div className="graph-panel">
-          <div className="panel-heading"><div><span className="section-kicker">Factory graph</span><h2>Who did what, when, and why</h2></div><div className="graph-legend"><span className="legend-running">Running</span><span className="legend-keep">Kept</span><span className="legend-discard">Discarded</span><span className="legend-blocked">Blocked</span></div></div>
+          <div className="panel-heading"><div><span className="section-kicker">Factory graph</span><h2>Who did what, with which capabilities and creative inputs</h2></div><div className="graph-filters">{([['extension','Extensions'],['resource','Creative inputs'],['agent','Agents'],['evaluator','Evaluators'],['decision','Decisions']] as Array<[GraphFilter,string]>).map(([key,label]) => <button className={graphFilters[key] ? "active" : ""} key={key} onClick={() => setGraphFilters((current) => ({ ...current, [key]: !current[key] }))} type="button">{label}</button>)}</div></div>
           <div className="replay-controls"><button onClick={() => { setPlaying((value) => !value); setFollowing(false); }} type="button">{playing ? "Pause" : "Replay"}</button><button className={following ? "active" : ""} onClick={() => { setFollowing(true); setPlaying(false); setCursor(snapshot.sequence); }} type="button">Follow latest</button><input aria-label="Replay position" min={0} max={snapshot.sequence} value={cursor} onChange={(event) => { setCursor(Number(event.target.value)); setFollowing(false); setPlaying(false); }} type="range" /><output>#{cursor}</output></div>
-          <GraphCanvas snapshot={snapshot} cursor={cursor} selectedId={selectedId} onSelect={(node) => setSelectedId(node.id)} />
+          <GraphCanvas snapshot={snapshot} cursor={cursor} selectedId={selectedId} onSelect={(node) => setSelectedId(node.id)} filters={graphFilters} />
         </div>
         <Inspector node={selectedNode} snapshot={snapshot} cursor={cursor} />
       </section>

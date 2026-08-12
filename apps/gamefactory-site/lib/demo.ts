@@ -31,6 +31,24 @@ node({
   finalState: "complete",
 });
 
+const extensionNodes = [
+  ["gamefactory.tournament", "0.1.0", ["workflow:tournament"], "Runs parallel candidate tournaments"],
+  ["gamefactory.git", "0.1.0", ["workspace:git.worktree"], "Creates isolated candidate worktrees"],
+  ["gamefactory.agent-team", "0.1.0", ["agent:agent.team"], "Coordinates scout, builder, and playtester agents"],
+  ["gamefactory.godot", "0.1.0", ["engine:godot.engine", "scenario:godot.scenario", "evaluator:godot.scenario"], "Runs the game and deterministic playtests"],
+  ["gamefactory.design-lab", "0.1.0", ["evaluator:playtest.agents"], "Scores synthetic playtest evidence"],
+  ["gamefactory.asset-foundry", "0.1.0", ["agent:asset.command", "evaluator:asset.style"], "Generates and validates styled game assets"],
+] as const;
+
+extensionNodes.forEach(([name, version, capabilities, detail], index) => {
+  const id = `extension:${name}`;
+  node({ id, kind: "extension", label: name, detail, column: 1, order: -6 + index, enteredSequence: 1 + index, completedSequence: 2 + index, finalState: "complete", provenance: { provenanceType: "extension", version, capabilities: [...capabilities], activationReason: capabilities[0], permissions: name === "gamefactory.godot" ? ["process:godot", "filesystem:artifacts"] : [] } });
+  edge("run:pulse-runner-demo", id, 1 + index, "flow", `activated for ${capabilities[0]}`);
+});
+
+node({ id: "resource:pulse-runner-neon", kind: "resource", label: "Style · pulse-runner-neon@1.0.0", detail: "Controlled neon silhouettes for a dark arena", column: 2, order: -1, enteredSequence: 7, completedSequence: 8, finalState: "complete", artifacts: 1, metrics: 7, provenance: { provenanceType: "creative-input", resourceType: "style-profile", id: "pulse-runner-neon", version: "1.0.0", path: "style-profile.json", sha256: "720f06bf3d5337cf3be0707f804d80441cd935704e201dcddee24211d1c50faa", modalities: ["image"], references: [{ role: "canonical enemy silhouette, palette, and rendering treatment", path: "asset-sources/drone-variant-1.png" }] } });
+edge("extension:gamefactory.asset-foundry", "resource:pulse-runner-neon", 7, "evidence", "pins art direction");
+
 const candidates = [
   { id: "candidate-a", speed: 255, score: 0.79, state: "discard" as const, start: 8, order: 2, finish: 103 },
   { id: "candidate-b", speed: 290, score: 0.91, state: "keep" as const, start: 11, order: 6, finish: 121 },
@@ -49,11 +67,12 @@ for (const [slot, candidate] of candidates.entries()) {
     { id: "playtest-critic", role: "critic", delta: 3, summary: "Ran deterministic play traces and checked difficulty shape." },
   ];
 
-  node({ id: candidate.id, experimentId: candidate.id, clusterId: candidate.id, kind: "candidate", label: `Candidate ${String.fromCharCode(65 + slot)}`, detail: `player_speed ${candidate.speed}`, column: 1, order: candidate.order, enteredSequence: candidate.start, completedSequence: candidate.finish, finalState: "complete" });
-  node({ id: workspace, experimentId: candidate.id, clusterId: candidate.id, kind: "workspace", label: "Git worktree", detail: "Isolated candidate", column: 2, order: candidate.order, enteredSequence: candidate.start + 3, completedSequence: candidate.finish - 3, finalState: "complete" });
-  node({ id: team, experimentId: candidate.id, clusterId: candidate.id, kind: "agent", label: "Agent team · 3", detail: "Scout → builder → playtester", column: 3, order: candidate.order, enteredSequence: candidate.start + 5, completedSequence: candidate.finish - 18, finalState: "complete", usage: subscriptionUsage() });
+  node({ id: candidate.id, experimentId: candidate.id, clusterId: candidate.id, kind: "candidate", label: `Candidate ${String.fromCharCode(65 + slot)}`, detail: `player_speed ${candidate.speed}`, column: 3, order: candidate.order, enteredSequence: candidate.start, completedSequence: candidate.finish, finalState: "complete" });
+  node({ id: workspace, experimentId: candidate.id, clusterId: candidate.id, kind: "workspace", label: "Git worktree", detail: "Isolated candidate", column: 4, order: candidate.order, enteredSequence: candidate.start + 3, completedSequence: candidate.finish - 3, finalState: "complete" });
+  node({ id: team, experimentId: candidate.id, clusterId: candidate.id, kind: "agent", label: "Agent team · 3", detail: "Scout → builder → playtester", column: 5, order: candidate.order, enteredSequence: candidate.start + 5, completedSequence: candidate.finish - 18, finalState: "complete", usage: subscriptionUsage() });
 
   edge("run:pulse-runner-demo", candidate.id, candidate.start, "fan-out");
+  edge("resource:pulse-runner-neon", candidate.id, candidate.start, "evidence", "style constraint");
   edge(candidate.id, workspace, candidate.start + 3);
   edge(workspace, team, candidate.start + 5);
 
@@ -67,7 +86,7 @@ for (const [slot, candidate] of candidates.entries()) {
       kind: "contributor",
       label: agent.id,
       detail: `${agent.role} · attempt 1`,
-      column: 4,
+      column: 6,
       order: candidate.order + agentIndex - 1,
       enteredSequence: candidate.start + 9 + agentIndex * 15,
       completedSequence: candidate.start + 21 + agentIndex * 16,
@@ -93,9 +112,9 @@ for (const [slot, candidate] of candidates.entries()) {
     };
   });
 
-  node({ id: evaluator, experimentId: candidate.id, clusterId: candidate.id, kind: "evaluator", label: "Godot playtest", detail: `fun_score ${candidate.score.toFixed(2)}`, column: 5, order: candidate.order, enteredSequence: candidate.start + 68, completedSequence: candidate.start + 79, finalState: "pass", artifacts: 4, metrics: 4 });
-  node({ id: decision, experimentId: candidate.id, clusterId: candidate.id, kind: "decision", label: "Round decision", detail: candidate.state === "keep" ? "Selected for acceptance" : "Ranked below winner", column: 6, order: candidate.order, enteredSequence: candidate.start + 82, completedSequence: candidate.finish - 4, finalState: candidate.state });
-  node({ id: outcome, experimentId: candidate.id, clusterId: candidate.id, kind: "outcome", label: candidate.state === "keep" ? "Accepted" : "Discarded", detail: candidate.state === "keep" ? "Applied to main" : "Workspace cleaned", column: 7, order: candidate.order, enteredSequence: candidate.finish - 4, completedSequence: candidate.finish, finalState: candidate.state });
+  node({ id: evaluator, experimentId: candidate.id, clusterId: candidate.id, kind: "evaluator", label: "Godot playtest", detail: `fun_score ${candidate.score.toFixed(2)}`, column: 7, order: candidate.order, enteredSequence: candidate.start + 68, completedSequence: candidate.start + 79, finalState: "pass", artifacts: 4, metrics: 4 });
+  node({ id: decision, experimentId: candidate.id, clusterId: candidate.id, kind: "decision", label: "Round decision", detail: candidate.state === "keep" ? "Selected for acceptance" : "Ranked below winner", column: 8, order: candidate.order, enteredSequence: candidate.start + 82, completedSequence: candidate.finish - 4, finalState: candidate.state });
+  node({ id: outcome, experimentId: candidate.id, clusterId: candidate.id, kind: "outcome", label: candidate.state === "keep" ? "Accepted" : "Discarded", detail: candidate.state === "keep" ? "Applied to main" : "Workspace cleaned", column: 9, order: candidate.order, enteredSequence: candidate.finish - 4, completedSequence: candidate.finish, finalState: candidate.state });
   edge(evaluator, decision, candidate.start + 82, "decision");
   edge(decision, outcome, candidate.finish - 4, "decision", candidate.state);
 

@@ -33,6 +33,12 @@ test("parallel capability activation executes an extension exactly once", async 
     await Promise.all(Array.from({ length: 100 }, () => manager.activateFor("evaluator:slow")));
     assert.equal((globalThis as Record<string, unknown>)[counter], 1);
     assert.equal(manager.registry.get<{ id: string }>("evaluator", "slow").id, "slow");
+    const active = manager.listActiveExtensions();
+    assert.equal(active.length, 1);
+    assert.equal(active[0]?.name, "singleflight");
+    assert.equal(active[0]?.version, "1.0.0");
+    assert.deepEqual(active[0]?.capabilities, ["evaluator:slow"]);
+    assert.match(active[0]?.manifestSha256 ?? "", /^[a-f0-9]{64}$/);
   } finally {
     await manager.dispose();
     delete (globalThis as Record<string, unknown>)[counter];

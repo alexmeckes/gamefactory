@@ -1,10 +1,12 @@
 import { readFile, stat } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type {
   CapabilityKind,
   Disposable,
   ExtensionDescriptor,
+  ActiveExtension,
   ExtensionManifest,
   FactoryAPI,
   FactoryEvent,
@@ -34,14 +36,18 @@ export async function discoverExtension(path: string): Promise<ExtensionDescript
   const info = await stat(path);
   const manifestPath = info.isDirectory() ? resolve(path, MANIFEST_NAME) : path;
   const root = dirname(manifestPath);
-  const manifest = validateManifest(JSON.parse(await readFile(manifestPath, "utf8")) as unknown, manifestPath);
-  return { root, manifestPath, manifest };
+  const content = await readFile(manifestPath, "utf8");
+  const manifest = validateManifest(JSON.parse(content) as unknown, manifestPath);
+  const manifestSha256 = createHash("sha256").update(content).digest("hex");
+  return { root, manifestPath, manifestSha256, manifest };
 }
 
 export class ExtensionManager {
   private readonly descriptors = new Map<string, ExtensionDescriptor>();
   private readonly capabilityProviders = new Map<string, string>();
   private readonly active = new Map<string, Disposable[]>();
+  private readonly activatedAt = new Map<string, string>();
+  private readonly activationCapabilities = new Map<string, Set<string>>();
   private readonly activating = new Map<string, Promise<void>>();
   private readonly handlers = new Set<(event: FactoryEvent) => Promise<void> | void>();
   private eventQueue: Promise<void> = Promise.resolve();
@@ -64,6 +70,24 @@ export class ExtensionManager {
     return [...this.descriptors.values()];
   }
 
+  listActiveExtensions(): ActiveExtension[] {
+    return [...this.active.keys()].flatMap((name): ActiveExtension[] => {
+      const descriptor = this.descriptors.get(name);
+      const activatedAt = this.activatedAt.get(name);
+      if (!descriptor || !activatedAt) return [];
+      return [{
+        name,
+        version: descriptor.manifest.version,
+        activatedAt,
+        capabilities: [...(this.activationCapabilities.get(name) ?? [])].sort(),
+        activation: [...descriptor.manifest.activation],
+        manifestSha256: descriptor.manifestSha256,
+        permissions: [...(descriptor.manifest.permissions ?? [])],
+        ...(descriptor.manifest.description ? { description: descriptor.manifest.description } : {})
+      }];
+    });
+  }
+
   explain(capabilities: string[]): Array<{ capability: string; extension?: string; active: boolean }> {
     return capabilities.map((capability) => {
       const extension = this.capabilityProviders.get(capability);
@@ -80,7 +104,15 @@ export class ExtensionManager {
   private async activateCapability(capability: string, lineage: string[]): Promise<void> {
     const extensionName = this.capabilityProviders.get(capability);
     if (!extensionName) throw new Error(`No extension provides ${capability}`);
-    await this.activateExtension(extensionName, lineage);
+    const capabilities = this.activationCapabilities.get(extensionName) ?? new Set<string>();
+    capabilities.add(capability);
+    this.activationCapabilities.set(extensionName, capabilities);
+    try {
+      await this.activateExtension(extensionName, lineage);
+    } catch (error) {
+      if (!this.active.has(extensionName)) this.activationCapabilities.delete(extensionName);
+      throw error;
+    }
   }
 
   async activateExtension(name: string, lineage: string[] = []): Promise<void> {
@@ -132,9 +164,11 @@ export class ExtensionManager {
         : await module.default.activate(api);
       if (result && typeof result === "object" && "dispose" in result && !disposables.includes(result as Disposable)) disposables.push(result as Disposable);
       this.active.set(name, disposables);
+      this.activatedAt.set(name, new Date().toISOString());
       await this.emit({ type: "extension:activate", extension: name, at: new Date().toISOString() });
     } catch (error) {
       this.active.delete(name);
+      this.activatedAt.delete(name);
       for (const disposable of disposables.reverse()) await disposable.dispose();
       const message = error instanceof Error ? error.message : String(error);
       await this.emit({ type: "extension:error", extension: name, error: message, at: new Date().toISOString() });
@@ -172,6 +206,8 @@ export class ExtensionManager {
       for (const disposable of disposables.reverse()) await disposable.dispose();
     }
     this.active.clear();
+    this.activatedAt.clear();
+    this.activationCapabilities.clear();
     this.handlers.clear();
   }
 }

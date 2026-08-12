@@ -143,6 +143,12 @@ test("viewer merges live agent attempts and progress into the replayable graph",
   try {
     const store = new JsonlTraceStore(resolve(value.root, ".factory/traces/demo.jsonl"));
     const identity = { runId, campaignId: campaign.id };
+    await store.append(identity, { type: "node:created", nodeId: "extension:gamefactory.asset-foundry", parentNodeId: `campaign:${runId}`, label: "gamefactory.asset-foundry", role: "extension", data: { provenanceType: "extension", version: "0.1.0", capabilities: ["agent:asset.command", "evaluator:asset.style"], manifestSha256: "b".repeat(64) } });
+    await store.append(identity, { type: "edge:created", nodeId: "edge:extension", sourceNodeId: `campaign:${runId}`, targetNodeId: "extension:gamefactory.asset-foundry", role: "dependency", message: "activated for evaluator:asset.style" });
+    await store.append(identity, { type: "node:completed", nodeId: "extension:gamefactory.asset-foundry", label: "gamefactory.asset-foundry", role: "extension", status: "complete", data: { provenanceType: "extension", version: "0.1.0", capabilities: ["agent:asset.command", "evaluator:asset.style"], manifestSha256: "b".repeat(64) } });
+    await store.append(identity, { type: "node:created", nodeId: "resource:tournament-r0001-c001:style-profile", experimentId: "tournament-r0001-c001", parentNodeId: "extension:gamefactory.asset-foundry", label: "Style · puzzle-paper@1.0.0", role: "resource", data: { provenanceType: "creative-input", resourceType: "style-profile", id: "puzzle-paper", version: "1.0.0", sha256: "c".repeat(64) } });
+    await store.append(identity, { type: "edge:created", nodeId: "edge:style", experimentId: "tournament-r0001-c001", sourceNodeId: "extension:gamefactory.asset-foundry", targetNodeId: "resource:tournament-r0001-c001:style-profile", role: "dependency", message: "provides creative input" });
+    await store.append(identity, { type: "node:completed", nodeId: "resource:tournament-r0001-c001:style-profile", experimentId: "tournament-r0001-c001", label: "Style · puzzle-paper@1.0.0", role: "resource", status: "complete", data: { provenanceType: "creative-input", resourceType: "style-profile", id: "puzzle-paper", version: "1.0.0", sha256: "c".repeat(64) } });
     await store.append(identity, { type: "node:created", nodeId: "agent-team:tournament-r0001-c001", experimentId: "tournament-r0001-c001", parentNodeId: "experiment:tournament-r0001-c001", label: "Agent team", role: "agent-team" });
     await store.append(identity, { type: "node:started", nodeId: "agent-team:tournament-r0001-c001", experimentId: "tournament-r0001-c001", label: "Agent team", role: "agent-team" });
     await store.append(identity, { type: "node:created", nodeId: "agent-node:tournament-r0001-c001:puzzle-critic", experimentId: "tournament-r0001-c001", parentNodeId: "agent-team:tournament-r0001-c001", label: "puzzle-critic", role: "critic" });
@@ -159,6 +165,13 @@ test("viewer merges live agent attempts and progress into the replayable graph",
     assert.ok((attempt?.completedSequence ?? 0) > (attempt?.enteredSequence ?? 0));
     assert.ok(snapshot.graph.edges.some((edge) => edge.target === attempt?.id));
     assert.equal(attempt?.usage?.model, "test-model");
+    const extension = snapshot.graph.nodes.find((node) => node.kind === "extension");
+    assert.equal(extension?.provenance?.version, "0.1.0");
+    assert.deepEqual(extension?.provenance?.capabilities, ["agent:asset.command", "evaluator:asset.style"]);
+    const style = snapshot.graph.nodes.find((node) => node.kind === "resource");
+    assert.equal(style?.provenance?.resourceType, "style-profile");
+    assert.equal(style?.provenance?.sha256, "c".repeat(64));
+    assert.ok(snapshot.graph.edges.some((edge) => edge.source === extension?.id && edge.target === style?.id));
     assert.equal(snapshot.usage.invocations, 1);
     assert.equal(snapshot.usage.totalTokens, 150);
     assert.equal(snapshot.usage.costUsd, 0.02);

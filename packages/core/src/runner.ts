@@ -158,6 +158,32 @@ export class FactoryRunner {
         }
       }
     };
+    const rootNodeId = `campaign:${runId}`;
+    const tracedExtensions = new Map<string, string>();
+    const emitExtensionProvenance = async (triggerCapability: string): Promise<void> => {
+      for (const extension of this.extensions.listActiveExtensions()) {
+        const signature = JSON.stringify(extension.capabilities);
+        const nodeId = `extension:${extension.name}`;
+        const data = {
+          provenanceType: "extension",
+          version: extension.version,
+          capabilities: extension.capabilities,
+          activation: extension.activation,
+          activationReason: triggerCapability,
+          permissions: extension.permissions,
+          manifestSha256: extension.manifestSha256,
+          configSha256: configFingerprint
+        };
+        if (!tracedExtensions.has(extension.name)) {
+          await trace.emit({ type: "node:created", nodeId, parentNodeId: rootNodeId, label: extension.name, role: "extension", message: extension.description ?? `Provides ${extension.capabilities.join(", ")}`, data });
+          await trace.emit({ type: "edge:created", nodeId: `edge:${rootNodeId}->${nodeId}`, sourceNodeId: rootNodeId, targetNodeId: nodeId, role: "dependency", message: `activated for ${triggerCapability}` });
+          await trace.emit({ type: "node:completed", nodeId, label: extension.name, role: "extension", status: "complete", message: extension.description ?? `Activated for ${extension.capabilities.join(", ")}`, data });
+        } else if (tracedExtensions.get(extension.name) !== signature) {
+          await trace.emit({ type: "node:progress", nodeId, label: extension.name, role: "extension", status: "complete", message: `Also used for ${triggerCapability}`, data });
+        }
+        tracedExtensions.set(extension.name, signature);
+      }
+    };
     const artifactStore = new ContentAddressedArtifactStore(
       outputPath(this.options.cwd, this.options.config.artifactDirectory, ".factory/artifacts", "artifactDirectory"),
       this.options.logger
@@ -194,16 +220,23 @@ export class FactoryRunner {
       if (legacyRecords.length > 0) {
         throw new Error(`Result log contains ${legacyRecords.length} legacy unscoped record(s) for ${campaign.id}; migrate or archive that log before this safe resume.`);
       }
-      for (const capability of campaign.requires) await this.extensions.activateFor(capability);
-      for (const capability of campaign.optional ?? []) {
-        if (this.extensions.explain([capability])[0]?.extension) await this.extensions.activateFor(capability);
+      await trace.emit({ type: "node:created", nodeId: rootNodeId, label: campaign.id, role: "campaign", message: campaign.objective, data: { configSha256: configFingerprint, campaignSha256: campaignFingerprint, projectRevision: currentProjectFingerprint } });
+      await trace.emit({ type: "node:started", nodeId: rootNodeId, label: campaign.id, role: "campaign" });
+      for (const capability of campaign.requires) {
+        await this.extensions.activateFor(capability);
+        await emitExtensionProvenance(capability);
       }
-      await this.extensions.activateFor(`workflow:${campaign.workflow}`);
+      for (const capability of campaign.optional ?? []) {
+        if (this.extensions.explain([capability])[0]?.extension) {
+          await this.extensions.activateFor(capability);
+          await emitExtensionProvenance(capability);
+        }
+      }
+      const workflowCapability = `workflow:${campaign.workflow}`;
+      await this.extensions.activateFor(workflowCapability);
+      await emitExtensionProvenance(workflowCapability);
       const workflow = this.registry.get<Workflow>("workflow", campaign.workflow);
       await this.extensions.emit({ type: "campaign:start", campaign, at: startedAt });
-      const rootNodeId = `campaign:${runId}`;
-      await trace.emit({ type: "node:created", nodeId: rootNodeId, label: campaign.id, role: "campaign", message: campaign.objective });
-      await trace.emit({ type: "node:started", nodeId: rootNodeId, label: campaign.id, role: "campaign" });
 
       let result: CampaignResult;
       try {
