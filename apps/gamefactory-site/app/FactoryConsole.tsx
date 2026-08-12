@@ -16,7 +16,6 @@ const columnLabels = ["Run", "Extensions", "Creative inputs", "Candidate", "Work
 
 type SourceMode = "live" | "replay" | "demo";
 type GraphFilter = "extension" | "resource" | "agent" | "evaluator" | "decision";
-type LocalNetworkRequestInit = RequestInit & { targetAddressSpace?: "local" };
 
 function normalizeBridgeEndpoint(value: string) {
   const url = new URL(value);
@@ -339,11 +338,10 @@ export default function FactoryConsole() {
       const url = new URL("/api/snapshot", endpoint);
       if (runId) url.searchParams.set("run", runId);
       try {
-        const init: LocalNetworkRequestInit = {
+        const init: RequestInit = {
           cache: "no-store",
           headers: { Authorization: `Bearer ${key}` },
           signal: controller.signal,
-          targetAddressSpace: "local",
         };
         const response = await fetch(url, init);
         if (response.status === 401) throw new Error("bridge key rejected");
