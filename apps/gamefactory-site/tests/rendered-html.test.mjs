@@ -43,29 +43,7 @@ test("renders the GameFactory observatory", async () => {
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Your site is taking shape/);
 });
 
-test("proxies a private GameFactory snapshot through the narrow binding", async () => {
-  const app = await worker();
-  const expected = { version: 2, runId: "private-run", sequence: 7 };
-  const response = await app.fetch(
-    new Request("http://localhost/api/factory/snapshot"),
-    {
-      ASSETS: assets,
-      CUSTOMER_HTTP_GAMEFACTORY: {
-        fetch: async (request) => {
-          assert.equal(new URL(request.url).pathname, "/api/snapshot");
-          return Response.json(expected);
-        },
-      },
-    },
-    context,
-  );
-
-  assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), expected);
-  assert.equal(response.headers.get("cache-control"), "no-store");
-});
-
-test("reports an offline bridge without leaking configuration", async () => {
+test("does not expose a server-side bridge or tunnel route", async () => {
   const app = await worker();
   const response = await app.fetch(
     new Request("http://localhost/api/factory/snapshot"),
@@ -73,8 +51,6 @@ test("reports an offline bridge without leaking configuration", async () => {
     context,
   );
 
-  assert.equal(response.status, 503);
-  const body = await response.json();
-  assert.equal(body.connected, false);
-  assert.doesNotMatch(JSON.stringify(body), /127\.0\.0\.1|GAMEFACTORY_LOCAL_URL|CUSTOMER_HTTP/);
+  assert.equal(response.status, 404);
+  assert.doesNotMatch(await response.text(), /127\.0\.0\.1|GAMEFACTORY_LOCAL_URL|CUSTOMER_HTTP/);
 });

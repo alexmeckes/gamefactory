@@ -48,6 +48,14 @@ npm run factory -- view campaign.json --config factory.config.json
 # open http://127.0.0.1:4317
 ```
 
+To use the private hosted Observatory instead, start its authenticated
+loopback bridge and paste the printed endpoint and one-time key into **Live
+bridge**:
+
+```sh
+npm run factory -- bridge campaign.json --config factory.config.json
+```
+
 The viewer is read-only. It tails the durable journal and result ledger, so it
 does not add a database, reporter extension, or engine-specific capture step to
 the factory loop. See [the viewer guide](docs/viewer.md).

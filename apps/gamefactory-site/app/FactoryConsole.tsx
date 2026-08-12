@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { demoSnapshot } from "@/lib/demo";
 import type { BillingMode, FactorySnapshot, GraphEdge, GraphNode, ReplayBundle, Usage } from "@/lib/types";
 
@@ -10,10 +10,20 @@ const COLUMN_GAP = 224;
 const ROW_GAP = 96;
 const GRAPH_X = 30;
 const GRAPH_Y = 56;
+const DEFAULT_BRIDGE_ENDPOINT = "http://127.0.0.1:4317";
+const BRIDGE_SESSION_KEY = "gamefactory.observatory.bridge";
 const columnLabels = ["Run", "Extensions", "Creative inputs", "Candidate", "Workspace", "Team", "Agents", "Evaluation", "Decision", "Result"];
 
 type SourceMode = "live" | "replay" | "demo";
 type GraphFilter = "extension" | "resource" | "agent" | "evaluator" | "decision";
+type LocalNetworkRequestInit = RequestInit & { targetAddressSpace?: "local" };
+
+function normalizeBridgeEndpoint(value: string) {
+  const url = new URL(value);
+  if (url.protocol !== "http:") throw new Error("bridge endpoint must use HTTP");
+  if (!["127.0.0.1", "::1", "localhost"].includes(url.hostname)) throw new Error("bridge endpoint must stay on this device");
+  return url.origin;
+}
 
 function graphFilterGroup(node: GraphNode): GraphFilter | undefined {
   if (node.kind === "extension") return "extension";
@@ -273,7 +283,10 @@ function Inspector({ node, snapshot, cursor }: { node?: GraphNode; snapshot: Fac
 export default function FactoryConsole() {
   const [snapshot, setSnapshot] = useState<FactorySnapshot>(demoSnapshot);
   const [source, setSource] = useState<SourceMode>("demo");
-  const [connection, setConnection] = useState("checking local bridge");
+  const [connection, setConnection] = useState("bridge not paired");
+  const [bridgeEndpoint, setBridgeEndpoint] = useState(DEFAULT_BRIDGE_ENDPOINT);
+  const [bridgeKey, setBridgeKey] = useState("");
+  const [bridgePanel, setBridgePanel] = useState(false);
   const [cursor, setCursor] = useState(demoSnapshot.sequence);
   const [following, setFollowing] = useState(true);
   const [playing, setPlaying] = useState(false);
@@ -281,7 +294,8 @@ export default function FactoryConsole() {
   const [dropActive, setDropActive] = useState(false);
   const [graphFilters, setGraphFilters] = useState<Record<GraphFilter, boolean>>({ extension: true, resource: true, agent: true, evaluator: true, decision: true });
   const fileInput = useRef<HTMLInputElement>(null);
-  const streamRef = useRef<EventSource>();
+  const pollRef = useRef<number>();
+  const requestRef = useRef<AbortController>();
   const selectedNode = snapshot.graph.nodes.find((node) => node.id === selectedId);
   const visibleEvents = snapshot.events.filter((event) => event.sequence <= cursor).slice(-10);
 
@@ -289,31 +303,76 @@ export default function FactoryConsole() {
     setSnapshot(next);
     setSource(nextSource);
     setCursor((current) => (following || current > next.sequence ? next.sequence : current));
-    if (nextSource !== "live") { streamRef.current?.close(); streamRef.current = undefined; }
+    if (nextSource !== "live") stopBridgePolling();
   }
 
-  async function connectLive(runId?: string) {
-    setConnection("connecting");
-    const path = runId ? `/api/factory/snapshot?run=${encodeURIComponent(runId)}` : "/api/factory/snapshot";
+  function stopBridgePolling() {
+    if (pollRef.current !== undefined) window.clearTimeout(pollRef.current);
+    pollRef.current = undefined;
+    requestRef.current?.abort();
+    requestRef.current = undefined;
+  }
+
+  async function connectLive(runId?: string, pairing?: { endpoint: string; key: string }) {
+    const key = (pairing?.key ?? bridgeKey).trim();
+    let endpoint: string;
     try {
-      const response = await fetch(path, { cache: "no-store" });
-      if (!response.ok) throw new Error("bridge unavailable");
-      const value: unknown = await response.json();
-      if (!isSnapshot(value)) throw new Error("invalid bridge response");
-      applySnapshot(value, "live");
-      setConnection(value.live ? "receiving live events" : "bridge connected · replay ready");
-      streamRef.current?.close();
-      const streamPath = runId ? `/api/factory/stream?run=${encodeURIComponent(runId)}` : "/api/factory/stream";
-      const stream = new EventSource(streamPath);
-      stream.addEventListener("snapshot", (event) => {
-        try {
-          const next: unknown = JSON.parse((event as MessageEvent).data);
-          if (isSnapshot(next)) { applySnapshot(next, "live"); setConnection(next.live ? "receiving live events" : "bridge connected · replay ready"); }
-        } catch { setConnection("received an unreadable event"); }
-      });
-      stream.onerror = () => setConnection("stream paused · reconnect to retry");
-      streamRef.current = stream;
-    } catch { setConnection("local bridge offline"); }
+      endpoint = normalizeBridgeEndpoint(pairing?.endpoint ?? bridgeEndpoint);
+    } catch (error) {
+      setConnection(error instanceof Error ? error.message : "invalid bridge endpoint");
+      setBridgePanel(true);
+      return;
+    }
+    if (!key) {
+      setConnection("paste the bridge key to connect");
+      setBridgePanel(true);
+      return;
+    }
+
+    stopBridgePolling();
+    setConnection("requesting access to the local bridge");
+    const controller = new AbortController();
+    requestRef.current = controller;
+    let paired = false;
+
+    const poll = async () => {
+      const url = new URL("/api/snapshot", endpoint);
+      if (runId) url.searchParams.set("run", runId);
+      try {
+        const init: LocalNetworkRequestInit = {
+          cache: "no-store",
+          headers: { Authorization: `Bearer ${key}` },
+          signal: controller.signal,
+          targetAddressSpace: "local",
+        };
+        const response = await fetch(url, init);
+        if (response.status === 401) throw new Error("bridge key rejected");
+        if (!response.ok) throw new Error(`bridge returned ${response.status}`);
+        const value: unknown = await response.json();
+        if (!isSnapshot(value)) throw new Error("bridge returned an unreadable trace");
+        if (!paired) {
+          paired = true;
+          setBridgeEndpoint(endpoint);
+          setBridgeKey(key);
+          setBridgePanel(false);
+          window.sessionStorage.setItem(BRIDGE_SESSION_KEY, JSON.stringify({ endpoint, key }));
+        }
+        applySnapshot(value, "live");
+        setConnection(value.live ? "receiving live trace" : "bridge connected · replay ready");
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setConnection(error instanceof Error ? error.message : "local bridge offline or access denied");
+        if (!paired) setBridgePanel(true);
+      }
+      if (!controller.signal.aborted) pollRef.current = window.setTimeout(() => void poll(), 700);
+    };
+
+    await poll();
+  }
+
+  function submitBridge(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void connectLive(undefined, { endpoint: bridgeEndpoint, key: bridgeKey });
   }
 
   async function importReplay(file?: File) {
@@ -330,8 +389,22 @@ export default function FactoryConsole() {
   }
 
   useEffect(() => {
-    void connectLive();
-    return () => streamRef.current?.close();
+    let startTimer: number | undefined;
+    const saved = window.sessionStorage.getItem(BRIDGE_SESSION_KEY);
+    if (saved) {
+      try {
+        const pairing = JSON.parse(saved) as { endpoint?: unknown; key?: unknown };
+        if (typeof pairing.endpoint === "string" && typeof pairing.key === "string") {
+          startTimer = window.setTimeout(() => void connectLive(undefined, { endpoint: pairing.endpoint as string, key: pairing.key as string }), 0);
+        }
+      } catch {
+        window.sessionStorage.removeItem(BRIDGE_SESSION_KEY);
+      }
+    }
+    return () => {
+      if (startTimer !== undefined) window.clearTimeout(startTimer);
+      stopBridgePolling();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -351,17 +424,36 @@ export default function FactoryConsole() {
     setSelectedId(undefined);
   }
 
+  function forgetBridge() {
+    stopBridgePolling();
+    window.sessionStorage.removeItem(BRIDGE_SESSION_KEY);
+    setBridgeKey("");
+    setBridgePanel(false);
+    selectDemo();
+  }
+
   return (
     <main className="site-shell">
       <header className="masthead">
         <a className="brand" href="#top" aria-label="GameFactory observatory home"><span className="brand-mark"><i /><i /><i /></span><span><strong>GameFactory</strong><small>Observatory</small></span></a>
         <div className="source-switcher" aria-label="Data source">
-          <button className={source === "live" ? "active" : ""} onClick={() => void connectLive()} type="button">Live bridge</button>
+          <button className={source === "live" ? "active" : ""} onClick={() => bridgeKey ? void connectLive() : setBridgePanel(true)} type="button">Live bridge</button>
           <button className={source === "demo" ? "active" : ""} onClick={selectDemo} type="button">Example replay</button>
           <button className={source === "replay" ? "active" : ""} onClick={() => fileInput.current?.click()} type="button">Open replay</button>
         </div>
         <div className={`connection connection-${source}`}><i aria-hidden="true" /><span>{connection}</span></div>
       </header>
+
+      {bridgePanel ? (
+        <section className="bridge-panel" aria-label="Connect local GameFactory bridge">
+          <div className="bridge-copy"><span className="section-kicker">Private loopback bridge</span><h2>Pair this browser with the factory on your computer.</h2><p>Run <code>gamefactory bridge</code> locally, then paste the endpoint and one-time key it prints. The listener stays on your device and the key disappears when that command stops.</p></div>
+          <form onSubmit={submitBridge}>
+            <label><span>Endpoint</span><input autoComplete="off" onChange={(event) => setBridgeEndpoint(event.target.value)} spellCheck={false} value={bridgeEndpoint} /></label>
+            <label><span>Bridge key</span><input autoComplete="off" onChange={(event) => setBridgeKey(event.target.value)} placeholder="Paste the one-time key" spellCheck={false} type="password" value={bridgeKey} /></label>
+            <div className="bridge-actions"><button disabled={!bridgeEndpoint.trim() || !bridgeKey.trim()} type="submit">Connect this device</button><button className="secondary" onClick={() => setBridgePanel(false)} type="button">Cancel</button>{bridgeKey ? <button className="quiet" onClick={forgetBridge} type="button">Forget key</button> : null}</div>
+          </form>
+        </section>
+      ) : null}
 
       <section className="hero" id="top">
         <div><p className="eyebrow">{snapshot.live ? "Live orchestration trace" : source === "demo" ? "Interactive example trace" : "Recorded orchestration trace"}</p><h1>{snapshot.campaign.id}</h1><p className="objective">{snapshot.campaign.objective}</p></div>

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { randomBytes } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { createInterface } from "node:readline/promises";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
@@ -7,7 +8,7 @@ import { startFactoryViewer } from "@gamefactory/viewer";
 import { chooseIntakeOption } from "./intake.js";
 
 function usage(): never {
-  console.error(`GameFactory\n\nUsage:\n  gamefactory intake "<game idea>" [--provider game.design] [--output game.brief.json] [--force] [--config factory.config.json]\n  gamefactory run <campaign.json> [--config factory.config.json]\n  gamefactory view <campaign.json> [--config factory.config.json] [--port 4317] [--host 127.0.0.1]\n  gamefactory doctor <campaign.json> [--config factory.config.json]\n  gamefactory list [--config factory.config.json]\n  gamefactory explain <capability> [--config factory.config.json]`);
+  console.error(`GameFactory\n\nUsage:\n  gamefactory intake "<game idea>" [--provider game.design] [--output game.brief.json] [--force] [--config factory.config.json]\n  gamefactory run <campaign.json> [--config factory.config.json]\n  gamefactory view <campaign.json> [--config factory.config.json] [--port 4317] [--host 127.0.0.1]\n  gamefactory bridge <campaign.json> [--config factory.config.json] [--port 4317] [--observatory https://gamefactory-observatory.ameckes.chatgpt.site]\n  gamefactory doctor <campaign.json> [--config factory.config.json]\n  gamefactory list [--config factory.config.json]\n  gamefactory explain <capability> [--config factory.config.json]`);
   process.exit(2);
 }
 
@@ -23,6 +24,12 @@ function option(name: string, fallback: string): string {
   return index >= 0 ? (process.argv[index + 1] ?? usage()) : fallback;
 }
 
+function observatoryOrigin(value: string): string {
+  const url = new URL(value);
+  if (url.protocol !== "https:") throw new Error("The Observatory URL must use HTTPS");
+  return url.origin;
+}
+
 async function main(): Promise<void> {
   const [, , command, subject] = process.argv;
   if (!command) usage();
@@ -32,14 +39,33 @@ async function main(): Promise<void> {
   const logger = new ConsoleLogger(process.env.FACTORY_LOG_LEVEL === "debug");
   const controller = new AbortController();
   process.once("SIGINT", () => controller.abort(new Error("Interrupted")));
-  if (command === "view") {
+  if (command === "view" || command === "bridge") {
     if (!subject) usage();
     const campaign = await loadCampaign(resolve(cwd, subject));
     const portValue = option("--port", "4317");
     const port = Number(portValue);
     if (!Number.isSafeInteger(port) || port < 0 || port > 65535) throw new Error(`Invalid viewer port: ${portValue}`);
-    const viewer = await startFactoryViewer({ cwd, campaign, config, host: option("--host", "127.0.0.1"), port });
-    console.log(`GameFactory viewer: ${viewer.url}`);
+    const bridge = command === "bridge" ? {
+      token: randomBytes(24).toString("base64url"),
+      allowedOrigins: [observatoryOrigin(option("--observatory", "https://gamefactory-observatory.ameckes.chatgpt.site"))]
+    } : undefined;
+    const viewer = await startFactoryViewer({
+      cwd,
+      campaign,
+      config,
+      host: bridge ? "127.0.0.1" : option("--host", "127.0.0.1"),
+      port,
+      ...(bridge ? { bridge } : {})
+    });
+    if (bridge) {
+      console.log("GameFactory Observatory bridge is ready.");
+      console.log(`Endpoint: ${viewer.url}`);
+      console.log(`Bridge key: ${bridge.token}`);
+      console.log(`Observatory: ${bridge.allowedOrigins[0]}`);
+      console.log("Open Live bridge in the Observatory and paste the endpoint and key. The key expires when this command stops.");
+    } else {
+      console.log(`GameFactory viewer: ${viewer.url}`);
+    }
     console.log(`Watching ${campaign.id}. Press Ctrl+C to stop.`);
     try {
       if (!controller.signal.aborted) await new Promise<void>((resolveStop) => controller.signal.addEventListener("abort", () => resolveStop(), { once: true }));

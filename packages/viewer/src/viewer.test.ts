@@ -211,3 +211,68 @@ test("viewer server serves the dashboard and only contained preserved artifacts"
     await rm(value.root, { recursive: true, force: true });
   }
 });
+
+test("viewer bridge allows only its paired Observatory origin and ephemeral key", async () => {
+  const value = await fixture();
+  const origin = "https://observatory.example";
+  const token = "test-bridge-key";
+  const server = await startFactoryViewer({
+    ...value.options,
+    port: 0,
+    host: "127.0.0.1",
+    bridge: { token, allowedOrigins: [origin] }
+  });
+  try {
+    const preflight = await fetch(`${server.url}/api/snapshot`, {
+      method: "OPTIONS",
+      headers: {
+        Origin: origin,
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "authorization",
+        "Access-Control-Request-Private-Network": "true"
+      }
+    });
+    assert.equal(preflight.status, 204);
+    assert.equal(preflight.headers.get("access-control-allow-origin"), origin);
+    assert.equal(preflight.headers.get("access-control-allow-private-network"), "true");
+
+    const missingKey = await fetch(`${server.url}/api/snapshot`, { headers: { Origin: origin } });
+    assert.equal(missingKey.status, 401);
+
+    const wrongOrigin = await fetch(`${server.url}/api/snapshot`, {
+      headers: { Origin: "https://malicious.example", Authorization: `Bearer ${token}` }
+    });
+    assert.equal(wrongOrigin.status, 403);
+
+    const paired = await fetch(`${server.url}/api/snapshot`, {
+      headers: { Origin: origin, Authorization: `Bearer ${token}` }
+    });
+    assert.equal(paired.status, 200);
+    assert.equal((await paired.json() as ReturnType<typeof server.snapshot>).runId, runId);
+
+    const hiddenRoute = await fetch(`${server.url}/api/health`, {
+      headers: { Origin: origin, Authorization: `Bearer ${token}` }
+    });
+    assert.equal(hiddenRoute.status, 403);
+  } finally {
+    await server.close();
+    await rm(value.root, { recursive: true, force: true });
+  }
+});
+
+test("viewer bridge refuses a non-loopback listener", async () => {
+  const value = await fixture();
+  try {
+    await assert.rejects(
+      startFactoryViewer({
+        ...value.options,
+        port: 0,
+        host: "0.0.0.0",
+        bridge: { token: "test-bridge-key", allowedOrigins: ["https://observatory.example"] }
+      }),
+      /must listen on loopback/
+    );
+  } finally {
+    await rm(value.root, { recursive: true, force: true });
+  }
+});

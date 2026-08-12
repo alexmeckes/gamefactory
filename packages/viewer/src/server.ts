@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { createServer, type Server, type ServerResponse } from "node:http";
 import { readFile, realpath, stat } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
@@ -15,6 +16,10 @@ import {
 export interface FactoryViewerServerOptions extends FactoryViewerOptions {
   host?: string;
   port?: number;
+  bridge?: {
+    token: string;
+    allowedOrigins: readonly string[];
+  };
 }
 
 export interface FactoryViewerServer {
@@ -33,15 +38,40 @@ const securityHeaders = {
   "Content-Security-Policy": "default-src 'self'; img-src 'self' data:; media-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'"
 };
 
-function sendJson(response: ServerResponse, status: number, body: unknown): void {
+function sendJson(response: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}): void {
   const encoded = JSON.stringify(body);
   response.writeHead(status, {
     ...securityHeaders,
+    ...headers,
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
     "Content-Length": Buffer.byteLength(encoded)
   });
   response.end(encoded);
+}
+
+function bridgeTokenMatches(value: string | undefined, expected: string): boolean {
+  if (!value?.startsWith("Bearer ")) return false;
+  const actual = Buffer.from(value.slice("Bearer ".length), "utf8");
+  const wanted = Buffer.from(expected, "utf8");
+  return actual.byteLength === wanted.byteLength && timingSafeEqual(actual, wanted);
+}
+
+function normalizeOrigin(value: string): string {
+  const url = new URL(value);
+  if (!['http:', 'https:'].includes(url.protocol)) throw new Error(`Unsupported bridge origin protocol: ${url.protocol}`);
+  return url.origin;
+}
+
+function bridgeResponseHeaders(origin: string): Record<string, string> {
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Authorization",
+    "Access-Control-Allow-Private-Network": "true",
+    "Cross-Origin-Resource-Policy": "cross-origin",
+    "Vary": "Origin, Access-Control-Request-Private-Network"
+  };
 }
 
 function selectedRun(url: URL): string | undefined {
@@ -68,6 +98,12 @@ function closeServer(server: Server): Promise<void> {
 export async function startFactoryViewer(options: FactoryViewerServerOptions): Promise<FactoryViewerServer> {
   const host = options.host ?? "127.0.0.1";
   const requestedPort = options.port ?? 4317;
+  if (options.bridge && host !== "127.0.0.1" && host !== "::1" && host !== "localhost") {
+    throw new Error("The authenticated Observatory bridge must listen on loopback");
+  }
+  if (options.bridge && !options.bridge.token.trim()) throw new Error("The Observatory bridge token cannot be empty");
+  const bridgeOrigins = new Set(options.bridge?.allowedOrigins.map(normalizeOrigin) ?? []);
+  if (options.bridge && bridgeOrigins.size === 0) throw new Error("The Observatory bridge needs at least one allowed origin");
   const intervalMs = Math.max(100, options.pollIntervalMs ?? 400);
   let trace = await readFactoryTrace(options);
   let signature = await factoryTraceSignature(options);
@@ -96,8 +132,28 @@ export async function startFactoryViewer(options: FactoryViewerServerOptions): P
   const server = createServer((request, response) => {
     void (async () => {
       const url = new URL(request.url ?? "/", `http://${request.headers.host ?? `${host}:${requestedPort}`}`);
+      const origin = request.headers.origin;
+      const crossOrigin = typeof origin === "string" && origin !== url.origin;
+      let responseHeaders: Record<string, string> = {};
+      if (crossOrigin) {
+        const normalizedOrigin = normalizeOrigin(origin);
+        if (!options.bridge || !bridgeOrigins.has(normalizedOrigin) || url.pathname !== "/api/snapshot") {
+          sendJson(response, 403, { error: "Bridge origin is not allowed" });
+          return;
+        }
+        responseHeaders = bridgeResponseHeaders(normalizedOrigin);
+        if (request.method === "OPTIONS") {
+          response.writeHead(204, { ...securityHeaders, ...responseHeaders, "Cache-Control": "no-store" });
+          response.end();
+          return;
+        }
+        if (!bridgeTokenMatches(request.headers.authorization, options.bridge.token)) {
+          sendJson(response, 401, { error: "Bridge key is invalid" }, responseHeaders);
+          return;
+        }
+      }
       if (request.method !== "GET") {
-        sendJson(response, 405, { error: "Method not allowed" });
+        sendJson(response, 405, { error: "Method not allowed" }, responseHeaders);
         return;
       }
       if (url.pathname === "/") {
@@ -111,12 +167,12 @@ export async function startFactoryViewer(options: FactoryViewerServerOptions): P
         return;
       }
       if (url.pathname === "/api/health") {
-        sendJson(response, 200, { ok: true, campaignId: options.campaign.id, live: snapshot().live });
+        sendJson(response, 200, { ok: true, campaignId: options.campaign.id, live: snapshot().live }, responseHeaders);
         return;
       }
       if (url.pathname === "/api/snapshot") {
         await refresh();
-        sendJson(response, 200, snapshot(selectedRun(url)));
+        sendJson(response, 200, snapshot(selectedRun(url)), responseHeaders);
         return;
       }
       if (url.pathname === "/api/stream") {
@@ -135,13 +191,13 @@ export async function startFactoryViewer(options: FactoryViewerServerOptions): P
       if (url.pathname.startsWith("/artifacts/")) {
         const id = decodeURIComponent(url.pathname.slice("/artifacts/".length));
         if (!/^[a-f0-9]{64}$/i.test(id)) {
-          sendJson(response, 404, { error: "Artifact not found" });
+          sendJson(response, 404, { error: "Artifact not found" }, responseHeaders);
           return;
         }
         const artifact = trace.artifactFiles.get(id);
         const path = artifact ? await safeArtifactPath(trace.sources.artifactDirectory, artifact.path) : undefined;
         if (!artifact || !path) {
-          sendJson(response, 404, { error: "Artifact not found" });
+          sendJson(response, 404, { error: "Artifact not found" }, responseHeaders);
           return;
         }
         const contents = await readFile(path);
@@ -155,7 +211,7 @@ export async function startFactoryViewer(options: FactoryViewerServerOptions): P
         response.end(contents);
         return;
       }
-      sendJson(response, 404, { error: "Not found" });
+      sendJson(response, 404, { error: "Not found" }, responseHeaders);
     })().catch((error: unknown) => {
       if (!response.headersSent) sendJson(response, 500, { error: error instanceof Error ? error.message : String(error) });
       else response.end();

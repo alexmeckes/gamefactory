@@ -35,6 +35,35 @@ The default address is `http://127.0.0.1:4317`. Use `--port 0` to select an
 available port, or set an explicit port with `--port`. The server binds only to
 the loopback interface unless `--host` is deliberately changed.
 
+## Connect the hosted Observatory
+
+Use bridge mode when you want the private hosted Observatory to display the
+trace from this computer:
+
+```sh
+npm run factory -- bridge campaign.json --config factory.config.json
+```
+
+The command prints a loopback endpoint and a random, one-time bridge key. Open
+**Live bridge** in the Observatory and paste both values. The browser may ask
+for local-network access; allow it for the Observatory to reach the loopback
+listener. The page polls a full read-only snapshot, so node starts, progress,
+agent lineage, extensions, creative inputs, model identity, tokens, evaluator
+results, and decisions update together.
+
+The bridge is intentionally not a public tunnel:
+
+- it always binds to `127.0.0.1`;
+- it permits only the configured HTTPS Observatory origin;
+- cross-origin reads require the one-time key;
+- it exposes only `/api/snapshot`, not artifacts, commands, or filesystem paths;
+- the key exists only for the life of the command and is stored only in the
+  browser tab session after pairing.
+
+The local journal and result ledger remain the durable history. Keep the bridge
+running to inspect an old run in the hosted Observatory, or download a portable
+replay from the Site for inspection without the bridge.
+
 ## What the dashboard shows
 
 - a graph-first overview of campaign fan-out, candidates, isolated workspaces,

@@ -6,14 +6,19 @@ The site contains no factory execution capability. Godot, Git, agent processes, 
 
 ## Data modes
 
-- **Private bridge:** the deployed Site expects a private HTTP binding named `gamefactory`, exposed to the Worker as `CUSTOMER_HTTP_GAMEFACTORY`.
-- **Local development:** copy `.env.example` to `.env.local`; the default points at the loopback viewer on port 4317.
+- **Private loopback bridge:** `gamefactory bridge` starts an authenticated,
+  read-only listener on `127.0.0.1`. The signed-in user's browser connects to it
+  directly after they paste its ephemeral key. No inbound tunnel or hosted
+  secret is required.
+- **Local development:** the local viewer continues to run on port 4317 by
+  default.
 - **Portable replay:** export the current snapshot from the Site and reopen that JSON file later. Replay files are parsed entirely in the browser.
 
-The Worker only proxies three allowlisted, read-only resources:
+The browser bridge reads one allowlisted resource:
 
 - `/api/snapshot`
-- `/api/stream`
-- `/artifacts/{sha256}`
 
-It does not proxy arbitrary URLs, filesystem paths, commands, or mutation endpoints.
+The local server requires the exact deployed HTTPS origin and an ephemeral
+bearer key, responds to current browser local-network preflights, and refuses
+bridge mode on a non-loopback host. It does not expose arbitrary URLs,
+filesystem paths, artifacts, commands, or mutation endpoints.
