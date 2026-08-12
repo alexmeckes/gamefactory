@@ -6,10 +6,44 @@ import type {
   Evaluation,
   Evaluator,
   ExperimentRecord,
+  FactoryTraceEventInput,
   JournalJsonValue,
   WorkflowContext,
   WorkflowJournalPhase
 } from "@gamefactory/core";
+
+export async function emitTrace(context: WorkflowContext, event: FactoryTraceEventInput): Promise<void> {
+  try {
+    await context.trace?.emit(event);
+  } catch (error) {
+    context.logger.debug("Ignoring observational trace failure", { error: error instanceof Error ? error.message : String(error) });
+  }
+}
+
+async function traceWorkflowPhase(context: WorkflowContext, experimentId: string, phase: WorkflowJournalPhase, data?: unknown): Promise<void> {
+  const nodeId = `experiment:${experimentId}`;
+  if (phase === "reserved") {
+    await emitTrace(context, { type: "node:created", nodeId, experimentId, parentNodeId: `campaign:${context.trace?.runId ?? context.campaign.id}`, label: experimentId, role: "experiment" });
+    await emitTrace(context, { type: "edge:created", nodeId: `edge:campaign:${experimentId}`, experimentId, sourceNodeId: `campaign:${context.trace?.runId ?? context.campaign.id}`, targetNodeId: nodeId, role: "fan-out" });
+    return;
+  }
+  if (phase === "candidate-created") {
+    await emitTrace(context, { type: "node:started", nodeId, experimentId, label: experimentId, role: "experiment", message: "Candidate workspace created" });
+    return;
+  }
+  if (phase === "blocked") {
+    await emitTrace(context, { type: "node:failed", nodeId, experimentId, label: experimentId, role: "experiment", status: "blocked", message: "Experiment blocked for review" });
+    return;
+  }
+  if (phase === "cleaned") {
+    await emitTrace(context, { type: "node:completed", nodeId, experimentId, label: experimentId, role: "experiment", status: "complete", message: "Experiment finalized and cleaned" });
+    return;
+  }
+  const details = data === undefined ? undefined : journalData(data);
+  const object = details && typeof details === "object" && !Array.isArray(details) ? details : undefined;
+  const action = object && typeof object.action === "string" ? object.action : undefined;
+  await emitTrace(context, { type: "node:progress", nodeId, experimentId, label: experimentId, role: "experiment", message: action ? `${phase}: ${action}` : phase, data: { phase, ...(action ? { action } : {}) } });
+}
 
 export interface EvaluatorPlan {
   id: string;
@@ -33,7 +67,10 @@ export async function journalPhase(
   data?: unknown
 ): Promise<void> {
   const journal = context.journal;
-  if (!journal) return;
+  if (!journal) {
+    await traceWorkflowPhase(context, experimentId, phase, data);
+    return;
+  }
   const recovery = await journal.recover();
   const state = recovery.experiments.find((item) => item.runId === journal.runId
     && item.campaignId === context.campaign.id
@@ -56,6 +93,27 @@ export async function journalPhase(
     idempotencyKey: `${journal.runId}:${experimentId}:attempt-${attempt}:${phase}`,
     ...(data === undefined ? {} : { data: journalData(data) })
   });
+  await traceWorkflowPhase(context, experimentId, phase, data);
+}
+
+export function agentJournalData(result: AgentResult): Record<string, unknown> {
+  return {
+    summary: result.summary,
+    usage: result.usage ?? null,
+    artifactCount: result.artifacts?.length ?? 0,
+    contributors: (result.contributors ?? []).map((contributor) => ({
+      agentId: contributor.agentId,
+      role: contributor.role,
+      status: contributor.status,
+      startedAt: contributor.startedAt,
+      finishedAt: contributor.finishedAt,
+      summary: contributor.summary,
+      artifactCount: contributor.artifacts.length,
+      ...(contributor.invocationId ? { invocationId: contributor.invocationId } : {}),
+      ...(contributor.parentInvocationId ? { parentInvocationId: contributor.parentInvocationId } : {}),
+      ...(contributor.usage ? { usage: contributor.usage } : {})
+    }))
+  };
 }
 
 export async function recoverWorkflow(
@@ -208,9 +266,14 @@ export async function evaluateWaterfall(
   experimentId: string
 ): Promise<EvaluationRun> {
   const evaluations: Evaluation[] = [];
-  for (const plan of plans) {
+  for (let index = 0; index < plans.length; index += 1) {
+    const plan = plans[index]!;
     context.signal.throwIfAborted();
     const evaluator = context.get<Evaluator>("evaluator", plan.id);
+    const nodeId = `evaluator:${experimentId}:${index}-${plan.id}`;
+    await emitTrace(context, { type: "node:created", nodeId, experimentId, parentNodeId: `experiment:${experimentId}`, label: plan.id, role: "evaluator", attempt: 1 });
+    await emitTrace(context, { type: "edge:created", nodeId: `edge:experiment:${experimentId}:${nodeId}`, experimentId, sourceNodeId: `experiment:${experimentId}`, targetNodeId: nodeId, role: "evidence" });
+    await emitTrace(context, { type: "node:started", nodeId, experimentId, label: plan.id, role: "evaluator", attempt: 1, message: `Evaluator ${index + 1} of ${plans.length}` });
     try {
       const raw = await evaluator.evaluate({
         campaign: context.campaign,
@@ -224,10 +287,35 @@ export async function evaluateWaterfall(
         artifacts: await context.preserveArtifacts(raw.artifacts, `${experimentId}/evaluator-${raw.evaluator}`)
       };
       evaluations.push(evaluation);
-      if (evaluation.status === "fail") break;
+      await emitTrace(context, {
+        type: evaluation.status === "fail" ? "node:failed" : "node:completed",
+        nodeId,
+        experimentId,
+        label: plan.id,
+        role: "evaluator",
+        status: evaluation.status,
+        message: evaluation.summary ?? `${Object.keys(evaluation.metrics).length} metrics`,
+        data: { metrics: evaluation.metrics, violations: evaluation.violations.length, artifacts: evaluation.artifacts.length, ...(evaluation.usage ? { usage: { ...evaluation.usage } } : {}) }
+      });
+      if (evaluation.artifacts.length > 0) {
+        await emitTrace(context, { type: "artifact:produced", nodeId, experimentId, label: plan.id, role: "evaluator", message: `${evaluation.artifacts.length} artifacts preserved`, data: { count: evaluation.artifacts.length } });
+      }
+      if (evaluation.status === "fail") {
+        for (let skippedIndex = index + 1; skippedIndex < plans.length; skippedIndex += 1) {
+          const skipped = plans[skippedIndex]!;
+          const skippedId = `evaluator:${experimentId}:${skippedIndex}-${skipped.id}`;
+          await emitTrace(context, { type: "node:created", nodeId: skippedId, experimentId, parentNodeId: `experiment:${experimentId}`, label: skipped.id, role: "evaluator" });
+          await emitTrace(context, { type: "node:skipped", nodeId: skippedId, experimentId, label: skipped.id, role: "evaluator", status: "skipped", message: `Skipped after ${plan.id} failed` });
+        }
+        break;
+      }
     } catch (error) {
-      if (isArtifactPreservationFailure(error)) throw error;
       const message = errorMessage(error);
+      if (isArtifactPreservationFailure(error)) {
+        await emitTrace(context, { type: "node:failed", nodeId, experimentId, label: plan.id, role: "evaluator", status: "blocked", message });
+        throw error;
+      }
+      await emitTrace(context, { type: "node:failed", nodeId, experimentId, label: plan.id, role: "evaluator", status: "crash", message });
       evaluations.push({
         evaluator: evaluator.id,
         version: evaluator.version,

@@ -19,6 +19,7 @@ What is implemented:
 - optional task-specific agent DAGs with structured handoffs, conditions, retries, and bounded critic repairs;
 - parallel candidate tournaments with deterministic winner selection;
 - fsync-backed experiment phase journals with idempotent restart recovery;
+- a graph-first realtime flight recorder with live agent/subagent attempts, model and token/cost accounting, bounded progress, dependency edges, historical replay, evaluator waterfalls, metrics, and artifact inspection;
 - shared workflow-runtime primitives for scheduling, evaluation, preservation, finalization, and recovery;
 - versioned design intent, divergent prototype discovery, and enforced human gates;
 - multiple-choice game intake with explicit delegation to design agents;
@@ -38,6 +39,18 @@ npm test
 npm run factory -- list --config examples/mock/factory.config.json
 npm run factory -- run examples/mock/campaign.json --config examples/mock/factory.config.json
 ```
+
+Watch a run as it happens—or replay the same trace afterward—from the project
+directory that owns the campaign and `.factory` data:
+
+```sh
+npm run factory -- view campaign.json --config factory.config.json
+# open http://127.0.0.1:4317
+```
+
+The viewer is read-only. It tails the durable journal and result ledger, so it
+does not add a database, reporter extension, or engine-specific capture step to
+the factory loop. See [the viewer guide](docs/viewer.md).
 
 Start a game from an ordinary description with five short multiple-choice decisions. Every question includes `Figure it out`, which leaves that decision open for design agents instead of applying a hidden default:
 
@@ -87,6 +100,7 @@ and [safety notes](docs/safety.md).
 - `packages/design-sdk` — versioned design intent and human-playtest contracts.
 - `packages/extension-sdk` — tiny authoring helpers.
 - `packages/workflow-sdk` — reusable control-plane and recovery mechanics for workflow extensions.
+- `packages/viewer` — read-only live dashboard and historical flight recorder.
 - `packages/cli` — `intake`, `run`, `doctor`, `list`, and `explain`.
 - `extensions/*` — workflows, agent orchestration, Git, Godot, and test adapters.
 - `bridges/godot` — copyable in-engine addon.

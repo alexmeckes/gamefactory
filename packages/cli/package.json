@@ -4,5 +4,8 @@
   "private": true,
   "type": "module",
   "bin": { "gamefactory": "dist/index.js" },
-  "dependencies": { "@gamefactory/core": "0.1.0" }
+  "dependencies": {
+    "@gamefactory/core": "0.1.0",
+    "@gamefactory/viewer": "0.1.0"
+  }
 }

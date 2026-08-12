@@ -7,6 +7,7 @@
     { "path": "./packages/extension-sdk" },
     { "path": "./packages/workflow-sdk" },
     { "path": "./packages/testing" },
+    { "path": "./packages/viewer" },
     { "path": "./extensions/autoresearch" },
     { "path": "./extensions/mock" },
     { "path": "./extensions/command-agent" },

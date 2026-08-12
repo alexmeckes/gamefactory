@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { evaluatorPlans, mapBounded } from "./index.js";
+import { emitTrace, evaluatorPlans, mapBounded } from "./index.js";
 
 test("evaluator plans are ordered by declared relative cost", () => {
   assert.deepEqual(evaluatorPlans([
@@ -22,4 +22,27 @@ test("bounded map preserves input order while bounding active work", async () =>
   });
   assert.deepEqual(output, [2, 4, 6, 8]);
   assert.equal(maximum, 2);
+});
+
+test("trace failures are observational and never fail the workflow", async () => {
+  const debugMessages: string[] = [];
+  const context = {
+    trace: {
+      runId: "test-run",
+      emit: async () => {
+        throw new Error("trace disk unavailable");
+      }
+    },
+    logger: {
+      debug: (message: string) => debugMessages.push(message)
+    }
+  };
+
+  await assert.doesNotReject(() => emitTrace(context as never, {
+    type: "node:progress",
+    nodeId: "agent:test",
+    message: "still working"
+  }));
+  assert.equal(debugMessages.length, 1);
+  assert.match(debugMessages[0] ?? "", /Ignoring observational trace failure/);
 });

@@ -1,0 +1,335 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { demoSnapshot } from "@/lib/demo";
+import type { FactorySnapshot, GraphEdge, GraphNode, ReplayBundle, Usage } from "@/lib/types";
+
+const NODE_WIDTH = 178;
+const NODE_HEIGHT = 76;
+const COLUMN_GAP = 224;
+const ROW_GAP = 96;
+const GRAPH_X = 30;
+const GRAPH_Y = 56;
+const columnLabels = ["Run", "Candidate", "Workspace", "Team", "Agents", "Evaluation", "Decision", "Result"];
+
+type SourceMode = "live" | "replay" | "demo";
+
+function tokenTotal(usage?: Usage) {
+  if (!usage) return undefined;
+  return usage.totalTokens ?? ((usage.inputTokens ?? 0) + (usage.outputTokens ?? 0));
+}
+
+function formatTokens(value?: number) {
+  if (value === undefined) return "unreported";
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}m`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}k`;
+  return String(value);
+}
+
+function formatMoney(value?: number) {
+  return value === undefined ? "unreported" : `$${value.toFixed(value < 1 ? 3 : 2)}`;
+}
+
+function formatDuration(value?: number) {
+  if (value === undefined) return "—";
+  const seconds = Math.max(0, Math.round(value / 1000));
+  if (seconds > 59) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  return `${seconds}s`;
+}
+
+function modelLabel(usage?: Usage) {
+  if (!usage) return "model unreported";
+  return [usage.provider, usage.model].filter(Boolean).join(" / ") || "model unreported";
+}
+
+function stateAt(node: GraphNode, cursor: number) {
+  if (node.enteredSequence > cursor) return "waiting";
+  if (node.completedSequence === undefined || node.completedSequence > cursor) return "running";
+  return node.finalState;
+}
+
+function isSnapshot(value: unknown): value is FactorySnapshot {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<FactorySnapshot>;
+  return Boolean(
+    candidate.campaign &&
+      typeof candidate.campaign.id === "string" &&
+      typeof candidate.runId === "string" &&
+      typeof candidate.sequence === "number" &&
+      Array.isArray(candidate.graph?.nodes) &&
+      Array.isArray(candidate.graph?.edges) &&
+      Array.isArray(candidate.experiments),
+  );
+}
+
+function readBundle(value: unknown): FactorySnapshot | undefined {
+  if (isSnapshot(value)) return value;
+  if (value && typeof value === "object" && isSnapshot((value as Partial<ReplayBundle>).snapshot)) {
+    return (value as ReplayBundle).snapshot;
+  }
+  return undefined;
+}
+
+function downloadReplay(snapshot: FactorySnapshot) {
+  const bundle: ReplayBundle = {
+    format: "gamefactory-viewer-bundle",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    snapshot: { ...snapshot, live: false },
+  };
+  const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${snapshot.campaign.id}-${snapshot.runId}-replay.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function GraphCanvas({ snapshot, cursor, selectedId, onSelect }: {
+  snapshot: FactorySnapshot;
+  cursor: number;
+  selectedId?: string;
+  onSelect: (node: GraphNode) => void;
+}) {
+  const layout = useMemo(() => {
+    const orders = [...new Set(snapshot.graph.nodes.map((node) => node.order))].sort((a, b) => a - b);
+    const orderIndex = new Map(orders.map((order, index) => [order, index]));
+    const positions = new Map<string, { x: number; y: number }>();
+    for (const node of snapshot.graph.nodes) {
+      positions.set(node.id, {
+        x: GRAPH_X + node.column * COLUMN_GAP,
+        y: GRAPH_Y + (orderIndex.get(node.order) ?? 0) * ROW_GAP,
+      });
+    }
+    const maxColumn = Math.max(7, ...snapshot.graph.nodes.map((node) => node.column));
+    return {
+      positions,
+      width: GRAPH_X * 2 + maxColumn * COLUMN_GAP + NODE_WIDTH,
+      height: Math.max(360, GRAPH_Y * 2 + orders.length * ROW_GAP),
+    };
+  }, [snapshot]);
+
+  const visibleNodes = snapshot.graph.nodes.filter((node) => node.enteredSequence <= cursor);
+  const visibleIds = new Set(visibleNodes.map((node) => node.id));
+  const visibleEdges = snapshot.graph.edges.filter(
+    (edge) => edge.enteredSequence <= cursor && visibleIds.has(edge.source) && visibleIds.has(edge.target),
+  );
+
+  return (
+    <div className="graph-scroll">
+      <div className="graph-canvas" style={{ width: layout.width, height: layout.height }}>
+        {columnLabels.map((label, index) => (
+          <span className="lane-label" style={{ left: GRAPH_X + index * COLUMN_GAP }} key={label}>
+            {String(index + 1).padStart(2, "0")} / {label}
+          </span>
+        ))}
+        {visibleEdges.map((edge) => <EdgeLine edge={edge} positions={layout.positions} key={edge.id} />)}
+        {visibleNodes.map((node) => {
+          const position = layout.positions.get(node.id);
+          if (!position) return null;
+          const state = stateAt(node, cursor);
+          return (
+            <button
+              className={`graph-node node-${node.kind} state-${state}${selectedId === node.id ? " selected" : ""}`}
+              style={{ left: position.x, top: position.y }}
+              key={node.id}
+              onClick={() => onSelect(node)}
+              type="button"
+            >
+              <span className="node-topline"><span>{node.kind}</span><i aria-hidden="true" /></span>
+              <strong>{node.label}</strong>
+              <small>{node.detail ?? state}</small>
+              <span className="node-meta"><span>{state}</span>{node.durationMs !== undefined ? <span>{formatDuration(node.durationMs)}</span> : null}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function EdgeLine({ edge, positions }: { edge: GraphEdge; positions: Map<string, { x: number; y: number }> }) {
+  const source = positions.get(edge.source);
+  const target = positions.get(edge.target);
+  if (!source || !target) return null;
+  const x1 = source.x + NODE_WIDTH;
+  const y1 = source.y + NODE_HEIGHT / 2;
+  const x2 = target.x;
+  const y2 = target.y + NODE_HEIGHT / 2;
+  const distance = Math.hypot(x2 - x1, y2 - y1);
+  const angle = Math.atan2(y2 - y1, x2 - x1) * (180 / Math.PI);
+  return <div className={`edge-line edge-${edge.kind}`} style={{ left: x1, top: y1, width: distance, transform: `rotate(${angle}deg)` }} title={edge.label} />;
+}
+
+function UsageBar({ snapshot }: { snapshot: FactorySnapshot }) {
+  const usage = snapshot.usage;
+  return (
+    <section className="usage-bar" aria-label="Run usage">
+      <div><span>Invocations</span><strong>{usage.invocations}</strong></div>
+      <div><span>Total tokens</span><strong>{formatTokens(usage.tokenInvocations ? usage.totalTokens : undefined)}</strong></div>
+      <div><span>Reasoning</span><strong>{formatTokens(usage.tokenInvocations ? usage.reasoningTokens : undefined)}</strong></div>
+      <div><span>Run cost</span><strong>{formatMoney(usage.pricedInvocations ? usage.costUsd : undefined)}</strong></div>
+      <div className="models"><span>Models</span><strong>{usage.models.map((item) => item.model ?? "unreported").join(" · ") || "unreported"}</strong></div>
+    </section>
+  );
+}
+
+function Inspector({ node, snapshot, cursor }: { node?: GraphNode; snapshot: FactorySnapshot; cursor: number }) {
+  if (!node) {
+    return <aside className="inspector empty-inspector"><span className="section-kicker">Inspection</span><h2>Select a node</h2><p>Open any candidate, agent, evaluator, or decision to inspect its lineage, evidence, model, tokens, and cost.</p></aside>;
+  }
+  const experiment = snapshot.experiments.find((item) => item.id === node.experimentId);
+  const contribution = experiment?.contributors.find((item) => item.invocationId === node.invocationId || item.agentId === node.label);
+  const usage = node.usage ?? contribution?.usage;
+  const phases = experiment?.phases.filter((phase) => phase.sequence <= cursor) ?? [];
+  return (
+    <aside className="inspector">
+      <div className="inspector-heading"><span className="section-kicker">{node.kind}</span><span className={`state-pill state-${stateAt(node, cursor)}`}>{stateAt(node, cursor)}</span></div>
+      <h2>{node.label}</h2>
+      <p>{contribution?.summary ?? node.detail ?? "No summary reported."}</p>
+      <dl className="facts">
+        <div><dt>Model</dt><dd>{modelLabel(usage)}</dd></div>
+        <div><dt>Tokens</dt><dd>{formatTokens(tokenTotal(usage))}</dd></div>
+        <div><dt>Cost</dt><dd>{formatMoney(usage?.costUsd)}</dd></div>
+        <div><dt>Artifacts</dt><dd>{node.artifacts || contribution?.artifacts || 0}</dd></div>
+      </dl>
+      {node.invocationId ? <div className="lineage"><span className="section-kicker">Invocation lineage</span><code>{node.parentInvocationId ?? "factory root"}</code><span className="lineage-arrow">↓</span><code>{node.invocationId}</code></div> : null}
+      {experiment ? (
+        <>
+          <span className="section-kicker section-space">Candidate metrics</span>
+          <div className="metric-grid">{Object.entries(experiment.metrics).map(([name, value]) => <div key={name}><span>{name.replaceAll("_", " ")}</span><strong>{value.toLocaleString(undefined, { maximumFractionDigits: 3 })}</strong></div>)}</div>
+          <span className="section-kicker section-space">Visible journal</span>
+          <ol className="phase-list">{phases.slice(-6).map((phase) => <li key={`${phase.sequence}-${phase.phase}`}><i aria-hidden="true" /><span><strong>{phase.phase}</strong><small>#{phase.sequence} · {phase.note}</small></span></li>)}</ol>
+        </>
+      ) : null}
+    </aside>
+  );
+}
+
+export default function FactoryConsole() {
+  const [snapshot, setSnapshot] = useState<FactorySnapshot>(demoSnapshot);
+  const [source, setSource] = useState<SourceMode>("demo");
+  const [connection, setConnection] = useState("checking local bridge");
+  const [cursor, setCursor] = useState(demoSnapshot.sequence);
+  const [following, setFollowing] = useState(true);
+  const [playing, setPlaying] = useState(false);
+  const [selectedId, setSelectedId] = useState<string>();
+  const [dropActive, setDropActive] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const streamRef = useRef<EventSource>();
+  const selectedNode = snapshot.graph.nodes.find((node) => node.id === selectedId);
+  const visibleEvents = snapshot.events.filter((event) => event.sequence <= cursor).slice(-10);
+
+  function applySnapshot(next: FactorySnapshot, nextSource: SourceMode) {
+    setSnapshot(next);
+    setSource(nextSource);
+    setCursor((current) => (following || current > next.sequence ? next.sequence : current));
+    if (nextSource !== "live") { streamRef.current?.close(); streamRef.current = undefined; }
+  }
+
+  async function connectLive(runId?: string) {
+    setConnection("connecting");
+    const path = runId ? `/api/factory/snapshot?run=${encodeURIComponent(runId)}` : "/api/factory/snapshot";
+    try {
+      const response = await fetch(path, { cache: "no-store" });
+      if (!response.ok) throw new Error("bridge unavailable");
+      const value: unknown = await response.json();
+      if (!isSnapshot(value)) throw new Error("invalid bridge response");
+      applySnapshot(value, "live");
+      setConnection(value.live ? "receiving live events" : "bridge connected · replay ready");
+      streamRef.current?.close();
+      const streamPath = runId ? `/api/factory/stream?run=${encodeURIComponent(runId)}` : "/api/factory/stream";
+      const stream = new EventSource(streamPath);
+      stream.addEventListener("snapshot", (event) => {
+        try {
+          const next: unknown = JSON.parse((event as MessageEvent).data);
+          if (isSnapshot(next)) { applySnapshot(next, "live"); setConnection(next.live ? "receiving live events" : "bridge connected · replay ready"); }
+        } catch { setConnection("received an unreadable event"); }
+      });
+      stream.onerror = () => setConnection("stream paused · reconnect to retry");
+      streamRef.current = stream;
+    } catch { setConnection("local bridge offline"); }
+  }
+
+  async function importReplay(file?: File) {
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) { setConnection("replay exceeds the 8 MB viewer limit"); return; }
+    try {
+      const replay = readBundle(JSON.parse(await file.text()) as unknown);
+      if (!replay) throw new Error("invalid replay");
+      applySnapshot({ ...replay, live: false }, "replay");
+      setFollowing(false);
+      setConnection(`loaded ${file.name} locally`);
+      setSelectedId(undefined);
+    } catch { setConnection("that file is not a GameFactory replay"); }
+  }
+
+  useEffect(() => {
+    void connectLive();
+    return () => streamRef.current?.close();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!playing) return;
+    const timer = window.setInterval(() => setCursor((value) => {
+      if (value >= snapshot.sequence) { setPlaying(false); return snapshot.sequence; }
+      return value + 1;
+    }), 55);
+    return () => window.clearInterval(timer);
+  }, [playing, snapshot.sequence]);
+
+  function selectDemo() {
+    applySnapshot(demoSnapshot, "demo");
+    setFollowing(false);
+    setConnection("showing the built-in example replay");
+    setSelectedId(undefined);
+  }
+
+  return (
+    <main className="site-shell">
+      <header className="masthead">
+        <a className="brand" href="#top" aria-label="GameFactory observatory home"><span className="brand-mark"><i /><i /><i /></span><span><strong>GameFactory</strong><small>Observatory</small></span></a>
+        <div className="source-switcher" aria-label="Data source">
+          <button className={source === "live" ? "active" : ""} onClick={() => void connectLive()} type="button">Live bridge</button>
+          <button className={source === "demo" ? "active" : ""} onClick={selectDemo} type="button">Example replay</button>
+          <button className={source === "replay" ? "active" : ""} onClick={() => fileInput.current?.click()} type="button">Open replay</button>
+        </div>
+        <div className={`connection connection-${source}`}><i aria-hidden="true" /><span>{connection}</span></div>
+      </header>
+
+      <section className="hero" id="top">
+        <div><p className="eyebrow">{snapshot.live ? "Live orchestration trace" : source === "demo" ? "Interactive example trace" : "Recorded orchestration trace"}</p><h1>{snapshot.campaign.id}</h1><p className="objective">{snapshot.campaign.objective}</p></div>
+        <div className="run-ident"><span>workflow / {snapshot.campaign.workflow}</span><span>run / {snapshot.runId}</span><span>sequence / {cursor} of {snapshot.sequence}</span></div>
+      </section>
+
+      <section className="stat-grid" aria-label="Run summary">
+        <div><strong>{snapshot.counters.experiments}</strong><span>Candidates explored</span></div><div><strong>{snapshot.counters.active}</strong><span>Active now</span></div><div><strong>{snapshot.counters.kept}</strong><span>Changes kept</span></div><div><strong>{snapshot.counters.discarded}</strong><span>Safely discarded</span></div><div><strong>{formatDuration(snapshot.durationMs)}</strong><span>Wall time</span></div>
+      </section>
+      <UsageBar snapshot={snapshot} />
+
+      <section className="workspace-grid">
+        <div className="graph-panel">
+          <div className="panel-heading"><div><span className="section-kicker">Factory graph</span><h2>Who did what, when, and why</h2></div><div className="graph-legend"><span className="legend-running">Running</span><span className="legend-keep">Kept</span><span className="legend-discard">Discarded</span><span className="legend-blocked">Blocked</span></div></div>
+          <div className="replay-controls"><button onClick={() => { setPlaying((value) => !value); setFollowing(false); }} type="button">{playing ? "Pause" : "Replay"}</button><button className={following ? "active" : ""} onClick={() => { setFollowing(true); setPlaying(false); setCursor(snapshot.sequence); }} type="button">Follow latest</button><input aria-label="Replay position" min={0} max={snapshot.sequence} value={cursor} onChange={(event) => { setCursor(Number(event.target.value)); setFollowing(false); setPlaying(false); }} type="range" /><output>#{cursor}</output></div>
+          <GraphCanvas snapshot={snapshot} cursor={cursor} selectedId={selectedId} onSelect={(node) => setSelectedId(node.id)} />
+        </div>
+        <Inspector node={selectedNode} snapshot={snapshot} cursor={cursor} />
+      </section>
+
+      <section className="lower-grid">
+        <div className="ledger panel-block">
+          <div className="panel-heading compact"><div><span className="section-kicker">Event ledger</span><h2>Latest visible transitions</h2></div><span>{visibleEvents.length} shown</span></div>
+          <div className="ledger-table">{visibleEvents.map((event) => <button key={`${event.sequence}-${event.experimentId}-${event.phase}`} onClick={() => { const node = event.nodeId ? snapshot.graph.nodes.find((item) => item.id === event.nodeId) : snapshot.graph.nodes.find((item) => item.experimentId === event.experimentId); if (node) setSelectedId(node.id); }} type="button"><span>#{event.sequence}</span><strong>{event.phase}</strong><code>{event.experimentId}</code><small>{event.note}</small></button>)}</div>
+        </div>
+        <div className={`replay-drop panel-block${dropActive ? " drop-active" : ""}`} onDragEnter={(event) => { event.preventDefault(); setDropActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDropActive(false)} onDrop={(event) => { event.preventDefault(); setDropActive(false); void importReplay(event.dataTransfer.files[0]); }}>
+          <span className="section-kicker">Portable replay</span><h2>Take the factory trace with you.</h2><p>Replay files are parsed in your browser. Nothing is uploaded, and opening one never touches the running factory.</p>
+          <div className="drop-actions"><button onClick={() => fileInput.current?.click()} type="button">Choose replay</button><button className="secondary" onClick={() => downloadReplay(snapshot)} type="button">Download this run</button></div>
+          <input ref={fileInput} hidden accept="application/json,.json" onChange={(event) => void importReplay(event.target.files?.[0])} type="file" />
+        </div>
+      </section>
+      <footer><span>Execution stays beside Godot, Git, and your files.</span><span>The observatory receives only the trace and explicitly preserved artifacts.</span></footer>
+    </main>
+  );
+}

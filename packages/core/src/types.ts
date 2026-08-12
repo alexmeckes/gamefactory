@@ -4,6 +4,8 @@ import type {
   WorkflowJournalEntry,
   WorkflowRecoveryState
 } from "./journal.js";
+import type { TraceSink } from "./trace.js";
+import type { InvocationUsage } from "./usage.js";
 
 export type CapabilityKind =
   | "workspace"
@@ -54,6 +56,7 @@ export interface Evaluation {
   artifacts: ArtifactReference[];
   confidence?: number;
   summary?: string;
+  usage?: InvocationUsage;
 }
 
 export interface BudgetConfig {
@@ -120,11 +123,12 @@ export interface AgentRequest {
   experimentId: string;
   history: ExperimentRecord[];
   signal: AbortSignal;
+  trace?: TraceSink;
 }
 
 export interface AgentResult {
   summary: string;
-  usage?: { inputTokens?: number; outputTokens?: number; costUsd?: number };
+  usage?: InvocationUsage;
   artifacts?: ArtifactReference[];
   contributors?: AgentContribution[];
   metadata?: Record<string, unknown>;
@@ -140,6 +144,8 @@ export interface AgentContribution {
   finishedAt: string;
   summary: string;
   artifacts: ArtifactReference[];
+  invocationId?: string;
+  parentInvocationId?: string;
   usage?: AgentResult["usage"];
   metadata?: Record<string, unknown>;
 }
@@ -333,6 +339,7 @@ export interface WorkflowContext {
   readRecords(): Promise<ExperimentRecord[]>;
   preserveArtifacts(artifacts: ArtifactReference[], namespace: string): Promise<ArtifactReference[]>;
   journal?: WorkflowJournalContext;
+  trace?: TraceSink;
   emit(event: FactoryEvent): Promise<void>;
   budget: BudgetControllerLike;
   logger: Logger;
@@ -414,4 +421,5 @@ export interface FactoryConfig {
   artifactDirectory?: string;
   resultLog?: string;
   journalLog?: string;
+  traceLog?: string;
 }

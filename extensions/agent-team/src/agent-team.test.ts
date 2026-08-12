@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
-import type { Campaign } from "@gamefactory/core";
+import type { Campaign, FactoryTraceEventInput } from "@gamefactory/core";
 import { AgentTeam, AgentTeamExecutionError } from "./index.js";
 
 const exec = promisify(execFile);
@@ -57,6 +57,7 @@ if (["alpha", "beta"].includes(request.nodeId)) {
     summary: request.nodeId + " complete",
     outcome: "pass",
     context: { source: request.nodeId },
+    usage: { inputTokens: 100, outputTokens: 25, costUsd: 0.01, costSource: "provider-reported" },
     artifacts: [{ kind: "other", path: "value.txt", label: request.nodeId + " evidence" }]
   }));
 } else if (request.nodeId === "join") {
@@ -343,7 +344,7 @@ test("agent graph conditions branch on structured predecessor outcomes", async (
   try {
     const result = await new AgentTeam().run({
       campaign: graphCampaign(root, [
-        graphCommand("alpha", { permissions: "read" }),
+        graphCommand("alpha", { permissions: "read", provider: "openai", model: "test-model" }),
         graphCommand("conditional", {
           permissions: "read",
           dependsOn: ["alpha"],
@@ -426,6 +427,50 @@ test("agent graph preserves completed attempt evidence when the total-attempt ca
       assert.ok(error.artifacts.some((artifact) => artifact.label?.includes("alpha stdout")));
       return true;
     });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("agent graph emits live topology, bounded progress, and attempt completion events", async () => {
+  const root = await repository();
+  const events: FactoryTraceEventInput[] = [];
+  try {
+    await new AgentTeam().run({
+      campaign: graphCampaign(root, [
+        graphCommand("alpha", { permissions: "read", provider: "openai", model: "test-model" }),
+        graphCommand("beta", { permissions: "read" }),
+        graphCommand("join", { permissions: "read", dependsOn: ["alpha", "beta"] })
+      ]),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-live-trace",
+      history: [],
+      signal: new AbortController().signal,
+      trace: {
+        runId: "run-live-trace",
+        campaignId: "agent-team-graph-contract",
+        emit: async (event) => { events.push(event); }
+      }
+    });
+    const alphaAttempt = "agent:exp-live-trace:alpha:attempt-1";
+    assert.ok(events.some((event) => event.type === "edge:created" && event.sourceNodeId === "agent-node:exp-live-trace:alpha" && event.targetNodeId === "agent-node:exp-live-trace:join"));
+    assert.ok(events.some((event) => event.type === "node:started" && event.nodeId === alphaAttempt));
+    assert.ok(events.some((event) => event.type === "node:progress" && event.nodeId === alphaAttempt && event.progress?.unit === "bytes"));
+    assert.ok(events.some((event) => event.type === "node:completed" && event.nodeId === alphaAttempt));
+    const alphaComplete = events.find((event) => event.type === "node:completed" && event.nodeId === alphaAttempt);
+    assert.deepEqual((alphaComplete?.data as { usage?: unknown })?.usage, {
+      provider: "openai",
+      model: "test-model",
+      inputTokens: 100,
+      outputTokens: 25,
+      costUsd: 0.01,
+      costSource: "provider-reported"
+    });
+    const alphaStart = events.findIndex((event) => event.type === "node:started" && event.nodeId === alphaAttempt);
+    const alphaFinish = events.findIndex((event) => event.type === "node:completed" && event.nodeId === alphaAttempt);
+    assert.ok(alphaStart >= 0 && alphaFinish > alphaStart);
+    assert.equal(events.at(-1)?.type, "node:completed");
+    assert.equal(events.at(-1)?.nodeId, "agent-team:exp-live-trace");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

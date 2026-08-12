@@ -69,7 +69,8 @@ export async function loadFactoryConfig(path: string): Promise<FactoryConfig> {
     extensions: value.extensions.map((entry) => resolve(dirname(path), entry)),
     ...(typeof value.artifactDirectory === "string" ? { artifactDirectory: value.artifactDirectory } : {}),
     ...(typeof value.resultLog === "string" ? { resultLog: value.resultLog } : {}),
-    ...(typeof value.journalLog === "string" ? { journalLog: value.journalLog } : {})
+    ...(typeof value.journalLog === "string" ? { journalLog: value.journalLog } : {}),
+    ...(typeof value.traceLog === "string" ? { traceLog: value.traceLog } : {})
   };
 }
 

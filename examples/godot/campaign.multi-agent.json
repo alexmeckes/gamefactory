@@ -22,6 +22,8 @@
     "agentTeam": {
       "maximumParallel": 2,
       "maxOutputCharacters": 12000,
+      "provider": "local",
+      "model": "deterministic-team-role",
       "scouts": [
         { "id": "systems-scout", "command": ["node", "tools/team-role.mjs"] },
         { "id": "gameplay-scout", "command": ["node", "tools/team-role.mjs"] }

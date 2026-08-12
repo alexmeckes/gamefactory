@@ -2,6 +2,7 @@ import { decideAcceptance, flattenMetrics } from "@gamefactory/core";
 import type { AgentDriver, CampaignResult, ExperimentRecord, Workflow, WorkflowContext, WorkspaceDriver } from "@gamefactory/core";
 import { defineExtension } from "@gamefactory/extension-sdk";
 import {
+  agentJournalData,
   campaignResult,
   evaluateWaterfall,
   failureAgentResult,
@@ -99,9 +100,10 @@ export class AutoresearchWorkflow implements Workflow {
           candidate,
           experimentId,
           history: [...experiments],
-          signal: context.signal
+          signal: context.signal,
+          ...(context.trace ? { trace: context.trace } : {})
         }), experimentId);
-        await journalPhase(context, experimentId, "agent-finished", { summary: agentResult.summary, usage: agentResult.usage ?? null });
+        await journalPhase(context, experimentId, "agent-finished", agentJournalData(agentResult));
         const evaluations = (await evaluateWaterfall(
           context,
           config.evaluators.map((id, order) => ({ id, cost: order, order })),

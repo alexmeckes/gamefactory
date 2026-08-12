@@ -68,6 +68,30 @@ test("command agent receives an isolated request and captures its audit logs", a
   }
 });
 
+test("command agent records configured model identity and structured usage", async () => {
+  const candidateRoot = await mkdtemp(resolve(tmpdir(), "gamefactory-agent-usage-"));
+  const script = resolve(candidateRoot, "agent.mjs");
+  try {
+    await writeFile(script, `console.log(JSON.stringify({ summary: "model work complete", usage: { inputTokens: 120, cachedInputTokens: 80, outputTokens: 30, reasoningTokens: 12, costUsd: 0.07, costSource: "provider-reported" } }));\n`, "utf8");
+    const result = await run(campaign(candidateRoot, script, { provider: "openai", model: "test-model" }), candidateRoot, "exp-usage");
+    assert.equal(result.summary, "model work complete");
+    assert.deepEqual(result.usage, {
+      provider: "openai",
+      model: "test-model",
+      inputTokens: 120,
+      cachedInputTokens: 80,
+      outputTokens: 30,
+      reasoningTokens: 12,
+      costUsd: 0.07,
+      costSource: "provider-reported"
+    });
+    assert.equal(result.contributors?.[0]?.invocationId, "agent:exp-usage:command.agent:attempt-1");
+    assert.equal(result.contributors?.[0]?.usage?.model, "test-model");
+  } finally {
+    await rm(candidateRoot, { recursive: true, force: true });
+  }
+});
+
 test("command agent retains nonzero-exit evidence outside a disposable candidate", async () => {
   const projectRoot = await mkdtemp(resolve(tmpdir(), "gamefactory-agent-failure-project-"));
   const candidateRoot = resolve(projectRoot, "candidate");

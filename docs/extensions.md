@@ -38,6 +38,13 @@ The command-agent adapter is deliberately model-neutral. Its configured process
 receives `GAMEFACTORY_REQUEST` and `GAMEFACTORY_CANDIDATE`, so Codex, Pi, or a
 local agent can plug in without becoming a core dependency.
 
+Set optional `commandAgent.provider` and `commandAgent.model` values to retain
+backend identity. A command may return a JSON object on its last stdout line
+with `summary` and `usage`. Usage accepts `inputTokens`, `cachedInputTokens`,
+`outputTokens`, `reasoningTokens`, `totalTokens`, `costUsd`, `costSource`, and
+`pricingVersion`. Invalid usage metadata is ignored rather than changing an
+otherwise successful agent result.
+
 For orchestration rather than a single process, use the
 [multi-agent extensions](multi-agent.md). A team still implements `AgentDriver`,
 and a tournament still implements `Workflow`, so neither expands the kernel.

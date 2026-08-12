@@ -3,10 +3,11 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { createInterface } from "node:readline/promises";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { ConsoleLogger, FactoryRunner, loadCampaign, loadFactoryConfig, type IntakeDriver } from "@gamefactory/core";
+import { startFactoryViewer } from "@gamefactory/viewer";
 import { chooseIntakeOption } from "./intake.js";
 
 function usage(): never {
-  console.error(`GameFactory\n\nUsage:\n  gamefactory intake "<game idea>" [--provider game.design] [--output game.brief.json] [--force] [--config factory.config.json]\n  gamefactory run <campaign.json> [--config factory.config.json]\n  gamefactory doctor <campaign.json> [--config factory.config.json]\n  gamefactory list [--config factory.config.json]\n  gamefactory explain <capability> [--config factory.config.json]`);
+  console.error(`GameFactory\n\nUsage:\n  gamefactory intake "<game idea>" [--provider game.design] [--output game.brief.json] [--force] [--config factory.config.json]\n  gamefactory run <campaign.json> [--config factory.config.json]\n  gamefactory view <campaign.json> [--config factory.config.json] [--port 4317] [--host 127.0.0.1]\n  gamefactory doctor <campaign.json> [--config factory.config.json]\n  gamefactory list [--config factory.config.json]\n  gamefactory explain <capability> [--config factory.config.json]`);
   process.exit(2);
 }
 
@@ -31,6 +32,22 @@ async function main(): Promise<void> {
   const logger = new ConsoleLogger(process.env.FACTORY_LOG_LEVEL === "debug");
   const controller = new AbortController();
   process.once("SIGINT", () => controller.abort(new Error("Interrupted")));
+  if (command === "view") {
+    if (!subject) usage();
+    const campaign = await loadCampaign(resolve(cwd, subject));
+    const portValue = option("--port", "4317");
+    const port = Number(portValue);
+    if (!Number.isSafeInteger(port) || port < 0 || port > 65535) throw new Error(`Invalid viewer port: ${portValue}`);
+    const viewer = await startFactoryViewer({ cwd, campaign, config, host: option("--host", "127.0.0.1"), port });
+    console.log(`GameFactory viewer: ${viewer.url}`);
+    console.log(`Watching ${campaign.id}. Press Ctrl+C to stop.`);
+    try {
+      if (!controller.signal.aborted) await new Promise<void>((resolveStop) => controller.signal.addEventListener("abort", () => resolveStop(), { once: true }));
+    } finally {
+      await viewer.close();
+    }
+    return;
+  }
   const runner = new FactoryRunner({ cwd, config, logger, signal: controller.signal });
   await runner.initialize();
 

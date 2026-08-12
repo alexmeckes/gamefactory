@@ -13,6 +13,7 @@ import type {
 } from "@gamefactory/core";
 import { defineExtension } from "@gamefactory/extension-sdk";
 import {
+  agentJournalData,
   asObject,
   campaignResult,
   errorMessage,
@@ -128,9 +129,10 @@ async function executeCandidate(
       candidate,
       experimentId,
       history: [...history],
-      signal: context.signal
+      signal: context.signal,
+      ...(context.trace ? { trace: context.trace } : {})
     }), experimentId);
-    await journalPhase(context, experimentId, "agent-finished", { summary: agentResult.summary, usage: agentResult.usage ?? null });
+    await journalPhase(context, experimentId, "agent-finished", agentJournalData(agentResult));
     context.signal.throwIfAborted();
     const evaluationRun = await evaluateWaterfall(context, evaluatorConfig, candidate, experimentId);
     evaluations = evaluationRun.evaluations;

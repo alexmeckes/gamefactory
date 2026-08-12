@@ -8,8 +8,11 @@ import type {
   AgentRequest,
   AgentResult,
   AgentRole,
-  ArtifactReference
+  ArtifactReference,
+  FactoryTraceEventInput,
+  InvocationUsage
 } from "@gamefactory/core";
+import { aggregateInvocationUsage, parseInvocationUsage } from "@gamefactory/core";
 import { defineExtension } from "@gamefactory/extension-sdk";
 
 type TeamStage = AgentRole;
@@ -18,6 +21,8 @@ type Permission = "read" | "write";
 interface ContributorConfig {
   id: string;
   command: string[];
+  provider?: string;
+  model?: string;
 }
 
 interface LegacyAgentTeamConfig {
@@ -79,6 +84,7 @@ interface StructuredNodeOutput {
   findings?: unknown;
   context?: unknown;
   artifacts?: ArtifactReference[];
+  usage?: InvocationUsage;
   [key: string]: unknown;
 }
 
@@ -114,6 +120,9 @@ export interface ContributorProvenance {
   stdoutPath: string;
   stderrPath: string;
   structuredOutputPath?: string;
+  invocationId: string;
+  parentInvocationId: string;
+  usage?: InvocationUsage;
 }
 
 interface ContributorRun {
@@ -177,6 +186,39 @@ const ARTIFACT_KINDS = new Set<ArtifactReference["kind"]>([
   "image", "video", "audio", "replay", "telemetry", "profile", "test-report", "log", "build", "crash-dump", "other"
 ]);
 const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
+async function emitAgentTrace(request: AgentRequest, event: FactoryTraceEventInput): Promise<void> {
+  try {
+    await request.trace?.emit(event);
+  } catch {
+    // Observability must never change agent execution.
+  }
+}
+
+function teamTraceNode(request: AgentRequest): string {
+  return `agent-team:${request.experimentId}`;
+}
+
+function contributorTraceNode(request: AgentRequest, nodeId: string, attempt: number): string {
+  return `agent:${request.experimentId}:${nodeId}:attempt-${attempt}`;
+}
+
+function agentGraphTraceNode(request: AgentRequest, nodeId: string): string {
+  return `agent-node:${request.experimentId}:${nodeId}`;
+}
+
+const announcedTraceNodes = new WeakMap<AgentRequest, Set<string>>();
+
+async function ensureAgentTraceNode(request: AgentRequest, config: ContributorConfig, stage: TeamStage, readOnly: boolean): Promise<string> {
+  const nodeId = agentGraphTraceNode(request, config.id);
+  const announced = announcedTraceNodes.get(request) ?? new Set<string>();
+  announcedTraceNodes.set(request, announced);
+  if (announced.has(nodeId)) return nodeId;
+  announced.add(nodeId);
+  await emitAgentTrace(request, { type: "node:created", nodeId, experimentId: request.experimentId, parentNodeId: teamTraceNode(request), label: config.id, role: stage, data: { readOnly, ...(config.provider ? { provider: config.provider } : {}), ...(config.model ? { model: config.model } : {}) } });
+  await emitAgentTrace(request, { type: "edge:created", nodeId: `edge:${teamTraceNode(request)}:${nodeId}`, experimentId: request.experimentId, sourceNodeId: teamTraceNode(request), targetNodeId: nodeId, role: "agent" });
+  return nodeId;
+}
 const OUTCOME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const candidateQueues = new Map<string, Promise<void>>();
 const COMPATIBILITY_ENVIRONMENT = ["PATH", "PATHEXT", "SystemRoot", "WINDIR", "COMSPEC", "TEMP", "TMP", "TMPDIR", "LANG", "LC_ALL", "LC_CTYPE", "TERM", "NO_COLOR"] as const;
@@ -221,8 +263,14 @@ function stringList(value: unknown, location: string, maximum = 64): string[] {
   return [...new Set(value as string[])];
 }
 
-function contributor(value: unknown, defaultId: string, location: string): ContributorConfig {
-  if (isStringArray(value)) return { id: defaultId, command: [...value] };
+function identityString(value: unknown, location: string): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || value.trim().length === 0 || value.length > 256) throw new Error(`${location} must be a non-empty string with at most 256 characters`);
+  return value.trim();
+}
+
+function contributor(value: unknown, defaultId: string, location: string, defaults: Pick<ContributorConfig, "provider" | "model"> = {}): ContributorConfig {
+  if (isStringArray(value)) return { id: defaultId, command: [...value], ...defaults };
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${location} must be a command string array or an object with id and command`);
   }
@@ -232,13 +280,15 @@ function contributor(value: unknown, defaultId: string, location: string): Contr
     throw new Error(`${location}.id must use only letters, numbers, dots, underscores, and hyphens`);
   }
   if (!isStringArray(record.command)) throw new Error(`${location}.command must be a non-empty string array`);
-  return { id, command: [...record.command] };
+  const provider = identityString(record.provider, `${location}.provider`) ?? defaults.provider;
+  const model = identityString(record.model, `${location}.model`) ?? defaults.model;
+  return { id, command: [...record.command], ...(provider ? { provider } : {}), ...(model ? { model } : {}) };
 }
 
-function contributorList(value: unknown, stage: "scout" | "critic"): ContributorConfig[] {
+function contributorList(value: unknown, stage: "scout" | "critic", defaults: Pick<ContributorConfig, "provider" | "model"> = {}): ContributorConfig[] {
   if (!Array.isArray(value) || value.length === 0) throw new Error(`parameters.agentTeam.${stage}s must be a non-empty array`);
   if (value.length > 64) throw new Error(`parameters.agentTeam.${stage}s cannot contain more than 64 contributors`);
-  const contributors = value.map((item, index) => contributor(item, `${stage}-${index + 1}`, `parameters.agentTeam.${stage}s[${index}]`));
+  const contributors = value.map((item, index) => contributor(item, `${stage}-${index + 1}`, `parameters.agentTeam.${stage}s[${index}]`, defaults));
   const ids = new Set<string>();
   for (const item of contributors) {
     if (ids.has(item.id)) throw new Error(`parameters.agentTeam.${stage}s contains duplicate id ${item.id}`);
@@ -313,9 +363,9 @@ function repairEdge(value: unknown, location: string): RepairEdge | undefined {
   };
 }
 
-function graphNode(value: unknown, index: number): GraphNodeConfig {
+function graphNode(value: unknown, index: number, defaults: Pick<ContributorConfig, "provider" | "model"> = {}): GraphNodeConfig {
   const location = `parameters.agentTeam.graph.nodes[${index}]`;
-  const base = contributor(value, `node-${index + 1}`, location);
+  const base = contributor(value, `node-${index + 1}`, location, defaults);
   const record = value as Record<string, unknown>;
   const rawRole = record.role ?? "worker";
   if (typeof rawRole !== "string" || !ROLES.has(rawRole as AgentRole)) throw new Error(`${location}.role is not a supported agent role`);
@@ -392,6 +442,12 @@ function readConfig(request: AgentRequest): AgentTeamConfig {
     throw new Error("parameters.agentTeam must configure a legacy pipeline or graph");
   }
   const record = value as Record<string, unknown>;
+  const provider = identityString(record.provider, "parameters.agentTeam.provider");
+  const model = identityString(record.model, "parameters.agentTeam.model");
+  const defaults: Pick<ContributorConfig, "provider" | "model"> = {
+    ...(provider ? { provider } : {}),
+    ...(model ? { model } : {})
+  };
   const maxOutputCharacters = integer(record.maxOutputCharacters, 20_000, 1, 1_000_000, "parameters.agentTeam.maxOutputCharacters");
   const maximumParallel = integer(record.maximumParallel, 4, 1, 32, "parameters.agentTeam.maximumParallel");
   if (record.graph !== undefined) {
@@ -402,7 +458,7 @@ function readConfig(request: AgentRequest): AgentTeamConfig {
     if (!Array.isArray(graph.nodes) || graph.nodes.length === 0 || graph.nodes.length > 64) {
       throw new Error("parameters.agentTeam.graph.nodes must contain from 1 to 64 nodes");
     }
-    const nodes = graph.nodes.map(graphNode);
+    const nodes = graph.nodes.map((node, index) => graphNode(node, index, defaults));
     validateGraph(nodes);
     return {
       kind: "graph",
@@ -416,10 +472,10 @@ function readConfig(request: AgentRequest): AgentTeamConfig {
   }
   return {
     kind: "legacy",
-    scouts: contributorList(record.scouts, "scout"),
-    planner: contributor(record.planner, "planner", "parameters.agentTeam.planner"),
-    implementer: contributor(record.implementer, "implementer", "parameters.agentTeam.implementer"),
-    critics: contributorList(record.critics, "critic"),
+    scouts: contributorList(record.scouts, "scout", defaults),
+    planner: contributor(record.planner, "planner", "parameters.agentTeam.planner", defaults),
+    implementer: contributor(record.implementer, "implementer", "parameters.agentTeam.implementer", defaults),
+    critics: contributorList(record.critics, "critic", defaults),
     maxOutputCharacters,
     maximumParallel
   };
@@ -466,7 +522,8 @@ function processCommand(
   stage: TeamStage,
   contributorId: string,
   nodeId = contributorId,
-  attempt = 1
+  attempt = 1,
+  onProgress?: (progress: { stdoutBytes: number; stderrBytes: number; capturedBytes: number }) => void
 ): Promise<ProcessResult> {
   return new Promise((resolveResult) => {
     let settled = false;
@@ -478,6 +535,10 @@ function processCommand(
     const maximumOutputBytes = 4 * 1024 * 1024;
     const timeoutMs = 15 * 60_000;
     let capturedBytes = 0;
+    let stdoutBytes = 0;
+    let stderrBytes = 0;
+    let lastProgressBytes = 0;
+    let lastProgressAt = 0;
     let timeout: ReturnType<typeof setTimeout> | undefined;
     let abort = (): void => {};
     const finish = (result: ProcessResult): void => {
@@ -515,6 +576,8 @@ function processCommand(
       }
     };
     const capture = (target: "stdout" | "stderr", chunk: Buffer): void => {
+      if (target === "stdout") stdoutBytes += chunk.byteLength;
+      else stderrBytes += chunk.byteLength;
       const remaining = maximumOutputBytes - capturedBytes;
       if (remaining > 0) {
         const kept = chunk.byteLength <= remaining ? chunk : chunk.subarray(0, remaining);
@@ -523,6 +586,13 @@ function processCommand(
         capturedBytes += kept.byteLength;
       }
       if (chunk.byteLength > remaining) terminate("output-limit");
+      const now = Date.now();
+      const total = stdoutBytes + stderrBytes;
+      if (onProgress && (total - lastProgressBytes >= 64 * 1024 || now - lastProgressAt >= 750)) {
+        lastProgressBytes = total;
+        lastProgressAt = now;
+        onProgress({ stdoutBytes, stderrBytes, capturedBytes });
+      }
     };
     child.stdout.on("data", (chunk: Buffer) => { capture("stdout", chunk); });
     child.stderr.on("data", (chunk: Buffer) => { capture("stderr", chunk); });
@@ -601,6 +671,8 @@ async function structuredOutput(stdout: string, root: string): Promise<Structure
     if (!Array.isArray(record.artifacts) || record.artifacts.length > 64) throw new Error("structured output artifacts must be an array with at most 64 entries");
     normalized.artifacts = await Promise.all(record.artifacts.map((artifact, index) => normalizeArtifact(artifact, root, `structured output artifacts[${index}]`)));
   }
+  const usage = parseInvocationUsage(record.usage);
+  if (usage) normalized.usage = usage;
   return normalized;
 }
 
@@ -651,6 +723,10 @@ async function invokeContributor(
     contributorId: config.id,
     nodeId: options.nodeId,
     attempt: options.attempt,
+    invocationId: contributorTraceNode(request, options.nodeId, options.attempt),
+    parentInvocationId: agentGraphTraceNode(request, config.id),
+    ...(config.provider ? { provider: config.provider } : {}),
+    ...(config.model ? { model: config.model } : {}),
     readOnly,
     permissions: readOnly ? "read" : "write",
     reason: options.reason,
@@ -665,9 +741,44 @@ async function invokeContributor(
     }))
   };
   await writeFile(requestPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  const graphNodeId = await ensureAgentTraceNode(request, config, stage, readOnly);
+  await emitAgentTrace(request, { type: "node:started", nodeId: graphNodeId, experimentId: request.experimentId, label: config.id, role: stage, attempt: options.attempt, message: options.reason.kind });
+  const traceNodeId = contributorTraceNode(request, options.nodeId, options.attempt);
+  await emitAgentTrace(request, {
+    type: "node:created",
+    nodeId: traceNodeId,
+    experimentId: request.experimentId,
+    parentNodeId: graphNodeId,
+    label: config.id,
+    role: stage,
+    attempt: options.attempt,
+    message: options.reason.kind,
+    data: { readOnly, invocationId: traceNodeId, parentInvocationId: graphNodeId, ...(config.provider ? { provider: config.provider } : {}), ...(config.model ? { model: config.model } : {}), reason: { kind: options.reason.kind, ...(options.reason.source ? { source: options.reason.source } : {}), ...(options.reason.repairAttempt !== undefined ? { repairAttempt: options.reason.repairAttempt } : {}) } }
+  });
+  await emitAgentTrace(request, {
+    type: "edge:created",
+    nodeId: `edge:${graphNodeId}:${traceNodeId}`,
+    experimentId: request.experimentId,
+    sourceNodeId: graphNodeId,
+    targetNodeId: traceNodeId,
+    role: "agent"
+  });
+  await emitAgentTrace(request, { type: "node:started", nodeId: traceNodeId, experimentId: request.experimentId, label: config.id, role: stage, attempt: options.attempt });
   const started = Date.now();
   const startedAt = new Date(started).toISOString();
-  const result = await processCommand(executable, args, requestPath, request, stage, config.id, options.nodeId, options.attempt);
+  const result = await processCommand(executable, args, requestPath, request, stage, config.id, options.nodeId, options.attempt, (progress) => {
+    void emitAgentTrace(request, {
+      type: "node:progress",
+      nodeId: traceNodeId,
+      experimentId: request.experimentId,
+      label: config.id,
+      role: stage,
+      attempt: options.attempt,
+      message: "Subprocess output",
+      progress: { current: progress.stdoutBytes + progress.stderrBytes, unit: "bytes" },
+      data: progress
+    });
+  });
   const finished = Date.now();
   if (result.failure) {
     result.stderr += `${result.stderr.endsWith("\n") || result.stderr.length === 0 ? "" : "\n"}Process terminated: ${result.failure}\n`;
@@ -690,6 +801,7 @@ async function invokeContributor(
   const status = result.code === 0 && !result.spawnError && !parseFailure && !result.failure ? "complete" : "failed";
   const outcome = status === "failed" ? "failed" : parsed?.outcome ?? "complete";
   const summary = parsed?.summary ?? lastLine(result.stdout, `${stage} ${config.id} ${status}`);
+  const usage = parseInvocationUsage(parsed?.usage, { ...(config.provider ? { provider: config.provider } : {}), ...(config.model ? { model: config.model } : {}) });
   const declaredArtifacts = parsed?.artifacts ?? [];
   const artifacts: ArtifactReference[] = [
     { kind: "log", path: stdoutPath, mediaType: "text/plain", label: `${stage} ${config.id} stdout`, metadata: { stage, contributorId: config.id, nodeId: options.nodeId, attempt: options.attempt } },
@@ -715,11 +827,28 @@ async function invokeContributor(
     summary,
     requestPath,
     stdoutPath,
-    stderrPath
+    stderrPath,
+    invocationId: traceNodeId,
+    parentInvocationId: graphNodeId
   };
+  if (usage) provenance.usage = usage;
   if (parsed) provenance.structuredOutputPath = structuredOutputPath;
   const run: ContributorRun = { stdout: result.stdout, stderr: result.stderr, provenance, declaredArtifacts, artifacts };
   if (parsed) run.structured = parsed;
+  await emitAgentTrace(request, {
+    type: status === "complete" ? "node:completed" : "node:failed",
+    nodeId: traceNodeId,
+    experimentId: request.experimentId,
+    label: config.id,
+    role: stage,
+    status,
+    attempt: options.attempt,
+    message: summary,
+    data: { outcome, durationMs: finished - started, exitCode: result.code, artifactCount: artifacts.length, invocationId: traceNodeId, parentInvocationId: graphNodeId, ...(usage ? { usage: { ...usage } } : {}) }
+  });
+  if (artifacts.length > 0) {
+    await emitAgentTrace(request, { type: "artifact:produced", nodeId: traceNodeId, experimentId: request.experimentId, label: config.id, role: stage, attempt: options.attempt, message: `${artifacts.length} artifacts produced`, data: { count: artifacts.length } });
+  }
   return run;
 }
 
@@ -843,6 +972,9 @@ function contribution(run: ContributorRun): AgentContribution {
     finishedAt: run.provenance.finishedAt,
     summary: run.provenance.summary,
     artifacts: run.artifacts,
+    invocationId: run.provenance.invocationId,
+    parentInvocationId: run.provenance.parentInvocationId,
+    ...(run.provenance.usage ? { usage: run.provenance.usage } : {}),
     metadata: {
       nodeId: run.provenance.nodeId,
       readOnly: run.provenance.readOnly,
@@ -862,8 +994,10 @@ function contribution(run: ContributorRun): AgentContribution {
 
 function legacyResult(runs: ContributorRun[], scouts: ContributorRun[], planner: ContributorRun, implementer: ContributorRun, critics: ContributorRun[]): AgentResult {
   const criticSummary = critics.map((run) => `${run.provenance.contributorId}: ${run.provenance.summary}`).join("; ");
+  const usage = aggregateInvocationUsage(runs.map((run) => run.provenance.usage));
   return {
     summary: `${implementer.provenance.summary}${criticSummary ? ` | Critics: ${criticSummary}` : ""}`,
+    ...(usage ? { usage } : {}),
     artifacts: runs.flatMap((run) => run.artifacts),
     metadata: {
       pipeline: "agent.team",
@@ -934,6 +1068,19 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
   let totalAttempts = 0;
   let repairAttempts = 0;
   const repairCounts = new Map<string, number>();
+  await Promise.all(config.nodes.map((node) => ensureAgentTraceNode(request, node, node.role, node.readOnly)));
+  for (const node of config.nodes) {
+    for (const dependency of node.dependsOn) {
+      await emitAgentTrace(request, {
+        type: "edge:created",
+        nodeId: `edge:${agentGraphTraceNode(request, dependency)}:${agentGraphTraceNode(request, node.id)}`,
+        experimentId: request.experimentId,
+        sourceNodeId: agentGraphTraceNode(request, dependency),
+        targetNodeId: agentGraphTraceNode(request, node.id),
+        role: "dependency"
+      });
+    }
+  }
 
   const runActivation = async (
     state: GraphNodeState,
@@ -1020,6 +1167,7 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
       state.summary = conditionAllows(node, states)
         ? `Skipped ${node.id} because an unconditional dependency failed or was skipped`
         : `Skipped ${node.id} because its explicit outcome condition did not match`;
+      await emitAgentTrace(request, { type: "node:skipped", nodeId: agentGraphTraceNode(request, node.id), experimentId: request.experimentId, label: node.id, role: node.role, status: "skipped", message: state.summary });
       pending.delete(node.id);
     }
     const runnable = ready.filter((node) => !skipped.includes(node));
@@ -1080,6 +1228,7 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
   const finalWriter = writers.at(-1);
   const sinkSummary = sinks.map((node) => `${node.id}: ${states.get(node.id)!.summary}`).join("; ");
   const summary = [finalWriter?.provenance.summary, sinkSummary].filter(Boolean).join(" | ") || "Agent graph completed";
+  const usage = aggregateInvocationUsage(runs.map((run) => run.provenance.usage));
   const contributors: AgentContribution[] = runs.map(contribution);
   const now = new Date().toISOString();
   for (const node of config.nodes) {
@@ -1099,6 +1248,7 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
   }
   return {
     summary,
+    ...(usage ? { usage } : {}),
     artifacts: runs.flatMap((run) => run.artifacts),
     contributors,
     metadata: {
@@ -1128,9 +1278,32 @@ export class AgentTeam implements AgentDriver {
   readonly id = "agent.team";
 
   async run(request: AgentRequest): Promise<AgentResult> {
+    const nodeId = teamTraceNode(request);
+    await emitAgentTrace(request, { type: "node:created", nodeId, experimentId: request.experimentId, parentNodeId: `experiment:${request.experimentId}`, label: "Agent team", role: "agent-team" });
+    await emitAgentTrace(request, { type: "edge:created", nodeId: `edge:experiment:${request.experimentId}:${nodeId}`, experimentId: request.experimentId, sourceNodeId: `experiment:${request.experimentId}`, targetNodeId: nodeId, role: "agent" });
     return serializeCandidate(request.candidate.root, async () => {
-      const config = readConfig(request);
-      return config.kind === "legacy" ? runLegacy(config, request) : runGraph(config, request);
+      await emitAgentTrace(request, { type: "node:started", nodeId, experimentId: request.experimentId, label: "Agent team", role: "agent-team" });
+      try {
+        const config = readConfig(request);
+        const result = config.kind === "legacy" ? await runLegacy(config, request) : await runGraph(config, request);
+        for (const contributor of result.contributors ?? []) {
+          await emitAgentTrace(request, {
+            type: contributor.status === "failed" ? "node:failed" : contributor.status === "skipped" ? "node:skipped" : "node:completed",
+            nodeId: agentGraphTraceNode(request, contributor.agentId),
+            experimentId: request.experimentId,
+            label: contributor.agentId,
+            role: contributor.role,
+            status: contributor.status,
+            message: contributor.summary,
+            data: { ...(contributor.invocationId ? { invocationId: contributor.invocationId } : {}), ...(contributor.parentInvocationId ? { parentInvocationId: contributor.parentInvocationId } : {}), ...(contributor.usage ? { usage: { ...contributor.usage } } : {}) }
+          });
+        }
+        await emitAgentTrace(request, { type: "node:completed", nodeId, experimentId: request.experimentId, label: "Agent team", role: "agent-team", status: "complete", message: result.summary, data: { contributors: result.contributors?.length ?? 0, artifacts: result.artifacts?.length ?? 0, ...(result.usage ? { usage: { ...result.usage } } : {}) } });
+        return result;
+      } catch (error) {
+        await emitAgentTrace(request, { type: "node:failed", nodeId, experimentId: request.experimentId, label: "Agent team", role: "agent-team", status: "failed", message: error instanceof Error ? error.message : String(error) });
+        throw error;
+      }
     });
   }
 }

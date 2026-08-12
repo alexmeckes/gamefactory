@@ -19,6 +19,7 @@ import type {
 } from "@gamefactory/core";
 import { defineExtension } from "@gamefactory/extension-sdk";
 import {
+  agentJournalData,
   asObject,
   campaignResult as createCampaignResult,
   errorMessage,
@@ -179,8 +180,8 @@ export class DiscoveryWorkflow implements Workflow {
           }
         };
         await journalPhase(context, specification.experimentId, "candidate-created", { candidate });
-        const agentResult = await preserveAgentResult(context, await specification.agent.run({ campaign: context.campaign, candidate, experimentId: specification.experimentId, history: [...experiments], signal: context.signal }), specification.experimentId);
-        await journalPhase(context, specification.experimentId, "agent-finished", { summary: agentResult.summary, usage: agentResult.usage ?? null });
+        const agentResult = await preserveAgentResult(context, await specification.agent.run({ campaign: context.campaign, candidate, experimentId: specification.experimentId, history: [...experiments], signal: context.signal, ...(context.trace ? { trace: context.trace } : {}) }), specification.experimentId);
+        await journalPhase(context, specification.experimentId, "agent-finished", agentJournalData(agentResult));
         let preservedPatch: ArtifactReference | undefined;
         try {
           const patch = await capturePatch(candidate, specification.experimentId);

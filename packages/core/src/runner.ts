@@ -11,6 +11,7 @@ import { discoverExtension, ExtensionManager } from "./extension-manager.js";
 import { JsonlResultStore } from "./results.js";
 import { ContentAddressedArtifactStore } from "./artifacts.js";
 import { WorkflowJournal, type JournalJsonValue } from "./journal.js";
+import { JsonlTraceStore, type TraceSink } from "./trace.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -141,6 +142,22 @@ export class FactoryRunner {
     const runFingerprint = createHash("sha256").update(`${campaignFingerprint}:${configFingerprint}`).digest("hex");
     const runId = `${campaign.id}-${runFingerprint.slice(0, 16)}`;
     const journal = new WorkflowJournal(outputPath(this.options.cwd, this.options.config.journalLog, `.factory/journal/${campaign.id}.jsonl`, "journalLog"));
+    const traceStore = new JsonlTraceStore(outputPath(this.options.cwd, this.options.config.traceLog, `.factory/traces/${campaign.id}.jsonl`, "traceLog"));
+    let traceWarningReported = false;
+    const trace: TraceSink = {
+      runId,
+      campaignId: campaign.id,
+      emit: async (event) => {
+        try {
+          await traceStore.append({ runId, campaignId: campaign.id }, event);
+        } catch (error) {
+          if (!traceWarningReported) {
+            traceWarningReported = true;
+            this.options.logger.warn("Execution trace is unavailable; the factory run will continue", { error: error instanceof Error ? error.message : String(error) });
+          }
+        }
+      }
+    };
     const artifactStore = new ContentAddressedArtifactStore(
       outputPath(this.options.cwd, this.options.config.artifactDirectory, ".factory/artifacts", "artifactDirectory"),
       this.options.logger
@@ -184,8 +201,13 @@ export class FactoryRunner {
       await this.extensions.activateFor(`workflow:${campaign.workflow}`);
       const workflow = this.registry.get<Workflow>("workflow", campaign.workflow);
       await this.extensions.emit({ type: "campaign:start", campaign, at: startedAt });
+      const rootNodeId = `campaign:${runId}`;
+      await trace.emit({ type: "node:created", nodeId: rootNodeId, label: campaign.id, role: "campaign", message: campaign.objective });
+      await trace.emit({ type: "node:started", nodeId: rootNodeId, label: campaign.id, role: "campaign" });
 
-      const result = await workflow.run({
+      let result: CampaignResult;
+      try {
+        result = await workflow.run({
         campaign,
         signal: controller.signal,
         startedAt,
@@ -207,10 +229,16 @@ export class FactoryRunner {
           appendRecovered: (input) => journal.append(input),
           recover: () => journal.recover()
         },
+        trace,
         emit: (event) => this.extensions.emit(event),
         budget: new BudgetController(campaign.budget),
         logger: this.options.logger
-      });
+        });
+      } catch (error) {
+        await trace.emit({ type: "node:failed", nodeId: rootNodeId, label: campaign.id, role: "campaign", status: "failed", message: error instanceof Error ? error.message : String(error) });
+        throw error;
+      }
+      await trace.emit({ type: "node:completed", nodeId: rootNodeId, label: campaign.id, role: "campaign", status: result.status, message: result.summary });
       await this.extensions.emit({ type: "campaign:finish", result, at: new Date().toISOString() });
       return result;
     } finally {

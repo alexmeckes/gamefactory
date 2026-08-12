@@ -13,6 +13,8 @@ The legacy configuration runs read-only scouts in parallel, one read-only planne
     "agentTeam": {
       "maximumParallel": 4,
       "maxOutputCharacters": 20000,
+      "provider": "openai",
+      "model": "your-model-id",
       "scouts": [
         { "id": "systems", "command": ["pi", "--mode", "scout"] },
         { "id": "gameplay", "command": ["pi", "--mode", "scout"] }
@@ -98,6 +100,7 @@ Node fields:
 - `maximumAttempts` retries a failed command activation and defaults to 1.
 - `required: false` permits a failed optional node without failing the whole graph. Dependents can use `when` with the `failed` outcome to run a fallback.
 - `repair` lets a read-only reviewer route `revise` (or configured outcomes) back to a directly preceding writer. The writer receives the review as an additional structured input, then all reviewers for that writer run again.
+- `provider` and `model` identify the invocation backend. They may be set once on `agentTeam` and overridden per contributor. Identity is retained even when the backend cannot report tokens or cost.
 
 `maximumTotalAttempts` caps every subprocess invocation, including retries and reviews. `maximumRepairAttempts` caps total writer revision rounds across the graph. Each repair edge also has its own `maximumAttempts`. Unresolved repairs are reported in result metadata instead of creating an unbounded loop.
 
@@ -111,6 +114,17 @@ A contributor may return ordinary text, a JSON object, or log lines followed by 
   "outcome": "revise",
   "findings": [{ "metric": "time_to_full_speed", "observed": 0.8 }],
   "context": { "recommendedRampSeconds": 0.35 },
+  "usage": {
+    "provider": "openai",
+    "model": "your-model-id",
+    "inputTokens": 1200,
+    "cachedInputTokens": 800,
+    "outputTokens": 240,
+    "reasoningTokens": 90,
+    "costUsd": 0.012,
+    "costSource": "provider-reported",
+    "pricingVersion": "2026-08-01"
+  },
   "artifacts": [
     { "kind": "telemetry", "path": ".factory/evidence/movement.json" }
   ]
@@ -120,5 +134,7 @@ A contributor may return ordinary text, a JSON object, or log lines followed by 
 The parsed object, bounded text fallback, outcome, and candidate-local artifact references are passed to dependent nodes. Artifact and context paths cannot escape the candidate root. A parsed `output.json` is preserved alongside the request, stdout, and stderr.
 
 Every subprocess receives its structured request path in `GAMEFACTORY_REQUEST`. `GAMEFACTORY_CANDIDATE`, `GAMEFACTORY_STAGE`, `GAMEFACTORY_CONTRIBUTOR`, `GAMEFACTORY_NODE`, and `GAMEFACTORY_ATTEMPT` are also set. Graph attempts are stored separately below `.factory/agent-team/<experiment>/graph/<node>/attempt-<n>/`, so retries and repair provenance never overwrite the original evidence.
+
+Each attempt has a stable `invocationId` and `parentInvocationId`. Missing cost remains unreported rather than being interpreted as zero. Aggregate team cost is exposed to campaign budgeting only when every invocation reports cost.
 
 Read-only nodes are protected with content-aware Git snapshots that exclude `.factory`. Any meaningful project mutation fails the agent run. This is mutation detection, not an operating-system sandbox; commands should still be treated according to the configured extension security policy.

@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, relative, resolve } from "node:path";
-import type { AgentDriver, AgentResult, ArtifactReference } from "@gamefactory/core";
+import { parseInvocationUsage, type AgentDriver, type AgentResult, type ArtifactReference, type FactoryTraceEventInput, type InvocationUsage } from "@gamefactory/core";
 import { defineExtension } from "@gamefactory/extension-sdk";
 
 const DEFAULT_TIMEOUT_SECONDS = 15 * 60;
@@ -64,6 +64,8 @@ interface CommandAgentSettings {
   environmentAllowlist: string[];
   environment: Record<string, string>;
   evidenceDirectory?: string;
+  provider?: string;
+  model?: string;
 }
 
 interface ProcessOutcome {
@@ -130,12 +132,54 @@ function settingsFor(request: AgentRequest): CommandAgentSettings {
   if (configured.evidenceDirectory !== undefined && (typeof configured.evidenceDirectory !== "string" || configured.evidenceDirectory.trim().length === 0)) {
     throw new Error("parameters.commandAgent.evidenceDirectory must be a non-empty string");
   }
+  for (const field of ["provider", "model"] as const) {
+    if (configured[field] !== undefined && (typeof configured[field] !== "string" || configured[field].trim().length === 0 || configured[field].length > 256)) {
+      throw new Error(`parameters.commandAgent.${field} must be a non-empty string with at most 256 characters`);
+    }
+  }
   return {
     timeoutSeconds,
     maximumOutputBytes,
     environmentAllowlist: environmentAllowlist as string[],
     environment,
-    ...(typeof configured.evidenceDirectory === "string" ? { evidenceDirectory: configured.evidenceDirectory } : {})
+    ...(typeof configured.evidenceDirectory === "string" ? { evidenceDirectory: configured.evidenceDirectory } : {}),
+    ...(typeof configured.provider === "string" ? { provider: configured.provider.trim() } : {}),
+    ...(typeof configured.model === "string" ? { model: configured.model.trim() } : {})
+  };
+}
+
+async function emitCommandTrace(request: AgentRequest, event: FactoryTraceEventInput): Promise<void> {
+  try {
+    await request.trace?.emit(event);
+  } catch {
+    // Usage telemetry is observational and cannot change the agent outcome.
+  }
+}
+
+function commandOutputMetadata(stdout: string, settings: CommandAgentSettings): { summary?: string; usage?: InvocationUsage } {
+  const defaults = { ...(settings.provider ? { provider: settings.provider } : {}), ...(settings.model ? { model: settings.model } : {}) };
+  let record: Record<string, unknown> | undefined;
+  for (const value of [stdout.trim(), ...stdout.trim().split(/\r?\n/).reverse()]) {
+    if (!value) continue;
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        record = parsed as Record<string, unknown>;
+        break;
+      }
+    } catch {
+      // Ordinary command output is expected to be non-JSON.
+    }
+  }
+  let usage = parseInvocationUsage(undefined, defaults);
+  try {
+    usage = parseInvocationUsage(record?.usage, defaults);
+  } catch {
+    // Malformed usage metadata is omitted rather than failing completed work.
+  }
+  return {
+    ...(typeof record?.summary === "string" ? { summary: record.summary } : {}),
+    ...(usage ? { usage } : {})
   };
 }
 
@@ -330,6 +374,11 @@ export class CommandAgent implements AgentDriver {
     const [executable, ...args] = command;
     if (!executable) throw new Error("Agent command has no executable");
     const settings = settingsFor(request);
+    const traceNodeId = `agent:${request.experimentId}:command.agent:attempt-1`;
+    const traceData = { invocationId: traceNodeId, parentInvocationId: `experiment:${request.experimentId}`, ...(settings.provider ? { provider: settings.provider } : {}), ...(settings.model ? { model: settings.model } : {}) };
+    await emitCommandTrace(request, { type: "node:created", nodeId: traceNodeId, experimentId: request.experimentId, parentNodeId: `experiment:${request.experimentId}`, label: this.id, role: "worker", attempt: 1, data: traceData });
+    await emitCommandTrace(request, { type: "edge:created", nodeId: `edge:experiment:${request.experimentId}:${traceNodeId}`, experimentId: request.experimentId, sourceNodeId: `experiment:${request.experimentId}`, targetNodeId: traceNodeId, role: "agent" });
+    await emitCommandTrace(request, { type: "node:started", nodeId: traceNodeId, experimentId: request.experimentId, label: this.id, role: "worker", attempt: 1, data: traceData });
     const prompt = {
       objective: request.campaign.objective,
       experimentId: request.experimentId,
@@ -378,6 +427,7 @@ export class CommandAgent implements AgentDriver {
         capturedOutputBytes: outcome.capturedOutputBytes,
         evidenceDirectory: retained.directory
       };
+      await emitCommandTrace(request, { type: "node:failed", nodeId: traceNodeId, experimentId: request.experimentId, label: this.id, role: "worker", attempt: 1, status: failureCode, message: failureMessage(failureCode, outcome, retained.directory), data: { ...traceData, durationMs: finished - started, capturedOutputBytes: outcome.capturedOutputBytes } });
       throw new CommandAgentExecutionError(
         failureMessage(failureCode, outcome, retained.directory),
         provenance,
@@ -388,13 +438,30 @@ export class CommandAgent implements AgentDriver {
 
     await Promise.all([writeFile(stdoutPath, outcome.stdout), writeFile(stderrPath, outcome.stderr)]);
     const stdout = outcome.stdout.toString("utf8");
+    const metadata = commandOutputMetadata(stdout, settings);
+    const summary = metadata.summary ?? (stdout.trim().split(/\r?\n/).at(-1) || `Agent command completed experiment ${request.experimentId}.`);
+    const artifacts: ArtifactReference[] = [
+      { kind: "log", path: stdoutPath, mediaType: "text/plain", label: "Agent stdout" },
+      { kind: "log", path: stderrPath, mediaType: "text/plain", label: "Agent stderr" },
+      { kind: "other", path: requestPath, mediaType: "application/json", label: "Agent request" }
+    ];
+    await emitCommandTrace(request, { type: "node:completed", nodeId: traceNodeId, experimentId: request.experimentId, label: this.id, role: "worker", attempt: 1, status: "complete", message: summary, data: { ...traceData, durationMs: finished - started, ...(metadata.usage ? { usage: { ...metadata.usage } } : {}) } });
     return {
-      summary: stdout.trim().split(/\r?\n/).at(-1) || `Agent command completed experiment ${request.experimentId}.`,
-      artifacts: [
-        { kind: "log", path: stdoutPath, mediaType: "text/plain", label: "Agent stdout" },
-        { kind: "log", path: stderrPath, mediaType: "text/plain", label: "Agent stderr" },
-        { kind: "other", path: requestPath, mediaType: "application/json", label: "Agent request" }
-      ]
+      summary,
+      artifacts,
+      ...(metadata.usage ? { usage: metadata.usage } : {}),
+      contributors: [{
+        agentId: this.id,
+        role: "worker",
+        status: "complete",
+        startedAt,
+        finishedAt: new Date(finished).toISOString(),
+        summary,
+        artifacts: [],
+        invocationId: traceNodeId,
+        parentInvocationId: `experiment:${request.experimentId}`,
+        ...(metadata.usage ? { usage: metadata.usage } : {})
+      }]
     };
   }
 }
