@@ -24,12 +24,15 @@ lines.on("line", (line) => {
     return;
   }
   if (message.method === "turn/start") {
+    if (message.params.outputSchema?.additionalProperties !== false || message.params.outputSchema?.properties?.outcome?.pattern === undefined) {
+      return send({ id: message.id, error: { message: "missing strict output envelope" } });
+    }
     const threadId = message.params.threadId;
     const turnId = "turn-" + thread;
     send({ id: message.id, result: { turn: { id: turnId, status: "inProgress", items: [] } } });
     send({ method: "turn/started", params: { threadId, turn: { id: turnId, status: "inProgress", items: [] } } });
     send({ method: "item/started", params: { threadId, turnId, item: { id: "cmd-1", type: "commandExecution", status: "inProgress" } } });
-    send({ method: "item/completed", params: { threadId, turnId, item: { id: "msg-1", type: "agentMessage", phase: "final_answer", text: JSON.stringify({ summary: "real adapter result", outcome: "pass" }) } } });
+    send({ method: "item/completed", params: { threadId, turnId, item: { id: "msg-1", type: "agentMessage", phase: "final_answer", text: JSON.stringify({ summary: "real adapter result", outcome: "pass", payload: JSON.stringify({ context: { source: "fixture" } }) }) } } });
     send({ method: "thread/tokenUsage/updated", params: { threadId, turnId, tokenUsage: { total: { inputTokens: 120, cachedInputTokens: 20, outputTokens: 30, reasoningTokens: 10, totalTokens: 150 } } } });
     send({ method: "turn/completed", params: { threadId, turn: { id: turnId, status: "completed", items: [] } } });
   }
@@ -51,7 +54,7 @@ test("Codex App Server pool streams a turn and records instruction, lineage, and
       signal: new AbortController().signal,
       onEvent: (event) => events.push(event.method)
     });
-    assert.deepEqual(JSON.parse(result.output), { summary: "real adapter result", outcome: "pass" });
+    assert.deepEqual(JSON.parse(result.output), { context: { source: "fixture" }, summary: "real adapter result", outcome: "pass" });
     assert.equal(result.threadId, "thread-1");
     assert.equal(result.turnId, "turn-1");
     assert.equal(result.modelProvider, "openai");

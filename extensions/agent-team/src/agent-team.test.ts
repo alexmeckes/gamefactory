@@ -119,7 +119,7 @@ lines.on("line", (line) => {
   send({ method: "turn/started", params: { threadId, turn: { id: turnId, status: "inProgress" } } });
   send({ method: "item/started", params: { threadId, turnId, item: { id: "collab-1", type: "collabToolCall", tool: "spawn_agent", status: "inProgress", newThreadId: "thread-subagent" } } });
   send({ method: "item/completed", params: { threadId, turnId, item: { id: "collab-1", type: "collabToolCall", tool: "spawn_agent", status: "completed", newThreadId: "thread-subagent" } } });
-  send({ method: "item/completed", params: { threadId, turnId, item: { id: "msg-1", type: "agentMessage", text: JSON.stringify({ summary: "App Server worker finished", outcome: "pass" }) } } });
+  send({ method: "item/completed", params: { threadId, turnId, item: { id: "msg-1", type: "agentMessage", text: JSON.stringify({ summary: "App Server worker finished", outcome: "pass", payload: JSON.stringify({ context: { source: "app-server-fixture" } }) }) } } });
   send({ method: "thread/tokenUsage/updated", params: { threadId, turnId, tokenUsage: { total: { inputTokens: 80, outputTokens: 20, totalTokens: 100 } } } });
   send({ method: "turn/completed", params: { threadId, turn: { id: turnId, status: "completed" } } });
   setTimeout(() => process.exit(0), 10);

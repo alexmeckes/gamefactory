@@ -111,6 +111,24 @@ function safeEventLine(method: string, params: JsonObject): string {
   return JSON.stringify(summary);
 }
 
+function expandStructuredEnvelope(output: string): string {
+  let envelope: JsonObject;
+  try {
+    envelope = JSON.parse(output) as JsonObject;
+  } catch {
+    return output;
+  }
+  if (typeof envelope.payload !== "string") return output;
+  let payload: JsonObject;
+  try {
+    const parsed = JSON.parse(envelope.payload) as unknown;
+    payload = object(parsed) ?? {};
+  } catch (error) {
+    throw new Error(`Codex App Server returned an invalid structured payload: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  return JSON.stringify({ ...payload, summary: envelope.summary, outcome: envelope.outcome });
+}
+
 class CodexAppServerConnection {
   private readonly pending = new Map<number, PendingRequest>();
   private readonly listeners = new Map<string, TurnListener>();
@@ -260,6 +278,16 @@ class CodexAppServerConnection {
     const completion = new Promise<{ status: string; error?: string }>((resolve, reject) => { resolveTurn = resolve; rejectTurn = reject; });
     const listener: TurnListener = { threadId, output: "", events: [], onEvent: request.onEvent, resolve: resolveTurn, reject: rejectTurn };
     this.listeners.set(threadId, listener);
+    const outputSchema = {
+      type: "object",
+      properties: {
+        summary: { type: "string", description: "A concise human-readable result summary." },
+        outcome: { type: "string", pattern: "^[A-Za-z0-9][A-Za-z0-9._-]*$", description: "A short machine-readable outcome identifier without spaces." },
+        payload: { type: "string", description: "A JSON-encoded object containing any free-form findings, context, artifacts, or other structured handoff fields." }
+      },
+      required: ["summary", "outcome", "payload"],
+      additionalProperties: false
+    };
     const turnResult = object(await this.request("turn/start", {
       threadId,
       input: [{ type: "text", text: request.prompt }],
@@ -268,6 +296,7 @@ class CodexAppServerConnection {
       sandboxPolicy: request.readOnly
         ? { type: "readOnly", access: { type: "fullAccess" } }
         : { type: "workspaceWrite", writableRoots: [request.cwd], networkAccess: false },
+      outputSchema,
       ...(request.model ? { model: request.model } : {})
     })) ?? {};
     const turnId = string(object(turnResult.turn)?.id);
@@ -299,7 +328,7 @@ class CodexAppServerConnection {
       const modelProvider = string(thread.modelProvider);
       const actualModel = listener.actualModel ?? request.model;
       return {
-        output: listener.output,
+        output: expandStructuredEnvelope(listener.output),
         eventLog: `${listener.events.join("\n")}\n`,
         ...(listener.usage ? { usage: { ...listener.usage, ...(listener.actualModel ? { model: listener.actualModel } : request.model ? { model: request.model } : {}) } } : {}),
         threadId,
