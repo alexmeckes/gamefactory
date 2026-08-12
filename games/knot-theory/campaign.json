@@ -1,0 +1,138 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "id": "knot-theory-vertical-slice",
+  "objective": "Build a polished, compact Godot puzzle vertical slice where direct manipulation of one continuous rope teaches a reusable knot language and culminates in a surprising machine-like puzzle.",
+  "projectRoot": ".",
+  "workflow": "tournament",
+  "requires": [
+    "workspace:git.worktree",
+    "agent:agent.team",
+    "evaluator:godot.scenario"
+  ],
+  "mutablePaths": [
+    "project.godot",
+    "main.tscn",
+    "main.gd",
+    "README.md",
+    "src/**",
+    "levels/**",
+    "assets/**",
+    "audio/**"
+  ],
+  "immutablePaths": [
+    "AGENTS.md",
+    "GAME.md",
+    "STYLE.md",
+    "campaign.json",
+    "factory.config.json",
+    "addons/gamefactory/**"
+  ],
+  "parameters": {
+    "tournament": {
+      "workspace": "git.worktree",
+      "agents": ["agent.team"],
+      "evaluators": [{ "id": "godot.scenario", "cost": 10 }],
+      "candidateCount": 2,
+      "concurrency": 2
+    },
+    "agentTeam": {
+      "maximumParallel": 3,
+      "maxOutputCharacters": 30000,
+      "provider": "openai-codex-app-server",
+      "billingMode": "subscription",
+      "graph": {
+        "maximumTotalAttempts": 16,
+        "maximumRepairAttempts": 2,
+        "context": [
+          { "path": "GAME.md", "kind": "other", "mediaType": "text/markdown", "label": "Product brief" },
+          { "path": "STYLE.md", "kind": "other", "mediaType": "text/markdown", "label": "Style direction" },
+          { "path": "main.gd", "kind": "other", "mediaType": "text/plain", "label": "Baseline rope loom" }
+        ],
+        "nodes": [
+          {
+            "id": "topology-scout",
+            "adapter": "codex-app-server",
+            "role": "scout",
+            "permissions": "read",
+            "instructions": "Explore implementable 2D rope and knot puzzle grammars for this exact Godot scope. Compare winding, crossing order, tension, contact sequences, and authored anchors. Propose a small language that can recombine surprisingly without demanding mathematically perfect knot simulation."
+          },
+          {
+            "id": "tactility-scout",
+            "adapter": "codex-app-server",
+            "role": "scout",
+            "permissions": "read",
+            "instructions": "Explore interaction feel, teaching, visual feedback, accessibility, and audio for direct rope manipulation. Identify the smallest set of signals that makes grabbing, pinning, threading, tension, failure, and success legible."
+          },
+          {
+            "id": "puzzle-scout",
+            "adapter": "codex-app-server",
+            "role": "scout",
+            "permissions": "read",
+            "instructions": "Develop contrasting five-to-ten-minute level arcs using one rope. Seek an earned machine-like finale and avoid a mere sequence of silhouette tracing tasks. Keep implementation feasible in one compact Godot project."
+          },
+          {
+            "id": "lead-designer",
+            "adapter": "codex-app-server",
+            "role": "planner",
+            "permissions": "read",
+            "dependsOn": ["topology-scout", "tactility-scout", "puzzle-scout"],
+            "instructions": "Synthesize one candidate-specific vertical slice. Choose a coherent topology model, teaching sequence, interaction contract, visual direction, deterministic test strategy, and bounded implementation plan. Preserve creative conviction instead of averaging every scout idea."
+          },
+          {
+            "id": "game-builder",
+            "adapter": "codex-app-server",
+            "role": "implementer",
+            "permissions": "write",
+            "dependsOn": ["lead-designer"],
+            "instructions": "Implement the complete playable vertical slice in the mutable paths. Run Godot import/headless checks. Preserve deterministic factory hooks whose score derives from observed simulation state. Prefer a cohesive finished slice over unused framework."
+          },
+          {
+            "id": "systems-critic",
+            "adapter": "codex-app-server",
+            "role": "critic",
+            "permissions": "read",
+            "dependsOn": ["game-builder"],
+            "instructions": "Inspect and test the implementation for rope stability, topology false positives, reset/progression failures, boundary violations, and honest factory metrics. Return outcome pass or revise with concrete evidence.",
+            "repair": { "target": "game-builder", "outcomes": ["revise"], "maximumAttempts": 2 }
+          },
+          {
+            "id": "experience-critic",
+            "adapter": "codex-app-server",
+            "role": "critic",
+            "permissions": "read",
+            "dependsOn": ["game-builder"],
+            "instructions": "Review the playable sequence for clarity, tactile feedback, pacing, visual coherence, and whether the finale genuinely recombines the learned rope language. Do not claim fun without a human playtest. Return outcome pass or revise with prioritized findings.",
+            "repair": { "target": "game-builder", "outcomes": ["revise"], "maximumAttempts": 2 }
+          }
+        ]
+      }
+    },
+    "godot": {
+      "binary": "C:\\Users\\alexm\\OneDrive\\Documents\\New project\\oldschool-mmo-godot\\tools\\godot\\Godot_v4.7-stable_win64_console.exe",
+      "importCheck": true,
+      "rendered": false,
+      "timeoutSeconds": 120,
+      "scenario": {
+        "provider": "godot.factory/v1",
+        "version": "1",
+        "path": "res://main.tscn",
+        "parameters": {
+          "seed": 314159,
+          "ticks": 480,
+          "physics_hz": 60,
+          "duration_seconds": 8
+        }
+      }
+    }
+  },
+  "acceptance": {
+    "primaryMetric": "scenario_score",
+    "direction": "maximize",
+    "minimumDelta": 0.1
+  },
+  "budget": {
+    "maximumExperiments": 2,
+    "maximumConsecutiveCrashes": 2,
+    "wallTimeMinutes": 45
+  }
+}
