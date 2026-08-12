@@ -1,7 +1,8 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { lstat, mkdir, readFile, readlink, realpath, writeFile } from "node:fs/promises";
-import { isAbsolute, relative, resolve } from "node:path";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import type {
   AgentContribution,
   AgentDriver,
@@ -9,19 +10,24 @@ import type {
   AgentResult,
   AgentRole,
   ArtifactReference,
+  EffectivePromptManifest,
   FactoryTraceEventInput,
   InvocationUsage,
+  JournalJsonValue,
+  PromptLayer,
   UsageBillingMode
 } from "@gamefactory/core";
 import { aggregateInvocationUsage, parseInvocationUsage } from "@gamefactory/core";
 import { defineExtension } from "@gamefactory/extension-sdk";
+import { CodexAppServerPool, type CodexAppServerRunResult } from "./codex-app-server.js";
 
 type TeamStage = AgentRole;
 type Permission = "read" | "write";
 
 interface ContributorConfig {
   id: string;
-  command: string[];
+  adapter: "command" | "codex-app-server";
+  command?: string[];
   provider?: string;
   model?: string;
   billingMode?: UsageBillingMode;
@@ -125,6 +131,10 @@ export interface ContributorProvenance {
   invocationId: string;
   parentInvocationId: string;
   usage?: InvocationUsage;
+  promptManifest: EffectivePromptManifest;
+  promptManifestPath: string;
+  providerThreadId?: string;
+  providerTurnId?: string;
 }
 
 interface ContributorRun {
@@ -158,6 +168,7 @@ interface ProcessResult {
   stderr: string;
   spawnError?: Error;
   failure?: "cancelled" | "timeout" | "output-limit";
+  appServer?: CodexAppServerRunResult;
 }
 
 interface InvocationReason {
@@ -224,6 +235,8 @@ async function ensureAgentTraceNode(request: AgentRequest, config: ContributorCo
 const OUTCOME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const candidateQueues = new Map<string, Promise<void>>();
 const COMPATIBILITY_ENVIRONMENT = ["PATH", "PATHEXT", "SystemRoot", "WINDIR", "COMSPEC", "TEMP", "TMP", "TMPDIR", "LANG", "LC_ALL", "LC_CTYPE", "TERM", "NO_COLOR"] as const;
+const CODEX_HOST_ENVIRONMENT = ["HOME", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "APPDATA", "LOCALAPPDATA", "CODEX_HOME"] as const;
+const codexAppServers = new CodexAppServerPool();
 
 function childEnvironment(additions: Record<string, string>): NodeJS.ProcessEnv {
   const environment: NodeJS.ProcessEnv = {};
@@ -236,6 +249,17 @@ function childEnvironment(additions: Record<string, string>): NodeJS.ProcessEnv 
   return { ...environment, ...additions };
 }
 
+function codexHostEnvironment(): NodeJS.ProcessEnv {
+  const environment = childEnvironment({});
+  for (const name of CODEX_HOST_ENVIRONMENT) {
+    const entry = Object.entries(process.env).find(([candidate]) => process.platform === "win32"
+      ? candidate.toLowerCase() === name.toLowerCase()
+      : candidate === name);
+    if (entry?.[1] !== undefined) environment[entry[0]] = entry[1];
+  }
+  return environment;
+}
+
 const INSTRUCTIONS: Record<TeamStage, string> = {
   scout: "Inspect the candidate and propose a focused hypothesis. Do not modify any project file. Return findings on stdout.",
   planner: "Synthesize the supplied findings into one concrete, bounded implementation plan. Do not modify any project file. Return the plan on stdout.",
@@ -244,6 +268,169 @@ const INSTRUCTIONS: Record<TeamStage, string> = {
   judge: "Compare the supplied evidence and return a decision with a concise rationale. Do not modify any project file.",
   worker: "Complete the assigned bounded task and return a concise result on stdout."
 };
+
+interface RoleCharter {
+  content: string;
+  path: string;
+  version?: string;
+}
+
+const roleCharters = new Map<TeamStage, Promise<RoleCharter>>();
+
+function sha256(content: string): string {
+  return createHash("sha256").update(content).digest("hex");
+}
+
+function journalValue(value: unknown): JournalJsonValue {
+  return JSON.parse(JSON.stringify(value)) as JournalJsonValue;
+}
+
+function boundedPromptContent(content: string, maximum = 30_000): string {
+  if (content.length <= maximum) return content;
+  return `${content.slice(0, maximum)}\n\n[GameFactory omitted ${content.length - maximum} trailing characters from this trace layer.]`;
+}
+
+function frontmatterVersion(content: string): string | undefined {
+  return content.match(/^---[\s\S]*?^version:\s*([^\r\n]+)$/m)?.[1]?.trim();
+}
+
+function loadRoleCharter(stage: TeamStage): Promise<RoleCharter> {
+  const existing = roleCharters.get(stage);
+  if (existing) return existing;
+  const loading = (async () => {
+    const path = fileURLToPath(new URL(`../instructions/${stage}.md`, import.meta.url));
+    try {
+      const content = await readFile(path, "utf8");
+      const version = frontmatterVersion(content);
+      return { content, path, ...(version ? { version } : {}) };
+    } catch {
+      return { content: INSTRUCTIONS[stage], path: "builtin:agent-team-defaults", version: "0.1.0" };
+    }
+  })();
+  roleCharters.set(stage, loading);
+  return loading;
+}
+
+async function projectInstructionLayers(candidateRoot: string): Promise<{ layers: PromptLayer[]; sources: string[] }> {
+  const found: Array<{ path: string; content: string }> = [];
+  let current = resolve(candidateRoot);
+  for (;;) {
+    const path = resolve(current, "AGENTS.md");
+    try {
+      found.push({ path, content: await readFile(path, "utf8") });
+    } catch {
+      // AGENTS.md is optional at every directory level.
+    }
+    const atRepositoryRoot = await lstat(resolve(current, ".git")).then(() => true, () => false);
+    const parent = dirname(current);
+    if (atRepositoryRoot || parent === current) break;
+    current = parent;
+  }
+  found.reverse();
+  return {
+    sources: found.map((item) => item.path),
+    layers: found.map((item, index) => ({
+      id: `project-${index + 1}`,
+      kind: "project",
+      source: item.path,
+      sha256: sha256(item.content),
+      content: boundedPromptContent(item.content)
+    }))
+  };
+}
+
+function promptLayer(id: string, kind: PromptLayer["kind"], source: string, content: string, details: { version?: string; metadata?: Record<string, unknown> } = {}): PromptLayer {
+  return {
+    id,
+    kind,
+    source,
+    sha256: sha256(content),
+    content: boundedPromptContent(content),
+    ...(details.version ? { version: details.version } : {}),
+    ...(details.metadata ? { metadata: details.metadata } : {})
+  };
+}
+
+async function effectivePromptManifest(input: {
+  config: ContributorConfig;
+  stage: TeamStage;
+  readOnly: boolean;
+  request: AgentRequest;
+  inputs: PriorOutput[];
+  instructions: string;
+  contextReferences: ArtifactReference[];
+}): Promise<EffectivePromptManifest> {
+  const project = await projectInstructionLayers(input.request.candidate.root);
+  const charter = await loadRoleCharter(input.stage);
+  const boundary = JSON.stringify({
+    mutablePaths: input.request.campaign.mutablePaths ?? [],
+    immutablePaths: input.request.campaign.immutablePaths ?? [],
+    permissions: input.readOnly ? "read" : "write"
+  }, null, 2);
+  const upstream = JSON.stringify(input.inputs.map((item) => ({
+    contributorId: item.contributorId,
+    nodeId: item.nodeId,
+    stage: item.stage,
+    outcome: item.outcome,
+    summary: item.summary,
+    structured: item.structured
+  })), null, 2);
+  const history = JSON.stringify(input.request.history.map((item) => ({
+    id: item.experimentId,
+    status: item.status,
+    summary: item.summary,
+    metrics: item.metrics
+  })), null, 2);
+  const context = JSON.stringify(input.contextReferences, null, 2);
+  const adapter = input.config.adapter === "codex-app-server" ? "codex.app-server" : "configured-command";
+  return {
+    version: 1,
+    scope: "factory-supplied",
+    generatedAt: new Date().toISOString(),
+    adapter,
+    ...(input.config.provider ? { provider: input.config.provider } : {}),
+    ...(input.config.model ? { model: input.config.model } : {}),
+    ...(input.config.billingMode ? { billingMode: input.config.billingMode } : {}),
+    instructionSources: project.sources,
+    layers: [
+      ...project.layers,
+      promptLayer("campaign-objective", "campaign", "campaign.objective", input.request.campaign.objective),
+      promptLayer("campaign-boundaries", "boundary", "campaign.mutablePaths+immutablePaths", boundary),
+      promptLayer("role-charter", "role", charter.path, charter.content, { ...(charter.version ? { version: charter.version } : {}) }),
+      promptLayer("node-task", "task", "agentTeam.node.instructions", input.instructions),
+      ...(input.contextReferences.length ? [promptLayer("context-references", "context", "agentTeam.context", context)] : []),
+      ...(input.inputs.length ? [promptLayer("upstream-handoffs", "context", "agentTeam.inputs", upstream)] : []),
+      ...(input.request.history.length ? [promptLayer("experiment-history", "history", "campaign.history", history)] : [])
+    ],
+    context: {
+      objective: input.request.campaign.objective,
+      role: input.stage,
+      contributorId: input.config.id,
+      experimentId: input.request.experimentId,
+      candidateRoot: input.request.candidate.root,
+      readOnly: input.readOnly,
+      upstreamOutputs: input.inputs.length,
+      contextReferences: input.contextReferences.length,
+      historyRecords: input.request.history.length
+    },
+    limitations: [
+      "This manifest records GameFactory-supplied instruction and context layers, not private provider system prompts.",
+      "Provider-native instructions and loaded AGENTS.md files are added when the adapter reports them."
+    ]
+  };
+}
+
+function codexTaskPrompt(requestPath: string, manifest: EffectivePromptManifest): string {
+  return [
+    `You are the ${manifest.context.role} contributor ${manifest.context.contributorId} in a GameFactory experiment.`,
+    `Read the complete factory request at ${requestPath}. It contains your role charter, bounded task, permissions, upstream handoffs, context references, and history.`,
+    manifest.context.readOnly
+      ? "This is a read-only contribution. Inspect and reason, but do not modify project files."
+      : "You may modify only the mutable paths declared in the request. Respect every immutable path and keep the change bounded.",
+    "Use the project AGENTS.md instructions that Codex loaded. Preserve room for exploration: choose and explain a supported hypothesis rather than assuming the visible metric is the whole objective.",
+    "Return a JSON object with at least `summary` and `outcome`. You may also include structured `findings` and `context`. Do not wrap the JSON in Markdown."
+  ].join("\n\n");
+}
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.length > 0 && value.every((part) => typeof part === "string") && value[0]!.length > 0;
@@ -272,7 +459,7 @@ function identityString(value: unknown, location: string): string | undefined {
 }
 
 function contributor(value: unknown, defaultId: string, location: string, defaults: Pick<ContributorConfig, "provider" | "model" | "billingMode"> = {}): ContributorConfig {
-  if (isStringArray(value)) return { id: defaultId, command: [...value], ...defaults };
+  if (isStringArray(value)) return { id: defaultId, adapter: "command", command: [...value], ...defaults };
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${location} must be a command string array or an object with id and command`);
   }
@@ -281,14 +468,24 @@ function contributor(value: unknown, defaultId: string, location: string, defaul
   if (typeof id !== "string" || !ID_PATTERN.test(id)) {
     throw new Error(`${location}.id must use only letters, numbers, dots, underscores, and hyphens`);
   }
-  if (!isStringArray(record.command)) throw new Error(`${location}.command must be a non-empty string array`);
+  const adapter = record.adapter ?? "command";
+  if (adapter !== "command" && adapter !== "codex-app-server") throw new Error(`${location}.adapter must be command or codex-app-server`);
+  if (adapter === "command" && !isStringArray(record.command)) throw new Error(`${location}.command must be a non-empty string array`);
+  if (record.command !== undefined && !isStringArray(record.command)) throw new Error(`${location}.command must be a non-empty string array`);
   const provider = identityString(record.provider, `${location}.provider`) ?? defaults.provider;
   const model = identityString(record.model, `${location}.model`) ?? defaults.model;
   const rawBillingMode = record.billingMode ?? defaults.billingMode;
   if (rawBillingMode !== undefined && rawBillingMode !== "subscription" && rawBillingMode !== "credits" && rawBillingMode !== "metered" && rawBillingMode !== "unknown") {
     throw new Error(`${location}.billingMode must be subscription, credits, metered, or unknown`);
   }
-  return { id, command: [...record.command], ...(provider ? { provider } : {}), ...(model ? { model } : {}), ...(rawBillingMode ? { billingMode: rawBillingMode } : {}) };
+  return {
+    id,
+    adapter,
+    ...(isStringArray(record.command) ? { command: [...record.command] } : {}),
+    ...(provider ? { provider } : adapter === "codex-app-server" ? { provider: "openai-codex-app-server" } : {}),
+    ...(model ? { model } : {}),
+    ...(rawBillingMode ? { billingMode: rawBillingMode } : adapter === "codex-app-server" ? { billingMode: "subscription" } : {})
+  };
 }
 
 function contributorList(value: unknown, stage: "scout" | "critic", defaults: Pick<ContributorConfig, "provider" | "model" | "billingMode"> = {}): ContributorConfig[] {
@@ -711,7 +908,9 @@ async function invokeContributor(
   inputs: PriorOutput[],
   options: InvocationOptions
 ): Promise<ContributorRun> {
-  const command = renderCommand(config.command, request, stage, config.id, options.nodeId, options.attempt);
+  const command = config.adapter === "codex-app-server"
+    ? renderCommand(config.command ?? ["codex", "app-server", "--listen", "stdio://"], request, stage, config.id, options.nodeId, options.attempt)
+    : renderCommand(config.command ?? [], request, stage, config.id, options.nodeId, options.attempt);
   const [executable, ...args] = command;
   if (!executable) throw new Error(`${stage} ${config.id} has no executable`);
   const baseDirectory = resolve(request.candidate.root, ".factory", "agent-team", request.experimentId);
@@ -723,6 +922,10 @@ async function invokeContributor(
   const stdoutPath = resolve(outputDirectory, "stdout.log");
   const stderrPath = resolve(outputDirectory, "stderr.log");
   const structuredOutputPath = resolve(outputDirectory, "output.json");
+  const promptManifestPath = resolve(outputDirectory, "prompt-manifest.json");
+  const contextReferences = await normalizeContext(options.context, request.candidate.root);
+  const roleCharter = await loadRoleCharter(stage);
+  let promptManifest = await effectivePromptManifest({ config, stage, readOnly, request, inputs, instructions: options.instructions, contextReferences });
   const payload = {
     objective: request.campaign.objective,
     experimentId: request.experimentId,
@@ -743,17 +946,22 @@ async function invokeContributor(
     readOnly,
     permissions: readOnly ? "read" : "write",
     reason: options.reason,
+    roleCharter: roleCharter.content,
     instructions: options.instructions,
-    contextReferences: await normalizeContext(options.context, request.candidate.root),
+    contextReferences,
     inputs,
     history: request.history.map((item) => ({
       id: item.experimentId,
       status: item.status,
       summary: item.summary,
       metrics: item.metrics
-    }))
+    })),
+    effectivePrompt: promptManifest
   };
-  await writeFile(requestPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  await Promise.all([
+    writeFile(requestPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8"),
+    writeFile(promptManifestPath, `${JSON.stringify(promptManifest, null, 2)}\n`, "utf8")
+  ]);
   const graphNodeId = await ensureAgentTraceNode(request, config, stage, readOnly);
   await emitAgentTrace(request, { type: "node:started", nodeId: graphNodeId, experimentId: request.experimentId, label: config.id, role: stage, attempt: options.attempt, message: options.reason.kind });
   const traceNodeId = contributorTraceNode(request, options.nodeId, options.attempt);
@@ -766,7 +974,7 @@ async function invokeContributor(
     role: stage,
     attempt: options.attempt,
     message: options.reason.kind,
-    data: { readOnly, invocationId: traceNodeId, parentInvocationId: graphNodeId, ...(config.provider ? { provider: config.provider } : {}), ...(config.model ? { model: config.model } : {}), ...(config.billingMode ? { billingMode: config.billingMode } : {}), ...(config.provider || config.model ? { identitySource: "configured" } : {}), reason: { kind: options.reason.kind, ...(options.reason.source ? { source: options.reason.source } : {}), ...(options.reason.repairAttempt !== undefined ? { repairAttempt: options.reason.repairAttempt } : {}) } }
+    data: journalValue({ readOnly, invocationId: traceNodeId, parentInvocationId: graphNodeId, promptManifest, ...(config.provider ? { provider: config.provider } : {}), ...(config.model ? { model: config.model } : {}), ...(config.billingMode ? { billingMode: config.billingMode } : {}), ...(config.provider || config.model ? { identitySource: "configured" } : {}), reason: { kind: options.reason.kind, ...(options.reason.source ? { source: options.reason.source } : {}), ...(options.reason.repairAttempt !== undefined ? { repairAttempt: options.reason.repairAttempt } : {}) } })
   });
   await emitAgentTrace(request, {
     type: "edge:created",
@@ -779,19 +987,129 @@ async function invokeContributor(
   await emitAgentTrace(request, { type: "node:started", nodeId: traceNodeId, experimentId: request.experimentId, label: config.id, role: stage, attempt: options.attempt });
   const started = Date.now();
   const startedAt = new Date(started).toISOString();
-  const result = await processCommand(executable, args, requestPath, request, stage, config.id, options.nodeId, options.attempt, (progress) => {
-    void emitAgentTrace(request, {
-      type: "node:progress",
-      nodeId: traceNodeId,
-      experimentId: request.experimentId,
-      label: config.id,
-      role: stage,
-      attempt: options.attempt,
-      message: "Subprocess output",
-      progress: { current: progress.stdoutBytes + progress.stderrBytes, unit: "bytes" },
-      data: progress
+  let result: ProcessResult;
+  if (config.adapter === "codex-app-server") {
+    const announcedProviderItems = new Set<string>();
+    let providerTraceTail = Promise.resolve();
+    try {
+      const appServer = await codexAppServers.run({
+        launcher: command,
+        cwd: request.candidate.root,
+        prompt: codexTaskPrompt(requestPath, promptManifest),
+        readOnly,
+        ...(config.model ? { model: config.model } : {}),
+        signal: request.signal,
+        environment: codexHostEnvironment(),
+        onEvent: (event) => {
+          const item = event.params.item && typeof event.params.item === "object" && !Array.isArray(event.params.item)
+            ? event.params.item as Record<string, unknown>
+            : undefined;
+          providerTraceTail = providerTraceTail.then(async () => {
+            await emitAgentTrace(request, {
+              type: "node:progress",
+              nodeId: traceNodeId,
+              experimentId: request.experimentId,
+              label: config.id,
+              role: stage,
+              attempt: options.attempt,
+              message: event.method,
+              data: {
+                providerEvent: event.method,
+                ...(typeof item?.type === "string" ? { itemType: item.type } : {}),
+                ...(typeof item?.status === "string" ? { itemStatus: item.status } : {})
+              }
+            });
+            if (item?.type !== "collabToolCall" || typeof item.id !== "string") return;
+            const providerNodeId = `${traceNodeId}:provider-item:${item.id}`;
+            const label = typeof item.tool === "string" ? item.tool : "Codex subagent";
+            const providerData = journalValue({
+              providerEvent: event.method,
+              itemType: item.type,
+              providerItemId: item.id,
+              ...(typeof item.status === "string" ? { itemStatus: item.status } : {}),
+              ...(typeof item.senderThreadId === "string" ? { senderThreadId: item.senderThreadId } : {}),
+              ...(typeof item.receiverThreadId === "string" ? { receiverThreadId: item.receiverThreadId } : {}),
+              ...(typeof item.newThreadId === "string" ? { newThreadId: item.newThreadId } : {}),
+            });
+            if (!announcedProviderItems.has(providerNodeId)) {
+              announcedProviderItems.add(providerNodeId);
+              await emitAgentTrace(request, {
+                type: "node:created",
+                nodeId: providerNodeId,
+                experimentId: request.experimentId,
+                parentNodeId: traceNodeId,
+                label,
+                role: "subagent",
+                message: "Codex App Server collaboration item",
+                data: providerData
+              });
+              await emitAgentTrace(request, {
+                type: "edge:created",
+                nodeId: `edge:${traceNodeId}:${providerNodeId}`,
+                experimentId: request.experimentId,
+                sourceNodeId: traceNodeId,
+                targetNodeId: providerNodeId,
+                role: "subagent"
+              });
+              await emitAgentTrace(request, {
+                type: "node:started",
+                nodeId: providerNodeId,
+                experimentId: request.experimentId,
+                label,
+                role: "subagent",
+                status: "running",
+                data: providerData
+              });
+            }
+            if (event.method === "item/completed") {
+              const failed = item.status === "failed";
+              await emitAgentTrace(request, {
+                type: failed ? "node:failed" : "node:completed",
+                nodeId: providerNodeId,
+                experimentId: request.experimentId,
+                label,
+                role: "subagent",
+                status: failed ? "failed" : "complete",
+                data: providerData
+              });
+            }
+          });
+        }
+      });
+      await providerTraceTail;
+      result = { code: 0, stdout: appServer.output, stderr: appServer.eventLog, appServer };
+      promptManifest = {
+        ...promptManifest,
+        instructionSources: [...new Set([...promptManifest.instructionSources, ...appServer.instructionSources])],
+        providerContext: {
+          threadId: appServer.threadId,
+          turnId: appServer.turnId,
+          instructionSources: appServer.instructionSources,
+          ...(appServer.modelProvider ? { modelProvider: appServer.modelProvider } : {}),
+          ...(appServer.requestedModel ? { requestedModel: appServer.requestedModel } : {}),
+          ...(appServer.actualModel ? { actualModel: appServer.actualModel } : {})
+        }
+      };
+      await writeFile(promptManifestPath, `${JSON.stringify(promptManifest, null, 2)}\n`, "utf8");
+    } catch (error) {
+      await providerTraceTail;
+      result = { code: 1, stdout: "", stderr: error instanceof Error ? error.stack ?? error.message : String(error) };
+    }
+  } else {
+    result = await processCommand(executable, args, requestPath, request, stage, config.id, options.nodeId, options.attempt, (progress) => {
+      void emitAgentTrace(request, {
+        type: "node:progress",
+        nodeId: traceNodeId,
+        experimentId: request.experimentId,
+        label: config.id,
+        role: stage,
+        attempt: options.attempt,
+        message: "Subprocess output",
+        progress: { current: progress.stdoutBytes + progress.stderrBytes, unit: "bytes" },
+        data: progress
+      });
     });
-  });
+  }
   const finished = Date.now();
   if (result.failure) {
     result.stderr += `${result.stderr.endsWith("\n") || result.stderr.length === 0 ? "" : "\n"}Process terminated: ${result.failure}\n`;
@@ -814,17 +1132,18 @@ async function invokeContributor(
   const status = result.code === 0 && !result.spawnError && !parseFailure && !result.failure ? "complete" : "failed";
   const outcome = status === "failed" ? "failed" : parsed?.outcome ?? "complete";
   const summary = parsed?.summary ?? lastLine(result.stdout, `${stage} ${config.id} ${status}`);
-  const usage = parseInvocationUsage(parsed?.usage, {
+  const usage = parseInvocationUsage(result.appServer?.usage ?? parsed?.usage, {
     ...(config.provider ? { provider: config.provider } : {}),
-    ...(config.model ? { model: config.model } : {}),
+    ...(result.appServer?.actualModel ? { model: result.appServer.actualModel } : config.model ? { model: config.model } : {}),
     ...(config.billingMode ? { billingMode: config.billingMode } : {}),
-    ...(config.provider || config.model ? { identitySource: "configured" as const } : {})
+    ...(result.appServer ? { identitySource: "provider-reported" as const } : config.provider || config.model ? { identitySource: "configured" as const } : {})
   });
   const declaredArtifacts = parsed?.artifacts ?? [];
   const artifacts: ArtifactReference[] = [
     { kind: "log", path: stdoutPath, mediaType: "text/plain", label: `${stage} ${config.id} stdout`, metadata: { stage, contributorId: config.id, nodeId: options.nodeId, attempt: options.attempt } },
     { kind: "log", path: stderrPath, mediaType: "text/plain", label: `${stage} ${config.id} stderr`, metadata: { stage, contributorId: config.id, nodeId: options.nodeId, attempt: options.attempt } },
     { kind: "other", path: requestPath, mediaType: "application/json", label: `${stage} ${config.id} request`, metadata: { stage, contributorId: config.id, nodeId: options.nodeId, attempt: options.attempt } },
+    { kind: "other", path: promptManifestPath, mediaType: "application/json", label: `${stage} ${config.id} effective prompt manifest`, metadata: { stage, contributorId: config.id, nodeId: options.nodeId, attempt: options.attempt, promptManifestVersion: 1 } },
     ...(parsed ? [{ kind: "other" as const, path: structuredOutputPath, mediaType: "application/json", label: `${stage} ${config.id} structured output`, metadata: { stage, contributorId: config.id, nodeId: options.nodeId, attempt: options.attempt } }] : []),
     ...declaredArtifacts
   ];
@@ -847,7 +1166,11 @@ async function invokeContributor(
     stdoutPath,
     stderrPath,
     invocationId: traceNodeId,
-    parentInvocationId: graphNodeId
+    parentInvocationId: graphNodeId,
+    promptManifest,
+    promptManifestPath,
+    ...(result.appServer?.threadId ? { providerThreadId: result.appServer.threadId } : {}),
+    ...(result.appServer?.turnId ? { providerTurnId: result.appServer.turnId } : {})
   };
   if (usage) provenance.usage = usage;
   if (parsed) provenance.structuredOutputPath = structuredOutputPath;
@@ -862,7 +1185,7 @@ async function invokeContributor(
     status,
     attempt: options.attempt,
     message: summary,
-    data: { outcome, durationMs: finished - started, exitCode: result.code, artifactCount: artifacts.length, invocationId: traceNodeId, parentInvocationId: graphNodeId, ...(usage ? { usage: { ...usage } } : {}) }
+    data: journalValue({ outcome, durationMs: finished - started, exitCode: result.code, artifactCount: artifacts.length, invocationId: traceNodeId, parentInvocationId: graphNodeId, promptManifest, ...(result.appServer?.threadId ? { providerThreadId: result.appServer.threadId } : {}), ...(result.appServer?.turnId ? { providerTurnId: result.appServer.turnId } : {}), ...(usage ? { usage: { ...usage } } : {}) })
   });
   if (artifacts.length > 0) {
     await emitAgentTrace(request, { type: "artifact:produced", nodeId: traceNodeId, experimentId: request.experimentId, label: config.id, role: stage, attempt: options.attempt, message: `${artifacts.length} artifacts produced`, data: { count: artifacts.length } });
@@ -1005,6 +1328,10 @@ function contribution(run: ContributorRun): AgentContribution {
       requestPath: run.provenance.requestPath,
       stdoutPath: run.provenance.stdoutPath,
       stderrPath: run.provenance.stderrPath,
+      promptManifest: run.provenance.promptManifest,
+      promptManifestPath: run.provenance.promptManifestPath,
+      ...(run.provenance.providerThreadId ? { providerThreadId: run.provenance.providerThreadId } : {}),
+      ...(run.provenance.providerTurnId ? { providerTurnId: run.provenance.providerTurnId } : {}),
       ...(run.provenance.structuredOutputPath ? { structuredOutputPath: run.provenance.structuredOutputPath } : {})
     }
   };
@@ -1326,4 +1653,12 @@ export class AgentTeam implements AgentDriver {
   }
 }
 
-export default defineExtension((api) => api.register("agent", "agent.team", new AgentTeam()));
+export default defineExtension((api) => {
+  const registration = api.register("agent", "agent.team", new AgentTeam());
+  return {
+    async dispose() {
+      await registration.dispose();
+      await codexAppServers.dispose();
+    }
+  };
+});

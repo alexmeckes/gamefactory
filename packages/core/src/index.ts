@@ -6,6 +6,7 @@ export * from "./decision.js";
 export * from "./extension-manager.js";
 export * from "./logger.js";
 export * from "./journal.js";
+export * from "./prompts.js";
 export * from "./trace.js";
 export * from "./usage.js";
 export * from "./registry.js";

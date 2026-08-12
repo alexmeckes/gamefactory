@@ -14,7 +14,7 @@ What is implemented:
 - append-only JSONL experiment records and engine-neutral artifacts;
 - deterministic mock drivers and integration tests;
 - detached Git worktree isolation;
-- model-neutral command-agent integration;
+- model-neutral command-agent integration plus a native Codex App Server adapter;
 - specialist agent teams with parallel scouts/critics and one protected writer;
 - optional task-specific agent DAGs with structured handoffs, conditions, retries, and bounded critic repairs;
 - parallel candidate tournaments with deterministic winner selection;
@@ -83,6 +83,12 @@ removes a temporary Git repository around the Godot fixture.
 Run `npm run smoke:godot:multi-agent` to exercise three competing worktrees.
 Each candidate uses parallel scouts, a planner, one implementer, and parallel
 critics before Godot evaluation; only the strongest passing candidate is kept.
+This smoke command deliberately uses deterministic fixture contributors so it
+is repeatable in tests. To run the same architecture with real Codex agents and
+your signed-in Codex configuration, use `npm run run:godot:codex`. The real
+campaign talks to `codex app-server`, inherits the configured model unless a
+node explicitly overrides it, and records App Server thread, turn, instruction,
+token, and native subagent events in the trace.
 Set `FACTORY_SMOKE_VERBOSE=true` to print the complete provenance and artifact
 ledger instead of the compact smoke summary.
 

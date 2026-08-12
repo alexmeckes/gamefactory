@@ -25,9 +25,21 @@ npm run smoke:godot
 npm run smoke:godot:multi-agent
 npm run smoke:godot:assets
 npm run smoke:godot:discovery
+npm run run:godot:codex
 ```
 
-The first command exercises a linear autoresearch loop. The second runs three independent specialist-team candidates in parallel, evaluates them against the same deterministic five-second playthrough, and accepts at most one winner.
+The first command exercises a linear autoresearch loop. The second runs
+deterministic fixture teams in independent worktrees and accepts at most one
+winner. The final command runs the real two-candidate Codex App Server campaign:
+parallel systems and player-experience scouts, a lead planner, a protected
+builder, and parallel regression and experience critics. It uses the model in
+the signed-in Codex configuration unless the campaign specifies one.
+
+Pulse Runner itself predates the factory run: its initial playable Godot scene
+and script were authored directly, then the factory was used to tune, test, and
+compare isolated variants. The deterministic `tools/team-role.mjs` campaign
+proved scheduling and evidence flow; it was never an LLM-generated game. The
+App Server campaign is the first example here that launches real Codex agents.
 
 The original scenario uses a seeded controller so candidates are compared on identical play. Its legacy `fun_score` remains for compatibility, while new design campaigns call the same behavioral proxy `scenario_score`; neither is treated as human evidence of fun.
 

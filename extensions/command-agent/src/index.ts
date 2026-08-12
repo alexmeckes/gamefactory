@@ -1,9 +1,9 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { lstat, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { isAbsolute, join, relative, resolve } from "node:path";
-import { parseInvocationUsage, type AgentDriver, type AgentResult, type ArtifactReference, type FactoryTraceEventInput, type InvocationUsage, type UsageBillingMode } from "@gamefactory/core";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { parseInvocationUsage, type AgentDriver, type AgentResult, type ArtifactReference, type EffectivePromptManifest, type FactoryTraceEventInput, type InvocationUsage, type JournalJsonValue, type PromptLayer, type UsageBillingMode } from "@gamefactory/core";
 import { defineExtension } from "@gamefactory/extension-sdk";
 
 const DEFAULT_TIMEOUT_SECONDS = 15 * 60;
@@ -100,6 +100,62 @@ function commandFor(request: AgentRequest): string[] {
 function agentInstructions(value: unknown): string[] {
   if (typeof value === "string" && value.trim().length > 0) return [value];
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
+}
+
+function hash(content: string): string {
+  return createHash("sha256").update(content).digest("hex");
+}
+
+function layer(id: string, kind: PromptLayer["kind"], source: string, content: string): PromptLayer {
+  return { id, kind, source, sha256: hash(content), content: content.length <= 30_000 ? content : `${content.slice(0, 30_000)}\n\n[truncated in trace]` };
+}
+
+async function projectInstructions(candidateRoot: string): Promise<{ sources: string[]; layers: PromptLayer[] }> {
+  const files: Array<{ path: string; content: string }> = [];
+  let current = resolve(candidateRoot);
+  for (;;) {
+    const path = resolve(current, "AGENTS.md");
+    try { files.push({ path, content: await readFile(path, "utf8") }); } catch { /* optional */ }
+    const repositoryRoot = await lstat(resolve(current, ".git")).then(() => true, () => false);
+    const parent = dirname(current);
+    if (repositoryRoot || parent === current) break;
+    current = parent;
+  }
+  files.reverse();
+  return { sources: files.map((file) => file.path), layers: files.map((file, index) => layer(`project-${index + 1}`, "project", file.path, file.content)) };
+}
+
+async function promptManifest(request: AgentRequest, settings: CommandAgentSettings): Promise<EffectivePromptManifest> {
+  const project = await projectInstructions(request.candidate.root);
+  const instructions = agentInstructions(request.campaign.parameters?.agentInstructions);
+  const boundaries = JSON.stringify({ mutablePaths: request.campaign.mutablePaths ?? [], immutablePaths: request.campaign.immutablePaths ?? [] }, null, 2);
+  const designIntent = request.campaign.parameters?.design && typeof request.campaign.parameters.design === "object"
+    ? (request.campaign.parameters.design as Record<string, unknown>).intent
+    : undefined;
+  return {
+    version: 1,
+    scope: "factory-supplied",
+    generatedAt: new Date().toISOString(),
+    adapter: "configured-command",
+    ...(settings.provider ? { provider: settings.provider } : {}),
+    ...(settings.model ? { model: settings.model } : {}),
+    ...(settings.billingMode ? { billingMode: settings.billingMode } : {}),
+    instructionSources: project.sources,
+    layers: [
+      ...project.layers,
+      layer("campaign-objective", "campaign", "campaign.objective", request.campaign.objective),
+      layer("campaign-boundaries", "boundary", "campaign.mutablePaths+immutablePaths", boundaries),
+      ...(instructions.length ? [layer("agent-instructions", "task", "campaign.parameters.agentInstructions", instructions.join("\n\n"))] : []),
+      ...(designIntent !== undefined ? [layer("design-intent", "context", "campaign.parameters.design.intent", JSON.stringify(designIntent, null, 2))] : []),
+      ...(request.history.length ? [layer("experiment-history", "history", "campaign.history", JSON.stringify(request.history.map((item) => ({ id: item.experimentId, status: item.status, summary: item.summary, metrics: item.metrics })), null, 2))] : [])
+    ],
+    context: { objective: request.campaign.objective, role: "worker", contributorId: "command.agent", experimentId: request.experimentId, candidateRoot: request.candidate.root, readOnly: false, upstreamOutputs: 0, contextReferences: designIntent === undefined ? 0 : 1, historyRecords: request.history.length },
+    limitations: ["This manifest records GameFactory-supplied layers; the configured command may add provider instructions that it does not report."]
+  };
+}
+
+function traceValue(value: unknown): JournalJsonValue {
+  return JSON.parse(JSON.stringify(value)) as JournalJsonValue;
 }
 
 function settingsFor(request: AgentRequest): CommandAgentSettings {
@@ -384,11 +440,12 @@ export class CommandAgent implements AgentDriver {
     const [executable, ...args] = command;
     if (!executable) throw new Error("Agent command has no executable");
     const settings = settingsFor(request);
+    const effectivePrompt = await promptManifest(request, settings);
     const traceNodeId = `agent:${request.experimentId}:command.agent:attempt-1`;
-    const traceData = { invocationId: traceNodeId, parentInvocationId: `experiment:${request.experimentId}`, ...(settings.provider ? { provider: settings.provider } : {}), ...(settings.model ? { model: settings.model } : {}), ...(settings.billingMode ? { billingMode: settings.billingMode } : {}), ...(settings.provider || settings.model ? { identitySource: "configured" as const } : {}) };
-    await emitCommandTrace(request, { type: "node:created", nodeId: traceNodeId, experimentId: request.experimentId, parentNodeId: `experiment:${request.experimentId}`, label: this.id, role: "worker", attempt: 1, data: traceData });
+    const traceData = { invocationId: traceNodeId, parentInvocationId: `experiment:${request.experimentId}`, promptManifest: effectivePrompt, ...(settings.provider ? { provider: settings.provider } : {}), ...(settings.model ? { model: settings.model } : {}), ...(settings.billingMode ? { billingMode: settings.billingMode } : {}), ...(settings.provider || settings.model ? { identitySource: "configured" as const } : {}) };
+    await emitCommandTrace(request, { type: "node:created", nodeId: traceNodeId, experimentId: request.experimentId, parentNodeId: `experiment:${request.experimentId}`, label: this.id, role: "worker", attempt: 1, data: traceValue(traceData) });
     await emitCommandTrace(request, { type: "edge:created", nodeId: `edge:experiment:${request.experimentId}:${traceNodeId}`, experimentId: request.experimentId, sourceNodeId: `experiment:${request.experimentId}`, targetNodeId: traceNodeId, role: "agent" });
-    await emitCommandTrace(request, { type: "node:started", nodeId: traceNodeId, experimentId: request.experimentId, label: this.id, role: "worker", attempt: 1, data: traceData });
+    await emitCommandTrace(request, { type: "node:started", nodeId: traceNodeId, experimentId: request.experimentId, label: this.id, role: "worker", attempt: 1, data: traceValue(traceData) });
     const prompt = {
       objective: request.campaign.objective,
       experimentId: request.experimentId,
@@ -400,15 +457,20 @@ export class CommandAgent implements AgentDriver {
       designIntent: request.campaign.parameters?.design && typeof request.campaign.parameters.design === "object"
         ? (request.campaign.parameters.design as Record<string, unknown>).intent
         : undefined,
-      history: request.history.map((item) => ({ id: item.experimentId, status: item.status, summary: item.summary, metrics: item.metrics }))
+      history: request.history.map((item) => ({ id: item.experimentId, status: item.status, summary: item.summary, metrics: item.metrics })),
+      effectivePrompt
     };
     const outputDirectory = resolve(request.candidate.root, ".factory", "agent", request.experimentId);
     await mkdir(outputDirectory, { recursive: true });
     const requestPath = resolve(outputDirectory, "request.json");
+    const promptManifestPath = resolve(outputDirectory, "prompt-manifest.json");
     const stdoutPath = resolve(outputDirectory, "stdout.log");
     const stderrPath = resolve(outputDirectory, "stderr.log");
     const requestContent = `${JSON.stringify(prompt, null, 2)}\n`;
-    await writeFile(requestPath, requestContent, "utf8");
+    await Promise.all([
+      writeFile(requestPath, requestContent, "utf8"),
+      writeFile(promptManifestPath, `${JSON.stringify(effectivePrompt, null, 2)}\n`, "utf8")
+    ]);
 
     const started = Date.now();
     const startedAt = new Date(started).toISOString();
@@ -437,7 +499,7 @@ export class CommandAgent implements AgentDriver {
         capturedOutputBytes: outcome.capturedOutputBytes,
         evidenceDirectory: retained.directory
       };
-      await emitCommandTrace(request, { type: "node:failed", nodeId: traceNodeId, experimentId: request.experimentId, label: this.id, role: "worker", attempt: 1, status: failureCode, message: failureMessage(failureCode, outcome, retained.directory), data: { ...traceData, durationMs: finished - started, capturedOutputBytes: outcome.capturedOutputBytes } });
+      await emitCommandTrace(request, { type: "node:failed", nodeId: traceNodeId, experimentId: request.experimentId, label: this.id, role: "worker", attempt: 1, status: failureCode, message: failureMessage(failureCode, outcome, retained.directory), data: traceValue({ ...traceData, durationMs: finished - started, capturedOutputBytes: outcome.capturedOutputBytes }) });
       throw new CommandAgentExecutionError(
         failureMessage(failureCode, outcome, retained.directory),
         provenance,
@@ -453,9 +515,10 @@ export class CommandAgent implements AgentDriver {
     const artifacts: ArtifactReference[] = [
       { kind: "log", path: stdoutPath, mediaType: "text/plain", label: "Agent stdout" },
       { kind: "log", path: stderrPath, mediaType: "text/plain", label: "Agent stderr" },
-      { kind: "other", path: requestPath, mediaType: "application/json", label: "Agent request" }
+      { kind: "other", path: requestPath, mediaType: "application/json", label: "Agent request" },
+      { kind: "other", path: promptManifestPath, mediaType: "application/json", label: "Agent effective prompt manifest", metadata: { promptManifestVersion: 1 } }
     ];
-    await emitCommandTrace(request, { type: "node:completed", nodeId: traceNodeId, experimentId: request.experimentId, label: this.id, role: "worker", attempt: 1, status: "complete", message: summary, data: { ...traceData, durationMs: finished - started, ...(metadata.usage ? { usage: { ...metadata.usage } } : {}) } });
+    await emitCommandTrace(request, { type: "node:completed", nodeId: traceNodeId, experimentId: request.experimentId, label: this.id, role: "worker", attempt: 1, status: "complete", message: summary, data: traceValue({ ...traceData, durationMs: finished - started, ...(metadata.usage ? { usage: { ...metadata.usage } } : {}) }) });
     return {
       summary,
       artifacts,
@@ -470,7 +533,8 @@ export class CommandAgent implements AgentDriver {
         artifacts: [],
         invocationId: traceNodeId,
         parentInvocationId: `experiment:${request.experimentId}`,
-        ...(metadata.usage ? { usage: metadata.usage } : {})
+        ...(metadata.usage ? { usage: metadata.usage } : {}),
+        metadata: { promptManifest: effectivePrompt, promptManifestPath }
       }]
     };
   }

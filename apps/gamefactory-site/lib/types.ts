@@ -30,6 +30,48 @@ export interface Usage {
   identitySource?: "provider-reported" | "configured";
 }
 
+export interface PromptLayer {
+  id: string;
+  kind: "project" | "campaign" | "boundary" | "role" | "task" | "context" | "history";
+  source: string;
+  sha256: string;
+  content: string;
+  version?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface EffectivePromptManifest {
+  version: 1;
+  scope: "factory-supplied";
+  generatedAt: string;
+  adapter: string;
+  provider?: string;
+  model?: string;
+  billingMode?: string;
+  instructionSources: string[];
+  layers: PromptLayer[];
+  context: {
+    objective: string;
+    role: string;
+    contributorId: string;
+    experimentId: string;
+    candidateRoot: string;
+    readOnly: boolean;
+    upstreamOutputs: number;
+    contextReferences: number;
+    historyRecords: number;
+  };
+  providerContext?: {
+    threadId?: string;
+    turnId?: string;
+    instructionSources?: string[];
+    modelProvider?: string;
+    requestedModel?: string;
+    actualModel?: string;
+  };
+  limitations: string[];
+}
+
 export interface GraphNode {
   id: string;
   kind: string;
@@ -49,6 +91,7 @@ export interface GraphNode {
   parentInvocationId?: string;
   usage?: Usage;
   provenance?: Record<string, unknown>;
+  promptManifest?: EffectivePromptManifest;
 }
 
 export interface GraphEdge {

@@ -2,7 +2,7 @@
 
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { demoSnapshot } from "@/lib/demo";
-import type { BillingMode, FactorySnapshot, GraphEdge, GraphNode, ReplayBundle, Usage } from "@/lib/types";
+import type { BillingMode, EffectivePromptManifest, FactorySnapshot, GraphEdge, GraphNode, ReplayBundle, Usage } from "@/lib/types";
 
 const NODE_WIDTH = 178;
 const NODE_HEIGHT = 76;
@@ -237,6 +237,36 @@ function Inspector({ node, snapshot, cursor }: { node?: GraphNode; snapshot: Fac
   if (!node) {
     return <aside className="inspector empty-inspector"><span className="section-kicker">Inspection</span><h2>Select a node</h2><p>Open an extension, creative input, candidate, agent, evaluator, or decision to inspect its exact provenance and downstream work.</p></aside>;
   }
+  return <NodeInspector node={node} snapshot={snapshot} cursor={cursor} />;
+}
+
+function PromptManifestPanel({ manifest }: { manifest: EffectivePromptManifest }) {
+  const [selectedLayerId, setSelectedLayerId] = useState(manifest.layers[0]?.id ?? "");
+  useEffect(() => setSelectedLayerId(manifest.layers[0]?.id ?? ""), [manifest]);
+  const layer = manifest.layers.find((item) => item.id === selectedLayerId) ?? manifest.layers[0];
+  return (
+    <div className="prompt-panel">
+      <dl className="facts prompt-facts">
+        <div><dt>Adapter</dt><dd>{manifest.adapter}</dd></div>
+        <div><dt>Provider</dt><dd>{manifest.providerContext?.modelProvider ?? manifest.provider ?? "unreported"}</dd></div>
+        <div><dt>Model</dt><dd>{manifest.providerContext?.actualModel ?? manifest.model ?? "provider default"}</dd></div>
+        <div><dt>Access</dt><dd>{manifest.context.readOnly ? "read only" : "workspace write"}</dd></div>
+      </dl>
+      {manifest.providerContext?.threadId ? <div className="lineage provider-lineage"><span className="section-kicker">Codex lineage</span><code>{manifest.providerContext.threadId}</code><span className="lineage-arrow">↓</span><code>{manifest.providerContext.turnId ?? "turn pending"}</code></div> : null}
+      <span className="section-kicker section-space">Effective instruction layers</span>
+      <div className="prompt-layer-tabs" role="tablist" aria-label="Effective prompt layers">
+        {manifest.layers.map((item) => <button aria-selected={item.id === layer?.id} className={item.id === layer?.id ? "active" : ""} key={item.id} onClick={() => setSelectedLayerId(item.id)} role="tab" type="button"><span>{item.kind}</span><strong>{item.id}</strong></button>)}
+      </div>
+      {layer ? <section className="prompt-layer" role="tabpanel"><div><span>{layer.source}</span>{layer.version ? <b>v{layer.version}</b> : null}</div><code title={layer.sha256}>sha256 {layer.sha256.slice(0, 12)}</code><pre>{layer.content}</pre></section> : null}
+      {manifest.instructionSources.length ? <><span className="section-kicker section-space">Loaded instruction files</span><ul className="instruction-sources">{manifest.instructionSources.map((source) => <li key={source}><code>{source}</code></li>)}</ul></> : null}
+      <p className="prompt-limitation">{manifest.limitations[0]}</p>
+    </div>
+  );
+}
+
+function NodeInspector({ node, snapshot, cursor }: { node: GraphNode; snapshot: FactorySnapshot; cursor: number }) {
+  const [tab, setTab] = useState<"overview" | "prompt">("overview");
+  useEffect(() => setTab("overview"), [node.id]);
   const experiment = snapshot.experiments.find((item) => item.id === node.experimentId);
   const contribution = experiment?.contributors.find((item) => item.invocationId === node.invocationId || item.agentId === node.label);
   const usage = node.usage ?? contribution?.usage;
@@ -256,6 +286,8 @@ function Inspector({ node, snapshot, cursor }: { node?: GraphNode; snapshot: Fac
     <aside className="inspector">
       <div className="inspector-heading"><span className="section-kicker">{node.kind}</span><span className={`state-pill state-${stateAt(node, cursor)}`}>{stateAt(node, cursor)}</span></div>
       <h2>{node.label}</h2>
+      {node.promptManifest ? <div className="inspector-tabs" role="tablist" aria-label="Node inspection view"><button aria-selected={tab === "overview"} className={tab === "overview" ? "active" : ""} onClick={() => setTab("overview")} role="tab" type="button">Overview</button><button aria-selected={tab === "prompt"} className={tab === "prompt" ? "active" : ""} onClick={() => setTab("prompt")} role="tab" type="button">Prompt &amp; context</button></div> : null}
+      {tab === "prompt" && node.promptManifest ? <PromptManifestPanel manifest={node.promptManifest} /> : <>
       <p>{contribution?.summary ?? node.detail ?? "No summary reported."}</p>
       {provenanceRows.length ? <><span className="section-kicker section-space">Exact provenance</span><dl className="provenance-list">{provenanceRows.map((row) => <div key={row.label}><dt>{row.label}</dt><dd title={row.display}>{row.display}</dd></div>)}</dl></> : (
         <dl className="facts">
@@ -275,6 +307,7 @@ function Inspector({ node, snapshot, cursor }: { node?: GraphNode; snapshot: Fac
           <ol className="phase-list">{phases.slice(-6).map((phase) => <li key={`${phase.sequence}-${phase.phase}`}><i aria-hidden="true" /><span><strong>{phase.phase}</strong><small>#{phase.sequence} · {phase.note}</small></span></li>)}</ol>
         </>
       ) : null}
+      </>}
     </aside>
   );
 }

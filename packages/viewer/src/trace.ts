@@ -7,6 +7,7 @@ import {
   type ArtifactReference,
   type Campaign,
   type Evaluation,
+  type EffectivePromptManifest,
   type ExperimentRecord,
   type FactoryConfig,
   type FactoryTraceEvent,
@@ -140,6 +141,7 @@ export interface ViewerGraphNode {
   parentInvocationId?: string;
   usage?: InvocationUsage;
   provenance?: Record<string, unknown>;
+  promptManifest?: EffectivePromptManifest;
 }
 
 export interface ViewerModelUsage {
@@ -904,6 +906,7 @@ function mergeTraceGraph(graph: ViewerGraph, traceEvents: FactoryTraceEvent[], s
     const identityData = dataEvents.find((data) => stringValue(data.provider) || stringValue(data.model) || stringValue(data.billingMode) || stringValue(data.identitySource));
     const usageData = dataEvents.find((data) => asObject(data.usage));
     const provenance = dataEvents.find((data) => stringValue(data.provenanceType));
+    const promptManifest = dataEvents.map((data) => asObject(data.promptManifest)).find((value) => value !== undefined) as EffectivePromptManifest | undefined;
     const usage = safeUsage(usageData?.usage, {
       ...(stringValue(identityData?.provider) ? { provider: stringValue(identityData?.provider)! } : {}),
       ...(stringValue(identityData?.model) ? { model: stringValue(identityData?.model)! } : {}),
@@ -927,6 +930,7 @@ function mergeTraceGraph(graph: ViewerGraph, traceEvents: FactoryTraceEvent[], s
       if (invocationId) existing.invocationId = invocationId;
       if (parentInvocationId) existing.parentInvocationId = parentInvocationId;
       if (provenance) existing.provenance = provenance;
+      if (promptManifest) existing.promptManifest = promptManifest;
       continue;
     }
     const experimentId = first.experimentId;
@@ -957,7 +961,8 @@ function mergeTraceGraph(graph: ViewerGraph, traceEvents: FactoryTraceEvent[], s
       ...(invocationId ? { invocationId } : {}),
       ...(parentInvocationId ? { parentInvocationId } : {}),
       ...(usage ? { usage } : {}),
-      ...(provenance ? { provenance } : {})
+      ...(provenance ? { provenance } : {}),
+      ...(promptManifest ? { promptManifest } : {})
     };
     nodes.push(node);
     if (cluster) cluster.nodeIds.push(id);

@@ -1,10 +1,31 @@
-import type { Experiment, FactorySnapshot, GraphEdge, GraphNode, Usage } from "./types";
+import type { EffectivePromptManifest, Experiment, FactorySnapshot, GraphEdge, GraphNode, Usage } from "./types";
 
 const baseTime = new Date("2026-08-12T13:37:49.387Z").getTime();
 const at = (seconds: number) => new Date(baseTime + seconds * 1000).toISOString();
 
 function subscriptionUsage(): Usage {
   return { billingMode: "subscription" };
+}
+
+function demoPrompt(role: string, contributorId: string, experimentId: string): EffectivePromptManifest {
+  const layers = [
+    { id: "project-1", kind: "project" as const, source: "AGENTS.md", content: "Keep the core small, preserve evidence, and distinguish deterministic fixtures from real model runs." },
+    { id: "campaign-objective", kind: "campaign" as const, source: "campaign.objective", content: "Find a responsive, readable movement balance without reducing the game to its proxy metric." },
+    { id: "role-charter", kind: "role" as const, source: `extensions/agent-team/instructions/${role}.md`, content: `${role} owns a bounded contribution and must return evidence, assumptions, and a structured outcome.` },
+    { id: "node-task", kind: "task" as const, source: "agentTeam.node.instructions", content: `Complete the ${role} contribution for ${experimentId}.` },
+  ].map((layer) => ({ ...layer, sha256: "example-replay-not-a-content-hash", version: layer.kind === "role" ? "1.0.0" : undefined }));
+  return {
+    version: 1,
+    scope: "factory-supplied",
+    generatedAt: at(0),
+    adapter: "deterministic-fixture",
+    provider: "local",
+    billingMode: "subscription",
+    instructionSources: ["AGENTS.md"],
+    layers,
+    context: { objective: "Find a responsive, readable movement balance.", role, contributorId, experimentId, candidateRoot: "portable replay", readOnly: role !== "implementer", upstreamOutputs: role === "scout" ? 0 : 1, contextReferences: 0, historyRecords: 0 },
+    limitations: ["Example replay: these layers demonstrate provenance, but no language model was invoked."]
+  };
 }
 
 const nodes: GraphNode[] = [];
@@ -95,6 +116,7 @@ for (const [slot, candidate] of candidates.entries()) {
       invocationId: `${candidate.id}-${agent.id}-1`,
       parentInvocationId: `${candidate.id}-team`,
       usage: agentUsage,
+      promptManifest: demoPrompt(agent.role, agent.id, candidate.id),
     });
     edge(team, id, candidate.start + 9 + agentIndex * 15, "fan-out", agent.role);
     edge(id, evaluator, candidate.start + 68, "evidence");

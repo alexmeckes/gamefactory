@@ -97,6 +97,32 @@ const finished = Date.now();
 await writeFile(timingRoot + "/" + request.nodeId + "-" + request.attempt + ".json", JSON.stringify({ started, finished }), "utf8");
 `;
 
+const appServerFixtureSource = `
+import { createInterface } from "node:readline";
+const lines = createInterface({ input: process.stdin, crlfDelay: Infinity });
+const send = (value) => process.stdout.write(JSON.stringify(value) + "\\n");
+lines.on("line", (line) => {
+  const message = JSON.parse(line);
+  if (message.method === "initialized") return;
+  if (message.method === "initialize") return send({ id: message.id, result: { userAgent: "fixture" } });
+  if (message.method === "thread/start") return send({
+    id: message.id,
+    result: { thread: { id: "thread-real-adapter", modelProvider: "openai" }, instructionSources: [message.params.cwd + "/AGENTS.md"] }
+  });
+  if (message.method !== "turn/start") return;
+  const threadId = message.params.threadId;
+  const turnId = "turn-real-adapter";
+  send({ id: message.id, result: { turn: { id: turnId, status: "inProgress", items: [] } } });
+  send({ method: "turn/started", params: { threadId, turn: { id: turnId, status: "inProgress" } } });
+  send({ method: "item/started", params: { threadId, turnId, item: { id: "collab-1", type: "collabToolCall", tool: "spawn_agent", status: "inProgress", newThreadId: "thread-subagent" } } });
+  send({ method: "item/completed", params: { threadId, turnId, item: { id: "collab-1", type: "collabToolCall", tool: "spawn_agent", status: "completed", newThreadId: "thread-subagent" } } });
+  send({ method: "item/completed", params: { threadId, turnId, item: { id: "msg-1", type: "agentMessage", text: JSON.stringify({ summary: "App Server worker finished", outcome: "pass" }) } } });
+  send({ method: "thread/tokenUsage/updated", params: { threadId, turnId, tokenUsage: { total: { inputTokens: 80, outputTokens: 20, totalTokens: 100 } } } });
+  send({ method: "turn/completed", params: { threadId, turn: { id: turnId, status: "completed" } } });
+  setTimeout(() => process.exit(0), 10);
+});
+`;
+
 function command(id: string): { id: string; command: string[] } {
   return { id, command: [process.execPath, "team-fixture.mjs"] };
 }
@@ -151,6 +177,7 @@ async function repository(): Promise<string> {
   const root = await mkdtemp(resolve(tmpdir(), "gamefactory-agent-team-"));
   await writeFile(resolve(root, "team-fixture.mjs"), fixtureSource, "utf8");
   await writeFile(resolve(root, "graph-fixture.mjs"), graphFixtureSource, "utf8");
+  await writeFile(resolve(root, "app-server-fixture.mjs"), appServerFixtureSource, "utf8");
   await writeFile(resolve(root, "value.txt"), "baseline\n", "utf8");
   await exec("git", ["init", "-q"], { cwd: root });
   await exec("git", ["add", "--all"], { cwd: root });
@@ -174,7 +201,7 @@ test("agent team runs parallel read-only stages around a single writer and retur
     });
     assert.equal(await readFile(resolve(root, "value.txt"), "utf8"), "implemented\n");
     assert.match(result.summary, /implementation complete/);
-    assert.equal(result.artifacts?.length, 18);
+    assert.equal(result.artifacts?.length, 24);
     assert.deepEqual(result.contributors?.map(({ agentId, role }) => [agentId, role]), [
       ["systems", "scout"],
       ["gameplay", "scout"],
@@ -183,7 +210,8 @@ test("agent team runs parallel read-only stages around a single writer and retur
       ["safety", "critic"],
       ["quality", "critic"]
     ]);
-    assert.ok(result.contributors?.every((item) => item.status === "complete" && item.artifacts.length === 3));
+    assert.ok(result.contributors?.every((item) => item.status === "complete" && item.artifacts.length === 4));
+    assert.ok(result.contributors?.every((item) => item.metadata?.promptManifest));
     const metadata = result.metadata as { pipeline: string; stages: { scouts: string[]; critics: string[] } };
     assert.equal(metadata.pipeline, "agent.team");
     assert.equal(metadata.stages.scouts.length + metadata.stages.critics.length, 4);
@@ -195,9 +223,10 @@ test("agent team runs parallel read-only stages around a single writer and retur
     const quality = await timing(root, "critic-quality.json");
     assert.ok(Math.max(safety.started, quality.started) < Math.min(safety.finished, quality.finished), "critics should overlap");
 
-    const plannerRequest = JSON.parse(await readFile(resolve(root, ".factory", "agent-team", "exp-1", "planner", "lead", "request.json"), "utf8")) as { inputs: Array<{ output: string }> };
+    const plannerRequest = JSON.parse(await readFile(resolve(root, ".factory", "agent-team", "exp-1", "planner", "lead", "request.json"), "utf8")) as { inputs: Array<{ output: string }>; effectivePrompt: { layers: Array<{ kind: string }> } };
     assert.equal(plannerRequest.inputs.length, 2);
     assert.ok(plannerRequest.inputs.every((input) => input.output.includes("finding from")));
+    assert.ok(plannerRequest.effectivePrompt.layers.some((layer) => layer.kind === "role"));
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -473,6 +502,47 @@ test("agent graph emits live topology, bounded progress, and attempt completion 
     assert.ok(alphaStart >= 0 && alphaFinish > alphaStart);
     assert.equal(events.at(-1)?.type, "node:completed");
     assert.equal(events.at(-1)?.nodeId, "agent-team:exp-live-trace");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("agent graph runs through the Codex App Server adapter and exposes native subagents", async () => {
+  const root = await repository();
+  const events: FactoryTraceEventInput[] = [];
+  try {
+    const result = await new AgentTeam().run({
+      campaign: graphCampaign(root, [{
+        id: "real-worker",
+        role: "worker",
+        adapter: "codex-app-server",
+        command: [process.execPath, resolve(root, "app-server-fixture.mjs")],
+        permissions: "read"
+      }]),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-app-server",
+      history: [],
+      signal: new AbortController().signal,
+      trace: {
+        runId: "run-app-server",
+        campaignId: "agent-team-graph-contract",
+        emit: async (event) => { events.push(event); }
+      }
+    });
+    assert.match(result.summary, /App Server worker finished/);
+    assert.equal(result.usage?.totalTokens, 100);
+    const contribution = result.contributors?.[0];
+    const manifest = contribution?.metadata?.promptManifest as { adapter?: string; providerContext?: { threadId?: string; turnId?: string } };
+    assert.equal(manifest.adapter, "codex.app-server");
+    assert.equal(manifest.providerContext?.threadId, "thread-real-adapter");
+    assert.equal(manifest.providerContext?.turnId, "turn-real-adapter");
+    assert.deepEqual(
+      (manifest.providerContext as { instructionSources?: string[] }).instructionSources?.map((value) => value.replaceAll("\\", "/")),
+      [resolve(root, "AGENTS.md").replaceAll("\\", "/")]
+    );
+    const providerNode = "agent:exp-app-server:real-worker:attempt-1:provider-item:collab-1";
+    assert.ok(events.some((event) => event.type === "node:started" && event.nodeId === providerNode && event.role === "subagent"));
+    assert.ok(events.some((event) => event.type === "node:completed" && event.nodeId === providerNode));
   } finally {
     await rm(root, { recursive: true, force: true });
   }

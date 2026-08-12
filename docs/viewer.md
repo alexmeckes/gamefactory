@@ -75,7 +75,8 @@ replay from the Site for inspection without the bridge.
 - primary-metric comparisons across candidates;
 - evaluator ordering, pass/fail outcomes, summaries, and evidence counts;
 - specialist-agent roles and summaries when agent-team provenance is present;
-- agent/subagent lineage, provider/model identity, retry attempts, detailed token categories, and reported or estimated cost;
+- agent/subagent lineage, provider/model identity, retry attempts, detailed token categories, and billing basis;
+- the effective prompt stack for each invocation, including project instructions, versioned role charter, task, context, handoffs, and App Server instruction sources;
 - preserved screenshots, logs, telemetry, reports, and other artifacts;
 - all compatible recorded run IDs for the selected campaign.
 
@@ -89,8 +90,11 @@ The trace is observational rather than authoritative. Trace writes are
 serialized, but a trace I/O failure is caught and can never change evaluation,
 acceptance, cleanup, or recovery. The journal remains the sole recovery source
 of truth. Progress events report bounded byte counts and semantic summaries;
-they never copy raw subprocess output, inherited environment variables, or
-prompts into the trace.
+they never copy raw subprocess output or inherited environment variables.
+Effective prompt manifests are deliberately included for auditability, but
+they contain only the bounded GameFactory-controlled layers and
+provider-reported source paths—not hidden provider system prompts or
+credential-bearing environment values.
 
 Usage totals are computed from unique leaf invocations, so a persisted
 contributor and its matching live attempt do not double-count. The viewer shows

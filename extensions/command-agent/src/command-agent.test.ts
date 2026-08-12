@@ -58,7 +58,8 @@ test("command agent receives an isolated request and captures its audit logs", a
     const result = await run(project, candidateRoot);
     assert.equal(await readFile(resolve(candidateRoot, "marker.txt"), "utf8"), project.objective);
     assert.match(result.summary, /fixture complete/);
-    assert.equal(result.artifacts?.length, 3);
+    assert.equal(result.artifacts?.length, 4);
+    assert.ok(result.artifacts?.some((artifact) => artifact.label === "Agent effective prompt manifest"));
     const request = JSON.parse(await readFile(resolve(candidateRoot, ".factory", "agent", "exp-1", "request.json"), "utf8")) as Record<string, unknown>;
     assert.deepEqual(request.candidateMetadata, { discovery: { slot: 2 } });
     assert.deepEqual(request.instructions, ["Respect hard constraints; choose the implementation hypothesis."]);
