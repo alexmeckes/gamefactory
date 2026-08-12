@@ -454,7 +454,7 @@ function codexTaskPrompt(requestPath: string, manifest: EffectivePromptManifest)
       ? "This is a read-only contribution. Inspect and reason, but do not modify project files."
       : "You may modify only the mutable paths declared in the request. Respect every immutable path and keep the change bounded.",
     "Use the project AGENTS.md instructions that Codex loaded. Preserve room for exploration: choose and explain a supported hypothesis rather than assuming the visible metric is the whole objective.",
-    "Return the App Server response envelope it requests: `summary`, a short machine-readable `outcome` identifier without spaces, and `payload` as a JSON-encoded object. Put any free-form `findings`, `context`, or `artifacts` inside that payload. Do not wrap the JSON in Markdown."
+    "Return the App Server response envelope it requests: `summary`, a short machine-readable `outcome` identifier without spaces, and `payload` as a JSON-encoded object. Put free-form `findings` and `context` inside that payload. Use `artifacts` only for paths to actual existing files inside the candidate root (a path string or an artifact object with `path`). Never put source citations, line references, synthetic labels, or request/history identifiers in `artifacts`; put those in `findings.evidence` or `context`. Do not wrap the JSON in Markdown."
   ].join("\n\n");
 }
 

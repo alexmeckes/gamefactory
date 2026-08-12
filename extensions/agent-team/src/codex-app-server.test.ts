@@ -31,6 +31,7 @@ lines.on("line", (line) => {
     const turnId = "turn-" + thread;
     send({ id: message.id, result: { turn: { id: turnId, status: "inProgress", items: [] } } });
     send({ method: "turn/started", params: { threadId, turn: { id: turnId, status: "inProgress", items: [] } } });
+    for (let index = 0; index < 200; index += 1) send({ method: "item/agentMessage/delta", params: { threadId, turnId, delta: "x" } });
     send({ method: "item/started", params: { threadId, turnId, item: { id: "cmd-1", type: "commandExecution", status: "inProgress" } } });
     send({ method: "item/completed", params: { threadId, turnId, item: { id: "msg-1", type: "agentMessage", phase: "final_answer", text: JSON.stringify({ summary: "real adapter result", outcome: "pass", payload: JSON.stringify({ context: { source: "fixture" } }) }) } } });
     send({ method: "thread/tokenUsage/updated", params: { threadId, turnId, tokenUsage: { total: { inputTokens: 120, cachedInputTokens: 20, outputTokens: 30, reasoningTokens: 10, totalTokens: 150 } } } });
@@ -64,6 +65,8 @@ test("Codex App Server pool streams a turn and records instruction, lineage, and
     assert.ok(events.includes("item/started"));
     assert.ok(events.includes("thread/tokenUsage/updated"));
     assert.ok(events.includes("turn/completed"));
+    assert.ok(!events.includes("item/agentMessage/delta"));
+    assert.ok(!result.eventLog.includes("item/agentMessage/delta"));
   } finally {
     await pool.dispose();
     await rm(root, { recursive: true, force: true });

@@ -111,6 +111,10 @@ function safeEventLine(method: string, params: JsonObject): string {
   return JSON.stringify(summary);
 }
 
+function isHighFrequencyDelta(method: string): boolean {
+  return /delta$/i.test(method);
+}
+
 function expandStructuredEnvelope(output: string): string {
   let envelope: JsonObject;
   try {
@@ -205,8 +209,13 @@ class CodexAppServerConnection {
     const turnId = eventTurnId(params);
     const listener = threadId ? this.listeners.get(threadId) : [...this.listeners.values()].find((candidate) => candidate.turnId === turnId);
     if (!listener) return;
-    listener.events.push(safeEventLine(method, params));
-    listener.onEvent?.({ method, params });
+    // Token, reasoning, and command-output deltas can arrive thousands of
+    // times per turn. Lifecycle events retain the live graph without turning
+    // the durable trace and evidence log into a transcript-sized firehose.
+    if (!isHighFrequencyDelta(method)) {
+      listener.events.push(safeEventLine(method, params));
+      listener.onEvent?.({ method, params });
+    }
     if (method === "turn/started" && turnId) listener.turnId = turnId;
     if (method === "item/completed") {
       const item = object(params.item);
