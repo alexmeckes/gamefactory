@@ -237,6 +237,8 @@ test("viewer bridge allows only its paired Observatory origin and ephemeral key"
     assert.equal(preflight.status, 204);
     assert.equal(preflight.headers.get("access-control-allow-origin"), origin);
     assert.equal(preflight.headers.get("access-control-allow-private-network"), "true");
+    assert.equal(preflight.headers.get("access-control-max-age"), "600");
+    assert.match(preflight.headers.get("vary") ?? "", /Access-Control-Request-Headers/);
 
     const missingKey = await fetch(`${server.url}/api/snapshot`, { headers: { Origin: origin } });
     assert.equal(missingKey.status, 401);

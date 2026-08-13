@@ -69,8 +69,9 @@ function bridgeResponseHeaders(origin: string): Record<string, string> {
     "Access-Control-Allow-Methods": "GET, OPTIONS",
     "Access-Control-Allow-Headers": "Authorization",
     "Access-Control-Allow-Private-Network": "true",
+    "Access-Control-Max-Age": "600",
     "Cross-Origin-Resource-Policy": "cross-origin",
-    "Vary": "Origin, Access-Control-Request-Private-Network"
+    "Vary": "Origin, Access-Control-Request-Headers, Access-Control-Request-Method, Access-Control-Request-Private-Network"
   };
 }
 

@@ -16,6 +16,7 @@ const columnLabels = ["Run", "Extensions", "Creative inputs", "Candidate", "Work
 
 type SourceMode = "live" | "replay" | "demo";
 type GraphFilter = "extension" | "resource" | "agent" | "evaluator" | "decision";
+type LocalNetworkRequestInit = RequestInit & { targetAddressSpace: "local" };
 
 function normalizeBridgeEndpoint(value: string) {
   const url = new URL(value);
@@ -237,12 +238,12 @@ function Inspector({ node, snapshot, cursor }: { node?: GraphNode; snapshot: Fac
   if (!node) {
     return <aside className="inspector empty-inspector"><span className="section-kicker">Inspection</span><h2>Select a node</h2><p>Open an extension, creative input, candidate, agent, evaluator, or decision to inspect its exact provenance and downstream work.</p></aside>;
   }
-  return <NodeInspector node={node} snapshot={snapshot} cursor={cursor} />;
+  return <NodeInspector key={node.id} node={node} snapshot={snapshot} cursor={cursor} />;
 }
 
 function PromptManifestPanel({ manifest }: { manifest: EffectivePromptManifest }) {
-  const [selectedLayerId, setSelectedLayerId] = useState(manifest.layers[0]?.id ?? "");
-  useEffect(() => setSelectedLayerId(manifest.layers[0]?.id ?? ""), [manifest]);
+  const [requestedLayerId, setRequestedLayerId] = useState(manifest.layers[0]?.id ?? "");
+  const selectedLayerId = manifest.layers.some((item) => item.id === requestedLayerId) ? requestedLayerId : manifest.layers[0]?.id ?? "";
   const layer = manifest.layers.find((item) => item.id === selectedLayerId) ?? manifest.layers[0];
   return (
     <div className="prompt-panel">
@@ -255,7 +256,7 @@ function PromptManifestPanel({ manifest }: { manifest: EffectivePromptManifest }
       {manifest.providerContext?.threadId ? <div className="lineage provider-lineage"><span className="section-kicker">Codex lineage</span><code>{manifest.providerContext.threadId}</code><span className="lineage-arrow">↓</span><code>{manifest.providerContext.turnId ?? "turn pending"}</code></div> : null}
       <span className="section-kicker section-space">Effective instruction layers</span>
       <div className="prompt-layer-tabs" role="tablist" aria-label="Effective prompt layers">
-        {manifest.layers.map((item) => <button aria-selected={item.id === layer?.id} className={item.id === layer?.id ? "active" : ""} key={item.id} onClick={() => setSelectedLayerId(item.id)} role="tab" type="button"><span>{item.kind}</span><strong>{item.id}</strong></button>)}
+        {manifest.layers.map((item) => <button aria-selected={item.id === layer?.id} className={item.id === layer?.id ? "active" : ""} key={item.id} onClick={() => setRequestedLayerId(item.id)} role="tab" type="button"><span>{item.kind}</span><strong>{item.id}</strong></button>)}
       </div>
       {layer ? <section className="prompt-layer" role="tabpanel"><div><span>{layer.source}</span>{layer.version ? <b>v{layer.version}</b> : null}</div><code title={layer.sha256}>sha256 {layer.sha256.slice(0, 12)}</code><pre>{layer.content}</pre></section> : null}
       {manifest.instructionSources.length ? <><span className="section-kicker section-space">Loaded instruction files</span><ul className="instruction-sources">{manifest.instructionSources.map((source) => <li key={source}><code>{source}</code></li>)}</ul></> : null}
@@ -266,7 +267,6 @@ function PromptManifestPanel({ manifest }: { manifest: EffectivePromptManifest }
 
 function NodeInspector({ node, snapshot, cursor }: { node: GraphNode; snapshot: FactorySnapshot; cursor: number }) {
   const [tab, setTab] = useState<"overview" | "prompt">("overview");
-  useEffect(() => setTab("overview"), [node.id]);
   const experiment = snapshot.experiments.find((item) => item.id === node.experimentId);
   const contribution = experiment?.contributors.find((item) => item.invocationId === node.invocationId || item.agentId === node.label);
   const usage = node.usage ?? contribution?.usage;
@@ -371,10 +371,16 @@ export default function FactoryConsole() {
       const url = new URL("/api/snapshot", endpoint);
       if (runId) url.searchParams.set("run", runId);
       try {
-        const init: RequestInit = {
+        const init: LocalNetworkRequestInit = {
           cache: "no-store",
+          credentials: "omit",
           headers: { Authorization: `Bearer ${key}` },
+          mode: "cors",
+          referrerPolicy: "no-referrer",
           signal: controller.signal,
+          // Chrome uses this hint to identify the HTTP destination as local before
+          // DNS/connect time, then asks the user for Local Network Access permission.
+          targetAddressSpace: "local",
         };
         const response = await fetch(url, init);
         if (response.status === 401) throw new Error("bridge key rejected");
@@ -393,7 +399,7 @@ export default function FactoryConsole() {
       } catch (error) {
         if (controller.signal.aborted) return;
         const message = error instanceof TypeError
-          ? `no authenticated bridge responded at ${endpoint}`
+          ? `local bridge unavailable or browser access denied at ${endpoint} · choose Allow when asked, then reconnect`
           : error instanceof Error ? error.message : "local bridge offline or access denied";
         setConnection(message);
         if (!paired) {
@@ -485,7 +491,7 @@ export default function FactoryConsole() {
 
       {bridgePanel ? (
         <section className="bridge-panel" aria-label="Connect local GameFactory bridge">
-          <div className="bridge-copy"><span className="section-kicker">Private loopback bridge</span><h2>Pair this browser with the factory on your computer.</h2><p>Run <code>gamefactory bridge</code> locally, then paste the endpoint and one-time key it prints. The listener stays on your device and the key disappears when that command stops.</p></div>
+          <div className="bridge-copy"><span className="section-kicker">Private loopback bridge</span><h2>Pair this browser with the factory on your computer.</h2><p>Run <code>gamefactory bridge</code> locally, then paste the endpoint and one-time key it prints. Chrome will ask once for local-network access; choose <strong>Allow</strong>. The listener stays on your device and the key disappears when that command stops.</p></div>
           <form onSubmit={submitBridge}>
             <label><span>Endpoint</span><input autoComplete="off" onChange={(event) => setBridgeEndpoint(event.target.value)} spellCheck={false} value={bridgeEndpoint} /></label>
             <label><span>Bridge key</span><input autoComplete="off" onChange={(event) => setBridgeKey(event.target.value)} placeholder="Paste the one-time key" spellCheck={false} type="password" value={bridgeKey} /></label>
