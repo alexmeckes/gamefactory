@@ -1,12 +1,16 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { createHash } from "node:crypto";
+import { lstat, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { isAbsolute, relative, resolve } from "node:path";
 import {
+  gameDesignSystemSha256,
+  parseGameDesignSystem,
   designIntentSha256,
   parseDesignIntent,
   parseDesignIntentReference,
   parseHumanPlaytestReport,
   resolveDesignPath,
   type DesignIntent,
+  type GameDesignSystem,
   type MetricAggregate,
   type PlaytestMetric
 } from "@gamefactory/design-sdk";
@@ -29,6 +33,8 @@ interface LoadedIntent {
   sha256: string;
 }
 
+interface LoadedDesignSystem { path: string; system: GameDesignSystem; sha256: string; imagegenReferences: number; }
+
 interface PlaytestRun {
   id: string;
   persona: string;
@@ -43,6 +49,82 @@ function object(value: unknown): Record<string, unknown> {
 
 function designReference(campaign: Parameters<Evaluator["evaluate"]>[0]["campaign"]) {
   return parseDesignIntentReference(object(campaign.parameters?.design).intent);
+}
+
+function configuredStrings(value: unknown, location: string): string[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length > 64 || !value.every((item) => typeof item === "string" && item.length > 0)) {
+    throw new Error(`${location} must be an array of at most 64 non-empty strings`);
+  }
+  return value;
+}
+
+function designSystemConfig(campaign: Parameters<Evaluator["evaluate"]>[0]["campaign"]): { path: string; requiredTokenGroups: string[]; requiredAdapters: string[]; minimumReferences: number; requireImagegenReference: boolean } {
+  const config = object(campaign.parameters?.designSystem);
+  const requiredTokenGroups = configuredStrings(config.requiredTokenGroups, "parameters.designSystem.requiredTokenGroups");
+  const requiredAdapters = configuredStrings(config.requiredAdapters, "parameters.designSystem.requiredAdapters");
+  const minimumReferences = config.minimumReferences ?? 0;
+  if (typeof minimumReferences !== "number" || !Number.isSafeInteger(minimumReferences) || minimumReferences < 0 || minimumReferences > 64) throw new Error("parameters.designSystem.minimumReferences must be an integer from 0 to 64");
+  if (config.requireImagegenReference !== undefined && typeof config.requireImagegenReference !== "boolean") throw new Error("parameters.designSystem.requireImagegenReference must be boolean");
+  if (config.path !== undefined && (typeof config.path !== "string" || config.path.length === 0)) throw new Error("parameters.designSystem.path must be a non-empty string");
+  return { path: typeof config.path === "string" && config.path.length > 0 ? config.path : "design-system.json", requiredTokenGroups, requiredAdapters, minimumReferences, requireImagegenReference: config.requireImagegenReference === true };
+}
+
+async function verifiedDesignSystemFile(root: string, path: string, expectedHash: string, label: string): Promise<string> {
+  const candidatePath = resolveDesignPath(root, path);
+  const [canonicalRoot, canonicalPath] = await Promise.all([realpath(root), realpath(candidatePath)]);
+  const traversal = relative(canonicalRoot, canonicalPath);
+  if (!traversal || traversal === ".." || traversal.startsWith("..\\") || traversal.startsWith("../") || isAbsolute(traversal)) throw new Error(`${label} resolves outside the candidate root`);
+  if (!(await lstat(canonicalPath)).isFile()) throw new Error(`${label} is not a regular file`);
+  const actual = createHash("sha256").update(await readFile(canonicalPath)).digest("hex");
+  if (actual !== expectedHash) throw new Error(`${label} hash mismatch`);
+  return canonicalPath;
+}
+
+async function loadDesignSystem(candidate: Candidate, campaign: Parameters<Evaluator["evaluate"]>[0]["campaign"]): Promise<LoadedDesignSystem> {
+  const config = designSystemConfig(campaign);
+  const path = resolveDesignPath(candidate.root, config.path);
+  const system = parseGameDesignSystem(JSON.parse(await readFile(path, "utf8")) as unknown);
+  for (const group of config.requiredTokenGroups) if (!system.tokens[group]) throw new Error(`Design system is missing required token group ${group}`);
+  for (const adapter of config.requiredAdapters) if (!system.implementations.some((item) => item.adapter === adapter)) throw new Error(`Design system is missing required adapter ${adapter}`);
+  if (system.references.length < config.minimumReferences) throw new Error(`Design system requires at least ${config.minimumReferences} references`);
+  const imagegenReferences = system.references.filter((item) => item.source === "imagegen").length;
+  if (config.requireImagegenReference && imagegenReferences === 0) throw new Error("Design system requires at least one ImageGen-authored reference study");
+  await Promise.all([
+    ...system.references.map((item, index) => verifiedDesignSystemFile(candidate.root, item.path, item.sha256, `design system reference ${index + 1}`)),
+    ...system.implementations.map((item, index) => verifiedDesignSystemFile(candidate.root, item.path, item.sha256, `design system implementation ${index + 1}`))
+  ]);
+  return { path, system, sha256: gameDesignSystemSha256(system), imagegenReferences };
+}
+
+export class DesignSystemEvaluator implements Evaluator {
+  readonly id = "design.system";
+  readonly version = "1.0.0";
+
+  async evaluate(input: Parameters<Evaluator["evaluate"]>[0]): Promise<Evaluation> {
+    if (!input.candidate) {
+      return { evaluator: this.id, version: this.version, status: "pass", metrics: { design_system_integrity: 0, design_system_references: 0, design_system_imagegen_references: 0 }, violations: [], artifacts: [], confidence: 1, summary: "Baseline has no candidate-authored design system." };
+    }
+    try {
+      const loaded = await loadDesignSystem(input.candidate, input.campaign);
+      return {
+        evaluator: this.id,
+        version: this.version,
+        status: "pass",
+        metrics: { design_system_integrity: 1, design_system_principles: loaded.system.principles.length, design_system_token_groups: Object.keys(loaded.system.tokens).length, design_system_patterns: loaded.system.patterns.length, design_system_references: loaded.system.references.length, design_system_imagegen_references: loaded.imagegenReferences, design_system_implementations: loaded.system.implementations.length },
+        violations: [],
+        artifacts: [
+          artifact(loaded.path, "profile", `Design system ${loaded.system.id}@${loaded.system.version}`, "application/json"),
+          ...loaded.system.references.map((item) => artifact(resolveDesignPath(input.candidate!.root, item.path), item.path.toLowerCase().endsWith(".png") ? "image" : "other", item.role, item.path.toLowerCase().endsWith(".png") ? "image/png" : "application/octet-stream")),
+          ...loaded.system.implementations.map((item) => artifact(resolveDesignPath(input.candidate!.root, item.path), "other", `Design system adapter: ${item.adapter}`, item.path.toLowerCase().endsWith(".md") ? "text/markdown" : "text/plain"))
+        ],
+        confidence: 1,
+        summary: `Verified ${loaded.system.id}@${loaded.system.version} (${loaded.sha256.slice(0, 12)}) with ${loaded.imagegenReferences} ImageGen reference(s).`
+      };
+    } catch (error) {
+      return { evaluator: this.id, version: this.version, status: "fail", metrics: { design_system_integrity: 0 }, violations: [{ code: "design.system.invalid", message: error instanceof Error ? error.message : String(error), severity: "error" }], artifacts: [], confidence: 1, summary: "Design system verification failed." };
+    }
+  }
 }
 
 async function loadIntent(candidate: Candidate, campaign: Parameters<Evaluator["evaluate"]>[0]["campaign"]): Promise<LoadedIntent> {
@@ -493,6 +575,7 @@ export class HumanPlaytestEvaluator implements Evaluator {
 }
 
 export default defineExtension((api) => combineDisposables(
+  api.register("evaluator", "design.system", new DesignSystemEvaluator()),
   api.register("evaluator", "design.intent", new DesignIntentEvaluator()),
   api.register("evaluator", "playtest.agents", new AgentPlaytestEvaluator(
     (id) => api.get<ScenarioRunner>("scenario", id),

@@ -24,6 +24,7 @@ What is implemented:
 - a graph-first realtime flight recorder with live agent/subagent attempts, model, token, and billing-basis accounting, exact extension activation provenance, separate creative-input nodes, bounded progress, dependency edges, historical replay, evaluator waterfalls, metrics, and artifact inspection;
 - shared workflow-runtime primitives for scheduling, evaluation, preservation, finalization, and recovery;
 - versioned design intent, divergent prototype discovery, and enforced human gates;
+- candidate-authored, ImageGen-assisted design systems with semantic tokens, engine adapters, pinned provenance, and integrity gates;
 - multiple-choice game intake with explicit delegation to design agents;
 - engine-backed synthetic player cohorts across personas, scenarios, and seeds;
 - modality-neutral asset briefs, command-backed generation, versioned style packs, provenance manifests, and PNG gates;
@@ -139,13 +140,13 @@ not merge a creative direction.
 Start with [the architecture](docs/architecture.md), then read the
 [extension guide](docs/extensions.md), [Godot guide](docs/godot.md), and
 [multi-agent guide](docs/multi-agent.md), [design and playtesting guide](docs/design.md),
-then read the [asset foundry guide](docs/assets.md)
+the [design-system guide](docs/design-system.md), then read the [asset foundry guide](docs/assets.md)
 and [safety notes](docs/safety.md).
 
 ## Repository map
 
 - `packages/core` — stable kernel.
-- `packages/design-sdk` — versioned design intent and human-playtest contracts.
+- `packages/design-sdk` — versioned design intent, design-system, and human-playtest contracts.
 - `packages/extension-sdk` — tiny authoring helpers.
 - `packages/workflow-sdk` — reusable control-plane and recovery mechanics for workflow extensions.
 - `packages/viewer` — read-only live dashboard and historical flight recorder.

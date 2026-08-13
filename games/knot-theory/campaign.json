@@ -7,6 +7,7 @@
   "requires": [
     "workspace:git.worktree",
     "agent:agent.team",
+    "evaluator:design.system",
     "evaluator:godot.visual",
     "evaluator:godot.scenario"
   ],
@@ -18,7 +19,10 @@
     "src/**",
     "levels/**",
     "assets/**",
-    "audio/**"
+    "audio/**",
+    "design/**",
+    "DESIGN_SYSTEM.md",
+    "design-system.json"
   ],
   "immutablePaths": [
     "AGENTS.md",
@@ -35,6 +39,7 @@
       "workspace": "git.worktree",
       "agents": ["agent.team"],
       "evaluators": [
+        { "id": "design.system", "cost": 1 },
         { "id": "godot.visual", "cost": 2 },
         { "id": "godot.scenario", "cost": 10 }
       ],
@@ -110,6 +115,17 @@
             "instructions": "Develop contrasting five-to-ten-minute level arcs using one rope. Seek an earned machine-like finale and avoid a mere sequence of silhouette tracing tasks. Keep implementation feasible in one compact Godot project."
           },
           {
+            "id": "design-system-director",
+            "adapter": "codex-app-server",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "timeoutSeconds": 2400,
+            "role": "implementer",
+            "permissions": "write",
+            "dependsOn": ["topology-scout", "tactility-scout", "puzzle-scout"],
+            "instructions": "Act as the candidate's Design System Director. Use the installed imagegen skill with Codex's built-in ImageGen tool to create exactly two controlled visual-language studies informed by STYLE.md, visual-direction.json, the pinned target, the campaign assignment, and scout findings. These are references for material, hierarchy, component, and motion language—not final screenshots to copy. Copy the selected project-bound PNGs into design/references/, record the exact final prompts, and never use an API-key CLI fallback. Then author DESIGN_SYSTEM.md, design-system.json using apiVersion gamefactory.design-system/v1, and a valid Godot Theme resource at design/theme/knot_theory_theme.tres. The JSON must define identity, prioritized principles, extensible token groups (color, typography, spacing, shape, material, motion, audio, feedback, accessibility), reusable patterns, SHA-256-pinned references, and SHA-256-pinned implementations. Every ImageGen reference must use source imagegen and include its prompt. Do not make gameplay implementation changes. Preserve creative latitude: define a coherent language and semantic roles rather than freezing a screen layout. Return JSON with outcome complete, summary, artifacts for all authored files, and findings describing the chosen system and rejected visual directions."
+          },
+          {
             "id": "visual-director",
             "adapter": "codex-app-server",
             "model": "gpt-5.6-sol",
@@ -117,7 +133,8 @@
             "timeoutSeconds": 1800,
             "role": "planner",
             "permissions": "read",
-            "instructions": "Act as the candidate's visual director. Inspect the pinned art target and all three baseline captures with image-aware tools, then translate the visual-direction contract into an implementable art hierarchy for this Godot project. Diagnose specific gaps in material separation, lighting, composition, rope readability, typography, prop craft, and motion. Choose a coherent hypothesis rather than copying the reference literally. Return outcome ready with prioritized findings and a bounded implementation brief for the lead and builder."
+            "dependsOn": ["design-system-director"],
+            "instructions": "Act as the candidate's visual director. Inspect DESIGN_SYSTEM.md, design-system.json, its ImageGen studies, the pinned art target, and all three baseline captures with image-aware tools. Translate the versioned system into an implementable art hierarchy for this Godot project. Diagnose gaps in material separation, lighting, composition, rope readability, typography, prop craft, and motion. Keep the semantic system coherent without copying any reference layout literally. Return outcome ready with prioritized findings and a bounded implementation brief for the lead and builder."
           },
           {
             "id": "lead-designer",
@@ -220,6 +237,13 @@
           { "id": "finale", "path": ".factory/previews/finale.png", "baselineSha256": "82db9b8c29133b0ff31a52a2bbb5a017cb890c6ebbc5152cd73c6166ab339704" }
         ]
       }
+    },
+    "designSystem": {
+      "path": "design-system.json",
+      "requiredTokenGroups": ["color", "typography", "spacing", "material", "motion", "audio", "accessibility"],
+      "requiredAdapters": ["godot-theme"],
+      "minimumReferences": 2,
+      "requireImagegenReference": true
     }
   },
   "acceptance": {

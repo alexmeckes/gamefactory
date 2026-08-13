@@ -4,6 +4,7 @@
     "../../extensions/git",
     "../../extensions/agent-team",
     "../../extensions/tournament",
+    "../../extensions/design-lab",
     "../../extensions/godot"
   ],
   "resultLog": ".factory/results/knot-theory.jsonl"

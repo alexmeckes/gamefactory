@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "apiVersion": "1.0",
   "entry": "dist/index.js",
-  "activation": ["evaluator:design.intent", "evaluator:playtest.agents", "evaluator:playtest.human"],
+  "activation": ["evaluator:design.intent", "evaluator:design.system", "evaluator:playtest.agents", "evaluator:playtest.human"],
   "contributes": {
-    "evaluator": ["design.intent", "playtest.agents", "playtest.human"]
+    "evaluator": ["design.intent", "design.system", "playtest.agents", "playtest.human"]
   },
   "permissions": ["filesystem:candidate", "scenario:configured-runner"],
-  "description": "Versioned game-design intent plus statistical synthetic playtesting through engine scenario capabilities."
+  "description": "Versioned game-design intent, extensible design-system contracts, and statistical synthetic playtesting through engine scenario capabilities."
 }

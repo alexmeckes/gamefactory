@@ -9,6 +9,7 @@ Build a compact, genuinely playable Godot 4 puzzle game around one continuous ro
 - Preserve tactile clarity: grabbing, releasing, pinning, tension, crossings, success, and invalid states must all be legible.
 - Deliver a complete vertical slice with a title/start state, several ordered puzzles, win feedback, progression, reset, and replay.
 - Use code-native shapes, animation, particles, and synthesized audio unless the campaign explicitly supplies external assets.
+- Treat the accepted `design-system.json`, `DESIGN_SYSTEM.md`, and Godot theme as the candidate's semantic design language. Refine implementations deliberately; do not silently replace tokens with one-off styling.
 - Support mouse input first. Include keyboard reset and a discoverable way to advance or retry.
 
 ## Evidence contract

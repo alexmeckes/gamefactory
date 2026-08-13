@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { designIntentSha256, parseDesignIntent, parseDesignIntentReference, parseHumanPlaytestReport, resolveDesignPath } from "./index.js";
+import { designIntentSha256, gameDesignSystemSha256, parseDesignIntent, parseDesignIntentReference, parseGameDesignSystem, parseHumanPlaytestReport, resolveDesignPath } from "./index.js";
 
 const fixture = {
   apiVersion: "gamefactory.design/v1",
@@ -74,4 +74,29 @@ test("design SDK parses explicit human evidence without treating it as synthetic
   });
   assert.equal(report.study.participantCount, 3);
   assert.equal(report.decision.status, "needs-changes");
+});
+
+test("design SDK preserves an extensible, reproducible visual language", () => {
+  const system = parseGameDesignSystem({
+    apiVersion: "gamefactory.design-system/v1",
+    id: "tactile-workshop",
+    version: "1.0.0",
+    title: "Tactile workshop",
+    identity: { intent: "Make the rope feel physical and authored", toneWords: ["tactile", "quiet"], avoidWords: ["generic"] },
+    principles: [{ id: "rope-first", statement: "The rope owns the highest contrast", rationale: "Topology must remain readable", priority: 1 }],
+    tokens: {
+      color: { rope: "#d4ae72", surface: "#172027" },
+      motion: { settleSeconds: 0.18 },
+      customMaterialLanguage: { fibers: "visible near contact points" }
+    },
+    patterns: [{ id: "anchor", intent: "Show fixed topology", rules: ["Use a brass center"], avoid: ["glow-only state"], examples: [] }],
+    references: [{ path: "design/references/material.png", role: "Material and hierarchy study", source: "imagegen", sha256: "a".repeat(64), prompt: "A tactile rope workshop material study" }],
+    implementations: [{ id: "godot-theme", adapter: "godot-theme", path: "design/theme/game.tres", sha256: "b".repeat(64) }],
+    metadata: { experiment: "candidate-a" }
+  });
+  assert.equal(system.tokens.customMaterialLanguage?.fibers, "visible near contact points");
+  assert.equal(system.references[0]?.prompt, "A tactile rope workshop material study");
+  assert.equal(gameDesignSystemSha256(system), gameDesignSystemSha256(parseGameDesignSystem(JSON.parse(JSON.stringify(system)))));
+  assert.throws(() => parseGameDesignSystem({ ...system, references: [{ ...system.references[0], prompt: undefined }] }), /prompt is required/);
+  assert.throws(() => parseGameDesignSystem({ ...system, tokens: { color: {} } }), /must not be empty/);
 });

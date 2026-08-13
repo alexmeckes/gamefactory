@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
 import { designIntentSha256, parseDesignIntent } from "@gamefactory/design-sdk";
 import type { Campaign, Candidate, EngineDriver, ScenarioRunner } from "@gamefactory/core";
-import { AgentPlaytestEvaluator, DesignIntentEvaluator, HumanPlaytestEvaluator } from "./index.js";
+import { AgentPlaytestEvaluator, DesignIntentEvaluator, DesignSystemEvaluator, HumanPlaytestEvaluator } from "./index.js";
+
+const sha256 = (value: string | Buffer): string => createHash("sha256").update(value).digest("hex");
 
 function intentFixture() {
   return {
@@ -110,6 +113,54 @@ test("design intent and agent cohort evaluators verify intent and aggregate pers
     assert.equal(human.metrics.human_approval, 1);
     assert.equal(human.metrics.participant_count, 5);
     assert.ok(human.violations.some((violation) => violation.severity === "warning"));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("design system evaluator verifies ImageGen provenance and pinned candidate files", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "gamefactory-design-system-"));
+  try {
+    await mkdir(resolve(root, "design/references"), { recursive: true });
+    await mkdir(resolve(root, "design/theme"), { recursive: true });
+    const reference = Buffer.from("fixture image bytes");
+    const theme = "[gd_resource type=\"Theme\" format=3]\n";
+    await writeFile(resolve(root, "design/references/material.png"), reference);
+    await writeFile(resolve(root, "design/theme/game.tres"), theme, "utf8");
+    await writeFile(resolve(root, "design-system.json"), `${JSON.stringify({
+      apiVersion: "gamefactory.design-system/v1",
+      id: "fixture-system",
+      version: "1.0.0",
+      title: "Fixture system",
+      identity: { intent: "A legible tactile system", toneWords: ["tactile"], avoidWords: ["generic"] },
+      principles: [{ id: "clarity", statement: "Clarity before ornament", rationale: "Interaction must read", priority: 1 }],
+      tokens: { color: { primary: "#ffffff" }, motion: { settleSeconds: 0.2 } },
+      patterns: [],
+      references: [{ path: "design/references/material.png", role: "Material study", source: "imagegen", sha256: sha256(reference), prompt: "A tactile material study" }],
+      implementations: [{ id: "godot-theme", adapter: "godot-theme", path: "design/theme/game.tres", sha256: sha256(theme) }]
+    }, null, 2)}\n`, "utf8");
+    const campaign: Campaign = {
+      apiVersion: "gamefactory.dev/v1",
+      id: "design-system-test",
+      objective: "verify a candidate design system",
+      projectRoot: root,
+      workflow: "tournament",
+      requires: [],
+      parameters: { designSystem: { path: "design-system.json", requiredTokenGroups: ["color", "motion"], requiredAdapters: ["godot-theme"], minimumReferences: 1, requireImagegenReference: true } },
+      acceptance: { primaryMetric: "design_system_integrity", direction: "maximize" }
+    };
+    const evaluator = new DesignSystemEvaluator();
+    const signal = new AbortController().signal;
+    const baseline = await evaluator.evaluate({ campaign, candidate: null, experimentId: "baseline", priorEvaluations: [], signal });
+    assert.equal(baseline.status, "pass");
+    const passing = await evaluator.evaluate({ campaign, candidate: { id: "candidate", root, metadata: {} }, experimentId: "candidate", priorEvaluations: [], signal });
+    assert.equal(passing.status, "pass");
+    assert.equal(passing.metrics.design_system_imagegen_references, 1);
+    assert.equal(passing.artifacts.length, 3);
+    await writeFile(resolve(root, "design/references/material.png"), "tampered", "utf8");
+    const tampered = await evaluator.evaluate({ campaign, candidate: { id: "candidate", root, metadata: {} }, experimentId: "candidate", priorEvaluations: [], signal });
+    assert.equal(tampered.status, "fail");
+    assert.match(tampered.violations[0]?.message ?? "", /hash mismatch/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
