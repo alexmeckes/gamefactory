@@ -481,6 +481,8 @@ test("agent graph passes structured context to a writer and repairs from critic 
     const builderContributions = result.contributors?.filter((item) => item.agentId === "builder") ?? [];
     assert.equal(builderContributions.length, 2);
     assert.deepEqual(builderContributions.map((item) => (item.metadata as { reason: { kind: string } }).reason.kind), ["initial", "repair"]);
+    const reviewerStructured = ([...(result.contributors ?? [])].reverse().find((item) => item.agentId === "reviewer")?.metadata as { structured?: { outcome?: string; findings?: unknown } }).structured;
+    assert.equal(reviewerStructured?.outcome, "pass");
     const repairRequest = JSON.parse(await readFile(resolve(root, ".factory", "agent-team", "exp-graph-repair", "graph", "builder", "attempt-2", "request.json"), "utf8")) as {
       reason: { kind: string };
       inputs: Array<{ nodeId: string; structured: { findings?: unknown } }>;

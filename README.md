@@ -19,6 +19,7 @@ What is implemented:
 - optional task-specific agent DAGs with structured handoffs, conditions, retries, and bounded critic repairs;
 - explicit advisor escalation from efficient primary agents to frontier models, preserving partial evidence and separate provenance;
 - parallel candidate tournaments with deterministic winner selection;
+- an optional read-only Sol Campaign Director that frames contrasting round hypotheses and synthesizes cross-candidate learning without control-plane authority;
 - fsync-backed experiment phase journals with idempotent restart recovery;
 - a graph-first realtime flight recorder with live agent/subagent attempts, model, token, and billing-basis accounting, exact extension activation provenance, separate creative-input nodes, bounded progress, dependency edges, historical replay, evaluator waterfalls, metrics, and artifact inspection;
 - shared workflow-runtime primitives for scheduling, evaluation, preservation, finalization, and recovery;

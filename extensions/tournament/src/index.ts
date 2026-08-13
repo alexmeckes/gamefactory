@@ -1,8 +1,10 @@
+import { isAbsolute, relative, resolve } from "node:path";
 import { decideAcceptance, flattenMetrics } from "@gamefactory/core";
 import type {
   AgentDriver,
   AgentResult,
   BudgetReservationLike,
+  Campaign,
   CampaignResult,
   Candidate,
   Evaluation,
@@ -37,6 +39,34 @@ export interface TournamentParameters {
   evaluators: EvaluatorPlan[];
   candidateCount: number;
   concurrency: number;
+  director?: TournamentDirectorParameters;
+}
+
+export interface TournamentDirectorParameters {
+  agent: string;
+  model: string;
+  reasoningEffort: "none" | "low" | "medium" | "high" | "xhigh" | "max";
+  advisorReasoningEffort?: "none" | "low" | "medium" | "high" | "xhigh" | "max";
+  timeoutSeconds: number;
+  maxOutputCharacters: number;
+  context: unknown[];
+}
+
+interface DirectorBrief {
+  phase: "framing" | "synthesis";
+  round: number;
+  status: "complete" | "failed";
+  summary: string;
+  outcome: string;
+  configuredModel: string;
+  configuredReasoningEffort: string;
+  actualModel?: string;
+  actualReasoningEffort?: string;
+  hypotheses: Array<{ slot: number; title: string; hypothesis: string; assumptions: string[]; successSignals: string[]; avoid: string[] }>;
+  learnings: string[];
+  recommendation?: string;
+  artifactCount: number;
+  error?: string;
 }
 
 interface CandidateRun {
@@ -66,6 +96,27 @@ export function parseTournamentParameters(context: WorkflowContext): TournamentP
   const agents = Array.isArray(tournament.agents)
     ? tournament.agents.filter((item): item is string => typeof item === "string" && item.length > 0)
     : [];
+  const rawDirector = tournament.director;
+  let director: TournamentDirectorParameters | undefined;
+  if (rawDirector !== undefined && rawDirector !== false) {
+    const value = asObject(rawDirector === true ? {} : rawDirector);
+    const efforts = new Set(["none", "low", "medium", "high", "xhigh", "max"]);
+    const reasoningEffort = typeof value.reasoningEffort === "string" ? value.reasoningEffort : "high";
+    if (!efforts.has(reasoningEffort)) throw new Error("parameters.tournament.director.reasoningEffort is unsupported");
+    const advisorReasoningEffort = value.advisorReasoningEffort === false ? undefined : typeof value.advisorReasoningEffort === "string" ? value.advisorReasoningEffort : "xhigh";
+    if (advisorReasoningEffort !== undefined && !efforts.has(advisorReasoningEffort)) throw new Error("parameters.tournament.director.advisorReasoningEffort is unsupported");
+    const rawContext = value.context;
+    if (rawContext !== undefined && (!Array.isArray(rawContext) || rawContext.length > 64)) throw new Error("parameters.tournament.director.context must contain at most 64 references");
+    director = {
+      agent: typeof value.agent === "string" && value.agent.length > 0 ? value.agent : "agent.team",
+      model: typeof value.model === "string" && value.model.length > 0 ? value.model : "gpt-5.6-sol",
+      reasoningEffort: reasoningEffort as TournamentDirectorParameters["reasoningEffort"],
+      ...(advisorReasoningEffort ? { advisorReasoningEffort: advisorReasoningEffort as NonNullable<TournamentDirectorParameters["advisorReasoningEffort"]> } : {}),
+      timeoutSeconds: positiveInteger(value.timeoutSeconds, 1800),
+      maxOutputCharacters: positiveInteger(value.maxOutputCharacters, 30_000),
+      context: rawContext ? [...rawContext] : []
+    };
+  }
   return {
     workspace: typeof tournament.workspace === "string" && tournament.workspace.length > 0
       ? tournament.workspace
@@ -73,7 +124,8 @@ export function parseTournamentParameters(context: WorkflowContext): TournamentP
     agents: agents.length > 0 ? agents : ["mock.agent"],
     evaluators: evaluatorPlans(tournament.evaluators),
     candidateCount,
-    concurrency: Math.min(candidateCount, requestedConcurrency)
+    concurrency: Math.min(candidateCount, requestedConcurrency),
+    ...(director ? { director } : {})
   };
 }
 
@@ -103,6 +155,166 @@ function rankCandidates(context: WorkflowContext, baseline: Evaluation[], runs: 
   });
 }
 
+function shortText(value: unknown, fallback = "", maximum = 4000): string {
+  return typeof value === "string" && value.trim() ? value.trim().slice(0, maximum) : fallback;
+}
+
+function shortList(value: unknown, maximumItems = 12): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0).slice(0, maximumItems).map((item) => item.trim().slice(0, 1000))
+    : [];
+}
+
+function directorBrief(result: AgentResult, config: TournamentDirectorParameters, phase: DirectorBrief["phase"], round: number): DirectorBrief {
+  const contribution = [...(result.contributors ?? [])].reverse().find((item) => item.status === "complete");
+  const contributionMetadata = asObject(contribution?.metadata);
+  const structured = asObject(contributionMetadata.structured);
+  const rawHypotheses = Array.isArray(structured.hypotheses) ? structured.hypotheses : [];
+  const hypotheses = rawHypotheses.slice(0, 64).flatMap((raw, index) => {
+    const item = asObject(raw);
+    const slot = typeof item.slot === "number" && Number.isSafeInteger(item.slot) && item.slot > 0 ? item.slot : index + 1;
+    const hypothesis = shortText(item.hypothesis);
+    if (!hypothesis) return [];
+    return [{ slot, title: shortText(item.title, `Candidate ${slot}`, 200), hypothesis, assumptions: shortList(item.assumptions), successSignals: shortList(item.successSignals), avoid: shortList(item.avoid) }];
+  });
+  return {
+    phase,
+    round,
+    status: "complete",
+    summary: shortText(structured.summary, result.summary),
+    outcome: shortText(structured.outcome, "complete", 128),
+    configuredModel: config.model,
+    configuredReasoningEffort: config.reasoningEffort,
+    ...(contribution?.usage?.model ? { actualModel: contribution.usage.model } : {}),
+    ...(contribution?.usage?.reasoningEffort ? { actualReasoningEffort: contribution.usage.reasoningEffort } : {}),
+    hypotheses,
+    learnings: shortList(structured.learnings),
+    ...(shortText(structured.recommendation) ? { recommendation: shortText(structured.recommendation) } : {}),
+    artifactCount: result.artifacts?.length ?? 0
+  };
+}
+
+function failedDirectorBrief(config: TournamentDirectorParameters, phase: DirectorBrief["phase"], round: number, error: unknown): DirectorBrief {
+  const message = errorMessage(error);
+  return { phase, round, status: "failed", summary: `Campaign Director ${phase} failed: ${message}`, outcome: "unavailable", configuredModel: config.model, configuredReasoningEffort: config.reasoningEffort, hypotheses: [], learnings: [], artifactCount: 0, error: message };
+}
+
+function previousDirectorSynthesis(experiments: ExperimentRecord[]): DirectorBrief | undefined {
+  for (let index = experiments.length - 1; index >= 0; index -= 1) {
+    const tournament = asObject(experiments[index]?.metadata?.tournament);
+    const value = tournament.directorSynthesis;
+    if (value && typeof value === "object" && !Array.isArray(value)) return value as unknown as DirectorBrief;
+  }
+  return undefined;
+}
+
+function inheritedDirectorContext(campaign: Campaign, configured: unknown[]): unknown[] {
+  if (configured.length > 0) return configured;
+  const agentTeam = asObject(campaign.parameters?.agentTeam);
+  const graph = asObject(agentTeam.graph);
+  return Array.isArray(graph.context) ? graph.context.slice(0, 64) : [];
+}
+
+function directorEvidenceContext(projectRoot: string, runs: CandidateRun[]): unknown[] {
+  const root = resolve(projectRoot);
+  const acceptedKinds = new Set(["image", "video", "replay", "telemetry", "test-report"]);
+  const seen = new Set<string>();
+  const references: unknown[] = [];
+  const artifacts = runs.flatMap((run) => [...(run.agentResult?.artifacts ?? []), ...run.evaluations.flatMap((evaluation) => evaluation.artifacts)]);
+  for (const item of artifacts) {
+    if (!acceptedKinds.has(item.kind)) continue;
+    const target = resolve(item.path);
+    const traversal = relative(root, target);
+    if (!traversal || traversal === ".." || traversal.startsWith("..\\") || traversal.startsWith("../") || isAbsolute(traversal) || seen.has(target)) continue;
+    seen.add(target);
+    references.push({ path: traversal.replaceAll("\\", "/"), kind: item.kind, ...(item.mediaType ? { mediaType: item.mediaType } : {}), ...(item.label ? { label: item.label } : {}) });
+    if (references.length >= 32) break;
+  }
+  return references;
+}
+
+async function emitDirectorTrace(context: WorkflowContext, event: Parameters<NonNullable<WorkflowContext["trace"]>["emit"]>[0]): Promise<void> {
+  try { await context.trace?.emit(event); } catch { /* trace output is observational */ }
+}
+
+async function runDirector(input: {
+  context: WorkflowContext;
+  driver: AgentDriver;
+  config: TournamentDirectorParameters;
+  phase: DirectorBrief["phase"];
+  round: number;
+  roundSize: number;
+  history: ExperimentRecord[];
+  baseline: Evaluation[];
+  runs?: CandidateRun[];
+  ranked?: RankedCandidate[];
+}): Promise<DirectorBrief> {
+  const { context, driver, config, phase, round, roundSize, history } = input;
+  const experimentId = `campaign-director-r${String(round).padStart(4, "0")}-${phase}`;
+  const rootNode = `experiment:${experimentId}`;
+  const previous = previousDirectorSynthesis(history);
+  const recentHistory = history.slice(-16).map((record) => ({ id: record.experimentId, status: record.status, summary: record.summary, metrics: record.metrics }));
+  const roundEvidence = (input.runs ?? []).map((run) => ({ experimentId: run.experimentId, slot: run.slot, agentSummary: run.agentResult?.summary ?? "", error: run.error, evaluations: run.evaluations.map((evaluation) => ({ evaluator: evaluation.evaluator, status: evaluation.status, metrics: evaluation.metrics, summary: evaluation.summary, violations: evaluation.violations.map((item) => item.message) })) }));
+  const ranked = (input.ranked ?? []).map((item, index) => ({ rank: index + 1, experimentId: item.run.experimentId, slot: item.run.slot, primaryMetric: item.value, decision: item.decision.reason }));
+  const evidence = JSON.stringify({ originalObjective: context.campaign.objective, round, roundSize, baseline: flattenMetrics(input.baseline), recentHistory, previousSynthesis: previous, roundEvidence, deterministicRanking: ranked }, null, 2).slice(0, 60_000);
+  const framingInstructions = `Act as the read-only Sol Campaign Director across candidate teams and rounds. Frame ${roundSize} genuinely contrasting, bounded candidate hypotheses for round ${round}. Use prior results and the baseline, but do not optimize the visible metric blindly. Decide where specialists or optional capabilities may be useful without forcing them. You advise; the deterministic tournament alone owns budgets, evaluation, acceptance, cleanup, and recovery. Return JSON only with summary, outcome (ready or needs_advisor), and hypotheses: an array of exactly ${roundSize} objects containing slot, title, hypothesis, assumptions, successSignals, and avoid. A candidate assignment must preserve creative latitude rather than prescribe an implementation. Evidence:\n${evidence}`;
+  const synthesisInstructions = `Act as the read-only Sol Campaign Director after round ${round}. Synthesize what the candidate evidence actually taught us. The deterministic ranking shown below is authoritative; do not choose or accept a winner. Identify transferable learnings, failed assumptions, capability gaps, and whether the next round should continue, deepen, or pivot. Never call synthetic evaluation proof of fun. Return JSON only with summary, outcome (continue, deepen, pivot, stop_recommended, or needs_advisor), learnings as an array, and recommendation. Evidence:\n${evidence}`;
+  const node: Record<string, unknown> = {
+    id: `campaign-director-${phase}`,
+    adapter: "codex-app-server",
+    model: config.model,
+    reasoningEffort: config.reasoningEffort,
+    timeoutSeconds: config.timeoutSeconds,
+    role: "planner",
+    permissions: "read",
+    instructions: phase === "framing" ? framingInstructions : synthesisInstructions
+  };
+  if (config.advisorReasoningEffort && config.advisorReasoningEffort !== config.reasoningEffort) {
+    node.advisor = { model: config.model, reasoningEffort: config.advisorReasoningEffort, outcomes: ["needs_advisor"], onFailure: true, maximumAttempts: 1 };
+  }
+  const directorCampaign: Campaign = {
+    ...context.campaign,
+    objective: `Direct the factory campaign without taking control-plane authority. Original objective: ${context.campaign.objective}`,
+    mutablePaths: [],
+    immutablePaths: ["**"],
+    parameters: {
+      ...context.campaign.parameters,
+      agentTeam: {
+        maximumParallel: 1,
+        maxOutputCharacters: config.maxOutputCharacters,
+        provider: "openai-codex-app-server",
+        billingMode: "subscription",
+        graph: { maximumTotalAttempts: config.advisorReasoningEffort ? 2 : 1, maximumRepairAttempts: 0, context: [...inheritedDirectorContext(context.campaign, config.context), ...directorEvidenceContext(context.campaign.projectRoot, input.runs ?? [])].slice(0, 64), nodes: [node] }
+      }
+    }
+  };
+  await emitDirectorTrace(context, { type: "node:created", nodeId: rootNode, parentNodeId: `campaign:${context.trace?.runId ?? context.campaign.id}`, label: `Campaign Director - round ${round} ${phase}`, role: "campaign-director", message: phase === "framing" ? "Frames contrasting candidate hypotheses" : "Synthesizes round learning", data: { configuredModel: config.model, reasoningEffort: config.reasoningEffort, advisoryOnly: true } });
+  await emitDirectorTrace(context, { type: "node:started", nodeId: rootNode, label: `Campaign Director - round ${round} ${phase}`, role: "campaign-director" });
+  try {
+    const result = await preserveAgentResult(context, await driver.run({ campaign: directorCampaign, candidate: { id: experimentId, root: context.campaign.projectRoot, metadata: { director: true, phase, round } }, experimentId, history: [...history], signal: context.signal, ...(context.trace ? { trace: context.trace } : {}) }), experimentId);
+    const brief = directorBrief(result, config, phase, round);
+    await emitDirectorTrace(context, { type: "node:completed", nodeId: rootNode, label: `Campaign Director - round ${round} ${phase}`, role: "campaign-director", status: "complete", message: brief.summary, data: { outcome: brief.outcome, hypotheses: brief.hypotheses.length, learnings: brief.learnings.length, advisoryOnly: true } });
+    return brief;
+  } catch (error) {
+    const failure = failureAgentResult(error);
+    if (failure) {
+      try { await preserveAgentResult(context, failure, experimentId); } catch { /* original director failure remains advisory */ }
+    }
+    const brief = failedDirectorBrief(config, phase, round, error);
+    await emitDirectorTrace(context, { type: "node:failed", nodeId: rootNode, label: `Campaign Director - round ${round} ${phase}`, role: "campaign-director", status: "failed", message: brief.summary, data: { advisoryOnly: true } });
+    context.logger.warn(brief.summary, { round, phase });
+    return brief;
+  }
+}
+
+function directedCampaign(campaign: Campaign, framing: DirectorBrief | undefined, slot: number): Campaign {
+  if (!framing || framing.status !== "complete") return campaign;
+  const assignment = framing.hypotheses.find((item) => item.slot === slot);
+  if (!assignment) return campaign;
+  const direction = JSON.stringify({ title: assignment.title, hypothesis: assignment.hypothesis, assumptions: assignment.assumptions, successSignals: assignment.successSignals, avoid: assignment.avoid }, null, 2);
+  return { ...campaign, objective: `${campaign.objective}\n\nCampaign Director assignment for candidate slot ${slot}:\n${direction}\n\nTreat this as a bounded hypothesis and evidence target, not a predetermined solution. You retain room to explore and should revise unsupported assumptions.` };
+}
+
 async function executeCandidate(
   context: WorkflowContext,
   workspace: WorkspaceDriver,
@@ -113,7 +325,8 @@ async function executeCandidate(
   round: number,
   slot: number,
   history: ExperimentRecord[],
-  reservation: BudgetReservationLike
+  reservation: BudgetReservationLike,
+  agentCampaign: Campaign = context.campaign
 ): Promise<CandidateRun> {
   const startedAt = new Date().toISOString();
   let candidate: Candidate | undefined;
@@ -125,7 +338,7 @@ async function executeCandidate(
     await journalPhase(context, experimentId, "candidate-created", { candidate });
     context.signal.throwIfAborted();
     agentResult = await preserveAgentResult(context, await agent.run({
-      campaign: context.campaign,
+      campaign: agentCampaign,
       candidate,
       experimentId,
       history: [...history],
@@ -181,6 +394,7 @@ export class TournamentWorkflow implements Workflow {
     const config = parseTournamentParameters(context);
     const workspace = context.get<WorkspaceDriver>("workspace", config.workspace);
     const agents = config.agents.map((id) => ({ id, driver: context.get<AgentDriver>("agent", id) }));
+    const directorDriver = config.director ? context.get<AgentDriver>("agent", config.director.agent) : undefined;
     const recovery = await recoverWorkflow(context, workspace);
     const experiments = await context.readRecords();
     if (recovery.blocked) return campaignResult(context, experiments, "blocked", recovery.blocked);
@@ -227,6 +441,9 @@ export class TournamentWorkflow implements Workflow {
       if (!allowance.allowed) return campaignResult(context, experiments, "budget-exhausted", allowance.reason ?? "Budget exhausted.");
 
       const history = [...experiments];
+      const framing = config.director && directorDriver
+        ? await runDirector({ context, driver: directorDriver, config: config.director, phase: "framing", round, roundSize, history, baseline: activeBaseline })
+        : undefined;
       const specifications = Array.from({ length: roundSize }, (_, index) => {
         const slot = index + 1;
         const agent = agents[index % agents.length];
@@ -234,7 +451,8 @@ export class TournamentWorkflow implements Workflow {
         return {
           experimentId: `tournament-r${String(round).padStart(4, "0")}-c${String(slot).padStart(3, "0")}`,
           slot,
-          agent
+          agent,
+          campaign: directedCampaign(context.campaign, framing, slot)
         };
       });
 
@@ -274,11 +492,15 @@ export class TournamentWorkflow implements Workflow {
           round,
           specification.slot,
           history,
-          reservations[specification.slot - 1]!
+          reservations[specification.slot - 1]!,
+          specification.campaign
         ));
 
       const ranked: RankedCandidate[] = context.signal.aborted ? [] : rankCandidates(context, activeBaseline, runs);
-      const winner: RankedCandidate | undefined = runs.some((run) => run.preservationBlocked) ? undefined : ranked[0];
+      const synthesis = config.director && directorDriver && !context.signal.aborted
+        ? await runDirector({ context, driver: directorDriver, config: config.director, phase: "synthesis", round, roundSize, history, baseline: activeBaseline, runs, ranked })
+        : undefined;
+      const winner: RankedCandidate | undefined = context.signal.aborted || runs.some((run) => run.preservationBlocked) ? undefined : ranked[0];
       const cleanupSignal = new AbortController().signal;
       const losers: CandidateRun[] = runs.filter((run) => run !== winner?.run).sort((left, right) => left.slot - right.slot);
       const finalizationOrder: CandidateRun[] = winner ? [...losers, winner.run] : losers;
@@ -349,7 +571,9 @@ export class TournamentWorkflow implements Workflow {
               ...(ranking >= 0 ? { rank: ranking + 1 } : {}),
               ...(decision ? { decision } : {}),
               ...(finalizationError ? { finalizationError } : {}),
-              ...(candidateRevision ? { candidateRevision } : {})
+              ...(candidateRevision ? { candidateRevision } : {}),
+              ...(framing ? { directorFraming: framing } : {}),
+              ...(synthesis ? { directorSynthesis: synthesis } : {})
             },
             ...(run.agentResult?.metadata ? { agent: run.agentResult.metadata } : {})
           }

@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import test from "node:test";
 import { BudgetController, FactoryRunner, MemoryLogger } from "@gamefactory/core";
-import type { AgentDriver, Campaign, Candidate, Evaluation, Evaluator, ExperimentRecord, WorkflowContext, WorkspaceDriver } from "@gamefactory/core";
+import type { AgentDriver, Campaign, Candidate, Evaluation, Evaluator, ExperimentRecord, FactoryTraceEventInput, WorkflowContext, WorkspaceDriver } from "@gamefactory/core";
 import { TournamentWorkflow } from "./index.js";
 
 const extensionRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -211,4 +211,82 @@ test("tournament bounds agent concurrency, stops its evaluator waterfall, and se
   } finally {
     await rm(projectRoot, { recursive: true, force: true });
   }
+});
+
+test("Sol campaign director frames distinct candidates and synthesizes evidence without controlling acceptance", async () => {
+  const projectRoot = await mkdtemp(resolve(tmpdir(), "gamefactory-tournament-director-"));
+  const records: ExperimentRecord[] = [];
+  const candidateObjectives: string[] = [];
+  const directorInstructions: string[] = [];
+  const traceEvents: FactoryTraceEventInput[] = [];
+  const workspace: WorkspaceDriver = {
+    id: "director.workspace",
+    async createCandidate({ experimentId }) { return { id: experimentId, root: projectRoot, metadata: {} }; },
+    async acceptCandidate() { return { revision: "winner" }; },
+    async discardCandidate() { return; }
+  };
+  const candidateAgent: AgentDriver = {
+    id: "candidate.agent",
+    async run(request) {
+      candidateObjectives.push(request.campaign.objective);
+      request.candidate.metadata.score = request.experimentId.endsWith("c002") ? 2 : 1;
+      return { summary: "candidate complete" };
+    }
+  };
+  const directorAgent: AgentDriver = {
+    id: "director.agent",
+    async run(request) {
+      const graph = (request.campaign.parameters?.agentTeam as { graph: { nodes: Array<{ instructions: string }> } }).graph;
+      directorInstructions.push(graph.nodes[0]!.instructions);
+      const synthesis = request.experimentId.endsWith("synthesis");
+      const structured = synthesis
+        ? { summary: "Round evidence favors readable interactions", outcome: "deepen", learnings: ["Clarity beat ornament"], recommendation: "Deepen the winning interaction grammar" }
+        : { summary: "Two contrasting hypotheses framed", outcome: "ready", hypotheses: [
+          { slot: 1, title: "Tactile clarity", hypothesis: "Prioritize legible manipulation", assumptions: ["Feedback is the bottleneck"], successSignals: ["Lower input errors"], avoid: ["Decorative noise"] },
+          { slot: 2, title: "Topological surprise", hypothesis: "Prioritize a surprising knot machine", assumptions: ["Depth is the bottleneck"], successSignals: ["Distinct finale"], avoid: ["Silhouette tracing"] }
+        ] };
+      return { summary: structured.summary, artifacts: [], contributors: [{ agentId: synthesis ? "campaign-director-synthesis" : "campaign-director-framing", role: "planner", status: "complete", startedAt: new Date().toISOString(), finishedAt: new Date().toISOString(), summary: structured.summary, artifacts: [], usage: { model: "gpt-5.6-sol", reasoningEffort: "high", billingMode: "subscription", inputTokens: 10, outputTokens: 10 }, metadata: { structured } }] };
+    }
+  };
+  const evaluator: Evaluator = {
+    id: "director.score",
+    version: "1",
+    async evaluate(input) { return { evaluator: "director.score", version: "1", status: "pass", metrics: { score: input.candidate ? Number(input.candidate.metadata.score) : 0 }, violations: [], artifacts: [] }; }
+  };
+  const testCampaign: Campaign = {
+    ...campaign(projectRoot),
+    id: "director-contract",
+    requires: [],
+    parameters: { tournament: { workspace: "director.workspace", agents: ["candidate.agent"], evaluators: ["director.score"], candidateCount: 2, concurrency: 2, director: { agent: "director.agent", model: "gpt-5.6-sol", reasoningEffort: "high", advisorReasoningEffort: false } } },
+    budget: { maximumExperiments: 2 }
+  };
+  const capabilities = new Map<string, unknown>([["workspace:director.workspace", workspace], ["agent:candidate.agent", candidateAgent], ["agent:director.agent", directorAgent], ["evaluator:director.score", evaluator]]);
+  const context: WorkflowContext = {
+    campaign: testCampaign,
+    signal: new AbortController().signal,
+    startedAt: new Date().toISOString(),
+    get: <T>(kind: Parameters<WorkflowContext["get"]>[0], id: string) => capabilities.get(`${kind}:${id}`) as T,
+    getAll: <T>() => [...capabilities.values()] as T[],
+    appendRecord: async (record) => { records.push(record); },
+    readRecords: async () => [],
+    preserveArtifacts: async (artifacts) => artifacts,
+    trace: { runId: "director-run", campaignId: testCampaign.id, emit: async (event) => { traceEvents.push(event); } },
+    emit: async () => undefined,
+    budget: new BudgetController(testCampaign.budget),
+    logger: new MemoryLogger()
+  };
+  try {
+    const result = await new TournamentWorkflow().run(context);
+    assert.equal(result.status, "budget-exhausted");
+    assert.equal(directorInstructions.length, 2);
+    assert.match(candidateObjectives[0] ?? "", /Tactile clarity[\s\S]*legible manipulation/);
+    assert.match(candidateObjectives[1] ?? "", /Topological surprise[\s\S]*surprising knot machine/);
+    assert.match(directorInstructions[1] ?? "", /deterministicRanking/);
+    assert.deepEqual(records.filter((record) => record.status !== "baseline").map((record) => record.status), ["discard", "keep"]);
+    const tournamentMetadata = records.find((record) => record.status === "keep")?.metadata?.tournament as { directorFraming?: { actualModel?: string }; directorSynthesis?: { outcome?: string; recommendation?: string } };
+    assert.equal(tournamentMetadata.directorFraming?.actualModel, "gpt-5.6-sol");
+    assert.equal(tournamentMetadata.directorSynthesis?.outcome, "deepen");
+    assert.match(tournamentMetadata.directorSynthesis?.recommendation ?? "", /winning interaction/);
+    assert.ok(traceEvents.some((event) => event.role === "campaign-director" && event.type === "node:completed"));
+  } finally { await rm(projectRoot, { recursive: true, force: true }); }
 });

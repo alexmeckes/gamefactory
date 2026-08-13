@@ -1528,7 +1528,8 @@ function contribution(run: ContributorRun): AgentContribution {
       promptManifestPath: run.provenance.promptManifestPath,
       ...(run.provenance.providerThreadId ? { providerThreadId: run.provenance.providerThreadId } : {}),
       ...(run.provenance.providerTurnId ? { providerTurnId: run.provenance.providerTurnId } : {}),
-      ...(run.provenance.structuredOutputPath ? { structuredOutputPath: run.provenance.structuredOutputPath } : {})
+      ...(run.provenance.structuredOutputPath ? { structuredOutputPath: run.provenance.structuredOutputPath } : {}),
+      ...(run.structured ? { structured: run.structured } : {})
     }
   };
 }

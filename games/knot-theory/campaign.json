@@ -39,7 +39,15 @@
         { "id": "godot.scenario", "cost": 10 }
       ],
       "candidateCount": 2,
-      "concurrency": 2
+      "concurrency": 2,
+      "director": {
+        "agent": "agent.team",
+        "model": "gpt-5.6-sol",
+        "reasoningEffort": "high",
+        "advisorReasoningEffort": "xhigh",
+        "timeoutSeconds": 1800,
+        "maxOutputCharacters": 30000
+      }
     },
     "agentTeam": {
       "maximumParallel": 3,

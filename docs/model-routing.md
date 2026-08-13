@@ -75,3 +75,10 @@ Knot Theory applies that policy per node. Re-run
 `npm run benchmark:model-routing` as the task set grows. Prefer a Pareto view of
 quality, latency, and tokens; do not collapse the result into a permanent global
 default from this small sample.
+
+Knot Theory also uses Sol/high as its cross-candidate Campaign Director. This is
+not an always-on XHigh supervisor: high handles routine framing and synthesis,
+while the same Sol model may escalate once to xhigh on a declared
+`needs_advisor` outcome or invocation failure. Candidate-level Luna exploration
+and Sol leads remain independently attributable, and the deterministic
+tournament—not the director—retains selection authority.

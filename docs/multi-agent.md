@@ -95,6 +95,43 @@ The control plane remains serialized:
 - candidate artifacts are copied into the content-addressed artifact store before
   any worktree is removed.
 
+### Campaign Director
+
+Tournament campaigns may opt into a workflow-level Campaign Director. It runs
+through the same real `agent.team` / Codex App Server adapter as candidate
+specialists, but in a single read-only graph:
+
+```json
+{
+  "tournament": {
+    "director": {
+      "agent": "agent.team",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "high",
+      "advisorReasoningEffort": "xhigh",
+      "timeoutSeconds": 1800
+    }
+  }
+}
+```
+
+Before each round it receives the objective, baseline, prior experiment
+summaries, and previous director synthesis. It returns one bounded hypothesis
+per candidate slot; each candidate team receives only its assignment, clearly
+labeled as revisable direction rather than a prescribed solution. After all
+candidates are evaluated, a second pass receives their summaries, evaluator
+evidence, contained preserved screenshots/replays/reports, and deterministic
+ranking. It records transferable learnings plus a continue/deepen/pivot/stop
+recommendation for the next round.
+
+The director is advisory and fail-open. A missing or failed director never
+strands candidate worktrees and never overrides deterministic acceptance. It
+cannot reserve budget, alter concurrency, select a winner, accept a worktree,
+weaken a gate, or perform cleanup. Its configured and provider-reported model,
+effort, attempts, token use, artifacts, framing, and synthesis appear in the
+flight recorder; sanitized briefs are also persisted in tournament record
+metadata for resume and after-the-fact review.
+
 ## Tournament configuration
 
 ```json
