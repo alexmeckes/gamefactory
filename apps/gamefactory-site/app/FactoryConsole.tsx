@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- Electron previews use a private, non-HTTP artifact protocol. */
 
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { DesktopState } from "@/desktop/contracts";
@@ -13,7 +14,7 @@ const GRAPH_X = 30;
 const GRAPH_Y = 56;
 const DEFAULT_BRIDGE_ENDPOINT = "http://127.0.0.1:4317";
 const BRIDGE_SESSION_KEY = "gamefactory.observatory.bridge";
-const columnLabels = ["Run", "Extensions", "Creative inputs", "Candidate", "Workspace", "Team", "Agents", "Evaluation", "Decision", "Result"];
+const columnLabels = ["Run", "Extensions", "Creative inputs", "Candidate", "Workspace", "Team", "Agents & tools", "Evaluation", "Decision", "Result"];
 
 type SourceMode = "desktop" | "live" | "replay" | "demo";
 type GraphFilter = "extension" | "resource" | "agent" | "evaluator" | "decision";
@@ -29,7 +30,7 @@ function normalizeBridgeEndpoint(value: string) {
 function graphFilterGroup(node: GraphNode): GraphFilter | undefined {
   if (node.kind === "extension") return "extension";
   if (node.kind === "resource") return "resource";
-  if (node.kind === "agent" || node.kind === "contributor") return "agent";
+  if (node.kind === "agent" || node.kind === "contributor" || node.kind === "tool") return "agent";
   if (node.kind === "evaluator") return "evaluator";
   if (node.kind === "decision" || node.kind === "outcome") return "decision";
   return undefined;
@@ -240,11 +241,11 @@ function UsageBar({ snapshot }: { snapshot: FactorySnapshot }) {
   );
 }
 
-function Inspector({ node, snapshot, cursor }: { node?: GraphNode; snapshot: FactorySnapshot; cursor: number }) {
+function Inspector({ node, snapshot, cursor, desktop }: { node?: GraphNode; snapshot: FactorySnapshot; cursor: number; desktop: boolean }) {
   if (!node) {
     return <aside className="inspector empty-inspector"><span className="section-kicker">Inspection</span><h2>Select a node</h2><p>Open an extension, creative input, candidate, agent, evaluator, or decision to inspect its exact provenance and downstream work.</p></aside>;
   }
-  return <NodeInspector key={node.id} node={node} snapshot={snapshot} cursor={cursor} />;
+  return <NodeInspector key={node.id} node={node} snapshot={snapshot} cursor={cursor} desktop={desktop} />;
 }
 
 function PromptManifestPanel({ manifest }: { manifest: EffectivePromptManifest }) {
@@ -274,7 +275,82 @@ function PromptManifestPanel({ manifest }: { manifest: EffectivePromptManifest }
   );
 }
 
-function NodeInspector({ node, snapshot, cursor }: { node: GraphNode; snapshot: FactorySnapshot; cursor: number }) {
+type EvidenceArtifact = FactorySnapshot["experiments"][number]["artifacts"][number];
+
+function artifactUrl(id: string) {
+  return `gamefactory-artifact://artifact/${encodeURIComponent(id)}`;
+}
+
+function DesignSystemView({ value }: { value: Record<string, unknown> }) {
+  const identity = value.identity && typeof value.identity === "object" && !Array.isArray(value.identity) ? value.identity as Record<string, unknown> : {};
+  const tokens = value.tokens && typeof value.tokens === "object" && !Array.isArray(value.tokens) ? value.tokens as Record<string, unknown> : {};
+  const records = (raw: unknown) => Array.isArray(raw) ? raw.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item)) : [];
+  const principles = records(value.principles);
+  const references = records(value.references);
+  const implementations = records(value.implementations);
+  return <section className="design-system-view">
+    <span className="section-kicker">Design system</span>
+    <h3>{String(value.title ?? value.id ?? "Candidate system")}</h3>
+    <p>{String(identity.intent ?? "No design intent reported.")}</p>
+    <div className="token-chips">{Object.keys(tokens).map((name) => <span key={name}>{name}</span>)}</div>
+    {principles.length ? <ol>{principles.map((item, index) => <li key={String(item.id ?? index)}><strong>{String(item.statement ?? item.id ?? `Principle ${index + 1}`)}</strong><small>{String(item.rationale ?? "")}</small></li>)}</ol> : null}
+    {references.length ? <div className="design-reference-prompts">{references.map((item, index) => <details key={`${String(item.path)}-${index}`}><summary>{String(item.role ?? item.path ?? `Reference ${index + 1}`)} · {String(item.source ?? "unknown")}</summary>{item.prompt ? <pre>{String(item.prompt)}</pre> : null}<code>{String(item.sha256 ?? "hash unreported")}</code></details>)}</div> : null}
+    <p className="design-adapters">Adapters: {implementations.map((item) => String(item.adapter ?? item.id ?? "unknown")).join(" · ") || "none"}</p>
+  </section>;
+}
+
+function DesktopEvidence({ artifacts }: { artifacts: EvidenceArtifact[] }) {
+  const [textArtifact, setTextArtifact] = useState<{ id: string; label: string; text: string }>();
+  const [designSystem, setDesignSystem] = useState<Record<string, unknown>>();
+  const [error, setError] = useState<string>();
+  const available = artifacts.filter((item) => item.available);
+
+  async function inspectText(artifact: EvidenceArtifact, detectDesignSystem = false) {
+    try {
+      setError(undefined);
+      const result = await window.gamefactoryDesktop!.getArtifactText(artifact.id);
+      setTextArtifact({ id: result.id, label: result.label, text: result.text });
+      if (detectDesignSystem) {
+        const parsed: unknown = JSON.parse(result.text);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) setDesignSystem(parsed as Record<string, unknown>);
+      }
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : String(nextError));
+    }
+  }
+
+  const identity = artifacts.map((item) => item.id).join(":");
+  useEffect(() => {
+    const profile = available.find((item) => item.mediaType === "application/json" && item.label.toLowerCase().startsWith("design system "));
+    if (!profile) return;
+    let active = true;
+    void window.gamefactoryDesktop!.getArtifactText(profile.id).then((result) => {
+      if (!active) return;
+      const parsed: unknown = JSON.parse(result.text);
+      setTextArtifact({ id: result.id, label: result.label, text: result.text });
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) setDesignSystem(parsed as Record<string, unknown>);
+    }).catch((nextError: unknown) => { if (active) setError(nextError instanceof Error ? nextError.message : String(nextError)); });
+    return () => { active = false; };
+    // Content-addressed ids are the stable dependency for this evidence set.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [identity]);
+
+  if (!artifacts.length) return null;
+  return <section className="desktop-evidence">
+    <span className="section-kicker section-space">Preserved evidence · {artifacts.length}</span>
+    {designSystem ? <DesignSystemView value={designSystem} /> : null}
+    <div className="evidence-gallery">{available.filter((item) => item.mediaType?.startsWith("image/")).map((item) => <button className="evidence-image" key={item.id} onClick={() => void window.gamefactoryDesktop!.openArtifact(item.id)} type="button"><img src={artifactUrl(item.id)} alt={item.label} /><span>{item.label}</span></button>)}</div>
+    <div className="evidence-media">{available.filter((item) => item.mediaType?.startsWith("video/")).map((item) => <figure key={item.id}><video controls muted preload="metadata" src={artifactUrl(item.id)} /><figcaption>{item.label}</figcaption></figure>)}</div>
+    <div className="evidence-list">{artifacts.map((item) => {
+      const textual = item.mediaType?.startsWith("text/") || ["application/json", "application/xml", "application/javascript"].includes(item.mediaType ?? "");
+      return <div key={item.id}><span><strong>{item.label}</strong><small>{item.kind} · {item.sizeBytes === undefined ? "size unreported" : `${Math.ceil(item.sizeBytes / 1024)} KiB`}</small></span><span className="evidence-actions">{item.available && textual ? <button onClick={() => void inspectText(item, item.label.toLowerCase().startsWith("design system "))} type="button">Inspect</button> : null}{item.available ? <button onClick={() => void window.gamefactoryDesktop!.openArtifact(item.id)} type="button">Open</button> : <em>unavailable</em>}</span></div>;
+    })}</div>
+    {textArtifact ? <details className="text-artifact" open><summary>{textArtifact.label}</summary><pre>{textArtifact.text}</pre></details> : null}
+    {error ? <p className="desktop-error">{error}</p> : null}
+  </section>;
+}
+
+function NodeInspector({ node, snapshot, cursor, desktop }: { node: GraphNode; snapshot: FactorySnapshot; cursor: number; desktop: boolean }) {
   const [tab, setTab] = useState<"overview" | "prompt">("overview");
   const experiment = snapshot.experiments.find((item) => item.id === node.experimentId);
   const contribution = experiment?.contributors.find((item) => item.invocationId === node.invocationId || item.agentId === node.label);
@@ -315,6 +391,7 @@ function NodeInspector({ node, snapshot, cursor }: { node: GraphNode; snapshot: 
           <div className="metric-grid">{Object.entries(experiment.metrics).map(([name, value]) => <div key={name}><span>{name.replaceAll("_", " ")}</span><strong>{value.toLocaleString(undefined, { maximumFractionDigits: 3 })}</strong></div>)}</div>
           <span className="section-kicker section-space">Visible journal</span>
           <ol className="phase-list">{phases.slice(-6).map((phase) => <li key={`${phase.sequence}-${phase.phase}`}><i aria-hidden="true" /><span><strong>{phase.phase}</strong><small>#{phase.sequence} · {phase.note}</small></span></li>)}</ol>
+          {desktop ? <DesktopEvidence artifacts={experiment.artifacts} /> : null}
         </>
       ) : null}
       </>}
@@ -335,6 +412,7 @@ export default function FactoryConsole({ desktop = false }: { desktop?: boolean 
   const [playing, setPlaying] = useState(false);
   const [selectedId, setSelectedId] = useState<string>();
   const [dropActive, setDropActive] = useState(false);
+  const [credentialName, setCredentialName] = useState("google.gemini");
   const [graphFilters, setGraphFilters] = useState<Record<GraphFilter, boolean>>({ extension: true, resource: true, agent: true, evaluator: true, decision: true });
   const fileInput = useRef<HTMLInputElement>(null);
   const pollRef = useRef<number | undefined>(undefined);
@@ -540,6 +618,36 @@ export default function FactoryConsole({ desktop = false }: { desktop?: boolean 
     }
   }
 
+  async function refreshDesktopReadiness() {
+    try {
+      const state = await window.gamefactoryDesktop!.refreshReadiness();
+      setDesktopState(state);
+      setConnection(state.message);
+    } catch (error) {
+      setConnection(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  async function addDesktopCredential() {
+    try {
+      const state = await window.gamefactoryDesktop!.promptCredential(credentialName.trim());
+      setDesktopState(state);
+      setConnection(state.message);
+    } catch (error) {
+      setConnection(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  async function removeDesktopCredential(name: string) {
+    try {
+      const state = await window.gamefactoryDesktop!.removeCredential(name);
+      setDesktopState(state);
+      setConnection(state.message);
+    } catch (error) {
+      setConnection(error instanceof Error ? error.message : String(error));
+    }
+  }
+
   async function exportReplay() {
     if (!desktop) {
       downloadReplay(snapshot);
@@ -576,10 +684,10 @@ export default function FactoryConsole({ desktop = false }: { desktop?: boolean 
       </header>
 
       {desktop ? (
-        <section className="bridge-panel desktop-panel" aria-label="Desktop factory controls">
+        <><section className="bridge-panel desktop-panel" aria-label="Desktop factory controls">
           <div className="bridge-copy"><span className="section-kicker">Local control room</span><h2>{desktopState.selection?.campaignId ?? "Choose a factory campaign."}</h2><p>{desktopState.selection ? desktopState.selection.campaignPath : "Open a campaign.json file. Observatory will locate its factory configuration and durable trace without starting a network bridge."}</p></div>
           <div className="bridge-actions"><span className="desktop-status">{desktopState.message}</span><button onClick={() => void chooseDesktopCampaign()} type="button">Open campaign</button><button className="secondary" disabled={!desktopState.selection} onClick={() => void toggleDesktopRun()} type="button">{desktopState.running ? "Stop safely" : "Run factory"}</button></div>
-        </section>
+        </section><details className="desktop-setup"><summary><span><strong>Local readiness</strong><small>{desktopState.readiness?.status ?? "not checked"} · {desktopState.credentials?.length ?? 0} stored credentials</small></span><i /></summary><div className="desktop-setup-grid"><section><div className="setup-heading"><span className="section-kicker">Factory doctor</span><button onClick={() => void refreshDesktopReadiness()} type="button">Check again</button></div><div className="readiness-list">{desktopState.readiness?.checks.map((check) => <div className={check.ok ? "ready" : "issue"} key={check.capability}><i /><span><strong>{check.capability}</strong><small>{check.message}</small></span></div>) ?? <p>No readiness check yet.</p>}</div></section><section><span className="section-kicker">OS-protected credentials</span><p>Only names enter the renderer. Secret entry happens in a native password dialog and values are never returned to this UI or written to traces.</p><div className="credential-form"><input aria-label="Credential name" value={credentialName} onChange={(event) => setCredentialName(event.target.value)} spellCheck={false} /><button disabled={!credentialName.trim()} onClick={() => void addDesktopCredential()} type="button">Add or update</button></div><div className="credential-list">{desktopState.credentials?.map((name) => <div key={name}><code>{name}</code><button onClick={() => void removeDesktopCredential(name)} type="button">Remove</button></div>)}</div></section></div></details></>
       ) : bridgePanel ? (
         <section className="bridge-panel" aria-label="Connect local GameFactory bridge">
           <div className="bridge-copy"><span className="section-kicker">Private loopback bridge</span><h2>Pair this browser with the factory on your computer.</h2><p>Run <code>gamefactory bridge</code> locally, then paste the endpoint and one-time key it prints. Chrome will ask once for local-network access; choose <strong>Allow</strong>. The listener stays on your device and the key disappears when that command stops.</p></div>
@@ -607,7 +715,7 @@ export default function FactoryConsole({ desktop = false }: { desktop?: boolean 
           <div className="replay-controls"><button onClick={() => { setPlaying((value) => !value); setFollowing(false); }} type="button">{playing ? "Pause" : "Replay"}</button><button className={following ? "active" : ""} onClick={() => { setFollowing(true); setPlaying(false); setCursor(snapshot.sequence); }} type="button">Follow latest</button><input aria-label="Replay position" min={0} max={snapshot.sequence} value={cursor} onChange={(event) => { setCursor(Number(event.target.value)); setFollowing(false); setPlaying(false); }} type="range" /><output>#{cursor}</output></div>
           <GraphCanvas snapshot={snapshot} cursor={cursor} selectedId={selectedId} onSelect={(node) => setSelectedId(node.id)} filters={graphFilters} />
         </div>
-        <Inspector node={selectedNode} snapshot={snapshot} cursor={cursor} />
+        <Inspector node={selectedNode} snapshot={snapshot} cursor={cursor} desktop={desktop} />
       </section>
 
       <section className="lower-grid">

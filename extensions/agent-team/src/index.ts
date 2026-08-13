@@ -235,6 +235,24 @@ function agentGraphTraceNode(request: AgentRequest, nodeId: string): string {
   return `agent-node:${request.experimentId}:${nodeId}`;
 }
 
+function providerItemRole(type: string): "subagent" | "tool" | undefined {
+  if (type === "collabToolCall") return "subagent";
+  if (/toolcall|execution|filechange|websearch|imagegeneration/i.test(type)) return "tool";
+  return undefined;
+}
+
+function providerItemLabel(type: string, tool: unknown): string {
+  if (typeof tool === "string" && tool.length > 0 && tool.length <= 128) return tool;
+  const labels: Record<string, string> = {
+    commandExecution: "Command",
+    fileChange: "File change",
+    webSearch: "Web search",
+    imageGeneration: "ImageGen",
+    imageGenerationCall: "ImageGen"
+  };
+  return labels[type] ?? type.replace(/([a-z])([A-Z])/g, "$1 $2");
+}
+
 const announcedTraceNodes = new WeakMap<AgentRequest, Set<string>>();
 
 async function ensureAgentTraceNode(request: AgentRequest, config: ContributorConfig, stage: TeamStage, readOnly: boolean): Promise<string> {
@@ -1212,9 +1230,11 @@ async function invokeContributor(
                 ...(typeof item?.status === "string" ? { itemStatus: item.status } : {})
               }
             });
-            if (item?.type !== "collabToolCall" || typeof item.id !== "string") return;
+            if (typeof item?.type !== "string" || typeof item.id !== "string") return;
+            const providerRole = providerItemRole(item.type);
+            if (!providerRole) return;
             const providerNodeId = `${traceNodeId}:provider-item:${item.id}`;
-            const label = typeof item.tool === "string" ? item.tool : "Codex subagent";
+            const label = providerItemLabel(item.type, item.tool);
             const providerData = journalValue({
               providerEvent: event.method,
               itemType: item.type,
@@ -1232,8 +1252,8 @@ async function invokeContributor(
                 experimentId: request.experimentId,
                 parentNodeId: traceNodeId,
                 label,
-                role: "subagent",
-                message: "Codex App Server collaboration item",
+                role: providerRole,
+                message: providerRole === "subagent" ? "Codex App Server collaboration item" : "Codex App Server tool item",
                 data: providerData
               });
               await emitAgentTrace(request, {
@@ -1242,26 +1262,26 @@ async function invokeContributor(
                 experimentId: request.experimentId,
                 sourceNodeId: traceNodeId,
                 targetNodeId: providerNodeId,
-                role: "subagent"
+                role: providerRole
               });
               await emitAgentTrace(request, {
                 type: "node:started",
                 nodeId: providerNodeId,
                 experimentId: request.experimentId,
                 label,
-                role: "subagent",
+                role: providerRole,
                 status: "running",
                 data: providerData
               });
             }
-            if (event.method === "item/completed") {
+            if (event.method === "item/completed" || event.method === "item/failed") {
               const failed = item.status === "failed";
               await emitAgentTrace(request, {
                 type: failed ? "node:failed" : "node:completed",
                 nodeId: providerNodeId,
                 experimentId: request.experimentId,
                 label,
-                role: "subagent",
+                role: providerRole,
                 status: failed ? "failed" : "complete",
                 data: providerData
               });

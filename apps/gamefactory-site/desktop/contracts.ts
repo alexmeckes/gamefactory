@@ -19,6 +19,19 @@ export interface DesktopState {
   startedAt?: string;
   finishedAt?: string;
   error?: string;
+  readiness?: {
+    status: "checking" | "ready" | "issues";
+    checkedAt?: string;
+    checks: Array<{ capability: string; ok: boolean; message: string }>;
+  };
+  credentials?: string[];
+}
+
+export interface DesktopArtifactText {
+  id: string;
+  label: string;
+  mediaType: string;
+  text: string;
 }
 
 export interface DesktopFactoryApi {
@@ -27,6 +40,11 @@ export interface DesktopFactoryApi {
   chooseCampaign(): Promise<DesktopState>;
   startRun(): Promise<DesktopState>;
   stopRun(): Promise<DesktopState>;
+  refreshReadiness(): Promise<DesktopState>;
+  promptCredential(name: string): Promise<DesktopState>;
+  removeCredential(name: string): Promise<DesktopState>;
+  getArtifactText(id: string): Promise<DesktopArtifactText>;
+  openArtifact(id: string): Promise<{ opened: boolean; error?: string }>;
   exportReplay(bundle: ReplayBundle): Promise<{ saved: boolean; path?: string }>;
   onState(listener: (state: DesktopState) => void): () => void;
   onSnapshot(listener: (snapshot: FactorySnapshot) => void): () => void;

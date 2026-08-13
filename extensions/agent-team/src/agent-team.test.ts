@@ -158,6 +158,8 @@ lines.on("line", (line) => {
   send({ method: "thread/settings/updated", params: { threadId, threadSettings: { model: message.params.model, effort: message.params.effort } } });
   send({ method: "turn/started", params: { threadId, turn: { id: turnId, status: "inProgress" } } });
   for (let index = 0; index < 200; index += 1) send({ method: "item/agentMessage/delta", params: { threadId, turnId, delta: "x" } });
+  send({ method: "item/started", params: { threadId, turnId, item: { id: "cmd-1", type: "commandExecution", status: "inProgress" } } });
+  send({ method: "item/completed", params: { threadId, turnId, item: { id: "cmd-1", type: "commandExecution", status: "completed" } } });
   send({ method: "item/started", params: { threadId, turnId, item: { id: "collab-1", type: "collabToolCall", tool: "spawn_agent", status: "inProgress", newThreadId: "thread-subagent" } } });
   send({ method: "item/completed", params: { threadId, turnId, item: { id: "collab-1", type: "collabToolCall", tool: "spawn_agent", status: "completed", newThreadId: "thread-subagent" } } });
   send({ method: "item/completed", params: { threadId, turnId, item: { id: "msg-1", type: "agentMessage", text: JSON.stringify({ summary: "App Server worker finished", outcome: "pass", payload: JSON.stringify({ context: { source: "app-server-fixture" } }) }) } } });
@@ -732,6 +734,9 @@ test("agent graph runs through the Codex App Server adapter and exposes native s
     const providerNode = "agent:exp-app-server:real-worker:attempt-1:provider-item:collab-1";
     assert.ok(events.some((event) => event.type === "node:started" && event.nodeId === providerNode && event.role === "subagent"));
     assert.ok(events.some((event) => event.type === "node:completed" && event.nodeId === providerNode));
+    const commandNode = "agent:exp-app-server:real-worker:attempt-1:provider-item:cmd-1";
+    assert.ok(events.some((event) => event.type === "node:started" && event.nodeId === commandNode && event.role === "tool" && event.label === "Command"));
+    assert.ok(events.some((event) => event.type === "node:completed" && event.nodeId === commandNode));
     assert.ok(!events.some((event) => event.type === "node:progress" && event.message === "item/agentMessage/delta"));
   } finally {
     await rm(root, { recursive: true, force: true });

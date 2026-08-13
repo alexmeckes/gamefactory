@@ -1,13 +1,13 @@
 import { timingSafeEqual } from "node:crypto";
 import { createServer, type Server, type ServerResponse } from "node:http";
-import { readFile, realpath, stat } from "node:fs/promises";
-import { isAbsolute, relative, resolve } from "node:path";
+import { readFile } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
 import { FACTORY_VIEWER_HTML } from "./ui.js";
 import {
   createFactorySnapshot,
   factoryTraceSignature,
   readFactoryTrace,
+  resolveViewerArtifact,
   type FactoryTrace,
   type FactoryViewerOptions,
   type FactoryViewerSnapshot
@@ -78,18 +78,6 @@ function bridgeResponseHeaders(origin: string): Record<string, string> {
 function selectedRun(url: URL): string | undefined {
   const value = url.searchParams.get("run");
   return value?.trim() || undefined;
-}
-
-async function safeArtifactPath(root: string, path: string): Promise<string | undefined> {
-  try {
-    const [canonicalRoot, canonicalPath] = await Promise.all([realpath(root), realpath(path)]);
-    const traversal = relative(canonicalRoot, canonicalPath);
-    if (!traversal || traversal.startsWith("..") || isAbsolute(traversal)) return undefined;
-    const info = await stat(canonicalPath);
-    return info.isFile() ? canonicalPath : undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 function closeServer(server: Server): Promise<void> {
@@ -195,13 +183,12 @@ export async function startFactoryViewer(options: FactoryViewerServerOptions): P
           sendJson(response, 404, { error: "Artifact not found" }, responseHeaders);
           return;
         }
-        const artifact = trace.artifactFiles.get(id);
-        const path = artifact ? await safeArtifactPath(trace.sources.artifactDirectory, artifact.path) : undefined;
-        if (!artifact || !path) {
+        const artifact = await resolveViewerArtifact(trace, id);
+        if (!artifact) {
           sendJson(response, 404, { error: "Artifact not found" }, responseHeaders);
           return;
         }
-        const contents = await readFile(path);
+        const contents = await readFile(artifact.path);
         response.writeHead(200, {
           ...securityHeaders,
           "Content-Type": artifact.mediaType ?? "application/octet-stream",

@@ -1,9 +1,10 @@
 import { execFile } from "node:child_process";
-import { access } from "node:fs/promises";
+import { access, lstat, readFile, readdir } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { promisify } from "node:util";
 import {
   FactoryRunner,
+  LocalCredentialStore,
   loadCampaign,
   loadFactoryConfig,
   type Campaign,
@@ -14,10 +15,12 @@ import {
   createFactorySnapshot,
   factoryTraceSignature,
   readFactoryTrace,
+  resolveViewerArtifact,
+  type FactoryTrace,
   type FactoryViewerOptions,
   type FactoryViewerSnapshot,
 } from "@gamefactory/viewer";
-import type { DesktopSelection, DesktopState } from "./contracts";
+import type { DesktopArtifactText, DesktopSelection, DesktopState } from "./contracts";
 
 const execFileAsync = promisify(execFile);
 
@@ -37,6 +40,21 @@ async function gitRoot(path: string): Promise<string | undefined> {
   } catch {
     return undefined;
   }
+}
+
+async function codexLauncher(): Promise<string> {
+  if (process.platform === "win32" && process.env.LOCALAPPDATA) {
+    const root = resolve(process.env.LOCALAPPDATA, "OpenAI", "Codex", "bin");
+    try {
+      const candidates = await Promise.all((await readdir(root, { withFileTypes: true })).filter((entry) => entry.isDirectory()).map(async (entry) => {
+        const path = resolve(root, entry.name, "codex.exe");
+        try { const info = await lstat(path); return info.isFile() ? { path, modified: info.mtimeMs } : undefined; } catch { return undefined; }
+      }));
+      const newest = candidates.filter((item): item is { path: string; modified: number } => item !== undefined).sort((left, right) => right.modified - left.modified)[0];
+      if (newest) return newest.path;
+    } catch { /* Fall through to a standalone CLI on PATH. */ }
+  }
+  return "codex";
 }
 
 export async function inferFactoryRoot(campaignPath: string): Promise<string> {
@@ -70,6 +88,7 @@ export class DesktopFactorySession {
   private selection?: DesktopSelection;
   private state: DesktopState = { status: "idle", running: false, message: "Choose a campaign to begin" };
   private snapshot?: FactoryViewerSnapshot;
+  private trace?: FactoryTrace;
   private signature?: string;
   private pollTimer?: ReturnType<typeof setInterval>;
   private refreshPromise?: Promise<void>;
@@ -77,6 +96,7 @@ export class DesktopFactorySession {
   private runner?: FactoryRunner;
   private runController?: AbortController;
   private runPromise?: Promise<void>;
+  private readonly credentialStore = new LocalCredentialStore();
 
   constructor(
     private readonly onState: (state: DesktopState) => void = () => undefined,
@@ -105,9 +125,10 @@ export class DesktopFactorySession {
       objective: campaign.objective,
     };
     this.signature = undefined;
-    this.setState({ status: "watching", running: false, message: `Watching ${campaign.id}`, selection: this.selection });
+    this.setState({ ...this.state, status: "watching", running: false, message: `Watching ${campaign.id}`, selection: this.selection });
     await this.refresh(true);
     this.startWatching();
+    await this.refreshReadiness();
     return this.getState();
   }
 
@@ -121,6 +142,7 @@ export class DesktopFactorySession {
       if (!force && !heartbeat && nextSignature === this.signature) return;
       if (heartbeat) this.lastHeartbeatAt = now;
       const trace = await readFactoryTrace(this.options!);
+      this.trace = trace;
       this.signature = nextSignature;
       this.snapshot = createFactorySnapshot(trace, this.campaign!);
       this.onSnapshot(structuredClone(this.snapshot));
@@ -129,6 +151,59 @@ export class DesktopFactorySession {
       this.setState({ ...this.state, message: `Trace refresh delayed: ${message}` });
     }).finally(() => { this.refreshPromise = undefined; });
     return this.refreshPromise;
+  }
+
+  async refreshReadiness(): Promise<DesktopState> {
+    if (!this.campaign || !this.config || !this.options) throw new Error("Choose a campaign before checking readiness");
+    this.setState({ ...this.state, readiness: { status: "checking", checks: this.state.readiness?.checks ?? [] } });
+    const checks: Array<{ capability: string; ok: boolean; message: string }> = [];
+    const runner = new FactoryRunner({ cwd: this.options.cwd, config: this.config, logger: new SessionLogger(() => undefined) });
+    try {
+      await runner.initialize();
+      checks.push(...await runner.doctor(this.campaign));
+    } catch (error) {
+      checks.push({ capability: "factory:doctor", ok: false, message: error instanceof Error ? error.message : String(error) });
+    } finally {
+      await runner.dispose().catch(() => undefined);
+    }
+    try {
+      const { stdout } = await execFileAsync(await codexLauncher(), ["--version"], { windowsHide: true, timeout: 15_000 });
+      checks.push({ capability: "agent:codex-app-server", ok: true, message: stdout.trim() || "Codex is available" });
+    } catch (error) {
+      checks.push({ capability: "agent:codex-app-server", ok: false, message: error instanceof Error ? error.message : String(error) });
+    }
+    const credentials = await this.credentialStore.list();
+    this.setState({ ...this.state, credentials, readiness: { status: checks.every((item) => item.ok) ? "ready" : "issues", checkedAt: new Date().toISOString(), checks } });
+    return this.getState();
+  }
+
+  async setCredential(name: string, value: string): Promise<DesktopState> {
+    await this.credentialStore.set(name, value);
+    const credentials = await this.credentialStore.list();
+    this.setState({ ...this.state, credentials, message: `Stored ${name} in the OS-protected credential store` });
+    return this.getState();
+  }
+
+  async removeCredential(name: string): Promise<DesktopState> {
+    await this.credentialStore.remove(name);
+    const credentials = await this.credentialStore.list();
+    this.setState({ ...this.state, credentials, message: `Removed ${name} from the credential store` });
+    return this.getState();
+  }
+
+  async resolveArtifact(id: string) {
+    if (!this.trace) await this.refresh(true);
+    const artifact = this.trace ? await resolveViewerArtifact(this.trace, id) : undefined;
+    if (!artifact) throw new Error("Artifact is unavailable or outside the content-addressed evidence store");
+    return artifact;
+  }
+
+  async getArtifactText(id: string): Promise<DesktopArtifactText> {
+    const artifact = await this.resolveArtifact(id);
+    const textual = artifact.mediaType.startsWith("text/") || ["application/json", "application/xml", "application/javascript"].includes(artifact.mediaType);
+    if (!textual) throw new Error(`Artifact ${artifact.label} is not textual evidence`);
+    if (artifact.sizeBytes > 2 * 1024 * 1024) throw new Error("Text artifact exceeds the 2 MiB inspection limit");
+    return { id, label: artifact.label, mediaType: artifact.mediaType, text: await readFile(artifact.path, "utf8") };
   }
 
   startWatching(): void {
@@ -147,15 +222,15 @@ export class DesktopFactorySession {
       this.setState({ ...this.state, message: `[${level}] ${message}${suffix}` });
     });
     this.runner = new FactoryRunner({ cwd: this.options.cwd, config: this.config, logger, signal: this.runController.signal });
-    this.setState({ status: "running", running: true, message: `Starting ${this.campaign.id}`, selection: this.selection, startedAt });
+    this.setState({ ...this.state, status: "running", running: true, message: `Starting ${this.campaign.id}`, selection: this.selection, startedAt });
     this.runPromise = (async () => {
       try {
         await this.runner!.initialize();
         const result = await this.runner!.run(this.campaign!);
-        this.setState({ status: "complete", running: false, message: `Run ${result.status}`, selection: this.selection, startedAt, finishedAt: new Date().toISOString() });
+        this.setState({ ...this.state, status: "complete", running: false, message: `Run ${result.status}`, selection: this.selection, startedAt, finishedAt: new Date().toISOString() });
       } catch (error) {
         if (this.runController?.signal.aborted) {
-          this.setState({ status: "watching", running: false, message: "Run stopped", selection: this.selection, startedAt, finishedAt: new Date().toISOString() });
+          this.setState({ ...this.state, status: "watching", running: false, message: "Run stopped", selection: this.selection, startedAt, finishedAt: new Date().toISOString() });
         } else {
           this.setError(error, "Factory run failed");
         }
@@ -190,7 +265,7 @@ export class DesktopFactorySession {
 
   private setError(error: unknown, prefix: string): void {
     const message = error instanceof Error ? error.message : String(error);
-    this.setState({ status: "error", running: false, message: `${prefix}: ${message}`, ...(this.selection ? { selection: this.selection } : {}), error: message, finishedAt: new Date().toISOString() });
+    this.setState({ ...this.state, status: "error", running: false, message: `${prefix}: ${message}`, ...(this.selection ? { selection: this.selection } : {}), error: message, finishedAt: new Date().toISOString() });
   }
 
   private setState(state: DesktopState): void {

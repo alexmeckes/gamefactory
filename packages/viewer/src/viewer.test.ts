@@ -12,7 +12,7 @@ import {
   type FactoryConfig,
   type JournalJsonValue
 } from "@gamefactory/core";
-import { createFactorySnapshot, readFactoryTrace, startFactoryViewer, type FactoryViewerOptions } from "./index.js";
+import { createFactorySnapshot, readFactoryTrace, resolveViewerArtifact, startFactoryViewer, type FactoryViewerOptions } from "./index.js";
 
 const runId = "viewer-demo-aabbccdd";
 const campaign: Campaign = {
@@ -116,6 +116,8 @@ test("viewer reconstructs candidate lanes, provenance, metrics, and live state",
     assert.equal(snapshot.experiments[0]?.contributors[0]?.role, "critic");
     assert.equal(snapshot.experiments[0]?.evaluations[0]?.evaluator, "playtest.agents");
     assert.equal(snapshot.experiments[0]?.artifacts[0]?.available, true);
+    assert.equal((await resolveViewerArtifact(trace, "a".repeat(64)))?.path, value.artifact);
+    assert.equal(await resolveViewerArtifact(trace, "b".repeat(64)), undefined);
     assert.match(snapshot.events.find((event) => event.phase === "acceptance-intent")?.note ?? "", /Accept/);
     assert.deepEqual(
       [...new Set(snapshot.graph.nodes.map((node) => node.kind))].sort(),
@@ -158,6 +160,9 @@ test("viewer merges live agent attempts and progress into the replayable graph",
     await store.append(identity, { type: "node:started", nodeId: "agent:tournament-r0001-c001:puzzle-critic:attempt-1", experimentId: "tournament-r0001-c001", label: "puzzle-critic", role: "critic", attempt: 1 });
     await store.append(identity, { type: "node:progress", nodeId: "agent:tournament-r0001-c001:puzzle-critic:attempt-1", experimentId: "tournament-r0001-c001", label: "puzzle-critic", role: "critic", attempt: 1, message: "Subprocess output", progress: { current: 2048, unit: "bytes" } });
     await store.append(identity, { type: "node:completed", nodeId: "agent:tournament-r0001-c001:puzzle-critic:attempt-1", experimentId: "tournament-r0001-c001", label: "puzzle-critic", role: "critic", attempt: 1, status: "complete", message: "Critique finished", data: { invocationId: "agent:tournament-r0001-c001:puzzle-critic:attempt-1", parentInvocationId: "agent-node:tournament-r0001-c001:puzzle-critic", usage: { provider: "openai", model: "test-model", reasoningEffort: "high", inputTokens: 120, outputTokens: 30, costUsd: 0.02, costSource: "provider-reported", billingMode: "metered", identitySource: "provider-reported" } } });
+    await store.append(identity, { type: "node:created", nodeId: "agent:tournament-r0001-c001:puzzle-critic:attempt-1:provider-item:image-1", experimentId: "tournament-r0001-c001", parentNodeId: "agent:tournament-r0001-c001:puzzle-critic:attempt-1", label: "ImageGen", role: "tool" });
+    await store.append(identity, { type: "node:started", nodeId: "agent:tournament-r0001-c001:puzzle-critic:attempt-1:provider-item:image-1", experimentId: "tournament-r0001-c001", label: "ImageGen", role: "tool", status: "running" });
+    await store.append(identity, { type: "node:completed", nodeId: "agent:tournament-r0001-c001:puzzle-critic:attempt-1:provider-item:image-1", experimentId: "tournament-r0001-c001", label: "ImageGen", role: "tool", status: "complete" });
     const snapshot = createFactorySnapshot(await readFactoryTrace(value.options), value.options.campaign);
     assert.ok(snapshot.events.some((event) => event.source === "trace" && event.phase === "node:progress"));
     const attempt = snapshot.graph.nodes.find((node) => node.id === "agent:tournament-r0001-c001:puzzle-critic:attempt-1");
@@ -170,6 +175,7 @@ test("viewer merges live agent attempts and progress into the replayable graph",
     assert.equal(attempt?.promptManifest?.providerContext?.reasoningEffort, "high");
     assert.equal(attempt?.promptManifest?.adapter, "codex.app-server");
     assert.equal(attempt?.promptManifest?.layers[0]?.kind, "role");
+    assert.equal(snapshot.graph.nodes.find((node) => node.label === "ImageGen")?.kind, "tool");
     const extension = snapshot.graph.nodes.find((node) => node.kind === "extension");
     assert.equal(extension?.provenance?.version, "0.1.0");
     assert.deepEqual(extension?.provenance?.capabilities, ["agent:asset.command", "evaluator:asset.style"]);

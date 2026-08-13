@@ -142,6 +142,7 @@ export interface Experiment {
     label: string;
     mediaType?: string;
     sizeBytes?: number;
+    sha256?: string;
     available: boolean;
     url?: string;
   }>;

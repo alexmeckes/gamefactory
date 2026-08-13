@@ -1,4 +1,5 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, type IpcMainEvent, type IpcMainInvokeEvent } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, shell, type IpcMainEvent, type IpcMainInvokeEvent } from "electron";
+import { execFile } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -13,6 +14,8 @@ let window: BrowserWindow | undefined;
 let restored = false;
 let rendererReport: { title: string; text: string } | undefined;
 let smokeFinished = false;
+
+protocol.registerSchemesAsPrivileged([{ scheme: "gamefactory-artifact", privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } }]);
 
 function send(channel: string, value: unknown): void {
   if (window && !window.isDestroyed()) window.webContents.send(channel, value);
@@ -111,6 +114,36 @@ async function chooseCampaign(): Promise<DesktopState> {
   return state;
 }
 
+async function promptForCredential(name: string): Promise<string | undefined> {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(name)) throw new Error("Credential name is invalid");
+  if (process.platform !== "win32") throw new Error("Use `gamefactory credentials set` on this platform");
+  const script = [
+    "Add-Type -AssemblyName System.Windows.Forms",
+    "$form=New-Object Windows.Forms.Form",
+    "$form.Text='GameFactory credential'",
+    "$form.Width=520; $form.Height=190; $form.StartPosition='CenterScreen'; $form.TopMost=$true",
+    "$label=New-Object Windows.Forms.Label; $label.Text=('Enter '+$env:GAMEFACTORY_DESKTOP_CREDENTIAL_NAME); $label.Left=18; $label.Top=18; $label.Width=470",
+    "$box=New-Object Windows.Forms.TextBox; $box.Left=18; $box.Top=48; $box.Width=465; $box.UseSystemPasswordChar=$true",
+    "$ok=New-Object Windows.Forms.Button; $ok.Text='Store securely'; $ok.Left=350; $ok.Top=88; $ok.Width=133; $ok.DialogResult=[Windows.Forms.DialogResult]::OK",
+    "$cancel=New-Object Windows.Forms.Button; $cancel.Text='Cancel'; $cancel.Left=262; $cancel.Top=88; $cancel.Width=80; $cancel.DialogResult=[Windows.Forms.DialogResult]::Cancel",
+    "$form.Controls.AddRange(@($label,$box,$ok,$cancel)); $form.AcceptButton=$ok; $form.CancelButton=$cancel; $form.Add_Shown({$box.Focus()})",
+    "if($form.ShowDialog() -eq [Windows.Forms.DialogResult]::OK){[Console]::Out.Write($box.Text)}"
+  ].join("; ");
+  const { stdout } = await new Promise<{ stdout: string }>((resolvePrompt, reject) => {
+    const environment = Object.fromEntries(["SystemRoot", "WINDIR", "PATH", "PATHEXT", "TEMP", "TMP"].flatMap((key) => {
+      const entry = Object.entries(process.env).find(([candidate]) => candidate.toLowerCase() === key.toLowerCase());
+      return entry?.[1] === undefined ? [] : [entry];
+    }));
+    const child = execFile("powershell.exe", ["-NoLogo", "-NoProfile", "-Sta", "-Command", script], {
+      windowsHide: true,
+      encoding: "utf8",
+      env: { ...environment, GAMEFACTORY_DESKTOP_CREDENTIAL_NAME: name }
+    }, (error: Error | null, stdout: string) => error ? reject(error) : resolvePrompt({ stdout }));
+    child.stdin?.end();
+  });
+  return stdout || undefined;
+}
+
 function registerIpc(): void {
   ipcMain.on("factory:renderer-ready", (event, report: { title?: unknown; text?: unknown }) => {
     trusted(event);
@@ -123,6 +156,30 @@ function registerIpc(): void {
   ipcMain.handle("factory:choose-campaign", async (event) => { trusted(event); return chooseCampaign(); });
   ipcMain.handle("factory:start-run", async (event) => { trusted(event); return session.startRun(); });
   ipcMain.handle("factory:stop-run", async (event) => { trusted(event); return session.stopRun(); });
+  ipcMain.handle("factory:refresh-readiness", async (event) => { trusted(event); return session.refreshReadiness(); });
+  ipcMain.handle("factory:prompt-credential", async (event, name: unknown) => {
+    trusted(event);
+    if (typeof name !== "string") throw new Error("Credential name is required");
+    const value = await promptForCredential(name);
+    return value === undefined ? session.getState() : session.setCredential(name, value);
+  });
+  ipcMain.handle("factory:remove-credential", async (event, name: unknown) => {
+    trusted(event);
+    if (typeof name !== "string") throw new Error("Credential name is required");
+    return session.removeCredential(name);
+  });
+  ipcMain.handle("factory:get-artifact-text", async (event, id: unknown) => {
+    trusted(event);
+    if (typeof id !== "string") throw new Error("Artifact id is required");
+    return session.getArtifactText(id);
+  });
+  ipcMain.handle("factory:open-artifact", async (event, id: unknown) => {
+    trusted(event);
+    if (typeof id !== "string") throw new Error("Artifact id is required");
+    const artifact = await session.resolveArtifact(id);
+    const error = await shell.openPath(artifact.path);
+    return error ? { opened: false, error } : { opened: true };
+  });
   ipcMain.handle("factory:export-replay", async (event, bundle: ReplayBundle) => {
     trusted(event);
     if (bundle?.format !== "gamefactory-viewer-bundle" || bundle.version !== 1) throw new Error("Invalid replay bundle");
@@ -188,6 +245,14 @@ function installMenu(): void {
 
 app.setAppUserModelId("ai.somethingbig.gamefactory.observatory");
 void app.whenReady().then(async () => {
+  protocol.handle("gamefactory-artifact", async (request) => {
+    const url = new URL(request.url);
+    const id = url.hostname === "artifact" ? url.pathname.replace(/^\//, "") : "";
+    const artifact = await session.resolveArtifact(id);
+    if (artifact.sizeBytes > 256 * 1024 * 1024) return new Response("Artifact exceeds the 256 MiB inline preview limit", { status: 413 });
+    const contents = await readFile(artifact.path);
+    return new Response(new Uint8Array(contents), { headers: { "Content-Type": artifact.mediaType, "Cache-Control": "private, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff" } });
+  });
   registerIpc();
   installMenu();
   window = createWindow();

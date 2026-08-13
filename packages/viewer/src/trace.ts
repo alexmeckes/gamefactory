@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFile, stat } from "node:fs/promises";
+import { readFile, realpath, stat } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 import {
   WorkflowJournal,
@@ -119,7 +119,7 @@ export interface ViewerEvent {
   sourceSequence: number;
 }
 
-export type ViewerGraphNodeKind = "campaign" | "extension" | "resource" | "candidate" | "workspace" | "agent" | "contributor" | "evaluator" | "decision" | "outcome";
+export type ViewerGraphNodeKind = "campaign" | "extension" | "resource" | "candidate" | "workspace" | "agent" | "contributor" | "tool" | "evaluator" | "decision" | "outcome";
 export type ViewerGraphNodeState = "waiting" | "running" | "complete" | "pass" | "fail" | "inconclusive" | "keep" | "discard" | "blocked" | "crash" | "cancelled" | "baseline" | "skipped";
 
 export interface ViewerGraphNode {
@@ -235,6 +235,30 @@ export interface FactoryTrace {
   activeRunId?: string;
   sources: ViewerSources;
   artifactFiles: Map<string, { path: string; mediaType?: string; label: string }>;
+}
+
+export interface ResolvedViewerArtifact {
+  id: string;
+  path: string;
+  label: string;
+  mediaType: string;
+  sizeBytes: number;
+}
+
+export async function resolveViewerArtifact(trace: FactoryTrace, id: string): Promise<ResolvedViewerArtifact | undefined> {
+  if (!/^[a-f0-9]{64}$/i.test(id)) return undefined;
+  const artifact = trace.artifactFiles.get(id);
+  if (!artifact) return undefined;
+  try {
+    const [canonicalRoot, canonicalPath] = await Promise.all([realpath(trace.sources.artifactDirectory), realpath(artifact.path)]);
+    const traversal = relative(canonicalRoot, canonicalPath);
+    if (!traversal || traversal.startsWith("..") || isAbsolute(traversal)) return undefined;
+    const info = await stat(canonicalPath);
+    if (!info.isFile()) return undefined;
+    return { id, path: canonicalPath, label: artifact.label, mediaType: artifact.mediaType ?? "application/octet-stream", sizeBytes: info.size };
+  } catch {
+    return undefined;
+  }
 }
 
 function outputPath(cwd: string, configured: string | undefined, fallback: string, label: string): string {
@@ -943,6 +967,7 @@ function mergeTraceGraph(graph: ViewerGraph, traceEvents: FactoryTraceEvent[], s
       : role === "experiment" ? "candidate"
       : role === "evaluator" ? "evaluator"
       : role === "agent-team" ? "agent"
+      : role === "tool" ? "tool"
       : "contributor";
     const column = kind === "campaign" ? 0 : kind === "extension" ? 1 : kind === "resource" ? 2 : kind === "candidate" ? 3 : kind === "agent" ? 5 : kind === "evaluator" ? 7 : first.attempt !== undefined ? 6 : 6;
     const node: ViewerGraphNode = {
