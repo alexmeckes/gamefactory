@@ -5,7 +5,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { CapabilityRegistry, ConsoleLogger, discoverExtension, ExtensionManager, type AgentDriver, type Campaign, type FactoryTraceEventInput } from "@gamefactory/core";
-import { Sam3ExecutionError, Sam3Runtime, Sam3SegmentAgent } from "./index.js";
+import { Sam3ExecutionError, Sam3Runtime, Sam3SegmentAgent, Sam3TrackAgent } from "./index.js";
 
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+XwK3WQAAAABJRU5ErkJggg==", "base64");
 
@@ -14,6 +14,21 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 if (process.argv.includes("--doctor")) {
   console.log(JSON.stringify({ ok: true, provider: "fixture", cudaAvailable: true }));
+  process.exit(0);
+}
+if (process.env.GAMEFACTORY_SAM3_VIDEO_REQUEST) {
+  const request = JSON.parse(await readFile(process.env.GAMEFACTORY_SAM3_VIDEO_REQUEST, "utf8"));
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+XwK3WQAAAABJRU5ErkJggg==", "base64");
+  const jobs = [];
+  for (const job of request.jobs) {
+    await mkdir(job.outputDirectory, { recursive: true });
+    const maskPath = resolve(job.outputDirectory, "000000.mask.png");
+    const cutoutPath = resolve(job.outputDirectory, "000000.cutout.png");
+    await writeFile(maskPath, png); await writeFile(cutoutPath, png);
+    jobs.push({ id: job.id, prompt: job.prompt, frames: [{ index: 0, objectIds: [7], scores: [0.93], maskPath, cutoutPath }] });
+  }
+  await mkdir(dirname(process.env.GAMEFACTORY_SAM3_VIDEO_RESULT), { recursive: true });
+  await writeFile(process.env.GAMEFACTORY_SAM3_VIDEO_RESULT, JSON.stringify({ provider: "fixture-video", model: "sam3-video-test", checkpoint: "fixture-video-sha", jobs }));
   process.exit(0);
 }
 const request = JSON.parse(await readFile(process.env.GAMEFACTORY_SAM3_REQUEST, "utf8"));
@@ -48,6 +63,7 @@ function campaign(root: string, requestPath = "sam3.request.json"): Campaign {
       sam3: {
         requestPath,
         command: [process.execPath, "sam3-fixture.mjs"],
+        videoCommand: [process.execPath, "sam3-fixture.mjs"],
         doctorCommand: [process.execPath, "sam3-fixture.mjs", "--doctor"],
         model: "sam3-test",
         timeoutSeconds: 10,
@@ -62,6 +78,7 @@ async function workspace(prompt = "brass fixture"): Promise<string> {
   const root = await mkdtemp(resolve(tmpdir(), "gamefactory-sam3-"));
   await mkdir(resolve(root, "art"), { recursive: true });
   await writeFile(resolve(root, "art", "source.png"), PNG);
+  await writeFile(resolve(root, "art", "motion.mp4"), Buffer.from("fixture-video"));
   await writeFile(resolve(root, "sam3-fixture.mjs"), fixture, "utf8");
   await writeFile(resolve(root, "sam3.request.json"), `${JSON.stringify({
     apiVersion: "gamefactory.sam3/v1",
@@ -76,6 +93,10 @@ async function workspace(prompt = "brass fixture"): Promise<string> {
       maskExpandPixels: 1,
       maskFeatherPixels: 1
     }]
+  }, null, 2)}\n`, "utf8");
+  await writeFile(resolve(root, "sam3.video.request.json"), `${JSON.stringify({
+    apiVersion: "gamefactory.sam3.video/v1",
+    jobs: [{ id: "moving-fixture", sourcePath: "art/motion.mp4", prompt: "the brass fixture", outputDirectory: "assets/generated/motion", maxFrames: 24 }]
   }, null, 2)}\n`, "utf8");
   return root;
 }
@@ -109,6 +130,17 @@ test("SAM 3 extension produces verified, hashed mask and cutout artifacts", asyn
   }
 });
 
+test("SAM 3 video extension preserves persistent object identities on hashed frames", async () => {
+  const root = await workspace();
+  try {
+    const result = await new Sam3TrackAgent().run({ campaign: campaign(root), candidate: { id: "candidate", root, metadata: {} }, experimentId: "exp-video", history: [], signal: new AbortController().signal });
+    assert.match(result.summary, /1 video frame/);
+    assert.equal(result.artifacts?.filter((item) => item.kind === "image").length, 2);
+    assert.equal((result.metadata as { persistentObjectIds?: boolean }).persistentObjectIds, true);
+    assert.deepEqual(((result.metadata as { outputs?: Array<{ objectIds?: number[] }> }).outputs ?? [])[0]?.objectIds, [7]);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("SAM 3 extension doctor delegates to the isolated configured runtime", async () => {
   const root = await workspace();
   try {
@@ -129,6 +161,7 @@ test("SAM 3 manifest activates lazily and contributes its agent and doctor capab
     assert.equal(manager.listActiveExtensions().length, 0);
     await manager.activateFor("agent:sam3.segment");
     assert.equal(registry.get<AgentDriver>("agent", "sam3.segment").id, "sam3.segment");
+    assert.equal(registry.get<AgentDriver>("agent", "sam3.track").id, "sam3.track");
     assert.ok(registry.getAll("engine").length === 1);
     assert.deepEqual(manager.listActiveExtensions()[0]?.capabilities, ["agent:sam3.segment"]);
   } finally {

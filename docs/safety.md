@@ -21,6 +21,12 @@ The extension manifest declares permissions for inspection, but v0.1 does not
 provide an OS security boundary. Capability declaration and process sandboxing
 are separate concerns.
 
+Provider extensions resolve named credentials only at the execution boundary.
+`gamefactory credentials set <name>` uses a current-user DPAPI-protected local
+store on Windows; environment variables remain supported for automation. Names
+and resolution sources may appear in provenance, but values must never appear in
+candidate files, prompts, traces, replay bundles, command arguments, or logs.
+
 Local command agents scrub the inherited environment by default, keep only a
 small process-compatibility allowlist, support explicit variable allowlists and
 additions, enforce wall-clock and combined-output limits, and retain failure

@@ -1,0 +1,17 @@
+{
+  "extensions": [
+    "../../extensions/git",
+    "../../extensions/godot",
+    "../../extensions/agent-team",
+    "../../extensions/video-foundry",
+    "../../extensions/sam3"
+  ],
+  "capabilities": [
+    "workspace:git",
+    "engine:godot",
+    "agent:agent-team",
+    "agent:video.google-omni",
+    "agent:sam3.track",
+    "agent:animation.compile"
+  ]
+}

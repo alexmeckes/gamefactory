@@ -19,6 +19,7 @@ const API_VERSION = "gamefactory.sam3/v1" as const;
 const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 const WORKER_PATH = fileURLToPath(new URL("../python/segment.py", import.meta.url));
+const VIDEO_WORKER_PATH = fileURLToPath(new URL("../python/track.py", import.meta.url));
 
 interface Sam3Config {
   requestPath: string;
@@ -484,6 +485,71 @@ export class Sam3SegmentAgent implements AgentDriver {
   }
 }
 
+interface Sam3VideoJob { id: string; sourcePath: string; prompt: string; outputDirectory: string; maxFrames: number; }
+
+function parseVideoRequest(value: unknown): Sam3VideoJob[] {
+  const record = object(value, "SAM 3 video request");
+  if (record.apiVersion !== "gamefactory.sam3.video/v1") throw new Error("SAM 3 video request apiVersion must be gamefactory.sam3.video/v1");
+  if (!Array.isArray(record.jobs) || record.jobs.length === 0 || record.jobs.length > 8) throw new Error("SAM 3 video request jobs must contain from 1 to 8 jobs");
+  const ids = new Set<string>();
+  return record.jobs.map((raw, index) => {
+    const job = object(raw, `SAM 3 video jobs[${index}]`);
+    const id = string(job.id, `SAM 3 video jobs[${index}].id`, 64);
+    if (!ID_PATTERN.test(id) || ids.has(id)) throw new Error(`SAM 3 video job id ${id} is invalid or duplicated`);
+    ids.add(id);
+    return { id, sourcePath: string(job.sourcePath, `SAM 3 video jobs[${index}].sourcePath`), prompt: string(job.prompt, `SAM 3 video jobs[${index}].prompt`, 512), outputDirectory: string(job.outputDirectory, `SAM 3 video jobs[${index}].outputDirectory`), maxFrames: integer(job.maxFrames, 240, 1, 1000, `SAM 3 video jobs[${index}].maxFrames`) };
+  });
+}
+
+function parseVideoResult(value: unknown): { provider: string; model: string; checkpoint: string; jobs: Array<{ id: string; prompt: string; frames: Array<{ index: number; objectIds: number[]; scores: number[]; maskPath: string; cutoutPath: string }> }> } {
+  const record = object(value, "SAM 3 video result");
+  if (!Array.isArray(record.jobs)) throw new Error("SAM 3 video result jobs must be an array");
+  return { provider: string(record.provider, "SAM 3 video provider", 256), model: string(record.model, "SAM 3 video model", 256), checkpoint: string(record.checkpoint, "SAM 3 video checkpoint", 4096), jobs: record.jobs.map((rawJob, jobIndex) => {
+    const job = object(rawJob, `SAM 3 video result jobs[${jobIndex}]`);
+    if (!Array.isArray(job.frames)) throw new Error(`SAM 3 video result jobs[${jobIndex}].frames must be an array`);
+    return { id: string(job.id, "SAM 3 video result job id", 64), prompt: string(job.prompt, "SAM 3 video result prompt", 512), frames: job.frames.map((rawFrame, frameIndex) => {
+      const frame = object(rawFrame, `SAM 3 video frame[${frameIndex}]`);
+      if (!Array.isArray(frame.objectIds) || !frame.objectIds.every((item) => typeof item === "number" && Number.isSafeInteger(item))) throw new Error("SAM 3 video frame objectIds must be integers");
+      if (!Array.isArray(frame.scores) || !frame.scores.every((item) => typeof item === "number" && Number.isFinite(item))) throw new Error("SAM 3 video frame scores must be finite numbers");
+      return { index: integer(frame.index, frameIndex, 0, 1_000_000, "SAM 3 video frame index"), objectIds: frame.objectIds as number[], scores: frame.scores as number[], maskPath: string(frame.maskPath, "SAM 3 video maskPath"), cutoutPath: string(frame.cutoutPath, "SAM 3 video cutoutPath") };
+    }) };
+  }) };
+}
+
+export class Sam3TrackAgent implements AgentDriver {
+  readonly id = "sam3.track";
+  async run(request: AgentRequest): Promise<AgentResult> {
+    const base = config(request.campaign);
+    const raw = request.campaign.parameters?.sam3;
+    const parameters = raw === undefined ? {} : object(raw, "parameters.sam3");
+    const requestSetting = string(parameters.videoRequestPath ?? "sam3.video.request.json", "parameters.sam3.videoRequestPath");
+    const videoCommand = command(parameters.videoCommand, ["python", "{worker}"], "parameters.sam3.videoCommand").map((part) => part.replaceAll("{worker}", VIDEO_WORKER_PATH));
+    const sourceRequestPath = containedPath(request.candidate.root, requestSetting, "parameters.sam3.videoRequestPath");
+    await canonicalContained(request.candidate.root, sourceRequestPath, "SAM 3 video request");
+    const jobs = parseVideoRequest(JSON.parse(await readFile(sourceRequestPath, "utf8")) as unknown);
+    const prepared = await Promise.all(jobs.map(async (job) => {
+      const sourcePath = containedPath(request.candidate.root, job.sourcePath, `SAM 3 video ${job.id} sourcePath`);
+      const canonicalSource = await canonicalContained(request.candidate.root, sourcePath, `SAM 3 video ${job.id} sourcePath`);
+      if (!(await lstat(canonicalSource)).isFile()) throw new Error(`SAM 3 video ${job.id} source is not a regular file`);
+      const outputDirectory = containedPath(request.candidate.root, job.outputDirectory, `SAM 3 video ${job.id} outputDirectory`);
+      await mkdir(outputDirectory, { recursive: true }); await canonicalContained(request.candidate.root, outputDirectory, `SAM 3 video ${job.id} outputDirectory`);
+      return { ...job, sourcePath: canonicalSource, outputDirectory };
+    }));
+    const runDirectory = resolve(request.candidate.root, ".factory", "sam3-video", request.experimentId); await mkdir(runDirectory, { recursive: true });
+    const providerRequestPath = resolve(runDirectory, "request.json"), resultPath = resolve(runDirectory, "result.json"), stdoutPath = resolve(runDirectory, "stdout.log"), stderrPath = resolve(runDirectory, "stderr.log");
+    await writeFile(providerRequestPath, `${JSON.stringify({ apiVersion: "gamefactory.sam3.video/v1", model: base.model, modelSource: base.modelSource, device: base.device, precision: base.precision, jobs: prepared }, null, 2)}\n`, "utf8");
+    const baseArtifacts = [artifact(sourceRequestPath, "other", "SAM 3 video request", "application/json"), artifact(providerRequestPath, "other", "SAM 3 video provider request", "application/json"), artifact(resultPath, "other", "SAM 3 video result", "application/json"), artifact(stdoutPath, "log", "SAM 3 video stdout", "text/plain"), artifact(stderrPath, "log", "SAM 3 video stderr", "text/plain")];
+    const traceNode = `agent:${request.experimentId}:sam3.track`; await emit(request, { type: "node:created", nodeId: traceNode, experimentId: request.experimentId, parentNodeId: `experiment:${request.experimentId}`, label: "SAM 3 video tracking", role: "asset-processor", data: { model: base.modelSource, precision: base.precision, jobs: prepared.length } }); await emit(request, { type: "node:started", nodeId: traceNode, experimentId: request.experimentId, label: "SAM 3 video tracking", role: "asset-processor" }); const startedAt = new Date().toISOString();
+    const run = await execute(videoCommand, request.candidate.root, request.signal, base.timeoutSeconds, base.maxOutputCharacters, childEnvironment(base.environmentAllowlist, { GAMEFACTORY_SAM3_VIDEO_REQUEST: providerRequestPath, GAMEFACTORY_SAM3_VIDEO_RESULT: resultPath })); await Promise.all([writeFile(stdoutPath, run.stdout, "utf8"), writeFile(stderrPath, run.stderr, "utf8")]);
+    if (run.code !== 0 || run.failure) throw new Sam3ExecutionError(`SAM 3 video tracking failed (${run.failure ?? `exit-${String(run.code)}`}): ${run.stderr.trim()}`, baseArtifacts, { command: videoCommand, model: base.modelSource, precision: base.precision });
+    let provider: ReturnType<typeof parseVideoResult>; try { provider = parseVideoResult(JSON.parse(await readFile(resultPath, "utf8")) as unknown); } catch (error) { throw new Sam3ExecutionError(`SAM 3 video result is invalid: ${error instanceof Error ? error.message : String(error)}`, baseArtifacts, { model: base.modelSource }); }
+    const declarations = new Map(prepared.map((job) => [job.id, job])); const outputArtifacts: ArtifactReference[] = []; const outputs: Array<Record<string, unknown>> = [];
+    try { for (const job of provider.jobs) { const declared = declarations.get(job.id); if (!declared) throw new Error(`SAM 3 video returned undeclared job ${job.id}`); if (job.prompt !== declared.prompt) throw new Error(`SAM 3 video changed prompt for ${job.id}`); for (const frame of job.frames) { const mask = await verifyPng(request.candidate.root, frame.maskPath, declared.outputDirectory, `SAM 3 video ${job.id} frame ${frame.index} mask`); const cutout = await verifyPng(request.candidate.root, frame.cutoutPath, declared.outputDirectory, `SAM 3 video ${job.id} frame ${frame.index} cutout`); const metadata = { jobId: job.id, frame: frame.index, objectIds: frame.objectIds, scores: frame.scores, model: provider.model }; outputArtifacts.push({ ...artifact(mask.path, "image", `${job.id} frame ${frame.index} mask`, "image/png", metadata), sha256: mask.sha256 }, { ...artifact(cutout.path, "image", `${job.id} frame ${frame.index} cutout`, "image/png", metadata), sha256: cutout.sha256 }); outputs.push({ jobId: job.id, frame: frame.index, objectIds: frame.objectIds, scores: frame.scores, mask: { path: mask.path, sha256: mask.sha256 }, cutout: { path: cutout.path, sha256: cutout.sha256 } }); } } const returned = new Set(provider.jobs.map((job) => job.id)); const missing = prepared.filter((job) => !returned.has(job.id)); if (missing.length) throw new Error(`SAM 3 video omitted job(s): ${missing.map((job) => job.id).join(", ")}`); } catch (error) { throw new Sam3ExecutionError(`SAM 3 video output verification failed: ${error instanceof Error ? error.message : String(error)}`, [...baseArtifacts, ...outputArtifacts], { provider: provider.provider, model: provider.model }); }
+    const finishedAt = new Date().toISOString(); const artifacts = [...baseArtifacts, ...outputArtifacts]; await emit(request, { type: "artifact:produced", nodeId: traceNode, experimentId: request.experimentId, label: "Tracked animation frames", role: "asset-processor", message: `${outputs.length} frames`, data: { outputs: outputs.length, persistentObjectIds: true } }); await emit(request, { type: "node:completed", nodeId: traceNode, experimentId: request.experimentId, label: "SAM 3 video tracking", role: "asset-processor", status: "complete", message: `${outputs.length} frames tracked`, data: { provider: provider.provider, model: provider.model } });
+    const metadata = { provider: provider.provider, model: provider.model, checkpoint: provider.checkpoint, precision: base.precision, persistentObjectIds: true, outputs }; const contributor: AgentContribution = { agentId: `sam3-video:${provider.model}`, role: "worker", status: "complete", startedAt, finishedAt, summary: `Tracked ${outputs.length} video frame(s) with persistent object identities`, artifacts, metadata }; return { summary: contributor.summary, artifacts, contributors: [contributor], metadata };
+  }
+}
+
 export class Sam3Runtime implements EngineDriver {
   readonly id = "sam3.runtime";
 
@@ -502,6 +568,7 @@ export class Sam3Runtime implements EngineDriver {
 
 export default defineExtension((api) => {
   const segment = api.register("agent", "sam3.segment", new Sam3SegmentAgent());
+  const track = api.register("agent", "sam3.track", new Sam3TrackAgent());
   const runtime = api.register("engine", "sam3.runtime", new Sam3Runtime());
-  return { async dispose() { await runtime.dispose(); await segment.dispose(); } };
+  return { async dispose() { await runtime.dispose(); await track.dispose(); await segment.dispose(); } };
 });

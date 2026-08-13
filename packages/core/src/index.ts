@@ -2,6 +2,7 @@ export * from "./types.js";
 export * from "./budget.js";
 export * from "./artifacts.js";
 export * from "./config.js";
+export * from "./credentials.js";
 export * from "./decision.js";
 export * from "./extension-manager.js";
 export * from "./logger.js";

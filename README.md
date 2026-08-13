@@ -27,6 +27,7 @@ What is implemented:
 - engine-backed synthetic player cohorts across personas, scenarios, and seeds;
 - modality-neutral asset briefs, command-backed generation, versioned style packs, provenance manifests, and PNG gates;
 - optional SAM 3 concept segmentation that agents can invoke as a graph node to produce verified masks and transparent cutouts;
+- optional Google Omni motion studies, SAM 3 persistent video tracking, and deterministic sprite-atlas compilation;
 - Godot 4 import gating, fixed-tick in-engine scenarios, telemetry, and capture;
 - an extension SDK, contract-test helpers, CLI, preset, and runnable examples.
 
@@ -123,6 +124,12 @@ worker, and records every prompt, mask, cutout, confidence, checkpoint identity,
 post-processing setting, and content hash. It does not install or load the model
 for campaigns that do not request it. See [the SAM 3 extension guide](extensions/sam3/README.md).
 
+For animation that benefits from a generated motion study, activate the optional
+`video.google-omni` -> `sam3.track` -> `animation.compile` lane. Configure a
+runtime-only Google key with `npm run factory -- credentials set google.gemini`;
+on Windows it is protected with current-user DPAPI and never copied into a
+candidate or trace. See [the video animation guide](docs/video-animation-pipeline.md).
+
 Run `npm run smoke:godot:discovery` to compare three divergent tuning
 prototypes across novice, optimizer, and survivor policies. The 36 real Godot
 playtests produce a recommendation and preserved evidence, but intentionally do
@@ -144,6 +151,7 @@ and [safety notes](docs/safety.md).
 - `packages/cli` — `intake`, `run`, `doctor`, `list`, and `explain`.
 - `extensions/*` — workflows, agent orchestration, Git, Godot, and test adapters.
 - `extensions/sam3` — optional text-prompted segmentation and cutout worker.
+- `extensions/video-foundry` — optional provider video generation and deterministic animation compilation.
 - `bridges/godot` — copyable in-engine addon.
 - `presets/godot-minimal` — the minimal serious Godot capability set.
 - `examples/*` — smoke and engine fixtures.

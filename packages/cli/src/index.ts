@@ -3,12 +3,12 @@ import { randomBytes } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { createInterface } from "node:readline/promises";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
-import { ConsoleLogger, FactoryRunner, loadCampaign, loadFactoryConfig, type IntakeDriver } from "@gamefactory/core";
+import { ConsoleLogger, FactoryRunner, LocalCredentialStore, loadCampaign, loadFactoryConfig, type IntakeDriver } from "@gamefactory/core";
 import { startFactoryViewer } from "@gamefactory/viewer";
 import { chooseIntakeOption } from "./intake.js";
 
 function usage(): never {
-  console.error(`GameFactory\n\nUsage:\n  gamefactory intake "<game idea>" [--provider game.design] [--output game.brief.json] [--force] [--config factory.config.json]\n  gamefactory run <campaign.json> [--config factory.config.json]\n  gamefactory view <campaign.json> [--config factory.config.json] [--port 4317] [--host 127.0.0.1]\n  gamefactory bridge <campaign.json> [--config factory.config.json] [--port 4317] [--observatory https://gamefactory-observatory.ameckes.chatgpt.site]\n  gamefactory doctor <campaign.json> [--config factory.config.json]\n  gamefactory list [--config factory.config.json]\n  gamefactory explain <capability> [--config factory.config.json]`);
+  console.error(`GameFactory\n\nUsage:\n  gamefactory credentials set <name>\n  gamefactory credentials list\n  gamefactory credentials remove <name>\n  gamefactory credentials path\n  gamefactory intake "<game idea>" [--provider game.design] [--output game.brief.json] [--force] [--config factory.config.json]\n  gamefactory run <campaign.json> [--config factory.config.json]\n  gamefactory view <campaign.json> [--config factory.config.json] [--port 4317] [--host 127.0.0.1]\n  gamefactory bridge <campaign.json> [--config factory.config.json] [--port 4317] [--observatory https://gamefactory-observatory.ameckes.chatgpt.site]\n  gamefactory doctor <campaign.json> [--config factory.config.json]\n  gamefactory list [--config factory.config.json]\n  gamefactory explain <capability> [--config factory.config.json]`);
   process.exit(2);
 }
 
@@ -30,9 +30,70 @@ function observatoryOrigin(value: string): string {
   return url.origin;
 }
 
+async function hiddenSecret(prompt: string): Promise<string> {
+  if (!process.stdin.isTTY) {
+    let value = "";
+    process.stdin.setEncoding("utf8");
+    for await (const chunk of process.stdin) value += chunk;
+    return value.replace(/[\r\n]+$/, "");
+  }
+  process.stdout.write(prompt);
+  const input = process.stdin;
+  input.setRawMode?.(true);
+  input.resume();
+  input.setEncoding("utf8");
+  let value = "";
+  try {
+    for await (const chunk of input) {
+      for (const character of chunk) {
+        if (character === "\u0003") throw new Error("Interrupted");
+        if (character === "\r" || character === "\n") {
+          process.stdout.write("\n");
+          return value;
+        }
+        if (character === "\b" || character === "\u007f") value = value.slice(0, -1);
+        else value += character;
+      }
+    }
+  } finally {
+    input.setRawMode?.(false);
+    input.pause();
+  }
+  return value;
+}
+
+async function credentialsCommand(action: string | undefined, name: string | undefined): Promise<void> {
+  const store = new LocalCredentialStore();
+  if (action === "path") {
+    console.log(store.root);
+    return;
+  }
+  if (action === "list") {
+    for (const credential of await store.list()) console.log(credential);
+    return;
+  }
+  if (!name) usage();
+  if (action === "set") {
+    const value = await hiddenSecret(`Credential ${name}: `);
+    if (!value) throw new Error("Credential was empty; nothing was stored");
+    await store.set(name, value);
+    console.log(`Stored ${name} in the OS-protected GameFactory credential store.`);
+    return;
+  }
+  if (action === "remove") {
+    console.log(await store.remove(name) ? `Removed ${name}.` : `${name} was not stored.`);
+    return;
+  }
+  usage();
+}
+
 async function main(): Promise<void> {
   const [, , command, subject] = process.argv;
   if (!command) usage();
+  if (command === "credentials") {
+    await credentialsCommand(subject, process.argv[4]);
+    return;
+  }
   const cwd = process.cwd();
   const configPath = resolve(cwd, option("--config", "factory.config.json"));
   const config = await loadFactoryConfig(configPath);

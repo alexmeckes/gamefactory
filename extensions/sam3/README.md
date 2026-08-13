@@ -3,9 +3,10 @@
 `gamefactory.sam3` keeps Meta SAM 3 and its Python/CUDA stack outside the factory kernel. It contributes:
 
 - `agent:sam3.segment`, an agent driver that reads a candidate-local `sam3.request.json` and produces masks plus transparent cutouts;
+- `agent:sam3.track`, a video driver that tracks text-prompted objects with persistent IDs and emits full-frame mask/cutout sequences;
 - `engine:sam3.runtime`, a doctor-only runtime check for the configured worker.
 
-The bundled worker supports Meta's official `sam3` Python package and Hugging Face's official Transformers implementation. It does not install Python, PyTorch, CUDA, checkpoints, or credentials. Install those separately in an isolated environment and authenticate with Hugging Face when using gated checkpoints. Campaigns that do not require this capability never activate or load it.
+The bundled image worker supports Meta's official `sam3` Python package and Hugging Face's official Transformers implementation. The video worker uses Transformers `Sam3VideoModel`/`Sam3VideoProcessor` plus PyAV. It does not install Python, PyTorch, CUDA, checkpoints, codecs, or credentials. Install those separately in an isolated environment and authenticate with Hugging Face when using gated checkpoints. Campaigns that do not require these capabilities never activate or load them.
 
 ## Agent graph use
 
