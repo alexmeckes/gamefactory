@@ -19,6 +19,7 @@ export interface EffectivePromptManifest {
   model?: string;
   reasoningEffort?: string;
   billingMode?: string;
+  timeoutSeconds?: number;
   instructionSources: string[];
   layers: PromptLayer[];
   context: {

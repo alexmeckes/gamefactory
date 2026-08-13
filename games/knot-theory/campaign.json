@@ -106,6 +106,7 @@
             "adapter": "codex-app-server",
             "model": "gpt-5.6-sol",
             "reasoningEffort": "xhigh",
+            "timeoutSeconds": 1800,
             "role": "planner",
             "permissions": "read",
             "instructions": "Act as the candidate's visual director. Inspect the pinned art target and all three baseline captures with image-aware tools, then translate the visual-direction contract into an implementable art hierarchy for this Godot project. Diagnose specific gaps in material separation, lighting, composition, rope readability, typography, prop craft, and motion. Choose a coherent hypothesis rather than copying the reference literally. Return outcome ready with prioritized findings and a bounded implementation brief for the lead and builder."
@@ -115,6 +116,7 @@
             "adapter": "codex-app-server",
             "model": "gpt-5.6-sol",
             "reasoningEffort": "xhigh",
+            "timeoutSeconds": 1800,
             "role": "planner",
             "permissions": "read",
             "dependsOn": ["topology-scout", "tactility-scout", "puzzle-scout", "visual-director"],
@@ -125,6 +127,7 @@
             "adapter": "codex-app-server",
             "model": "gpt-5.6-sol",
             "reasoningEffort": "xhigh",
+            "timeoutSeconds": 2700,
             "role": "implementer",
             "permissions": "write",
             "dependsOn": ["lead-designer"],
@@ -151,6 +154,7 @@
             "adapter": "codex-app-server",
             "model": "gpt-5.6-sol",
             "reasoningEffort": "medium",
+            "timeoutSeconds": 1200,
             "role": "critic",
             "permissions": "read",
             "dependsOn": ["game-builder"],
@@ -162,6 +166,7 @@
             "adapter": "codex-app-server",
             "model": "gpt-5.6-sol",
             "reasoningEffort": "xhigh",
+            "timeoutSeconds": 1800,
             "role": "critic",
             "permissions": "read",
             "dependsOn": ["game-builder", "visual-capture"],
@@ -217,6 +222,6 @@
   "budget": {
     "maximumExperiments": 2,
     "maximumConsecutiveCrashes": 2,
-    "wallTimeMinutes": 45
+    "wallTimeMinutes": 150
   }
 }

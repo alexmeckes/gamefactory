@@ -338,6 +338,21 @@ test("agent team rejects unsupported per-node reasoning effort before launching 
   }
 });
 
+test("agent team validates configurable per-node timeout bounds before launching commands", async () => {
+  const root = await repository();
+  try {
+    await assert.rejects(() => new AgentTeam().run({
+      campaign: graphCampaign(root, [graphCommand("alpha", { timeoutSeconds: 0 })]),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-invalid-timeout",
+      history: [],
+      signal: new AbortController().signal
+    }), /timeoutSeconds must be a positive number/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("agent graph runs independent readers in parallel and honors dependency ordering", async () => {
   const root = await repository();
   try {

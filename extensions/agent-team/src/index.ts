@@ -32,6 +32,7 @@ interface ContributorConfig {
   model?: string;
   reasoningEffort?: ReasoningEffort;
   billingMode?: UsageBillingMode;
+  timeoutSeconds: number;
 }
 
 type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh" | "max";
@@ -240,7 +241,7 @@ async function ensureAgentTraceNode(request: AgentRequest, config: ContributorCo
   announcedTraceNodes.set(request, announced);
   if (announced.has(nodeId)) return nodeId;
   announced.add(nodeId);
-  await emitAgentTrace(request, { type: "node:created", nodeId, experimentId: request.experimentId, parentNodeId: teamTraceNode(request), label: config.id, role: stage, data: { readOnly, ...(config.provider ? { provider: config.provider } : {}), ...(config.model ? { model: config.model } : {}), ...(config.reasoningEffort ? { reasoningEffort: config.reasoningEffort } : {}), ...(config.billingMode ? { billingMode: config.billingMode } : {}), ...(config.provider || config.model || config.reasoningEffort ? { identitySource: "configured" } : {}) } });
+  await emitAgentTrace(request, { type: "node:created", nodeId, experimentId: request.experimentId, parentNodeId: teamTraceNode(request), label: config.id, role: stage, data: { readOnly, timeoutSeconds: config.timeoutSeconds, ...(config.provider ? { provider: config.provider } : {}), ...(config.model ? { model: config.model } : {}), ...(config.reasoningEffort ? { reasoningEffort: config.reasoningEffort } : {}), ...(config.billingMode ? { billingMode: config.billingMode } : {}), ...(config.provider || config.model || config.reasoningEffort ? { identitySource: "configured" } : {}) } });
   await emitAgentTrace(request, { type: "edge:created", nodeId: `edge:${teamTraceNode(request)}:${nodeId}`, experimentId: request.experimentId, sourceNodeId: teamTraceNode(request), targetNodeId: nodeId, role: "agent" });
   return nodeId;
 }
@@ -430,6 +431,7 @@ async function effectivePromptManifest(input: {
     ...(input.config.model ? { model: input.config.model } : {}),
     ...(input.config.reasoningEffort ? { reasoningEffort: input.config.reasoningEffort } : {}),
     ...(input.config.billingMode ? { billingMode: input.config.billingMode } : {}),
+    timeoutSeconds: input.config.timeoutSeconds,
     instructionSources: project.sources,
     layers: [
       ...project.layers,
@@ -507,8 +509,8 @@ function reasoningEffort(value: unknown, location: string): ReasoningEffort | un
   return value as ReasoningEffort;
 }
 
-function contributor(value: unknown, defaultId: string, location: string, defaults: Pick<ContributorConfig, "provider" | "model" | "reasoningEffort" | "billingMode"> = {}): ContributorConfig {
-  if (isStringArray(value)) return { id: defaultId, adapter: "command", command: [...value], ...defaults };
+function contributor(value: unknown, defaultId: string, location: string, defaults: Pick<ContributorConfig, "provider" | "model" | "reasoningEffort" | "billingMode"> & Partial<Pick<ContributorConfig, "timeoutSeconds">> = {}): ContributorConfig {
+  if (isStringArray(value)) return { id: defaultId, adapter: "command", command: [...value], timeoutSeconds: defaults.timeoutSeconds ?? 15 * 60, ...defaults };
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${location} must be a command string array or an object with id and command`);
   }
@@ -528,6 +530,10 @@ function contributor(value: unknown, defaultId: string, location: string, defaul
   if (rawBillingMode !== undefined && rawBillingMode !== "subscription" && rawBillingMode !== "credits" && rawBillingMode !== "metered" && rawBillingMode !== "unknown") {
     throw new Error(`${location}.billingMode must be subscription, credits, metered, or unknown`);
   }
+  const timeoutSeconds = record.timeoutSeconds ?? defaults.timeoutSeconds ?? 15 * 60;
+  if (typeof timeoutSeconds !== "number" || !Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0 || timeoutSeconds > 86_400) {
+    throw new Error(`${location}.timeoutSeconds must be a positive number no greater than 86400`);
+  }
   return {
     id,
     adapter,
@@ -535,11 +541,12 @@ function contributor(value: unknown, defaultId: string, location: string, defaul
     ...(provider ? { provider } : adapter === "codex-app-server" ? { provider: "openai-codex-app-server" } : {}),
     ...(model ? { model } : {}),
     ...(effort ? { reasoningEffort: effort } : {}),
+    timeoutSeconds,
     ...(rawBillingMode ? { billingMode: rawBillingMode } : adapter === "codex-app-server" ? { billingMode: "subscription" } : {})
   };
 }
 
-function contributorList(value: unknown, stage: "scout" | "critic", defaults: Pick<ContributorConfig, "provider" | "model" | "reasoningEffort" | "billingMode"> = {}): ContributorConfig[] {
+function contributorList(value: unknown, stage: "scout" | "critic", defaults: Pick<ContributorConfig, "provider" | "model" | "reasoningEffort" | "billingMode"> & Partial<Pick<ContributorConfig, "timeoutSeconds">> = {}): ContributorConfig[] {
   if (!Array.isArray(value) || value.length === 0) throw new Error(`parameters.agentTeam.${stage}s must be a non-empty array`);
   if (value.length > 64) throw new Error(`parameters.agentTeam.${stage}s cannot contain more than 64 contributors`);
   const contributors = value.map((item, index) => contributor(item, `${stage}-${index + 1}`, `parameters.agentTeam.${stage}s[${index}]`, defaults));
@@ -659,7 +666,7 @@ function repairEdge(value: unknown, location: string): RepairEdge | undefined {
   };
 }
 
-function graphNode(value: unknown, index: number, defaults: Pick<ContributorConfig, "provider" | "model" | "reasoningEffort" | "billingMode"> = {}): GraphNodeConfig {
+function graphNode(value: unknown, index: number, defaults: Pick<ContributorConfig, "provider" | "model" | "reasoningEffort" | "billingMode"> & Partial<Pick<ContributorConfig, "timeoutSeconds">> = {}): GraphNodeConfig {
   const location = `parameters.agentTeam.graph.nodes[${index}]`;
   const base = contributor(value, `node-${index + 1}`, location, defaults);
   const record = value as Record<string, unknown>;
@@ -764,11 +771,16 @@ function readConfig(request: AgentRequest): AgentTeamConfig {
   if (rawBillingMode !== undefined && rawBillingMode !== "subscription" && rawBillingMode !== "credits" && rawBillingMode !== "metered" && rawBillingMode !== "unknown") {
     throw new Error("parameters.agentTeam.billingMode must be subscription, credits, metered, or unknown");
   }
-  const defaults: Pick<ContributorConfig, "provider" | "model" | "reasoningEffort" | "billingMode"> = {
+  const rawTimeoutSeconds = record.timeoutSeconds;
+  if (rawTimeoutSeconds !== undefined && (typeof rawTimeoutSeconds !== "number" || !Number.isFinite(rawTimeoutSeconds) || rawTimeoutSeconds <= 0 || rawTimeoutSeconds > 86_400)) {
+    throw new Error("parameters.agentTeam.timeoutSeconds must be a positive number no greater than 86400");
+  }
+  const defaults: Pick<ContributorConfig, "provider" | "model" | "reasoningEffort" | "billingMode"> & Partial<Pick<ContributorConfig, "timeoutSeconds">> = {
     ...(provider ? { provider } : {}),
     ...(model ? { model } : {}),
     ...(effort ? { reasoningEffort: effort } : {}),
-    ...(rawBillingMode ? { billingMode: rawBillingMode as UsageBillingMode } : {})
+    ...(rawBillingMode ? { billingMode: rawBillingMode as UsageBillingMode } : {}),
+    ...(typeof rawTimeoutSeconds === "number" ? { timeoutSeconds: rawTimeoutSeconds } : {})
   };
   const maxOutputCharacters = integer(record.maxOutputCharacters, 20_000, 1, 1_000_000, "parameters.agentTeam.maxOutputCharacters");
   const maximumParallel = integer(record.maximumParallel, 4, 1, 32, "parameters.agentTeam.maximumParallel");
@@ -845,7 +857,8 @@ function processCommand(
   contributorId: string,
   nodeId = contributorId,
   attempt = 1,
-  onProgress?: (progress: { stdoutBytes: number; stderrBytes: number; capturedBytes: number }) => void
+  onProgress?: (progress: { stdoutBytes: number; stderrBytes: number; capturedBytes: number }) => void,
+  timeoutSeconds = 15 * 60
 ): Promise<ProcessResult> {
   return new Promise((resolveResult) => {
     let settled = false;
@@ -855,7 +868,7 @@ function processCommand(
     let failure: ProcessResult["failure"];
     let stopping = false;
     const maximumOutputBytes = 4 * 1024 * 1024;
-    const timeoutMs = 15 * 60_000;
+    const timeoutMs = timeoutSeconds * 1000;
     let capturedBytes = 0;
     let stdoutBytes = 0;
     let stderrBytes = 0;
@@ -1117,6 +1130,7 @@ async function invokeContributor(
         readOnly,
         ...(config.model ? { model: config.model } : {}),
         ...(config.reasoningEffort ? { reasoningEffort: config.reasoningEffort } : {}),
+        timeoutMs: config.timeoutSeconds * 1000,
         signal: request.signal,
         environment: codexHostEnvironment(),
         onEvent: (event) => {
@@ -1229,7 +1243,7 @@ async function invokeContributor(
         progress: { current: progress.stdoutBytes + progress.stderrBytes, unit: "bytes" },
         data: progress
       });
-    });
+    }, config.timeoutSeconds);
   }
   const finished = Date.now();
   if (result.failure) {
