@@ -1,27 +1,21 @@
-# Knot Theory: Eyelet to Hoist
+# Knot Theory: The Workshop Studies
 
-A compact Godot 4 rope-puzzle vertical slice. Drag one continuous rope through four workshop puzzles: take up slack, thread an eyelet, make a clockwise wrap, then combine those actions to raise a shutter and ring a bell.
+A compact Godot 4 rope-puzzle vertical slice. Directly shape one continuous rope through four ordered studies: pull slack into load, pass the whipped working end through a bone eye, seat a bight in an authored brass socket, take a live clockwise turn, and recombine the language in a working bell hoist.
 
-Controls: left mouse drags any nearby rope section; right-click a section to pin or unpin it; release the working end over the brass cleat to dock; click a docked cleat to undock; `R` resets; `Esc` returns to the title.
+## Controls
 
-Sparse tactile cues are synthesized in code for grabbing, docking, release, tension, reset, and the resolving chord. Wrap recognition accepts only a single continuous annular rope interval, so separated partial turns cannot combine into a false loop.
+- Left-drag any free part of the rope to manage slack and tension.
+- Pass only the coral-whipped working end through eyes; traverse the same eye backward to undo the contact.
+- Right-click a rope bight at the visible brass socket to hold it; right-click again to release it.
+- Release the working end over the cleat to set it. Grab the set cleat to undock.
+- `R` resets the current study, `Esc` returns to the title, `Enter`/`Space` begins or advances, and `M` toggles synthesized sound.
 
-The deterministic factory hooks report geometry-derived routing, signed winding, docking, bounded-span tautness, machine displacement, navigation, and goal transitions. Successful scenarios move the working end incrementally through the same drag function used by mouse input; they do not inject solved rope geometry. Automated evidence verifies stability and observable state transitions, not tactile feel or fun.
+Puzzle truth is an exact reversible contact word plus current geometry. Success requires the authored PASS order, any required HOLD, a continuous clockwise TURN that still exists around the capstan, SET at the cleat, and LOAD measured from the weakest authored rope span. Extra contacts, midpoint threading, free-space holds, disconnected partial wraps, wrong-way turns, and a taut tail attached to an upstream slack route are rejected.
 
-Open `project.godot` in Godot 4 and run the project to play. From the repository root, the original multi-agent campaign can be inspected or run with:
+All art, motion, particles, and sparse physical audio are generated in Godot code. The deterministic `factory_setup`, `factory_tick`, `factory_sample`, and `factory_collect` hooks exercise the same incremental drag path as mouse play and report observable contact, wrap, per-span load, machine, navigation, and goal state. These checks establish stability and state coverage; they do not claim that tactility or puzzle quality has been human playtested.
 
-```powershell
-npm run factory -- doctor games/knot-theory/campaign.json --config games/knot-theory/factory.config.json
-npm run factory -- run games/knot-theory/campaign.json --config games/knot-theory/factory.config.json
-```
+Open `project.godot` in Godot 4 and run the project. The immutable GameFactory capture runner produces title, first-puzzle, and finale frames under `.factory/previews` for visual review.
 
-`addons/gamefactory/capture_runner.gd` creates deterministic title, first-puzzle, and finale frames under `.factory/previews` for visual QA.
+## Factory visual loop
 
-The campaign now treats those frames as first-class acceptance evidence. A
-Sol/xhigh visual director compares the immutable target and baseline set in
-`visual-reference/`, the builder implements a candidate-specific art
-hypothesis, and a Sol/xhigh visual critic scores six observable craft
-dimensions. `godot.visual` rejects missing, stale, unchanged, undersized, or
-weakly evidenced renders before the deterministic gameplay scenario runs.
-Visual targets constrain the quality bar rather than prescribing an exact
-layout, leaving each candidate room to discover a stronger coherent solution.
+The campaign treats visual quality as a first-class optimization target while keeping the deterministic Godot scenario as a required gameplay gate. Each candidate receives the pinned art target and visual contract, renders fresh representative states after implementation and every repair, and is reviewed by an independent visual-experience critic. The tournament selects on `visual_quality`; screenshots that are stale, undersized, unchanged from the original baseline, or missing concrete review evidence fail closed.

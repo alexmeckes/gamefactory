@@ -215,9 +215,9 @@
     }
   },
   "acceptance": {
-    "primaryMetric": "scenario_score",
+    "primaryMetric": "visual_quality",
     "direction": "maximize",
-    "minimumDelta": 0.1
+    "minimumDelta": 5
   },
   "budget": {
     "maximumExperiments": 2,
