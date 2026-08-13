@@ -131,6 +131,13 @@ how many invocations reported tokens and cost. Missing usage is displayed as
 `unreported`, never as zero; partial cost totals carry a `+`. Cost source and an
 optional pricing-table version remain attached to each invocation.
 
+For Codex App Server contributors, the adapter records the resolved model and
+reasoning-effort level from `thread/start` even when the campaign inherits the
+user's subscription defaults. If App Server reroutes a turn, the
+provider-reported destination model replaces that initial identity. Older
+traces created before this capture was added remain `unreported`; they are not
+rewritten using current defaults that may differ from the original run.
+
 Artifacts are served only when their canonical file path remains inside the
 configured artifact directory. Source paths and arbitrary filesystem paths are
 not exposed to the browser.

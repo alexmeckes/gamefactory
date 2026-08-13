@@ -109,7 +109,7 @@ lines.on("line", (line) => {
     if (message.params.sandbox !== "read-only") return send({ id: message.id, error: { message: "wrong legacy sandbox value" } });
     return send({
     id: message.id,
-    result: { thread: { id: "thread-real-adapter", modelProvider: "openai" }, instructionSources: [message.params.cwd + "/AGENTS.md"] }
+    result: { thread: { id: "thread-real-adapter", modelProvider: "openai" }, model: "gpt-5.6-sol", modelProvider: "openai", reasoningEffort: "high", instructionSources: [message.params.cwd + "/AGENTS.md"] }
     });
   }
   if (message.method !== "turn/start") return;
@@ -536,10 +536,14 @@ test("agent graph runs through the Codex App Server adapter and exposes native s
     assert.match(result.summary, /App Server worker finished/);
     assert.equal(result.usage?.totalTokens, 100);
     const contribution = result.contributors?.[0];
-    const manifest = contribution?.metadata?.promptManifest as { adapter?: string; providerContext?: { threadId?: string; turnId?: string } };
+    assert.equal(contribution?.usage?.model, "gpt-5.6-sol");
+    assert.equal(contribution?.usage?.reasoningEffort, "high");
+    const manifest = contribution?.metadata?.promptManifest as { adapter?: string; providerContext?: { threadId?: string; turnId?: string; actualModel?: string; reasoningEffort?: string } };
     assert.equal(manifest.adapter, "codex.app-server");
     assert.equal(manifest.providerContext?.threadId, "thread-real-adapter");
     assert.equal(manifest.providerContext?.turnId, "turn-real-adapter");
+    assert.equal(manifest.providerContext?.actualModel, "gpt-5.6-sol");
+    assert.equal(manifest.providerContext?.reasoningEffort, "high");
     assert.deepEqual(
       (manifest.providerContext as { instructionSources?: string[] }).instructionSources?.map((value) => value.replaceAll("\\", "/")),
       [resolve(root, "AGENTS.md").replaceAll("\\", "/")]

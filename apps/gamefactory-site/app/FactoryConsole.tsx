@@ -94,7 +94,8 @@ function formatDuration(value?: number) {
 function modelLabel(usage?: Usage) {
   if (!usage) return "model unreported";
   const label = [usage.provider, usage.model].filter(Boolean).join(" / ") || "model unreported";
-  return usage.identitySource ? `${label} · ${usage.identitySource}` : label;
+  const effort = usage.reasoningEffort ? ` · ${usage.reasoningEffort} effort` : "";
+  return usage.identitySource ? `${label}${effort} · ${usage.identitySource}` : `${label}${effort}`;
 }
 
 function stateAt(node: GraphNode, cursor: number) {
@@ -227,7 +228,7 @@ function EdgeLine({ edge, positions }: { edge: GraphEdge; positions: Map<string,
 
 function UsageBar({ snapshot }: { snapshot: FactorySnapshot }) {
   const usage = snapshot.usage;
-  const models = usage.models.map((item) => item.model).filter((model): model is string => Boolean(model));
+  const models = usage.models.flatMap((item) => item.model ? [`${item.model}${item.reasoningEffort ? ` · ${item.reasoningEffort}` : ""}`] : []);
   return (
     <section className="usage-bar" aria-label="Run usage">
       <div><span>Invocations</span><strong>{usage.invocations}</strong></div>
@@ -256,6 +257,7 @@ function PromptManifestPanel({ manifest }: { manifest: EffectivePromptManifest }
         <div><dt>Adapter</dt><dd>{manifest.adapter}</dd></div>
         <div><dt>Provider</dt><dd>{manifest.providerContext?.modelProvider ?? manifest.provider ?? "unreported"}</dd></div>
         <div><dt>Model</dt><dd>{manifest.providerContext?.actualModel ?? manifest.model ?? "provider default"}</dd></div>
+        <div><dt>Effort</dt><dd>{manifest.providerContext?.reasoningEffort ?? "unreported"}</dd></div>
         <div><dt>Access</dt><dd>{manifest.context.readOnly ? "read only" : "workspace write"}</dd></div>
       </dl>
       {manifest.providerContext?.threadId ? <div className="lineage provider-lineage"><span className="section-kicker">Codex lineage</span><code>{manifest.providerContext.threadId}</code><span className="lineage-arrow">↓</span><code>{manifest.providerContext.turnId ?? "turn pending"}</code></div> : null}
@@ -297,6 +299,7 @@ function NodeInspector({ node, snapshot, cursor }: { node: GraphNode; snapshot: 
       {provenanceRows.length ? <><span className="section-kicker section-space">Exact provenance</span><dl className="provenance-list">{provenanceRows.map((row) => <div key={row.label}><dt>{row.label}</dt><dd title={row.display}>{row.display}</dd></div>)}</dl></> : (
         <dl className="facts">
           <div><dt>Model</dt><dd>{modelLabel(usage)}</dd></div>
+          <div><dt>Effort</dt><dd>{usage?.reasoningEffort ?? "unreported"}</dd></div>
           <div><dt>Tokens</dt><dd>{formatTokens(tokenTotal(usage))}</dd></div>
           <div><dt>Billing</dt><dd>{billingValue(usage)}</dd></div>
           <div><dt>Artifacts</dt><dd>{node.artifacts || contribution?.artifacts || 0}</dd></div>

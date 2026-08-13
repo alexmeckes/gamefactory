@@ -20,7 +20,7 @@ lines.on("line", (line) => {
   if (message.method === "thread/start") {
     if (message.params.sandbox !== "read-only") return send({ id: message.id, error: { message: "wrong legacy sandbox value" } });
     thread += 1;
-    send({ id: message.id, result: { thread: { id: "thread-" + thread, modelProvider: "openai" }, instructionSources: [message.params.cwd + "/AGENTS.md"] } });
+    send({ id: message.id, result: { thread: { id: "thread-" + thread, modelProvider: "openai" }, model: "gpt-5.6-sol", modelProvider: "openai", reasoningEffort: "xhigh", instructionSources: [message.params.cwd + "/AGENTS.md"] } });
     return;
   }
   if (message.method === "turn/start") {
@@ -31,6 +31,9 @@ lines.on("line", (line) => {
     const turnId = "turn-" + thread;
     send({ id: message.id, result: { turn: { id: turnId, status: "inProgress", items: [] } } });
     send({ method: "turn/started", params: { threadId, turn: { id: turnId, status: "inProgress", items: [] } } });
+    if (message.params.input?.[0]?.text?.includes("rerouted")) {
+      send({ method: "model/rerouted", params: { threadId, turnId, fromModel: "gpt-5.6-sol", toModel: "gpt-5.6-terra", reason: "highRiskCyberActivity" } });
+    }
     for (let index = 0; index < 200; index += 1) send({ method: "item/agentMessage/delta", params: { threadId, turnId, delta: "x" } });
     send({ method: "item/started", params: { threadId, turnId, item: { id: "cmd-1", type: "commandExecution", status: "inProgress" } } });
     send({ method: "item/completed", params: { threadId, turnId, item: { id: "msg-1", type: "agentMessage", phase: "final_answer", text: JSON.stringify({ summary: "real adapter result", outcome: "pass", payload: JSON.stringify({ context: { source: "fixture" } }) }) } } });
@@ -59,14 +62,28 @@ test("Codex App Server pool streams a turn and records instruction, lineage, and
     assert.equal(result.threadId, "thread-1");
     assert.equal(result.turnId, "turn-1");
     assert.equal(result.modelProvider, "openai");
+    assert.equal(result.actualModel, "gpt-5.6-sol");
+    assert.equal(result.reasoningEffort, "xhigh");
     assert.deepEqual(result.instructionSources.map((value) => value.replaceAll("\\", "/")), [resolve(root, "AGENTS.md").replaceAll("\\", "/")]);
     assert.equal(result.usage?.totalTokens, 150);
+    assert.equal(result.usage?.model, "gpt-5.6-sol");
+    assert.equal(result.usage?.reasoningEffort, "xhigh");
     assert.equal(result.usage?.billingMode, "subscription");
     assert.ok(events.includes("item/started"));
     assert.ok(events.includes("thread/tokenUsage/updated"));
     assert.ok(events.includes("turn/completed"));
     assert.ok(!events.includes("item/agentMessage/delta"));
     assert.ok(!result.eventLog.includes("item/agentMessage/delta"));
+    const rerouted = await pool.run({
+      launcher: [process.execPath, serverPath],
+      cwd: root,
+      prompt: "Perform a rerouted task",
+      readOnly: true,
+      signal: new AbortController().signal,
+    });
+    assert.equal(rerouted.actualModel, "gpt-5.6-terra");
+    assert.equal(rerouted.usage?.model, "gpt-5.6-terra");
+    assert.equal(rerouted.usage?.reasoningEffort, "xhigh");
   } finally {
     await pool.dispose();
     await rm(root, { recursive: true, force: true });

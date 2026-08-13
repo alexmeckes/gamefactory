@@ -1116,7 +1116,8 @@ async function invokeContributor(
           instructionSources: appServer.instructionSources,
           ...(appServer.modelProvider ? { modelProvider: appServer.modelProvider } : {}),
           ...(appServer.requestedModel ? { requestedModel: appServer.requestedModel } : {}),
-          ...(appServer.actualModel ? { actualModel: appServer.actualModel } : {})
+          ...(appServer.actualModel ? { actualModel: appServer.actualModel } : {}),
+          ...(appServer.reasoningEffort ? { reasoningEffort: appServer.reasoningEffort } : {})
         }
       };
       await writeFile(promptManifestPath, `${JSON.stringify(promptManifest, null, 2)}\n`, "utf8");
@@ -1164,6 +1165,7 @@ async function invokeContributor(
   const usage = parseInvocationUsage(result.appServer?.usage ?? parsed?.usage, {
     ...(config.provider ? { provider: config.provider } : {}),
     ...(result.appServer?.actualModel ? { model: result.appServer.actualModel } : config.model ? { model: config.model } : {}),
+    ...(result.appServer?.reasoningEffort ? { reasoningEffort: result.appServer.reasoningEffort } : {}),
     ...(config.billingMode ? { billingMode: config.billingMode } : {}),
     ...(result.appServer ? { identitySource: "provider-reported" as const } : config.provider || config.model ? { identitySource: "configured" as const } : {})
   });

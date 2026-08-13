@@ -147,6 +147,7 @@ export interface ViewerGraphNode {
 export interface ViewerModelUsage {
   provider?: string;
   model?: string;
+  reasoningEffort?: string;
   invocations: number;
   tokenInvocations: number;
   pricedInvocations: number;
@@ -1019,10 +1020,11 @@ export function summarizeGraphUsage(graph: ViewerGraph, sequence = Number.POSITI
     cachedInputTokens += usage.cachedInputTokens ?? 0;
     outputTokens += usage.outputTokens ?? 0;
     reasoningTokens += usage.reasoningTokens ?? 0;
-    const key = `${usage.provider ?? ""}\0${usage.model ?? ""}`;
+    const key = `${usage.provider ?? ""}\0${usage.model ?? ""}\0${usage.reasoningEffort ?? ""}`;
     const model = models.get(key) ?? {
       ...(usage.provider ? { provider: usage.provider } : {}),
       ...(usage.model ? { model: usage.model } : {}),
+      ...(usage.reasoningEffort ? { reasoningEffort: usage.reasoningEffort } : {}),
       invocations: 0,
       tokenInvocations: 0,
       pricedInvocations: 0,

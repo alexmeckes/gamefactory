@@ -88,7 +88,7 @@ async function fixture(): Promise<{ root: string; options: FactoryViewerOptions;
         artifacts: [],
         invocationId: "agent:tournament-r0001-c001:puzzle-critic:attempt-1",
         parentInvocationId: "agent-node:tournament-r0001-c001:puzzle-critic",
-        usage: { provider: "openai", model: "test-model", inputTokens: 100, outputTokens: 25, costUsd: 0.01, costSource: "provider-reported", billingMode: "metered", identitySource: "provider-reported" }
+        usage: { provider: "openai", model: "test-model", reasoningEffort: "high", inputTokens: 100, outputTokens: 25, costUsd: 0.01, costSource: "provider-reported", billingMode: "metered", identitySource: "provider-reported" }
       }]
     },
     metadata: { tournament: { round: 1, slot: 1, winner: true } }
@@ -133,6 +133,7 @@ test("viewer reconstructs candidate lanes, provenance, metrics, and live state",
     assert.equal(snapshot.usage.costUsd, 0.01);
     assert.deepEqual(snapshot.usage.billingModes, ["metered"]);
     assert.equal(snapshot.usage.models[0]?.model, "test-model");
+    assert.equal(snapshot.usage.models[0]?.reasoningEffort, "high");
   } finally {
     await rm(value.root, { recursive: true, force: true });
   }
@@ -152,11 +153,11 @@ test("viewer merges live agent attempts and progress into the replayable graph",
     await store.append(identity, { type: "node:created", nodeId: "agent-team:tournament-r0001-c001", experimentId: "tournament-r0001-c001", parentNodeId: "experiment:tournament-r0001-c001", label: "Agent team", role: "agent-team" });
     await store.append(identity, { type: "node:started", nodeId: "agent-team:tournament-r0001-c001", experimentId: "tournament-r0001-c001", label: "Agent team", role: "agent-team" });
     await store.append(identity, { type: "node:created", nodeId: "agent-node:tournament-r0001-c001:puzzle-critic", experimentId: "tournament-r0001-c001", parentNodeId: "agent-team:tournament-r0001-c001", label: "puzzle-critic", role: "critic" });
-    await store.append(identity, { type: "node:created", nodeId: "agent:tournament-r0001-c001:puzzle-critic:attempt-1", experimentId: "tournament-r0001-c001", parentNodeId: "agent-node:tournament-r0001-c001:puzzle-critic", label: "puzzle-critic", role: "critic", attempt: 1, data: { invocationId: "agent:tournament-r0001-c001:puzzle-critic:attempt-1", parentInvocationId: "agent-node:tournament-r0001-c001:puzzle-critic", provider: "openai", model: "test-model", promptManifest: { version: 1, scope: "factory-supplied", generatedAt: "2026-01-01T00:00:00.000Z", adapter: "codex.app-server", provider: "openai", model: "test-model", instructionSources: ["AGENTS.md"], layers: [{ id: "role-charter", kind: "role", source: "critic.md", sha256: "d".repeat(64), content: "Review the candidate evidence." }], context: { objective: "improve the puzzle", role: "critic", contributorId: "puzzle-critic", experimentId: "tournament-r0001-c001", candidateRoot: "/candidate", readOnly: true, upstreamOutputs: 1, contextReferences: 0, historyRecords: 0 }, limitations: ["Factory layers only"] } } });
+    await store.append(identity, { type: "node:created", nodeId: "agent:tournament-r0001-c001:puzzle-critic:attempt-1", experimentId: "tournament-r0001-c001", parentNodeId: "agent-node:tournament-r0001-c001:puzzle-critic", label: "puzzle-critic", role: "critic", attempt: 1, data: { invocationId: "agent:tournament-r0001-c001:puzzle-critic:attempt-1", parentInvocationId: "agent-node:tournament-r0001-c001:puzzle-critic", provider: "openai", model: "test-model", promptManifest: { version: 1, scope: "factory-supplied", generatedAt: "2026-01-01T00:00:00.000Z", adapter: "codex.app-server", provider: "openai", model: "test-model", instructionSources: ["AGENTS.md"], layers: [{ id: "role-charter", kind: "role", source: "critic.md", sha256: "d".repeat(64), content: "Review the candidate evidence." }], context: { objective: "improve the puzzle", role: "critic", contributorId: "puzzle-critic", experimentId: "tournament-r0001-c001", candidateRoot: "/candidate", readOnly: true, upstreamOutputs: 1, contextReferences: 0, historyRecords: 0 }, providerContext: { modelProvider: "openai", actualModel: "test-model", reasoningEffort: "high" }, limitations: ["Factory layers only"] } } });
     await store.append(identity, { type: "edge:created", nodeId: "edge:critic-attempt", experimentId: "tournament-r0001-c001", sourceNodeId: "agent-node:tournament-r0001-c001:puzzle-critic", targetNodeId: "agent:tournament-r0001-c001:puzzle-critic:attempt-1", role: "agent" });
     await store.append(identity, { type: "node:started", nodeId: "agent:tournament-r0001-c001:puzzle-critic:attempt-1", experimentId: "tournament-r0001-c001", label: "puzzle-critic", role: "critic", attempt: 1 });
     await store.append(identity, { type: "node:progress", nodeId: "agent:tournament-r0001-c001:puzzle-critic:attempt-1", experimentId: "tournament-r0001-c001", label: "puzzle-critic", role: "critic", attempt: 1, message: "Subprocess output", progress: { current: 2048, unit: "bytes" } });
-    await store.append(identity, { type: "node:completed", nodeId: "agent:tournament-r0001-c001:puzzle-critic:attempt-1", experimentId: "tournament-r0001-c001", label: "puzzle-critic", role: "critic", attempt: 1, status: "complete", message: "Critique finished", data: { invocationId: "agent:tournament-r0001-c001:puzzle-critic:attempt-1", parentInvocationId: "agent-node:tournament-r0001-c001:puzzle-critic", usage: { provider: "openai", model: "test-model", inputTokens: 120, outputTokens: 30, costUsd: 0.02, costSource: "provider-reported", billingMode: "metered", identitySource: "provider-reported" } } });
+    await store.append(identity, { type: "node:completed", nodeId: "agent:tournament-r0001-c001:puzzle-critic:attempt-1", experimentId: "tournament-r0001-c001", label: "puzzle-critic", role: "critic", attempt: 1, status: "complete", message: "Critique finished", data: { invocationId: "agent:tournament-r0001-c001:puzzle-critic:attempt-1", parentInvocationId: "agent-node:tournament-r0001-c001:puzzle-critic", usage: { provider: "openai", model: "test-model", reasoningEffort: "high", inputTokens: 120, outputTokens: 30, costUsd: 0.02, costSource: "provider-reported", billingMode: "metered", identitySource: "provider-reported" } } });
     const snapshot = createFactorySnapshot(await readFactoryTrace(value.options), value.options.campaign);
     assert.ok(snapshot.events.some((event) => event.source === "trace" && event.phase === "node:progress"));
     const attempt = snapshot.graph.nodes.find((node) => node.id === "agent:tournament-r0001-c001:puzzle-critic:attempt-1");
@@ -165,6 +166,8 @@ test("viewer merges live agent attempts and progress into the replayable graph",
     assert.ok((attempt?.completedSequence ?? 0) > (attempt?.enteredSequence ?? 0));
     assert.ok(snapshot.graph.edges.some((edge) => edge.target === attempt?.id));
     assert.equal(attempt?.usage?.model, "test-model");
+    assert.equal(attempt?.usage?.reasoningEffort, "high");
+    assert.equal(attempt?.promptManifest?.providerContext?.reasoningEffort, "high");
     assert.equal(attempt?.promptManifest?.adapter, "codex.app-server");
     assert.equal(attempt?.promptManifest?.layers[0]?.kind, "role");
     const extension = snapshot.graph.nodes.find((node) => node.kind === "extension");

@@ -18,6 +18,7 @@ export type BillingMode = "subscription" | "credits" | "metered" | "unknown";
 export interface Usage {
   provider?: string;
   model?: string;
+  reasoningEffort?: string;
   inputTokens?: number;
   cachedInputTokens?: number;
   outputTokens?: number;
@@ -68,6 +69,7 @@ export interface EffectivePromptManifest {
     modelProvider?: string;
     requestedModel?: string;
     actualModel?: string;
+    reasoningEffort?: string;
   };
   limitations: string[];
 }
@@ -215,6 +217,7 @@ export interface FactorySnapshot {
     models: Array<{
       provider?: string;
       model?: string;
+      reasoningEffort?: string;
       invocations: number;
       tokenInvocations: number;
       pricedInvocations: number;

@@ -31,6 +31,7 @@ export interface CodexAppServerRunResult {
   modelProvider?: string;
   requestedModel?: string;
   actualModel?: string;
+  reasoningEffort?: string;
 }
 
 interface PendingRequest {
@@ -279,6 +280,11 @@ class CodexAppServerConnection {
     const thread = object(threadResult.thread) ?? {};
     const threadId = string(thread.id);
     if (!threadId) throw new Error("Codex App Server thread/start did not return a thread id");
+    // App Server v2 reports the resolved default at the response top level,
+    // even when the caller deliberately leaves `model` unset. Keep this value
+    // so inherited subscription defaults remain attributable in the trace.
+    const resolvedModel = string(threadResult.model) ?? request.model;
+    const reasoningEffort = string(threadResult.reasoningEffort);
     const instructionSources = Array.isArray(threadResult.instructionSources)
       ? threadResult.instructionSources.filter((value): value is string => typeof value === "string")
       : [];
@@ -334,18 +340,19 @@ class CodexAppServerConnection {
       const completed = await bounded;
       if (completed.status !== "completed") throw new Error(completed.error ?? `Codex App Server turn ended ${completed.status}`);
       if (!listener.output.trim()) throw new Error("Codex App Server completed without a final agent message");
-      const modelProvider = string(thread.modelProvider);
-      const actualModel = listener.actualModel ?? request.model;
+      const modelProvider = string(threadResult.modelProvider) ?? string(thread.modelProvider);
+      const actualModel = listener.actualModel ?? resolvedModel;
       return {
         output: expandStructuredEnvelope(listener.output),
         eventLog: `${listener.events.join("\n")}\n`,
-        ...(listener.usage ? { usage: { ...listener.usage, ...(listener.actualModel ? { model: listener.actualModel } : request.model ? { model: request.model } : {}) } } : {}),
+        ...(listener.usage ? { usage: { ...listener.usage, ...(actualModel ? { model: actualModel } : {}), ...(reasoningEffort ? { reasoningEffort } : {}) } } : {}),
         threadId,
         turnId,
         instructionSources,
         ...(modelProvider ? { modelProvider } : {}),
         ...(request.model ? { requestedModel: request.model } : {}),
-        ...(actualModel ? { actualModel } : {})
+        ...(actualModel ? { actualModel } : {}),
+        ...(reasoningEffort ? { reasoningEffort } : {})
       };
     } finally {
       if (timeout) clearTimeout(timeout);

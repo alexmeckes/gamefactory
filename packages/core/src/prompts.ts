@@ -38,6 +38,7 @@ export interface EffectivePromptManifest {
     modelProvider?: string;
     requestedModel?: string;
     actualModel?: string;
+    reasoningEffort?: string;
   };
   limitations: string[];
 }

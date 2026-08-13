@@ -5,6 +5,7 @@ export type UsageIdentitySource = "provider-reported" | "configured";
 export interface InvocationUsage {
   provider?: string;
   model?: string;
+  reasoningEffort?: string;
   inputTokens?: number;
   cachedInputTokens?: number;
   outputTokens?: number;
@@ -35,9 +36,9 @@ function optionalTokenCount(value: unknown, field: string): number | undefined {
 
 export function parseInvocationUsage(
   value: unknown,
-  defaults: Pick<InvocationUsage, "provider" | "model" | "billingMode" | "identitySource"> = {}
+  defaults: Pick<InvocationUsage, "provider" | "model" | "reasoningEffort" | "billingMode" | "identitySource"> = {}
 ): InvocationUsage | undefined {
-  if (value === undefined && !defaults.provider && !defaults.model && !defaults.billingMode && !defaults.identitySource) return undefined;
+  if (value === undefined && !defaults.provider && !defaults.model && !defaults.reasoningEffort && !defaults.billingMode && !defaults.identitySource) return undefined;
   if (value !== undefined && (!value || typeof value !== "object" || Array.isArray(value))) {
     throw new Error("usage must be an object");
   }
@@ -61,9 +62,11 @@ export function parseInvocationUsage(
   const result: InvocationUsage = {};
   const provider = optionalString(record.provider, "provider") ?? defaults.provider;
   const model = optionalString(record.model, "model") ?? defaults.model;
+  const reasoningEffort = optionalString(record.reasoningEffort, "reasoningEffort") ?? defaults.reasoningEffort;
   const pricingVersion = optionalString(record.pricingVersion, "pricingVersion");
   if (provider) result.provider = provider;
   if (model) result.model = model;
+  if (reasoningEffort) result.reasoningEffort = reasoningEffort;
   if (pricingVersion) result.pricingVersion = pricingVersion;
   for (const field of ["inputTokens", "cachedInputTokens", "outputTokens", "reasoningTokens", "totalTokens"] as const) {
     const count = optionalTokenCount(record[field], field);
@@ -99,18 +102,20 @@ export function aggregateInvocationUsage(usages: Array<InvocationUsage | undefin
   if (totals.length === usages.length) result.totalTokens = totals.reduce((total, value) => total + value, 0);
   const costs = reported.map((usage) => usage.costUsd).filter((value): value is number => value !== undefined);
   if (costs.length === usages.length) result.costUsd = costs.reduce((total, value) => total + value, 0);
-  const common = (field: "provider" | "model" | "costSource" | "pricingVersion" | "billingMode" | "identitySource"): string | undefined => {
+  const common = (field: "provider" | "model" | "reasoningEffort" | "costSource" | "pricingVersion" | "billingMode" | "identitySource"): string | undefined => {
     const values = [...new Set(reported.map((usage) => usage[field]).filter((value): value is string => value !== undefined))];
     return values.length === 1 ? values[0] : undefined;
   };
   const provider = common("provider");
   const model = common("model");
+  const reasoningEffort = common("reasoningEffort");
   const costSource = common("costSource") as UsageCostSource | undefined;
   const pricingVersion = common("pricingVersion");
   const billingMode = common("billingMode") as UsageBillingMode | undefined;
   const identitySource = common("identitySource") as UsageIdentitySource | undefined;
   if (provider) result.provider = provider;
   if (model) result.model = model;
+  if (reasoningEffort) result.reasoningEffort = reasoningEffort;
   if (costSource) result.costSource = costSource;
   if (pricingVersion) result.pricingVersion = pricingVersion;
   if (billingMode) result.billingMode = billingMode;
