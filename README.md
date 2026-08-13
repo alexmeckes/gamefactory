@@ -96,11 +96,18 @@ critics before Godot evaluation; only the strongest passing candidate is kept.
 This smoke command deliberately uses deterministic fixture contributors so it
 is repeatable in tests. To run the same architecture with real Codex agents and
 your signed-in Codex configuration, use `npm run run:godot:codex`. The real
-campaign talks to `codex app-server`, inherits the configured model unless a
-node explicitly overrides it, and records App Server thread, turn, instruction,
-token, and native subagent events in the trace.
+campaign talks to `codex app-server`, inherits the configured model and effort
+unless a node explicitly overrides `model` and `reasoningEffort`, and records
+both requested and provider-resolved routing alongside thread, turn,
+instruction, token, and native subagent events in the trace.
 Set `FACTORY_SMOKE_VERBOSE=true` to print the complete provenance and artifact
 ledger instead of the compact smoke summary.
+
+Run `npm run benchmark:model-routing` to compare the built-in Luna/high and
+Sol/medium, high, and xhigh routing arms on the same read-only tasks. The report
+uses a deterministic evidence rubric and records latency plus subscription token
+consumption; it does not estimate dollar cost. `benchmark:model-routing:smoke`
+runs one task per arm for a quicker protocol check.
 
 Run `npm run smoke:godot:assets` to generate three competing enemy-drone
 sprites, validate their alpha, provenance, and pinned style pack, import only

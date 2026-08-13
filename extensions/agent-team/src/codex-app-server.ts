@@ -15,6 +15,7 @@ export interface CodexAppServerRunRequest {
   prompt: string;
   readOnly: boolean;
   model?: string;
+  reasoningEffort?: string;
   signal: AbortSignal;
   timeoutMs?: number;
   environment?: NodeJS.ProcessEnv;
@@ -31,6 +32,7 @@ export interface CodexAppServerRunResult {
   modelProvider?: string;
   requestedModel?: string;
   actualModel?: string;
+  requestedReasoningEffort?: string;
   reasoningEffort?: string;
 }
 
@@ -46,6 +48,7 @@ interface TurnListener {
   events: string[];
   usage?: InvocationUsage;
   actualModel?: string;
+  actualReasoningEffort?: string;
   onEvent?: CodexAppServerRunRequest["onEvent"];
   resolve(result: { status: string; error?: string }): void;
   reject(error: Error): void;
@@ -230,6 +233,13 @@ class CodexAppServerConnection {
       const actualModel = string(params.toModel);
       if (actualModel) listener.actualModel = actualModel;
     }
+    if (method === "thread/settings/updated") {
+      const settings = object(params.threadSettings);
+      const actualModel = string(settings?.model);
+      const actualReasoningEffort = string(settings?.effort);
+      if (actualModel) listener.actualModel = actualModel;
+      if (actualReasoningEffort) listener.actualReasoningEffort = actualReasoningEffort;
+    }
     if (method === "turn/completed") {
       const turn = object(params.turn);
       const error = eventError(params);
@@ -284,7 +294,7 @@ class CodexAppServerConnection {
     // even when the caller deliberately leaves `model` unset. Keep this value
     // so inherited subscription defaults remain attributable in the trace.
     const resolvedModel = string(threadResult.model) ?? request.model;
-    const reasoningEffort = string(threadResult.reasoningEffort);
+    const initialReasoningEffort = string(threadResult.reasoningEffort);
     const instructionSources = Array.isArray(threadResult.instructionSources)
       ? threadResult.instructionSources.filter((value): value is string => typeof value === "string")
       : [];
@@ -312,7 +322,8 @@ class CodexAppServerConnection {
         ? { type: "readOnly", access: { type: "fullAccess" } }
         : { type: "workspaceWrite", writableRoots: [request.cwd], networkAccess: false },
       outputSchema,
-      ...(request.model ? { model: request.model } : {})
+      ...(request.model ? { model: request.model } : {}),
+      ...(request.reasoningEffort ? { effort: request.reasoningEffort } : {})
     })) ?? {};
     const turnId = string(object(turnResult.turn)?.id);
     if (!turnId) {
@@ -342,17 +353,19 @@ class CodexAppServerConnection {
       if (!listener.output.trim()) throw new Error("Codex App Server completed without a final agent message");
       const modelProvider = string(threadResult.modelProvider) ?? string(thread.modelProvider);
       const actualModel = listener.actualModel ?? resolvedModel;
+      const actualReasoningEffort = listener.actualReasoningEffort ?? request.reasoningEffort ?? initialReasoningEffort;
       return {
         output: expandStructuredEnvelope(listener.output),
         eventLog: `${listener.events.join("\n")}\n`,
-        ...(listener.usage ? { usage: { ...listener.usage, ...(actualModel ? { model: actualModel } : {}), ...(reasoningEffort ? { reasoningEffort } : {}) } } : {}),
+        ...(listener.usage ? { usage: { ...listener.usage, ...(actualModel ? { model: actualModel } : {}), ...(actualReasoningEffort ? { reasoningEffort: actualReasoningEffort } : {}) } } : {}),
         threadId,
         turnId,
         instructionSources,
         ...(modelProvider ? { modelProvider } : {}),
         ...(request.model ? { requestedModel: request.model } : {}),
         ...(actualModel ? { actualModel } : {}),
-        ...(reasoningEffort ? { reasoningEffort } : {})
+        ...(request.reasoningEffort ? { requestedReasoningEffort: request.reasoningEffort } : {}),
+        ...(actualReasoningEffort ? { reasoningEffort: actualReasoningEffort } : {})
       };
     } finally {
       if (timeout) clearTimeout(timeout);

@@ -107,15 +107,18 @@ lines.on("line", (line) => {
   if (message.method === "initialize") return send({ id: message.id, result: { userAgent: "fixture" } });
   if (message.method === "thread/start") {
     if (message.params.sandbox !== "read-only") return send({ id: message.id, error: { message: "wrong legacy sandbox value" } });
+    if (message.params.model !== "gpt-5.6-luna" || message.params.reasoningEffort !== undefined) return send({ id: message.id, error: { message: "wrong thread routing fields" } });
     return send({
     id: message.id,
-    result: { thread: { id: "thread-real-adapter", modelProvider: "openai" }, model: "gpt-5.6-sol", modelProvider: "openai", reasoningEffort: "high", instructionSources: [message.params.cwd + "/AGENTS.md"] }
+    result: { thread: { id: "thread-real-adapter", modelProvider: "openai" }, model: message.params.model, modelProvider: "openai", reasoningEffort: message.params.reasoningEffort, instructionSources: [message.params.cwd + "/AGENTS.md"] }
     });
   }
   if (message.method !== "turn/start") return;
+  if (message.params.model !== "gpt-5.6-luna" || message.params.effort !== "high" || message.params.reasoningEffort !== undefined) return send({ id: message.id, error: { message: "turn lost per-node routing" } });
   const threadId = message.params.threadId;
   const turnId = "turn-real-adapter";
   send({ id: message.id, result: { turn: { id: turnId, status: "inProgress", items: [] } } });
+  send({ method: "thread/settings/updated", params: { threadId, threadSettings: { model: message.params.model, effort: message.params.effort } } });
   send({ method: "turn/started", params: { threadId, turn: { id: turnId, status: "inProgress" } } });
   for (let index = 0; index < 200; index += 1) send({ method: "item/agentMessage/delta", params: { threadId, turnId, delta: "x" } });
   send({ method: "item/started", params: { threadId, turnId, item: { id: "collab-1", type: "collabToolCall", tool: "spawn_agent", status: "inProgress", newThreadId: "thread-subagent" } } });
@@ -278,6 +281,21 @@ test("agent team validates contributor identities before launching commands", as
       history: [],
       signal: new AbortController().signal
     }), /planner.id must use only/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("agent team rejects unsupported per-node reasoning effort before launching commands", async () => {
+  const root = await repository();
+  try {
+    await assert.rejects(() => new AgentTeam().run({
+      campaign: graphCampaign(root, [graphCommand("alpha", { reasoningEffort: "ultra" })]),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-invalid-effort",
+      history: [],
+      signal: new AbortController().signal
+    }), /reasoningEffort must be none, low, medium, high, xhigh, or max/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -521,6 +539,8 @@ test("agent graph runs through the Codex App Server adapter and exposes native s
         role: "worker",
         adapter: "codex-app-server",
         command: [process.execPath, resolve(root, "app-server-fixture.mjs")],
+        model: "gpt-5.6-luna",
+        reasoningEffort: "high",
         permissions: "read"
       }]),
       candidate: { id: "candidate", root, metadata: {} },
@@ -536,13 +556,17 @@ test("agent graph runs through the Codex App Server adapter and exposes native s
     assert.match(result.summary, /App Server worker finished/);
     assert.equal(result.usage?.totalTokens, 100);
     const contribution = result.contributors?.[0];
-    assert.equal(contribution?.usage?.model, "gpt-5.6-sol");
+    assert.equal(contribution?.usage?.model, "gpt-5.6-luna");
     assert.equal(contribution?.usage?.reasoningEffort, "high");
-    const manifest = contribution?.metadata?.promptManifest as { adapter?: string; providerContext?: { threadId?: string; turnId?: string; actualModel?: string; reasoningEffort?: string } };
+    const manifest = contribution?.metadata?.promptManifest as { adapter?: string; model?: string; reasoningEffort?: string; providerContext?: { threadId?: string; turnId?: string; requestedModel?: string; actualModel?: string; requestedReasoningEffort?: string; reasoningEffort?: string } };
     assert.equal(manifest.adapter, "codex.app-server");
+    assert.equal(manifest.model, "gpt-5.6-luna");
+    assert.equal(manifest.reasoningEffort, "high");
     assert.equal(manifest.providerContext?.threadId, "thread-real-adapter");
     assert.equal(manifest.providerContext?.turnId, "turn-real-adapter");
-    assert.equal(manifest.providerContext?.actualModel, "gpt-5.6-sol");
+    assert.equal(manifest.providerContext?.requestedModel, "gpt-5.6-luna");
+    assert.equal(manifest.providerContext?.actualModel, "gpt-5.6-luna");
+    assert.equal(manifest.providerContext?.requestedReasoningEffort, "high");
     assert.equal(manifest.providerContext?.reasoningEffort, "high");
     assert.deepEqual(
       (manifest.providerContext as { instructionSources?: string[] }).instructionSources?.map((value) => value.replaceAll("\\", "/")),

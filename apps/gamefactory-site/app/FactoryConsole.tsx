@@ -256,8 +256,10 @@ function PromptManifestPanel({ manifest }: { manifest: EffectivePromptManifest }
       <dl className="facts prompt-facts">
         <div><dt>Adapter</dt><dd>{manifest.adapter}</dd></div>
         <div><dt>Provider</dt><dd>{manifest.providerContext?.modelProvider ?? manifest.provider ?? "unreported"}</dd></div>
-        <div><dt>Model</dt><dd>{manifest.providerContext?.actualModel ?? manifest.model ?? "provider default"}</dd></div>
-        <div><dt>Effort</dt><dd>{manifest.providerContext?.reasoningEffort ?? "unreported"}</dd></div>
+        <div><dt>Requested model</dt><dd>{manifest.providerContext?.requestedModel ?? manifest.model ?? "provider default"}</dd></div>
+        <div><dt>Resolved model</dt><dd>{manifest.providerContext?.actualModel ?? "unreported"}</dd></div>
+        <div><dt>Requested effort</dt><dd>{manifest.providerContext?.requestedReasoningEffort ?? manifest.reasoningEffort ?? "provider default"}</dd></div>
+        <div><dt>Resolved effort</dt><dd>{manifest.providerContext?.reasoningEffort ?? "unreported"}</dd></div>
         <div><dt>Access</dt><dd>{manifest.context.readOnly ? "read only" : "workspace write"}</dd></div>
       </dl>
       {manifest.providerContext?.threadId ? <div className="lineage provider-lineage"><span className="section-kicker">Codex lineage</span><code>{manifest.providerContext.threadId}</code><span className="lineage-arrow">↓</span><code>{manifest.providerContext.turnId ?? "turn pending"}</code></div> : null}

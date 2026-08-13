@@ -30,8 +30,11 @@ interface ContributorConfig {
   command?: string[];
   provider?: string;
   model?: string;
+  reasoningEffort?: ReasoningEffort;
   billingMode?: UsageBillingMode;
 }
+
+type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh" | "max";
 
 interface LegacyAgentTeamConfig {
   kind: "legacy";
@@ -228,7 +231,7 @@ async function ensureAgentTraceNode(request: AgentRequest, config: ContributorCo
   announcedTraceNodes.set(request, announced);
   if (announced.has(nodeId)) return nodeId;
   announced.add(nodeId);
-  await emitAgentTrace(request, { type: "node:created", nodeId, experimentId: request.experimentId, parentNodeId: teamTraceNode(request), label: config.id, role: stage, data: { readOnly, ...(config.provider ? { provider: config.provider } : {}), ...(config.model ? { model: config.model } : {}), ...(config.billingMode ? { billingMode: config.billingMode } : {}), ...(config.provider || config.model ? { identitySource: "configured" } : {}) } });
+  await emitAgentTrace(request, { type: "node:created", nodeId, experimentId: request.experimentId, parentNodeId: teamTraceNode(request), label: config.id, role: stage, data: { readOnly, ...(config.provider ? { provider: config.provider } : {}), ...(config.model ? { model: config.model } : {}), ...(config.reasoningEffort ? { reasoningEffort: config.reasoningEffort } : {}), ...(config.billingMode ? { billingMode: config.billingMode } : {}), ...(config.provider || config.model || config.reasoningEffort ? { identitySource: "configured" } : {}) } });
   await emitAgentTrace(request, { type: "edge:created", nodeId: `edge:${teamTraceNode(request)}:${nodeId}`, experimentId: request.experimentId, sourceNodeId: teamTraceNode(request), targetNodeId: nodeId, role: "agent" });
   return nodeId;
 }
@@ -416,6 +419,7 @@ async function effectivePromptManifest(input: {
     adapter,
     ...(input.config.provider ? { provider: input.config.provider } : {}),
     ...(input.config.model ? { model: input.config.model } : {}),
+    ...(input.config.reasoningEffort ? { reasoningEffort: input.config.reasoningEffort } : {}),
     ...(input.config.billingMode ? { billingMode: input.config.billingMode } : {}),
     instructionSources: project.sources,
     layers: [
@@ -484,7 +488,17 @@ function identityString(value: unknown, location: string): string | undefined {
   return value.trim();
 }
 
-function contributor(value: unknown, defaultId: string, location: string, defaults: Pick<ContributorConfig, "provider" | "model" | "billingMode"> = {}): ContributorConfig {
+const REASONING_EFFORTS = new Set<ReasoningEffort>(["none", "low", "medium", "high", "xhigh", "max"]);
+
+function reasoningEffort(value: unknown, location: string): ReasoningEffort | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || !REASONING_EFFORTS.has(value as ReasoningEffort)) {
+    throw new Error(`${location} must be none, low, medium, high, xhigh, or max`);
+  }
+  return value as ReasoningEffort;
+}
+
+function contributor(value: unknown, defaultId: string, location: string, defaults: Pick<ContributorConfig, "provider" | "model" | "reasoningEffort" | "billingMode"> = {}): ContributorConfig {
   if (isStringArray(value)) return { id: defaultId, adapter: "command", command: [...value], ...defaults };
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${location} must be a command string array or an object with id and command`);
@@ -500,6 +514,7 @@ function contributor(value: unknown, defaultId: string, location: string, defaul
   if (record.command !== undefined && !isStringArray(record.command)) throw new Error(`${location}.command must be a non-empty string array`);
   const provider = identityString(record.provider, `${location}.provider`) ?? defaults.provider;
   const model = identityString(record.model, `${location}.model`) ?? defaults.model;
+  const effort = reasoningEffort(record.reasoningEffort, `${location}.reasoningEffort`) ?? defaults.reasoningEffort;
   const rawBillingMode = record.billingMode ?? defaults.billingMode;
   if (rawBillingMode !== undefined && rawBillingMode !== "subscription" && rawBillingMode !== "credits" && rawBillingMode !== "metered" && rawBillingMode !== "unknown") {
     throw new Error(`${location}.billingMode must be subscription, credits, metered, or unknown`);
@@ -510,11 +525,12 @@ function contributor(value: unknown, defaultId: string, location: string, defaul
     ...(isStringArray(record.command) ? { command: [...record.command] } : {}),
     ...(provider ? { provider } : adapter === "codex-app-server" ? { provider: "openai-codex-app-server" } : {}),
     ...(model ? { model } : {}),
+    ...(effort ? { reasoningEffort: effort } : {}),
     ...(rawBillingMode ? { billingMode: rawBillingMode } : adapter === "codex-app-server" ? { billingMode: "subscription" } : {})
   };
 }
 
-function contributorList(value: unknown, stage: "scout" | "critic", defaults: Pick<ContributorConfig, "provider" | "model" | "billingMode"> = {}): ContributorConfig[] {
+function contributorList(value: unknown, stage: "scout" | "critic", defaults: Pick<ContributorConfig, "provider" | "model" | "reasoningEffort" | "billingMode"> = {}): ContributorConfig[] {
   if (!Array.isArray(value) || value.length === 0) throw new Error(`parameters.agentTeam.${stage}s must be a non-empty array`);
   if (value.length > 64) throw new Error(`parameters.agentTeam.${stage}s cannot contain more than 64 contributors`);
   const contributors = value.map((item, index) => contributor(item, `${stage}-${index + 1}`, `parameters.agentTeam.${stage}s[${index}]`, defaults));
@@ -592,7 +608,7 @@ function repairEdge(value: unknown, location: string): RepairEdge | undefined {
   };
 }
 
-function graphNode(value: unknown, index: number, defaults: Pick<ContributorConfig, "provider" | "model" | "billingMode"> = {}): GraphNodeConfig {
+function graphNode(value: unknown, index: number, defaults: Pick<ContributorConfig, "provider" | "model" | "reasoningEffort" | "billingMode"> = {}): GraphNodeConfig {
   const location = `parameters.agentTeam.graph.nodes[${index}]`;
   const base = contributor(value, `node-${index + 1}`, location, defaults);
   const record = value as Record<string, unknown>;
@@ -673,13 +689,15 @@ function readConfig(request: AgentRequest): AgentTeamConfig {
   const record = value as Record<string, unknown>;
   const provider = identityString(record.provider, "parameters.agentTeam.provider");
   const model = identityString(record.model, "parameters.agentTeam.model");
+  const effort = reasoningEffort(record.reasoningEffort, "parameters.agentTeam.reasoningEffort");
   const rawBillingMode = record.billingMode;
   if (rawBillingMode !== undefined && rawBillingMode !== "subscription" && rawBillingMode !== "credits" && rawBillingMode !== "metered" && rawBillingMode !== "unknown") {
     throw new Error("parameters.agentTeam.billingMode must be subscription, credits, metered, or unknown");
   }
-  const defaults: Pick<ContributorConfig, "provider" | "model" | "billingMode"> = {
+  const defaults: Pick<ContributorConfig, "provider" | "model" | "reasoningEffort" | "billingMode"> = {
     ...(provider ? { provider } : {}),
     ...(model ? { model } : {}),
+    ...(effort ? { reasoningEffort: effort } : {}),
     ...(rawBillingMode ? { billingMode: rawBillingMode as UsageBillingMode } : {})
   };
   const maxOutputCharacters = integer(record.maxOutputCharacters, 20_000, 1, 1_000_000, "parameters.agentTeam.maxOutputCharacters");
@@ -970,8 +988,9 @@ async function invokeContributor(
     parentInvocationId: agentGraphTraceNode(request, config.id),
     ...(config.provider ? { provider: config.provider } : {}),
     ...(config.model ? { model: config.model } : {}),
+    ...(config.reasoningEffort ? { reasoningEffort: config.reasoningEffort } : {}),
     ...(config.billingMode ? { billingMode: config.billingMode } : {}),
-    ...(config.provider || config.model ? { identitySource: "configured" } : {}),
+    ...(config.provider || config.model || config.reasoningEffort ? { identitySource: "configured" } : {}),
     readOnly,
     permissions: readOnly ? "read" : "write",
     reason: options.reason,
@@ -1003,7 +1022,7 @@ async function invokeContributor(
     role: stage,
     attempt: options.attempt,
     message: options.reason.kind,
-    data: journalValue({ readOnly, invocationId: traceNodeId, parentInvocationId: graphNodeId, promptManifest, ...(config.provider ? { provider: config.provider } : {}), ...(config.model ? { model: config.model } : {}), ...(config.billingMode ? { billingMode: config.billingMode } : {}), ...(config.provider || config.model ? { identitySource: "configured" } : {}), reason: { kind: options.reason.kind, ...(options.reason.source ? { source: options.reason.source } : {}), ...(options.reason.repairAttempt !== undefined ? { repairAttempt: options.reason.repairAttempt } : {}) } })
+    data: journalValue({ readOnly, invocationId: traceNodeId, parentInvocationId: graphNodeId, promptManifest, ...(config.provider ? { provider: config.provider } : {}), ...(config.model ? { model: config.model } : {}), ...(config.reasoningEffort ? { reasoningEffort: config.reasoningEffort } : {}), ...(config.billingMode ? { billingMode: config.billingMode } : {}), ...(config.provider || config.model || config.reasoningEffort ? { identitySource: "configured" } : {}), reason: { kind: options.reason.kind, ...(options.reason.source ? { source: options.reason.source } : {}), ...(options.reason.repairAttempt !== undefined ? { repairAttempt: options.reason.repairAttempt } : {}) } })
   });
   await emitAgentTrace(request, {
     type: "edge:created",
@@ -1027,6 +1046,7 @@ async function invokeContributor(
         prompt: codexTaskPrompt(requestPath, promptManifest),
         readOnly,
         ...(config.model ? { model: config.model } : {}),
+        ...(config.reasoningEffort ? { reasoningEffort: config.reasoningEffort } : {}),
         signal: request.signal,
         environment: codexHostEnvironment(),
         onEvent: (event) => {
@@ -1117,6 +1137,7 @@ async function invokeContributor(
           ...(appServer.modelProvider ? { modelProvider: appServer.modelProvider } : {}),
           ...(appServer.requestedModel ? { requestedModel: appServer.requestedModel } : {}),
           ...(appServer.actualModel ? { actualModel: appServer.actualModel } : {}),
+          ...(appServer.requestedReasoningEffort ? { requestedReasoningEffort: appServer.requestedReasoningEffort } : {}),
           ...(appServer.reasoningEffort ? { reasoningEffort: appServer.reasoningEffort } : {})
         }
       };
@@ -1165,9 +1186,9 @@ async function invokeContributor(
   const usage = parseInvocationUsage(result.appServer?.usage ?? parsed?.usage, {
     ...(config.provider ? { provider: config.provider } : {}),
     ...(result.appServer?.actualModel ? { model: result.appServer.actualModel } : config.model ? { model: config.model } : {}),
-    ...(result.appServer?.reasoningEffort ? { reasoningEffort: result.appServer.reasoningEffort } : {}),
+    ...(result.appServer?.reasoningEffort ? { reasoningEffort: result.appServer.reasoningEffort } : config.reasoningEffort ? { reasoningEffort: config.reasoningEffort } : {}),
     ...(config.billingMode ? { billingMode: config.billingMode } : {}),
-    ...(result.appServer ? { identitySource: "provider-reported" as const } : config.provider || config.model ? { identitySource: "configured" as const } : {})
+    ...(result.appServer ? { identitySource: "provider-reported" as const } : config.provider || config.model || config.reasoningEffort ? { identitySource: "configured" as const } : {})
   });
   const declaredArtifacts = parsed?.artifacts ?? [];
   const artifacts: ArtifactReference[] = [

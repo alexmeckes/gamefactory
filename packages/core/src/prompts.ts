@@ -17,6 +17,7 @@ export interface EffectivePromptManifest {
   adapter: string;
   provider?: string;
   model?: string;
+  reasoningEffort?: string;
   billingMode?: string;
   instructionSources: string[];
   layers: PromptLayer[];
@@ -38,6 +39,7 @@ export interface EffectivePromptManifest {
     modelProvider?: string;
     requestedModel?: string;
     actualModel?: string;
+    requestedReasoningEffort?: string;
     reasoningEffort?: string;
   };
   limitations: string[];

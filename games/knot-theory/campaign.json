@@ -52,6 +52,8 @@
           {
             "id": "topology-scout",
             "adapter": "codex-app-server",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "high",
             "role": "scout",
             "permissions": "read",
             "instructions": "Explore implementable 2D rope and knot puzzle grammars for this exact Godot scope. Compare winding, crossing order, tension, contact sequences, and authored anchors. Propose a small language that can recombine surprisingly without demanding mathematically perfect knot simulation."
@@ -59,6 +61,8 @@
           {
             "id": "tactility-scout",
             "adapter": "codex-app-server",
+            "model": "gpt-5.6-luna",
+            "reasoningEffort": "high",
             "role": "scout",
             "permissions": "read",
             "instructions": "Explore interaction feel, teaching, visual feedback, accessibility, and audio for direct rope manipulation. Identify the smallest set of signals that makes grabbing, pinning, threading, tension, failure, and success legible."
@@ -66,6 +70,8 @@
           {
             "id": "puzzle-scout",
             "adapter": "codex-app-server",
+            "model": "gpt-5.6-luna",
+            "reasoningEffort": "high",
             "role": "scout",
             "permissions": "read",
             "instructions": "Develop contrasting five-to-ten-minute level arcs using one rope. Seek an earned machine-like finale and avoid a mere sequence of silhouette tracing tasks. Keep implementation feasible in one compact Godot project."
@@ -73,6 +79,8 @@
           {
             "id": "lead-designer",
             "adapter": "codex-app-server",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
             "role": "planner",
             "permissions": "read",
             "dependsOn": ["topology-scout", "tactility-scout", "puzzle-scout"],
@@ -81,6 +89,8 @@
           {
             "id": "game-builder",
             "adapter": "codex-app-server",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "high",
             "role": "implementer",
             "permissions": "write",
             "dependsOn": ["lead-designer"],
@@ -89,6 +99,8 @@
           {
             "id": "systems-critic",
             "adapter": "codex-app-server",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "medium",
             "role": "critic",
             "permissions": "read",
             "dependsOn": ["game-builder"],
@@ -98,6 +110,8 @@
           {
             "id": "experience-critic",
             "adapter": "codex-app-server",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
             "role": "critic",
             "permissions": "read",
             "dependsOn": ["game-builder"],

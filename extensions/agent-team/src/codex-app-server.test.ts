@@ -19,20 +19,23 @@ lines.on("line", (line) => {
   }
   if (message.method === "thread/start") {
     if (message.params.sandbox !== "read-only") return send({ id: message.id, error: { message: "wrong legacy sandbox value" } });
+    if (message.params.model !== "gpt-5.6-luna" || message.params.reasoningEffort !== undefined) return send({ id: message.id, error: { message: "wrong thread routing fields" } });
     thread += 1;
-    send({ id: message.id, result: { thread: { id: "thread-" + thread, modelProvider: "openai" }, model: "gpt-5.6-sol", modelProvider: "openai", reasoningEffort: "xhigh", instructionSources: [message.params.cwd + "/AGENTS.md"] } });
+    send({ id: message.id, result: { thread: { id: "thread-" + thread, modelProvider: "openai" }, model: message.params.model, modelProvider: "openai", reasoningEffort: message.params.reasoningEffort, instructionSources: [message.params.cwd + "/AGENTS.md"] } });
     return;
   }
   if (message.method === "turn/start") {
+    if (message.params.model !== "gpt-5.6-luna" || message.params.effort !== "high" || message.params.reasoningEffort !== undefined) return send({ id: message.id, error: { message: "turn lost requested model routing" } });
     if (message.params.outputSchema?.additionalProperties !== false || message.params.outputSchema?.properties?.outcome?.pattern === undefined) {
       return send({ id: message.id, error: { message: "missing strict output envelope" } });
     }
     const threadId = message.params.threadId;
     const turnId = "turn-" + thread;
     send({ id: message.id, result: { turn: { id: turnId, status: "inProgress", items: [] } } });
+    send({ method: "thread/settings/updated", params: { threadId, threadSettings: { model: message.params.model, effort: message.params.effort } } });
     send({ method: "turn/started", params: { threadId, turn: { id: turnId, status: "inProgress", items: [] } } });
     if (message.params.input?.[0]?.text?.includes("rerouted")) {
-      send({ method: "model/rerouted", params: { threadId, turnId, fromModel: "gpt-5.6-sol", toModel: "gpt-5.6-terra", reason: "highRiskCyberActivity" } });
+      send({ method: "model/rerouted", params: { threadId, turnId, fromModel: "gpt-5.6-luna", toModel: "gpt-5.6-terra", reason: "highRiskCyberActivity" } });
     }
     for (let index = 0; index < 200; index += 1) send({ method: "item/agentMessage/delta", params: { threadId, turnId, delta: "x" } });
     send({ method: "item/started", params: { threadId, turnId, item: { id: "cmd-1", type: "commandExecution", status: "inProgress" } } });
@@ -55,6 +58,8 @@ test("Codex App Server pool streams a turn and records instruction, lineage, and
       cwd: root,
       prompt: "Perform the bounded task",
       readOnly: true,
+      model: "gpt-5.6-luna",
+      reasoningEffort: "high",
       signal: new AbortController().signal,
       onEvent: (event) => events.push(event.method)
     });
@@ -62,12 +67,14 @@ test("Codex App Server pool streams a turn and records instruction, lineage, and
     assert.equal(result.threadId, "thread-1");
     assert.equal(result.turnId, "turn-1");
     assert.equal(result.modelProvider, "openai");
-    assert.equal(result.actualModel, "gpt-5.6-sol");
-    assert.equal(result.reasoningEffort, "xhigh");
+    assert.equal(result.requestedModel, "gpt-5.6-luna");
+    assert.equal(result.actualModel, "gpt-5.6-luna");
+    assert.equal(result.requestedReasoningEffort, "high");
+    assert.equal(result.reasoningEffort, "high");
     assert.deepEqual(result.instructionSources.map((value) => value.replaceAll("\\", "/")), [resolve(root, "AGENTS.md").replaceAll("\\", "/")]);
     assert.equal(result.usage?.totalTokens, 150);
-    assert.equal(result.usage?.model, "gpt-5.6-sol");
-    assert.equal(result.usage?.reasoningEffort, "xhigh");
+    assert.equal(result.usage?.model, "gpt-5.6-luna");
+    assert.equal(result.usage?.reasoningEffort, "high");
     assert.equal(result.usage?.billingMode, "subscription");
     assert.ok(events.includes("item/started"));
     assert.ok(events.includes("thread/tokenUsage/updated"));
@@ -79,11 +86,13 @@ test("Codex App Server pool streams a turn and records instruction, lineage, and
       cwd: root,
       prompt: "Perform a rerouted task",
       readOnly: true,
+      model: "gpt-5.6-luna",
+      reasoningEffort: "high",
       signal: new AbortController().signal,
     });
     assert.equal(rerouted.actualModel, "gpt-5.6-terra");
     assert.equal(rerouted.usage?.model, "gpt-5.6-terra");
-    assert.equal(rerouted.usage?.reasoningEffort, "xhigh");
+    assert.equal(rerouted.usage?.reasoningEffort, "high");
   } finally {
     await pool.dispose();
     await rm(root, { recursive: true, force: true });

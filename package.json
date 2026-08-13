@@ -17,6 +17,8 @@
     "run:godot:codex": "npm run factory -- run examples/godot/campaign.multi-agent.json --config examples/godot/factory.config.json",
     "smoke:godot:assets": "node scripts/godot-smoke.mjs campaign.assets.json",
     "smoke:godot:discovery": "node scripts/godot-smoke.mjs campaign.discovery.json",
+    "benchmark:model-routing": "npm run build && node scripts/model-routing-ab.mjs",
+    "benchmark:model-routing:smoke": "npm run build && node scripts/model-routing-ab.mjs --smoke",
     "factory": "node packages/cli/dist/index.js",
     "check": "npm run build && npm test"
   },
