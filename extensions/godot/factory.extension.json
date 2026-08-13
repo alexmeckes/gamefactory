@@ -3,12 +3,12 @@
   "version": "0.1.0",
   "apiVersion": "1.0",
   "entry": "dist/index.js",
-  "activation": ["engine:godot.engine", "scenario:godot.scenario", "evaluator:godot.scenario"],
+  "activation": ["engine:godot.engine", "scenario:godot.scenario", "evaluator:godot.scenario", "evaluator:godot.visual"],
   "contributes": {
     "engine": ["godot.engine"],
     "scenario": ["godot.scenario"],
-    "evaluator": ["godot.scenario"]
+    "evaluator": ["godot.scenario", "godot.visual"]
   },
   "permissions": ["process:godot", "filesystem:artifacts"],
-  "description": "Godot 4 host adapter: import checks, deterministic in-engine scenarios, telemetry, and optional rendered capture."
+  "description": "Godot 4 host adapter: import checks, deterministic in-engine scenarios, telemetry, and evidence-backed visual quality gates."
 }

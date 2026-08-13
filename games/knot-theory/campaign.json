@@ -7,6 +7,7 @@
   "requires": [
     "workspace:git.worktree",
     "agent:agent.team",
+    "evaluator:godot.visual",
     "evaluator:godot.scenario"
   ],
   "mutablePaths": [
@@ -23,6 +24,8 @@
     "AGENTS.md",
     "GAME.md",
     "STYLE.md",
+    "visual-direction.json",
+    "visual-reference/**",
     "campaign.json",
     "factory.config.json",
     "addons/gamefactory/**"
@@ -31,7 +34,10 @@
     "tournament": {
       "workspace": "git.worktree",
       "agents": ["agent.team"],
-      "evaluators": [{ "id": "godot.scenario", "cost": 10 }],
+      "evaluators": [
+        { "id": "godot.visual", "cost": 2 },
+        { "id": "godot.scenario", "cost": 10 }
+      ],
       "candidateCount": 2,
       "concurrency": 2
     },
@@ -41,11 +47,16 @@
       "provider": "openai-codex-app-server",
       "billingMode": "subscription",
       "graph": {
-        "maximumTotalAttempts": 16,
+        "maximumTotalAttempts": 24,
         "maximumRepairAttempts": 2,
         "context": [
           { "path": "GAME.md", "kind": "other", "mediaType": "text/markdown", "label": "Product brief" },
           { "path": "STYLE.md", "kind": "other", "mediaType": "text/markdown", "label": "Style direction" },
+          { "path": "visual-direction.json", "kind": "other", "mediaType": "application/json", "label": "Visual quality contract" },
+          { "path": "visual-reference/art-target.png", "kind": "image", "mediaType": "image/png", "label": "Pinned aspirational art target" },
+          { "path": "visual-reference/baseline-title.png", "kind": "image", "mediaType": "image/png", "label": "Unpolished title baseline" },
+          { "path": "visual-reference/baseline-first-puzzle.png", "kind": "image", "mediaType": "image/png", "label": "Unpolished teaching baseline" },
+          { "path": "visual-reference/baseline-finale.png", "kind": "image", "mediaType": "image/png", "label": "Unpolished finale baseline" },
           { "path": "main.gd", "kind": "other", "mediaType": "text/plain", "label": "Baseline rope loom" }
         ],
         "nodes": [
@@ -91,24 +102,49 @@
             "instructions": "Develop contrasting five-to-ten-minute level arcs using one rope. Seek an earned machine-like finale and avoid a mere sequence of silhouette tracing tasks. Keep implementation feasible in one compact Godot project."
           },
           {
+            "id": "visual-director",
+            "adapter": "codex-app-server",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "role": "planner",
+            "permissions": "read",
+            "instructions": "Act as the candidate's visual director. Inspect the pinned art target and all three baseline captures with image-aware tools, then translate the visual-direction contract into an implementable art hierarchy for this Godot project. Diagnose specific gaps in material separation, lighting, composition, rope readability, typography, prop craft, and motion. Choose a coherent hypothesis rather than copying the reference literally. Return outcome ready with prioritized findings and a bounded implementation brief for the lead and builder."
+          },
+          {
             "id": "lead-designer",
             "adapter": "codex-app-server",
             "model": "gpt-5.6-sol",
             "reasoningEffort": "xhigh",
             "role": "planner",
             "permissions": "read",
-            "dependsOn": ["topology-scout", "tactility-scout", "puzzle-scout"],
-            "instructions": "Synthesize one candidate-specific vertical slice. Choose a coherent topology model, teaching sequence, interaction contract, visual direction, deterministic test strategy, and bounded implementation plan. Preserve creative conviction instead of averaging every scout idea."
+            "dependsOn": ["topology-scout", "tactility-scout", "puzzle-scout", "visual-director"],
+            "instructions": "Synthesize one candidate-specific vertical slice. Choose a coherent topology model, teaching sequence, interaction contract, visual direction, deterministic test strategy, and bounded implementation plan. Treat the visual director's evidence as a quality constraint while preserving creative conviction instead of averaging every scout idea."
           },
           {
             "id": "game-builder",
             "adapter": "codex-app-server",
             "model": "gpt-5.6-sol",
-            "reasoningEffort": "high",
+            "reasoningEffort": "xhigh",
             "role": "implementer",
             "permissions": "write",
             "dependsOn": ["lead-designer"],
-            "instructions": "Implement the complete playable vertical slice in the mutable paths. Run Godot import/headless checks. Preserve deterministic factory hooks whose score derives from observed simulation state. Prefer a cohesive finished slice over unused framework."
+            "instructions": "Implement the complete playable vertical slice in the mutable paths. Treat visual polish as product work: build authored material layers, depth, lighting, composition, typography, prop details, and tactile motion that meet the visual contract while keeping rope topology legible. Use code-native Godot rendering or generated project assets as appropriate. Run Godot import/headless checks and preserve deterministic factory hooks whose score derives from observed simulation state. Prefer a cohesive finished slice over unused framework."
+          },
+          {
+            "id": "visual-capture",
+            "adapter": "command",
+            "command": [
+              "C:\\Users\\alexm\\OneDrive\\Documents\\New project\\oldschool-mmo-godot\\tools\\godot\\Godot_v4.7-stable_win64_console.exe",
+              "--path",
+              ".",
+              "--script",
+              "res://addons/gamefactory/capture_runner.gd"
+            ],
+            "role": "worker",
+            "permissions": "read",
+            "dependsOn": ["game-builder"],
+            "refreshAfterRepair": true,
+            "instructions": "Capture deterministic engine-native evidence for the title, first teaching puzzle, and finale."
           },
           {
             "id": "systems-critic",
@@ -122,14 +158,14 @@
             "repair": { "target": "game-builder", "outcomes": ["revise"], "maximumAttempts": 2 }
           },
           {
-            "id": "experience-critic",
+            "id": "visual-experience-critic",
             "adapter": "codex-app-server",
             "model": "gpt-5.6-sol",
             "reasoningEffort": "xhigh",
             "role": "critic",
             "permissions": "read",
-            "dependsOn": ["game-builder"],
-            "instructions": "Review the playable sequence for clarity, tactile feedback, pacing, visual coherence, and whether the finale genuinely recombines the learned rope language. Do not claim fun without a human playtest. Return outcome pass or revise with prioritized findings.",
+            "dependsOn": ["game-builder", "visual-capture"],
+            "instructions": "Act as a strict visual and experience director. Use image-aware tools to inspect every screenshot artifact from visual-capture and compare them with the pinned target, baselines, STYLE.md, and visual-direction.json. Judge observable craft, not prompt compliance. Return outcome pass only if the work clears the contract; otherwise return revise with a small prioritized repair brief. Always return findings.scorecard containing numeric 0-100 values for material_depth, focal_hierarchy, rope_legibility, authored_specificity, composition_typography, and motion_feedback. Always return findings.evidence with one object per required view containing view, path, and a concrete visual observation. Also include findings.blockingIssues. Never inflate scores to help selection and do not claim fun without a human playtest.",
             "repair": { "target": "game-builder", "outcomes": ["revise"], "maximumAttempts": 2 }
           }
         ]
@@ -150,6 +186,26 @@
           "physics_hz": 60,
           "duration_seconds": 8
         }
+      },
+      "visualReview": {
+        "reviewNode": "visual-experience-critic",
+        "minimumScore": 72,
+        "minimumDimensionScore": 55,
+        "minimumWidth": 960,
+        "minimumHeight": 600,
+        "requiredDimensions": [
+          "material_depth",
+          "focal_hierarchy",
+          "rope_legibility",
+          "authored_specificity",
+          "composition_typography",
+          "motion_feedback"
+        ],
+        "requiredViews": [
+          { "id": "title", "path": ".factory/previews/title.png", "baselineSha256": "0fded674e9a301c4c2c0b1ad37044311edc1645e3c0fd3dca10c7f969ea49c6a" },
+          { "id": "first-puzzle", "path": ".factory/previews/first-puzzle.png", "baselineSha256": "71940fb4ec58727b383b005527f5433abdfaa404dac84b8f966b7920cb67a811" },
+          { "id": "finale", "path": ".factory/previews/finale.png", "baselineSha256": "82db9b8c29133b0ff31a52a2bbb5a017cb890c6ebbc5152cd73c6166ab339704" }
+        ]
       }
     }
   },

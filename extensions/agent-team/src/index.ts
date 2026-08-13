@@ -81,6 +81,7 @@ interface GraphNodeConfig extends ContributorConfig {
   context: ContextReferenceConfig[];
   maximumAttempts: number;
   required: boolean;
+  refreshAfterRepair: boolean;
   repair?: RepairEdge;
   advisor?: AdvisorConfig;
 }
@@ -679,6 +680,9 @@ function graphNode(value: unknown, index: number, defaults: Pick<ContributorConf
     throw new Error(`${location}.instructions must be a string with at most 100000 characters`);
   }
   if (record.required !== undefined && typeof record.required !== "boolean") throw new Error(`${location}.required must be a boolean`);
+  if (record.refreshAfterRepair !== undefined && typeof record.refreshAfterRepair !== "boolean") {
+    throw new Error(`${location}.refreshAfterRepair must be a boolean`);
+  }
   const result: GraphNodeConfig = {
     ...base,
     role,
@@ -687,7 +691,8 @@ function graphNode(value: unknown, index: number, defaults: Pick<ContributorConf
     when: conditions(record.when, `${location}.when`),
     context: contextList(record.context, `${location}.context`),
     maximumAttempts: integer(record.maximumAttempts, 1, 1, 8, `${location}.maximumAttempts`),
-    required: record.required !== false
+    required: record.required !== false,
+    refreshAfterRepair: record.refreshAfterRepair === true
   };
   if (typeof record.instructions === "string") result.instructions = record.instructions;
   const repair = repairEdge(record.repair, `${location}.repair`);
@@ -724,6 +729,12 @@ function validateGraph(nodes: GraphNodeConfig[]): void {
       if (target.readOnly) throw new Error(`graph node ${node.id} repair target ${target.id} must have write permission`);
       if (!node.readOnly) throw new Error(`graph repair source ${node.id} must be read-only`);
       if (!node.dependsOn.includes(target.id)) throw new Error(`graph repair source ${node.id} must depend directly on writer ${target.id}`);
+    }
+    if (node.refreshAfterRepair) {
+      if (!node.readOnly) throw new Error(`graph refresh node ${node.id} must be read-only`);
+      if (!node.dependsOn.some((dependency) => byId.get(dependency)?.readOnly === false)) {
+        throw new Error(`graph refresh node ${node.id} must depend directly on a writer`);
+      }
     }
   }
 
@@ -1736,6 +1747,13 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
       [targetState.config.id, [priorOutput(sourceRun, config.maxOutputCharacters)]]
     ]));
     if (targetState.status === "failed") break;
+
+    const refreshers = config.nodes
+      .filter((node) => node.refreshAfterRepair && node.dependsOn.includes(targetState.config.id))
+      .map((node) => states.get(node.id)!)
+      .filter((state) => state.status !== "skipped");
+    await runBatch(refreshers, { kind: "review", source: targetState.config.id, repairAttempt: edgeAttempt });
+    if (refreshers.some((state) => state.status === "failed")) break;
 
     const reviewers = config.nodes
       .filter((node) => node.repair?.target === targetState.config.id)

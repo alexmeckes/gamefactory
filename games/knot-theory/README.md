@@ -16,3 +16,12 @@ npm run factory -- run games/knot-theory/campaign.json --config games/knot-theor
 ```
 
 `addons/gamefactory/capture_runner.gd` creates deterministic title, first-puzzle, and finale frames under `.factory/previews` for visual QA.
+
+The campaign now treats those frames as first-class acceptance evidence. A
+Sol/xhigh visual director compares the immutable target and baseline set in
+`visual-reference/`, the builder implements a candidate-specific art
+hypothesis, and a Sol/xhigh visual critic scores six observable craft
+dimensions. `godot.visual` rejects missing, stale, unchanged, undersized, or
+weakly evidenced renders before the deterministic gameplay scenario runs.
+Visual targets constrain the quality bar rather than prescribing an exact
+layout, leaving each candidate room to discover a stronger coherent solution.

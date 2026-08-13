@@ -69,6 +69,14 @@ Use `agentTeam.graph` when the director needs a task-specific team instead of th
             "command": ["pi", "--mode", "write"]
           },
           {
+            "id": "render-evidence",
+            "role": "worker",
+            "permissions": "read",
+            "dependsOn": ["builder"],
+            "refreshAfterRepair": true,
+            "command": ["game", "--capture"]
+          },
+          {
             "id": "feel-review",
             "role": "critic",
             "permissions": "read",
@@ -102,6 +110,7 @@ Node fields:
 - `maximumAttempts` retries a failed command activation and defaults to 1.
 - `required: false` permits a failed optional node without failing the whole graph. Dependents can use `when` with the `failed` outcome to run a fallback.
 - `repair` lets a read-only reviewer route `revise` (or configured outcomes) back to a directly preceding writer. The writer receives the review as an additional structured input, then all reviewers for that writer run again.
+- `refreshAfterRepair: true` marks a read-only node whose evidence is derived directly from a writer, such as screenshots, builds, or telemetry. After that writer is repaired, these nodes rerun before reviewers so a critic never judges stale evidence.
 - `provider` and `model` identify the configured invocation backend. `billingMode` is `subscription`, `credits`, `metered`, or `unknown`. These may be set once on `agentTeam` and overridden per contributor. Configured identity is labeled as configured rather than presented as provider-verified telemetry.
 
 `maximumTotalAttempts` caps every subprocess invocation, including retries and reviews. `maximumRepairAttempts` caps total writer revision rounds across the graph. Each repair edge also has its own `maximumAttempts`. Unresolved repairs are reported in result metadata instead of creating an unbounded loop.

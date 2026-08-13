@@ -73,7 +73,7 @@ if (["alpha", "beta"].includes(request.nodeId)) {
   assert.equal(discovery.structured.context.hypothesis, "raise-value");
   const repairing = request.reason.kind === "repair";
   if (repairing) {
-    const review = request.inputs.find((input) => input.nodeId === "reviewer");
+    const review = request.inputs.find((input) => ["reviewer", "visual-reviewer"].includes(input.nodeId));
     assert.equal(review.structured.outcome, "revise");
   }
   await writeFile("value.txt", repairing ? "repaired\\n" : "implemented\\n", "utf8");
@@ -83,6 +83,22 @@ if (["alpha", "beta"].includes(request.nodeId)) {
   console.log(JSON.stringify(value === "repaired\\n"
     ? { summary: "review passed", outcome: "pass" }
     : { summary: "needs repair", outcome: "revise", findings: [{ issue: "value is not repaired" }] }));
+} else if (request.nodeId === "capture") {
+  const value = await readFile("value.txt", "utf8");
+  const capturePath = ".factory/capture-" + request.attempt + ".txt";
+  await writeFile(capturePath, value, "utf8");
+  console.log(JSON.stringify({
+    summary: "captured " + value.trim(),
+    outcome: "captured",
+    context: { value: value.trim() },
+    artifacts: [{ kind: "image", path: capturePath, mediaType: "text/plain", label: "derived capture" }]
+  }));
+} else if (request.nodeId === "visual-reviewer") {
+  const capture = request.inputs.find((input) => input.nodeId === "capture");
+  const current = await readFile(capture.artifacts[0].path, "utf8");
+  console.log(JSON.stringify(current === "repaired\\n"
+    ? { summary: "fresh visual evidence passed", outcome: "pass" }
+    : { summary: "visual evidence needs repair", outcome: "revise", findings: { captured: current.trim() } }));
 } else if (request.nodeId === "conditional") {
   assert.equal(request.inputs[0].outcome, "pass");
   console.log(JSON.stringify({ summary: "conditional branch ran", outcome: "complete" }));
@@ -456,6 +472,41 @@ test("agent graph passes structured context to a writer and repairs from critic 
     };
     assert.equal(repairRequest.reason.kind, "repair");
     assert.ok(repairRequest.inputs.some((input) => input.nodeId === "reviewer" && input.structured.findings));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("agent graph refreshes derived evidence before reviewing a repaired writer", async () => {
+  const root = await repository();
+  try {
+    const result = await new AgentTeam().run({
+      campaign: graphCampaign(root, [
+        graphCommand("discover", { role: "scout", permissions: "read" }),
+        graphCommand("builder", { role: "implementer", permissions: "write", dependsOn: ["discover"] }),
+        graphCommand("capture", {
+          role: "worker",
+          permissions: "read",
+          dependsOn: ["builder"],
+          refreshAfterRepair: true
+        }),
+        graphCommand("visual-reviewer", {
+          role: "critic",
+          permissions: "read",
+          dependsOn: ["builder", "capture"],
+          repair: { target: "builder", outcomes: ["revise"], maximumAttempts: 1 }
+        })
+      ], { maximumRepairAttempts: 1, maximumTotalAttempts: 12 }),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-refresh-evidence",
+      history: [],
+      signal: new AbortController().signal
+    });
+    const metadata = result.metadata as { nodes: Record<string, { attempts: number; outcome: string }> };
+    assert.equal(metadata.nodes.capture?.attempts, 2);
+    assert.equal(metadata.nodes["visual-reviewer"]?.attempts, 2);
+    assert.equal(metadata.nodes["visual-reviewer"]?.outcome, "pass");
+    assert.equal(await readFile(resolve(root, ".factory", "capture-2.txt"), "utf8"), "repaired\n");
   } finally {
     await rm(root, { recursive: true, force: true });
   }
