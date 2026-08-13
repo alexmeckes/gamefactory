@@ -1,0 +1,11 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "extensions": [
+    "../../extensions/git",
+    "../../extensions/agent-team",
+    "../../extensions/tournament",
+    "../../extensions/design-lab",
+    "../../extensions/godot"
+  ],
+  "resultLog": ".factory/results/emberline.jsonl"
+}

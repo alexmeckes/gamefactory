@@ -1,0 +1,32 @@
+{
+  "apiVersion": "gamefactory.visual-direction/v1",
+  "id": "emberline-workshop",
+  "intent": "A premium tactile workshop diorama whose strategic state remains readable in motion.",
+  "references": [
+    { "path": "visual-reference/art-target.png", "role": "Aspirational material, lighting, route, and silhouette target" },
+    { "path": "visual-reference/baseline-title.png", "role": "Seed title baseline to materially exceed" },
+    { "path": "visual-reference/baseline-board.png", "role": "Seed planning view to materially exceed" },
+    { "path": "visual-reference/baseline-wave.png", "role": "Seed combat view to materially exceed" }
+  ],
+  "nonnegotiables": [
+    "The route, threat direction, tower identity, range, target, enemy health, heat state, currency, core health, and wave state are readable without guesswork.",
+    "The board has authored depth, material separation, controlled lighting, and environmental specificity.",
+    "At least one observable physical response distinguishes each tower and reaction.",
+    "Screenshots come from the running Godot project and differ materially from the seed baselines."
+  ],
+  "qualityDimensions": {
+    "material_depth": "Layered walnut, iron, brass, ceramic, wax, soot, glass, and light feel intentionally constructed.",
+    "focal_hierarchy": "The glass heart, imminent threats, and current decision form a clear hierarchy.",
+    "combat_legibility": "Projectiles, targeting, damage, control, reactions, and dangerous leaks are readable during a wave.",
+    "authored_specificity": "The result feels like Emberline rather than a generic tower-defense template.",
+    "composition_typography": "Board framing, cards, counters, labels, and spacing are deliberate at 1152×720.",
+    "motion_feedback": "Placement, firing, impact, reaction, kill, spend, wave, core damage, and victory have tactile feedback."
+  },
+  "antiPatterns": ["flat debug circles as the final art", "generic medieval towers", "green tile grids", "unreadable particle fog", "UI-heavy mobile-game chrome", "claims of polish without changed captures"],
+  "views": [
+    { "id": "title", "purpose": "Communicate the handcrafted fuse-and-heart fantasy and invite play." },
+    { "id": "board", "purpose": "Show the planning hierarchy, sockets, tower choices, economy, and route." },
+    { "id": "wave", "purpose": "Show a tactically legible late-wave reaction with the heart under pressure." }
+  ]
+}
+
