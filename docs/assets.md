@@ -34,11 +34,15 @@ flowchart LR
 
 `agent:asset.command` is deliberately provider-neutral. An ImageGen bridge, local diffusion process, audio service, Blender worker, or studio tool can implement the same command contract. Heavy dependencies stay in those extensions or commands.
 
+`agent:sam3.segment` is a narrower optional processor for turning generated image sheets into editable layers. An agent first writes a `gamefactory.sam3/v1` request containing candidate-local sources, text concepts, output directories, confidence thresholds, and deterministic edge-processing settings. An `agent-driver` graph node invokes the extension, which returns hashed masks and transparent cutouts to downstream editing or compositor agents. SAM performs selection rather than generative editing: reconstruction, inpainting, relighting, palette work, and engine assembly remain explicit later stages with their own provenance.
+
+The extension is lazy by design. Its Python, PyTorch, CUDA, and gated checkpoint requirements are absent from the core and from campaigns that never activate `agent:sam3.segment`. The runtime doctor verifies the configured isolated worker before a campaign begins.
+
 `evaluator:asset.technical` and `evaluator:asset.style` currently handle RGBA PNGs. Additional evaluators should be layered by modality:
 
 | Modality | Typical processors | Technical gates |
 | --- | --- | --- |
-| Image | alpha extraction, resize, atlas, compression | dimensions, alpha, margins, coverage, contrast |
+| Image | SAM segmentation, mask refinement, alpha extraction, inpaint, resize, atlas, compression | dimensions, alpha, margins, coverage, contrast |
 | Audio | trim, normalize, encode, loop | duration, loudness, clipping, channels, loop seam |
 | Model | convert, decimate, unwrap, material bind | scale, topology, draw calls, materials, collision |
 | Animation | retarget, resample, root-motion extraction | skeleton match, duration, loop, foot sliding |

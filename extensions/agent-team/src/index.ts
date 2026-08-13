@@ -26,8 +26,9 @@ type Permission = "read" | "write";
 
 interface ContributorConfig {
   id: string;
-  adapter: "command" | "codex-app-server";
+  adapter: "command" | "codex-app-server" | "agent-driver";
   command?: string[];
+  driver?: string;
   provider?: string;
   model?: string;
   reasoningEffort?: ReasoningEffort;
@@ -212,6 +213,7 @@ const ARTIFACT_KINDS = new Set<ArtifactReference["kind"]>([
   "image", "video", "audio", "replay", "telemetry", "profile", "test-report", "log", "build", "crash-dump", "other"
 ]);
 const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+const agentDriverResolvers = new WeakMap<AgentRequest, (id: string) => AgentDriver>();
 
 async function emitAgentTrace(request: AgentRequest, event: FactoryTraceEventInput): Promise<void> {
   try {
@@ -421,7 +423,11 @@ async function effectivePromptManifest(input: {
     metrics: item.metrics
   })), null, 2);
   const context = JSON.stringify(input.contextReferences, null, 2);
-  const adapter = input.config.adapter === "codex-app-server" ? "codex.app-server" : "configured-command";
+  const adapter = input.config.adapter === "codex-app-server"
+    ? "codex.app-server"
+    : input.config.adapter === "agent-driver"
+      ? `agent:${input.config.driver ?? "unknown"}`
+      : "configured-command";
   return {
     version: 1,
     scope: "factory-supplied",
@@ -520,8 +526,15 @@ function contributor(value: unknown, defaultId: string, location: string, defaul
     throw new Error(`${location}.id must use only letters, numbers, dots, underscores, and hyphens`);
   }
   const adapter = record.adapter ?? "command";
-  if (adapter !== "command" && adapter !== "codex-app-server") throw new Error(`${location}.adapter must be command or codex-app-server`);
+  if (adapter !== "command" && adapter !== "codex-app-server" && adapter !== "agent-driver") {
+    throw new Error(`${location}.adapter must be command, codex-app-server, or agent-driver`);
+  }
   if (adapter === "command" && !isStringArray(record.command)) throw new Error(`${location}.command must be a non-empty string array`);
+  const driver = identityString(record.driver, `${location}.driver`);
+  if (adapter === "agent-driver" && (!driver || !ID_PATTERN.test(driver))) {
+    throw new Error(`${location}.driver must identify an agent capability when adapter is agent-driver`);
+  }
+  if (adapter !== "agent-driver" && driver !== undefined) throw new Error(`${location}.driver requires adapter agent-driver`);
   if (record.command !== undefined && !isStringArray(record.command)) throw new Error(`${location}.command must be a non-empty string array`);
   const provider = identityString(record.provider, `${location}.provider`) ?? defaults.provider;
   const model = identityString(record.model, `${location}.model`) ?? defaults.model;
@@ -538,7 +551,8 @@ function contributor(value: unknown, defaultId: string, location: string, defaul
     id,
     adapter,
     ...(isStringArray(record.command) ? { command: [...record.command] } : {}),
-    ...(provider ? { provider } : adapter === "codex-app-server" ? { provider: "openai-codex-app-server" } : {}),
+    ...(driver ? { driver } : {}),
+    ...(provider ? { provider } : adapter === "codex-app-server" ? { provider: "openai-codex-app-server" } : adapter === "agent-driver" ? { provider: "gamefactory-extension" } : {}),
     ...(model ? { model } : {}),
     ...(effort ? { reasoningEffort: effort } : {}),
     timeoutSeconds,
@@ -1038,7 +1052,9 @@ async function invokeContributor(
   const launcher = config.adapter === "codex-app-server" && config.command === undefined
     ? await defaultCodexLauncher()
     : config.command ?? [];
-  const command = config.adapter === "codex-app-server"
+  const command = config.adapter === "agent-driver"
+    ? [`agent:${config.driver ?? "unknown"}`]
+    : config.adapter === "codex-app-server"
     ? renderCommand(launcher, request, stage, config.id, options.nodeId, options.attempt)
     : renderCommand(config.command ?? [], request, stage, config.id, options.nodeId, options.attempt);
   const [executable, ...args] = command;
@@ -1119,7 +1135,51 @@ async function invokeContributor(
   const started = Date.now();
   const startedAt = new Date(started).toISOString();
   let result: ProcessResult;
-  if (config.adapter === "codex-app-server") {
+  let agentDriverArtifacts: ArtifactReference[] = [];
+  if (config.adapter === "agent-driver") {
+    try {
+      const resolver = agentDriverResolvers.get(request);
+      if (!resolver || !config.driver) throw new Error("agent-driver adapter is unavailable outside an activated AgentTeam extension");
+      if (config.driver === "agent.team") throw new Error("agent-driver nodes cannot recursively invoke agent.team");
+      const controller = new AbortController();
+      const relay = () => controller.abort(request.signal.reason);
+      request.signal.addEventListener("abort", relay, { once: true });
+      if (request.signal.aborted) relay();
+      const timer = setTimeout(() => controller.abort(new Error(`agent-driver ${config.driver} timed out`)), config.timeoutSeconds * 1000);
+      let delegated: AgentResult;
+      try {
+        delegated = await resolver(config.driver).run({ ...request, signal: controller.signal });
+      } finally {
+        clearTimeout(timer);
+        request.signal.removeEventListener("abort", relay);
+      }
+      agentDriverArtifacts = await Promise.all((delegated.artifacts ?? []).map((item, index) => normalizeArtifact(item, request.candidate.root, `agent-driver artifacts[${index}]`)));
+      const delegatedOutcome = typeof delegated.metadata?.outcome === "string" && OUTCOME_PATTERN.test(delegated.metadata.outcome)
+        ? delegated.metadata.outcome
+        : "complete";
+      result = {
+        code: 0,
+        stdout: JSON.stringify({
+          summary: delegated.summary,
+          outcome: delegatedOutcome,
+          artifacts: agentDriverArtifacts,
+          ...(delegated.usage ? { usage: delegated.usage } : {}),
+          context: {
+            driver: config.driver,
+            metadata: delegated.metadata ?? {},
+            contributors: delegated.contributors ?? []
+          }
+        }),
+        stderr: ""
+      };
+    } catch (error) {
+      const rawArtifacts = error && typeof error === "object" && Array.isArray((error as { artifacts?: unknown }).artifacts)
+        ? (error as { artifacts: unknown[] }).artifacts
+        : [];
+      agentDriverArtifacts = await Promise.all(rawArtifacts.map((item, index) => normalizeArtifact(item, request.candidate.root, `agent-driver failure artifacts[${index}]`)));
+      result = { code: 1, stdout: "", stderr: error instanceof Error ? error.stack ?? error.message : String(error) };
+    }
+  } else if (config.adapter === "codex-app-server") {
     const announcedProviderItems = new Set<string>();
     let providerTraceTail = Promise.resolve();
     try {
@@ -1274,7 +1334,7 @@ async function invokeContributor(
     ...(config.billingMode ? { billingMode: config.billingMode } : {}),
     ...(result.appServer ? { identitySource: "provider-reported" as const } : config.provider || config.model || config.reasoningEffort ? { identitySource: "configured" as const } : {})
   });
-  const declaredArtifacts = parsed?.artifacts ?? [];
+  const declaredArtifacts = parsed?.artifacts ?? agentDriverArtifacts;
   const artifacts: ArtifactReference[] = [
     { kind: "log", path: stdoutPath, mediaType: "text/plain", label: `${stage} ${config.id} stdout`, metadata: { stage, contributorId: config.id, nodeId: options.nodeId, attempt: options.attempt } },
     { kind: "log", path: stderrPath, mediaType: "text/plain", label: `${stage} ${config.id} stderr`, metadata: { stage, contributorId: config.id, nodeId: options.nodeId, attempt: options.attempt } },
@@ -1849,39 +1909,46 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
 export class AgentTeam implements AgentDriver {
   readonly id = "agent.team";
 
+  constructor(private readonly resolveAgent?: (id: string) => AgentDriver) {}
+
   async run(request: AgentRequest): Promise<AgentResult> {
     const nodeId = teamTraceNode(request);
     await emitAgentTrace(request, { type: "node:created", nodeId, experimentId: request.experimentId, parentNodeId: `experiment:${request.experimentId}`, label: "Agent team", role: "agent-team" });
     await emitAgentTrace(request, { type: "edge:created", nodeId: `edge:experiment:${request.experimentId}:${nodeId}`, experimentId: request.experimentId, sourceNodeId: `experiment:${request.experimentId}`, targetNodeId: nodeId, role: "agent" });
-    return serializeCandidate(request.candidate.root, async () => {
-      await emitAgentTrace(request, { type: "node:started", nodeId, experimentId: request.experimentId, label: "Agent team", role: "agent-team" });
-      try {
-        const config = readConfig(request);
-        const result = config.kind === "legacy" ? await runLegacy(config, request) : await runGraph(config, request);
-        for (const contributor of result.contributors ?? []) {
-          await emitAgentTrace(request, {
-            type: contributor.status === "failed" ? "node:failed" : contributor.status === "skipped" ? "node:skipped" : "node:completed",
-            nodeId: agentGraphTraceNode(request, contributor.agentId),
-            experimentId: request.experimentId,
-            label: contributor.agentId,
-            role: contributor.role,
-            status: contributor.status,
-            message: contributor.summary,
-            data: { ...(contributor.invocationId ? { invocationId: contributor.invocationId } : {}), ...(contributor.parentInvocationId ? { parentInvocationId: contributor.parentInvocationId } : {}), ...(contributor.usage ? { usage: { ...contributor.usage } } : {}) }
-          });
+    if (this.resolveAgent) agentDriverResolvers.set(request, this.resolveAgent);
+    try {
+      return await serializeCandidate(request.candidate.root, async () => {
+        await emitAgentTrace(request, { type: "node:started", nodeId, experimentId: request.experimentId, label: "Agent team", role: "agent-team" });
+        try {
+          const config = readConfig(request);
+          const result = config.kind === "legacy" ? await runLegacy(config, request) : await runGraph(config, request);
+          for (const contributor of result.contributors ?? []) {
+            await emitAgentTrace(request, {
+              type: contributor.status === "failed" ? "node:failed" : contributor.status === "skipped" ? "node:skipped" : "node:completed",
+              nodeId: agentGraphTraceNode(request, contributor.agentId),
+              experimentId: request.experimentId,
+              label: contributor.agentId,
+              role: contributor.role,
+              status: contributor.status,
+              message: contributor.summary,
+              data: { ...(contributor.invocationId ? { invocationId: contributor.invocationId } : {}), ...(contributor.parentInvocationId ? { parentInvocationId: contributor.parentInvocationId } : {}), ...(contributor.usage ? { usage: { ...contributor.usage } } : {}) }
+            });
+          }
+          await emitAgentTrace(request, { type: "node:completed", nodeId, experimentId: request.experimentId, label: "Agent team", role: "agent-team", status: "complete", message: result.summary, data: { contributors: result.contributors?.length ?? 0, artifacts: result.artifacts?.length ?? 0, ...(result.usage ? { usage: { ...result.usage } } : {}) } });
+          return result;
+        } catch (error) {
+          await emitAgentTrace(request, { type: "node:failed", nodeId, experimentId: request.experimentId, label: "Agent team", role: "agent-team", status: "failed", message: error instanceof Error ? error.message : String(error) });
+          throw error;
         }
-        await emitAgentTrace(request, { type: "node:completed", nodeId, experimentId: request.experimentId, label: "Agent team", role: "agent-team", status: "complete", message: result.summary, data: { contributors: result.contributors?.length ?? 0, artifacts: result.artifacts?.length ?? 0, ...(result.usage ? { usage: { ...result.usage } } : {}) } });
-        return result;
-      } catch (error) {
-        await emitAgentTrace(request, { type: "node:failed", nodeId, experimentId: request.experimentId, label: "Agent team", role: "agent-team", status: "failed", message: error instanceof Error ? error.message : String(error) });
-        throw error;
-      }
-    });
+      });
+    } finally {
+      agentDriverResolvers.delete(request);
+    }
   }
 }
 
 export default defineExtension((api) => {
-  const registration = api.register("agent", "agent.team", new AgentTeam());
+  const registration = api.register("agent", "agent.team", new AgentTeam((id) => api.get<AgentDriver>("agent", id)));
   return {
     async dispose() {
       await registration.dispose();

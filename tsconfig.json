@@ -16,6 +16,7 @@
     { "path": "./extensions/godot" },
     { "path": "./extensions/tournament" },
     { "path": "./extensions/asset-foundry" },
+    { "path": "./extensions/sam3" },
     { "path": "./extensions/design-intake" },
     { "path": "./extensions/design-lab" },
     { "path": "./extensions/discovery" },

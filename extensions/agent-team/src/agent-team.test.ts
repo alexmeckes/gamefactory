@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
-import type { Campaign, FactoryTraceEventInput } from "@gamefactory/core";
+import type { AgentDriver, Campaign, FactoryTraceEventInput } from "@gamefactory/core";
 import { AgentTeam, AgentTeamExecutionError } from "./index.js";
 
 const exec = promisify(execFile);
@@ -731,6 +731,51 @@ test("agent graph runs through the Codex App Server adapter and exposes native s
     assert.ok(events.some((event) => event.type === "node:started" && event.nodeId === providerNode && event.role === "subagent"));
     assert.ok(events.some((event) => event.type === "node:completed" && event.nodeId === providerNode));
     assert.ok(!events.some((event) => event.type === "node:progress" && event.message === "item/agentMessage/delta"));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("agent graph can invoke a lazily activated extension agent driver", async () => {
+  const root = await repository();
+  try {
+    const extensionDriver: AgentDriver = {
+      id: "fixture.extension",
+      async run(request) {
+        const output = resolve(request.candidate.root, "writer-a.txt");
+        await writeFile(output, "produced by extension\n", "utf8");
+        return {
+          summary: "extension produced a candidate artifact",
+          artifacts: [{ kind: "image", path: output, mediaType: "text/plain", label: "extension output" }],
+          metadata: { provider: "fixture", operation: "segment", outcome: "segmented" }
+        };
+      }
+    };
+    const team = new AgentTeam((id) => {
+      assert.equal(id, "fixture.extension");
+      return extensionDriver;
+    });
+    const result = await team.run({
+      campaign: graphCampaign(root, [{
+        id: "segment-art",
+        adapter: "agent-driver",
+        driver: "fixture.extension",
+        role: "worker",
+        permissions: "write"
+      }]),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-extension-driver",
+      history: [],
+      signal: new AbortController().signal
+    });
+    assert.equal(await readFile(resolve(root, "writer-a.txt"), "utf8"), "produced by extension\n");
+    assert.match(result.summary, /extension produced/);
+    const contribution = result.contributors?.[0];
+    assert.equal(contribution?.status, "complete");
+    assert.equal(contribution?.metadata?.outcome, "segmented");
+    assert.ok(contribution?.artifacts.some((item) => item.label === "extension output"));
+    const manifest = contribution?.metadata?.promptManifest as { adapter?: string };
+    assert.equal(manifest.adapter, "agent:fixture.extension");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

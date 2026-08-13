@@ -26,6 +26,7 @@ What is implemented:
 - multiple-choice game intake with explicit delegation to design agents;
 - engine-backed synthetic player cohorts across personas, scenarios, and seeds;
 - modality-neutral asset briefs, command-backed generation, versioned style packs, provenance manifests, and PNG gates;
+- optional SAM 3 concept segmentation that agents can invoke as a graph node to produce verified masks and transparent cutouts;
 - Godot 4 import gating, fixed-tick in-engine scenarios, telemetry, and capture;
 - an extension SDK, contract-test helpers, CLI, preset, and runnable examples.
 
@@ -115,6 +116,13 @@ sprites, validate their alpha, provenance, and pinned style pack, import only
 on-style survivors into Pulse Runner, capture actual gameplay, and accept
 exactly one production asset.
 
+For generated concept sheets that need to become editable production layers,
+activate `agent:sam3.segment` and use an `agent-driver` graph node. The optional
+SAM 3 extension validates candidate-local requests, invokes an isolated Python
+worker, and records every prompt, mask, cutout, confidence, checkpoint identity,
+post-processing setting, and content hash. It does not install or load the model
+for campaigns that do not request it. See [the SAM 3 extension guide](extensions/sam3/README.md).
+
 Run `npm run smoke:godot:discovery` to compare three divergent tuning
 prototypes across novice, optimizer, and survivor policies. The 36 real Godot
 playtests produce a recommendation and preserved evidence, but intentionally do
@@ -135,6 +143,7 @@ and [safety notes](docs/safety.md).
 - `packages/viewer` — read-only live dashboard and historical flight recorder.
 - `packages/cli` — `intake`, `run`, `doctor`, `list`, and `explain`.
 - `extensions/*` — workflows, agent orchestration, Git, Godot, and test adapters.
+- `extensions/sam3` — optional text-prompted segmentation and cutout worker.
 - `bridges/godot` — copyable in-engine addon.
 - `presets/godot-minimal` — the minimal serious Godot capability set.
 - `examples/*` — smoke and engine fixtures.
