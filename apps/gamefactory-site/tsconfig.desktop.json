@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "types": ["node", "electron"]
+  },
+  "include": [
+    "app/FactoryConsole.tsx",
+    "desktop/**/*.ts",
+    "desktop/**/*.tsx",
+    "lib/**/*.ts",
+    "vite.desktop-*.config.ts"
+  ],
+  "exclude": ["dist", "dist-desktop", "node_modules", "worker"]
+}

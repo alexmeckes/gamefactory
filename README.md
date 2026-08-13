@@ -48,6 +48,15 @@ npm run factory -- view campaign.json --config factory.config.json
 # open http://127.0.0.1:4317
 ```
 
+For a native local control room with no loopback bridge or browser permission,
+launch the Electron Observatory. It can open campaigns, follow the live agent
+graph, start or safely stop a run, and export portable replay bundles:
+
+```sh
+cd apps/gamefactory-site
+npm run desktop:knot
+```
+
 To use the private hosted Observatory instead, start its authenticated
 loopback bridge and paste the printed endpoint and one-time key into **Live
 bridge**:
@@ -56,7 +65,8 @@ bridge**:
 npm run factory -- bridge campaign.json --config factory.config.json
 ```
 
-The viewer is read-only. It tails the durable journal and result ledger, so it
+The browser viewer is read-only. The desktop Observatory can additionally
+start and safely stop runs while reusing the same runner and durable trace; it
 does not add a database, reporter extension, or engine-specific capture step to
 the factory loop. See [the viewer guide](docs/viewer.md).
 

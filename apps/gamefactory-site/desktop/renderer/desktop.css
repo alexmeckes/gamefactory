@@ -1,0 +1,20 @@
+:root {
+  --font-geist-sans: "Segoe UI Variable", "Segoe UI", sans-serif;
+  --font-geist-mono: "Cascadia Code", "Cascadia Mono", Consolas, monospace;
+}
+
+body { user-select: none; }
+input, pre, code { user-select: text; }
+.masthead { -webkit-app-region: drag; }
+.masthead button, .masthead a, .masthead input { -webkit-app-region: no-drag; }
+.desktop-panel { grid-template-columns: minmax(280px, 1fr) auto; }
+.desktop-panel .bridge-copy p { overflow-wrap: anywhere; }
+.desktop-panel .bridge-actions { justify-content: flex-end; align-items: center; }
+.desktop-panel .desktop-status { max-width: 430px; color: var(--muted); font: 9px/1.45 var(--font-geist-mono), monospace; text-align: right; }
+.connection-desktop i { background: var(--blue); box-shadow: 0 0 14px rgba(122,167,255,.45); }
+
+@media (max-width: 1040px) {
+  .desktop-panel { grid-template-columns: 1fr; }
+  .desktop-panel .bridge-actions { justify-content: flex-start; }
+  .desktop-panel .desktop-status { max-width: none; text-align: left; }
+}

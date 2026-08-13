@@ -1,4 +1,4 @@
-# Factory viewer
+# Factory viewer and desktop Observatory
 
 The viewer is a read-only flight recorder for a campaign. It uses the same two
 durable control files the factory already writes, plus a best-effort execution
@@ -12,11 +12,40 @@ trace:
   skipped work, and artifact counts.
 
 That makes live observation and after-the-fact replay the same feature. During a
-run, the viewer polls file metadata and pushes a new snapshot to connected
-browsers only when the trace changes. After a run, the replay cursor can move
-through the exact same sequence without a running factory process.
+run, the viewer polls file metadata and pushes a new snapshot only when the
+trace changes. After a run, the replay cursor can move through the exact same
+sequence without a running factory process.
 
-## Start it
+## Desktop Observatory (recommended locally)
+
+The Electron shell is the local control room. It reads the trace directly,
+avoids browser local-network and CORS policy entirely, and can start or safely
+stop a campaign through the existing `FactoryRunner`. The renderer remains a
+sandboxed, unprivileged client behind a typed preload boundary.
+
+```sh
+cd apps/gamefactory-site
+npm run desktop:start
+```
+
+Choose any `campaign.json` with **Open campaign**. If
+`factory.config.json` is beside it, the app discovers it automatically. The app
+finds the enclosing Git root, watches that factory's history, and persists only
+the chosen campaign and config paths for the next launch.
+
+For the included Knot Theory project:
+
+```sh
+npm run desktop:knot
+```
+
+`Run factory` uses the same core, extensions, leases, journals, worktrees, and
+recovery rules as the CLI; the Observatory does not implement an alternate
+orchestrator. `Stop safely` aborts through the runner and waits for its cleanup
+boundary. **Export replay** produces the same portable JSON understood by the
+hosted Site.
+
+## Local browser viewer (fallback)
 
 Run this from the project directory used as the factory runner's working
 directory:
@@ -35,7 +64,7 @@ The default address is `http://127.0.0.1:4317`. Use `--port 0` to select an
 available port, or set an explicit port with `--port`. The server binds only to
 the loopback interface unless `--host` is deliberately changed.
 
-## Connect the hosted Observatory
+## Connect the hosted Observatory (optional fallback)
 
 Use bridge mode when you want the private hosted Observatory to display the
 trace from this computer:

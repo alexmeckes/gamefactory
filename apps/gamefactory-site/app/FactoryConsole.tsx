@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import type { DesktopState } from "@/desktop/contracts";
 import { demoSnapshot } from "@/lib/demo";
 import type { BillingMode, EffectivePromptManifest, FactorySnapshot, GraphEdge, GraphNode, ReplayBundle, Usage } from "@/lib/types";
 
@@ -14,9 +15,9 @@ const DEFAULT_BRIDGE_ENDPOINT = "http://127.0.0.1:4317";
 const BRIDGE_SESSION_KEY = "gamefactory.observatory.bridge";
 const columnLabels = ["Run", "Extensions", "Creative inputs", "Candidate", "Workspace", "Team", "Agents", "Evaluation", "Decision", "Result"];
 
-type SourceMode = "live" | "replay" | "demo";
+type SourceMode = "desktop" | "live" | "replay" | "demo";
 type GraphFilter = "extension" | "resource" | "agent" | "evaluator" | "decision";
-type LocalNetworkRequestInit = RequestInit & { targetAddressSpace: "local" };
+type LocalNetworkRequestInit = RequestInit & { targetAddressSpace: "loopback" };
 
 function normalizeBridgeEndpoint(value: string) {
   const url = new URL(value);
@@ -124,13 +125,17 @@ function readBundle(value: unknown): FactorySnapshot | undefined {
   return undefined;
 }
 
-function downloadReplay(snapshot: FactorySnapshot) {
-  const bundle: ReplayBundle = {
+function replayBundle(snapshot: FactorySnapshot): ReplayBundle {
+  return {
     format: "gamefactory-viewer-bundle",
     version: 1,
     exportedAt: new Date().toISOString(),
     snapshot: { ...snapshot, live: false },
   };
+}
+
+function downloadReplay(snapshot: FactorySnapshot) {
+  const bundle = replayBundle(snapshot);
   const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -312,13 +317,14 @@ function NodeInspector({ node, snapshot, cursor }: { node: GraphNode; snapshot: 
   );
 }
 
-export default function FactoryConsole() {
+export default function FactoryConsole({ desktop = false }: { desktop?: boolean }) {
   const [snapshot, setSnapshot] = useState<FactorySnapshot>(demoSnapshot);
   const [source, setSource] = useState<SourceMode>("demo");
   const [connection, setConnection] = useState("bridge not paired");
   const [bridgeEndpoint, setBridgeEndpoint] = useState(DEFAULT_BRIDGE_ENDPOINT);
   const [bridgeKey, setBridgeKey] = useState("");
   const [bridgePanel, setBridgePanel] = useState(false);
+  const [desktopState, setDesktopState] = useState<DesktopState>({ status: "idle", running: false, message: "Opening local factory" });
   const [cursor, setCursor] = useState(demoSnapshot.sequence);
   const [following, setFollowing] = useState(true);
   const [playing, setPlaying] = useState(false);
@@ -326,8 +332,9 @@ export default function FactoryConsole() {
   const [dropActive, setDropActive] = useState(false);
   const [graphFilters, setGraphFilters] = useState<Record<GraphFilter, boolean>>({ extension: true, resource: true, agent: true, evaluator: true, decision: true });
   const fileInput = useRef<HTMLInputElement>(null);
-  const pollRef = useRef<number>();
-  const requestRef = useRef<AbortController>();
+  const pollRef = useRef<number | undefined>(undefined);
+  const requestRef = useRef<AbortController | undefined>(undefined);
+  const desktopFollowingRef = useRef(desktop);
   const selectedNode = snapshot.graph.nodes.find((node) => node.id === selectedId);
   const visibleEvents = snapshot.events.filter((event) => event.sequence <= cursor).slice(-10);
 
@@ -335,7 +342,7 @@ export default function FactoryConsole() {
     setSnapshot(next);
     setSource(nextSource);
     setCursor((current) => (following || current > next.sequence ? next.sequence : current));
-    if (nextSource !== "live") stopBridgePolling();
+    if (nextSource !== "live" && nextSource !== "desktop") stopBridgePolling();
   }
 
   function stopBridgePolling() {
@@ -378,9 +385,8 @@ export default function FactoryConsole() {
           mode: "cors",
           referrerPolicy: "no-referrer",
           signal: controller.signal,
-          // Chrome uses this hint to identify the HTTP destination as local before
-          // DNS/connect time, then asks the user for Local Network Access permission.
-          targetAddressSpace: "local",
+          // 127.0.0.1 is classified separately from LAN addresses by current Chromium.
+          targetAddressSpace: "loopback",
         };
         const response = await fetch(url, init);
         if (response.status === 401) throw new Error("bridge key rejected");
@@ -427,6 +433,7 @@ export default function FactoryConsole() {
       const replay = readBundle(JSON.parse(await file.text()) as unknown);
       if (!replay) throw new Error("invalid replay");
       applySnapshot({ ...replay, live: false }, "replay");
+      desktopFollowingRef.current = false;
       setFollowing(false);
       setConnection(`loaded ${file.name} locally`);
       setSelectedId(undefined);
@@ -434,6 +441,29 @@ export default function FactoryConsole() {
   }
 
   useEffect(() => {
+    if (desktop) {
+      const api = window.gamefactoryDesktop;
+      if (!api) return;
+      let active = true;
+      const receiveState = (state: DesktopState) => {
+        if (!active) return;
+        setDesktopState(state);
+        setConnection(state.message);
+      };
+      const receiveSnapshot = (value: FactorySnapshot) => {
+        if (!active || !desktopFollowingRef.current) return;
+        applySnapshot(value, "desktop");
+      };
+      const removeState = api.onState(receiveState);
+      const removeSnapshot = api.onSnapshot(receiveSnapshot);
+      void api.getState().then(receiveState).catch((error: unknown) => setConnection(error instanceof Error ? error.message : String(error)));
+      void api.getSnapshot().then((value) => { if (value) receiveSnapshot(value); }).catch((error: unknown) => setConnection(error instanceof Error ? error.message : String(error)));
+      return () => {
+        active = false;
+        removeState();
+        removeSnapshot();
+      };
+    }
     let startTimer: number | undefined;
     const saved = window.sessionStorage.getItem(BRIDGE_SESSION_KEY);
     if (saved) {
@@ -451,7 +481,7 @@ export default function FactoryConsole() {
       stopBridgePolling();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [desktop]);
 
   useEffect(() => {
     if (!playing) return;
@@ -463,10 +493,59 @@ export default function FactoryConsole() {
   }, [playing, snapshot.sequence]);
 
   function selectDemo() {
+    desktopFollowingRef.current = false;
     applySnapshot(demoSnapshot, "demo");
     setFollowing(false);
     setConnection("showing the built-in example replay");
     setSelectedId(undefined);
+  }
+
+  async function selectDesktop() {
+    const api = window.gamefactoryDesktop;
+    if (!api) return;
+    desktopFollowingRef.current = true;
+    const value = await api.getSnapshot();
+    if (value) applySnapshot(value, "desktop");
+    setConnection(api ? desktopState.message : "desktop preload unavailable");
+  }
+
+  async function chooseDesktopCampaign() {
+    try {
+      desktopFollowingRef.current = true;
+      const state = await window.gamefactoryDesktop!.chooseCampaign();
+      setDesktopState(state);
+      setConnection(state.message);
+      const value = await window.gamefactoryDesktop!.getSnapshot();
+      if (value) applySnapshot(value, "desktop");
+    } catch (error) {
+      setConnection(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  async function toggleDesktopRun() {
+    try {
+      const state = desktopState.running
+        ? await window.gamefactoryDesktop!.stopRun()
+        : await window.gamefactoryDesktop!.startRun();
+      desktopFollowingRef.current = true;
+      setDesktopState(state);
+      setConnection(state.message);
+    } catch (error) {
+      setConnection(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  async function exportReplay() {
+    if (!desktop) {
+      downloadReplay(snapshot);
+      return;
+    }
+    try {
+      const result = await window.gamefactoryDesktop!.exportReplay(replayBundle(snapshot));
+      if (result.saved) setConnection(`saved replay to ${result.path}`);
+    } catch (error) {
+      setConnection(error instanceof Error ? error.message : String(error));
+    }
   }
 
   function forgetBridge() {
@@ -482,14 +561,21 @@ export default function FactoryConsole() {
       <header className="masthead">
         <a className="brand" href="#top" aria-label="GameFactory observatory home"><span className="brand-mark"><i /><i /><i /></span><span><strong>GameFactory</strong><small>Observatory</small></span></a>
         <div className="source-switcher" aria-label="Data source">
-          <button className={source === "live" ? "active" : ""} onClick={() => bridgeKey ? void connectLive() : setBridgePanel(true)} type="button">Live bridge</button>
+          {desktop
+            ? <button className={source === "desktop" ? "active" : ""} onClick={() => void selectDesktop()} type="button">Local factory</button>
+            : <button className={source === "live" ? "active" : ""} onClick={() => bridgeKey ? void connectLive() : setBridgePanel(true)} type="button">Live bridge</button>}
           <button className={source === "demo" ? "active" : ""} onClick={selectDemo} type="button">Example replay</button>
           <button className={source === "replay" ? "active" : ""} onClick={() => fileInput.current?.click()} type="button">Open replay</button>
         </div>
-        <div className={`connection connection-${source}`}><i aria-hidden="true" /><span>{connection}</span></div>
+        <div className={`connection connection-${snapshot.live ? "live" : source}`}><i aria-hidden="true" /><span>{connection}</span></div>
       </header>
 
-      {bridgePanel ? (
+      {desktop ? (
+        <section className="bridge-panel desktop-panel" aria-label="Desktop factory controls">
+          <div className="bridge-copy"><span className="section-kicker">Local control room</span><h2>{desktopState.selection?.campaignId ?? "Choose a factory campaign."}</h2><p>{desktopState.selection ? desktopState.selection.campaignPath : "Open a campaign.json file. Observatory will locate its factory configuration and durable trace without starting a network bridge."}</p></div>
+          <div className="bridge-actions"><span className="desktop-status">{desktopState.message}</span><button onClick={() => void chooseDesktopCampaign()} type="button">Open campaign</button><button className="secondary" disabled={!desktopState.selection} onClick={() => void toggleDesktopRun()} type="button">{desktopState.running ? "Stop safely" : "Run factory"}</button></div>
+        </section>
+      ) : bridgePanel ? (
         <section className="bridge-panel" aria-label="Connect local GameFactory bridge">
           <div className="bridge-copy"><span className="section-kicker">Private loopback bridge</span><h2>Pair this browser with the factory on your computer.</h2><p>Run <code>gamefactory bridge</code> locally, then paste the endpoint and one-time key it prints. Chrome will ask once for local-network access; choose <strong>Allow</strong>. The listener stays on your device and the key disappears when that command stops.</p></div>
           <form onSubmit={submitBridge}>
@@ -501,7 +587,7 @@ export default function FactoryConsole() {
       ) : null}
 
       <section className="hero" id="top">
-        <div><p className="eyebrow">{snapshot.live ? "Live orchestration trace" : source === "demo" ? "Interactive example trace" : "Recorded orchestration trace"}</p><h1>{snapshot.campaign.id}</h1><p className="objective">{snapshot.campaign.objective}</p></div>
+        <div><p className="eyebrow">{snapshot.live ? "Live orchestration trace" : source === "demo" ? "Interactive example trace" : source === "desktop" ? "Local factory history" : "Recorded orchestration trace"}</p><h1>{snapshot.campaign.id}</h1><p className="objective">{snapshot.campaign.objective}</p></div>
         <div className="run-ident"><span>workflow / {snapshot.campaign.workflow}</span><span>run / {snapshot.runId}</span><span>sequence / {cursor} of {snapshot.sequence}</span>{source === "demo" ? <span>telemetry / example · models intentionally unreported</span> : null}</div>
       </section>
 
@@ -525,12 +611,12 @@ export default function FactoryConsole() {
           <div className="ledger-table">{visibleEvents.map((event) => <button key={`${event.sequence}-${event.experimentId}-${event.phase}`} onClick={() => { const node = event.nodeId ? snapshot.graph.nodes.find((item) => item.id === event.nodeId) : snapshot.graph.nodes.find((item) => item.experimentId === event.experimentId); if (node) setSelectedId(node.id); }} type="button"><span>#{event.sequence}</span><strong>{event.phase}</strong><code>{event.experimentId}</code><small>{event.note}</small></button>)}</div>
         </div>
         <div className={`replay-drop panel-block${dropActive ? " drop-active" : ""}`} onDragEnter={(event) => { event.preventDefault(); setDropActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDropActive(false)} onDrop={(event) => { event.preventDefault(); setDropActive(false); void importReplay(event.dataTransfer.files[0]); }}>
-          <span className="section-kicker">Portable replay</span><h2>Take the factory trace with you.</h2><p>Replay files are parsed in your browser. Nothing is uploaded, and opening one never touches the running factory.</p>
-          <div className="drop-actions"><button onClick={() => fileInput.current?.click()} type="button">Choose replay</button><button className="secondary" onClick={() => downloadReplay(snapshot)} type="button">Download this run</button></div>
+          <span className="section-kicker">Portable replay</span><h2>Take the factory trace with you.</h2><p>Replay files are parsed {desktop ? "inside the desktop app" : "in your browser"}. Nothing is uploaded, and opening one never touches the running factory.</p>
+          <div className="drop-actions"><button onClick={() => fileInput.current?.click()} type="button">Choose replay</button><button className="secondary" onClick={() => void exportReplay()} type="button">{desktop ? "Export this run" : "Download this run"}</button></div>
           <input ref={fileInput} hidden accept="application/json,.json" onChange={(event) => void importReplay(event.target.files?.[0])} type="file" />
         </div>
       </section>
-      <footer><span>Execution stays beside Godot, Git, and your files.</span><span>The observatory receives only the trace and explicitly preserved artifacts.</span></footer>
+      <footer><span>Execution stays beside Godot, Git, and your files.</span><span>{desktop ? "The sandboxed renderer receives typed trace snapshots over local IPC." : "The observatory receives only the trace and explicitly preserved artifacts."}</span></footer>
     </main>
   );
 }
