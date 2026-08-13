@@ -22,18 +22,29 @@ def doctor() -> int:
     try:
         import torch
         import PIL
-        import sam3
+        backend = os.environ.get("GAMEFACTORY_SAM3_BACKEND", "auto")
+        resolved_backend = "transformers" if backend == "auto" and sys.platform == "win32" else ("meta" if backend == "auto" else backend)
 
         report.update(
             {
                 "torch": torch.__version__,
                 "pillow": PIL.__version__,
-                "sam3": importlib.metadata.version("sam3"),
                 "cudaAvailable": bool(torch.cuda.is_available()),
                 "cudaVersion": torch.version.cuda,
-                "sam3Module": str(Path(sam3.__file__).resolve()),
+                "backend": resolved_backend,
             }
         )
+        if resolved_backend == "transformers":
+            import transformers
+
+            report["transformers"] = transformers.__version__
+            if not hasattr(transformers, "Sam3Model"):
+                raise RuntimeError("Installed Transformers build does not provide Sam3Model")
+        else:
+            import sam3
+
+            report["sam3"] = importlib.metadata.version("sam3")
+            report["sam3Module"] = str(Path(sam3.__file__).resolve())
         requested_device = os.environ.get("GAMEFACTORY_SAM3_DEVICE", "cuda")
         report["requestedDevice"] = requested_device
         report["ok"] = requested_device == "cpu" or bool(torch.cuda.is_available())
@@ -86,23 +97,14 @@ def safe_stem(value: str) -> str:
     return "".join(character if character.isalnum() or character in "-_" else "-" for character in value)
 
 
-def process_job(model: Any, processor_type: Any, job: dict[str, Any], device: str, precision: str) -> dict[str, Any]:
+def process_job(infer: Any, job: dict[str, Any]) -> dict[str, Any]:
     import numpy as np
-    import torch
     from PIL import Image, ImageFilter
 
     image = Image.open(job["sourcePath"]).convert("RGBA")
-    processor = processor_type(model, confidence_threshold=float(job["threshold"]))
-    dtype = {
-        "float16": torch.float16,
-        "bfloat16": torch.bfloat16,
-    }.get(precision)
-    autocast = torch.autocast(device_type="cuda", dtype=dtype) if device.startswith("cuda") and dtype else __import__("contextlib").nullcontext()
-    with torch.inference_mode(), autocast:
-        state = processor.set_image(image.convert("RGB"))
-        inference = processor.set_text_prompt(state=state, prompt=job["prompt"])
-    raw_masks = tensor_items(inference.get("masks", []))
-    scores = scalar_items(inference.get("scores"), len(raw_masks))
+    raw_masks, raw_scores = infer(image.convert("RGB"), job)
+    raw_masks = tensor_items(raw_masks)
+    scores = scalar_items(raw_scores, len(raw_masks))
     ranked = sorted(zip(raw_masks, scores), key=lambda item: item[1], reverse=True)
     ranked = [item for item in ranked if item[1] >= float(job["threshold"])][: int(job["maxInstances"])]
     output_directory = Path(job["outputDirectory"])
@@ -157,26 +159,82 @@ def run() -> int:
     if not request_path or not result_path:
         raise RuntimeError("GAMEFACTORY_SAM3_REQUEST and GAMEFACTORY_SAM3_RESULT are required")
     request = json.loads(Path(request_path).read_text(encoding="utf-8"))
-    from sam3.model_builder import build_sam3_image_model
-    from sam3.model.sam3_image_processor import Sam3Processor
-
     checkpoint = request.get("checkpointPath")
     device = request.get("device", "cuda")
     precision = request.get("precision", "bfloat16" if str(device).startswith("cuda") else "float32")
+    requested_backend = request.get("backend", "auto")
+    backend = "transformers" if requested_backend == "auto" and sys.platform == "win32" else ("meta" if requested_backend == "auto" else requested_backend)
     if precision not in {"float32", "float16", "bfloat16"}:
         raise ValueError("precision must be float32, float16, or bfloat16")
     if not str(device).startswith("cuda") and precision != "float32":
         raise ValueError("CPU inference requires float32 precision")
-    model = build_sam3_image_model(
-        device=device,
-        checkpoint_path=checkpoint,
-        load_from_HF=checkpoint is None,
-    )
-    jobs = [process_job(model, Sam3Processor, job, str(device), precision) for job in request["jobs"]]
+    import torch
+
+    dtype = {
+        "float16": torch.float16,
+        "bfloat16": torch.bfloat16,
+    }.get(precision, torch.float32)
+    if backend == "transformers":
+        from transformers import Sam3Model, Sam3Processor
+
+        model_source = request.get("modelSource", "facebook/sam3")
+        if checkpoint:
+            checkpoint_source = Path(checkpoint)
+            if not checkpoint_source.is_dir():
+                raise ValueError("The Transformers backend requires checkpointPath to be a from_pretrained directory; omit it to use modelSource")
+            model_source = str(checkpoint_source)
+        model = Sam3Model.from_pretrained(
+            model_source,
+            dtype=dtype,
+            device_map={"": str(device)},
+            low_cpu_mem_usage=True,
+        ).eval()
+        processor = Sam3Processor.from_pretrained(model_source)
+
+        def infer(image: Any, job: dict[str, Any]):
+            inputs = processor(images=image, text=job["prompt"], return_tensors="pt").to(model.device)
+            autocast = torch.autocast(device_type="cuda", dtype=dtype) if str(device).startswith("cuda") and dtype != torch.float32 else __import__("contextlib").nullcontext()
+            with torch.inference_mode(), autocast:
+                outputs = model(**inputs)
+            result = processor.post_process_instance_segmentation(
+                outputs,
+                threshold=float(job["threshold"]),
+                mask_threshold=0.5,
+                target_sizes=inputs.get("original_sizes").tolist(),
+            )[0]
+            return result.get("masks", []), result.get("scores")
+
+        provider = "huggingface-transformers"
+        checkpoint_label = str(model_source)
+    elif backend == "meta":
+        from sam3.model_builder import build_sam3_image_model
+        from sam3.model.sam3_image_processor import Sam3Processor
+
+        model = build_sam3_image_model(
+            device=device,
+            checkpoint_path=checkpoint,
+            load_from_HF=checkpoint is None,
+        )
+        processor = Sam3Processor(model)
+
+        def infer(image: Any, job: dict[str, Any]):
+            processor.confidence_threshold = float(job["threshold"])
+            autocast = torch.autocast(device_type="cuda", dtype=dtype) if str(device).startswith("cuda") and dtype != torch.float32 else __import__("contextlib").nullcontext()
+            with torch.inference_mode(), autocast:
+                state = processor.set_image(image)
+                inference = processor.set_text_prompt(state=state, prompt=job["prompt"])
+            return inference.get("masks", []), inference.get("scores")
+
+        provider = "meta"
+        checkpoint_label = Path(checkpoint).name if checkpoint else "huggingface-gated"
+    else:
+        raise ValueError("backend must be auto, meta, or transformers")
+    jobs = [process_job(infer, job) for job in request["jobs"]]
     result = {
-        "provider": "meta",
+        "provider": provider,
         "model": request.get("model", "sam3"),
-        "checkpoint": Path(checkpoint).name if checkpoint else "huggingface-gated",
+        "checkpoint": checkpoint_label,
+        "backend": backend,
         "precision": precision,
         "jobs": jobs,
     }

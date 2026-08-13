@@ -25,6 +25,8 @@ interface Sam3Config {
   command: string[];
   doctorCommand: string[];
   model: string;
+  modelSource: string;
+  backend: "auto" | "meta" | "transformers";
   device: string;
   precision: "float32" | "float16" | "bfloat16";
   checkpointPath?: string;
@@ -120,6 +122,14 @@ function precision(value: unknown, device: string): Sam3Config["precision"] {
   return result;
 }
 
+function backend(value: unknown): Sam3Config["backend"] {
+  const result = value ?? "auto";
+  if (result !== "auto" && result !== "meta" && result !== "transformers") {
+    throw new Error("parameters.sam3.backend must be auto, meta, or transformers");
+  }
+  return result;
+}
+
 function config(campaign: AgentRequest["campaign"]): Sam3Config {
   const raw = campaign.parameters?.sam3;
   const value = raw === undefined ? {} : object(raw, "parameters.sam3");
@@ -137,6 +147,8 @@ function config(campaign: AgentRequest["campaign"]): Sam3Config {
     command: baseCommand,
     doctorCommand: command(value.doctorCommand, [...baseCommand, "--doctor"], "parameters.sam3.doctorCommand"),
     model: string(value.model ?? "sam3", "parameters.sam3.model", 256),
+    modelSource: string(value.modelSource ?? "facebook/sam3", "parameters.sam3.modelSource", 512),
+    backend: backend(value.backend),
     device,
     precision: precision(value.precision, device),
     ...(typeof value.checkpointPath === "string" && value.checkpointPath.length > 0 ? { checkpointPath: value.checkpointPath } : {}),
@@ -380,6 +392,8 @@ export class Sam3SegmentAgent implements AgentDriver {
       experimentId: request.experimentId,
       candidateId: request.candidate.id,
       model: settings.model,
+      modelSource: settings.modelSource,
+      backend: settings.backend,
       device: settings.device,
       precision: settings.precision,
       ...(settings.checkpointPath ? { checkpointPath: settings.checkpointPath } : {}),
@@ -393,7 +407,7 @@ export class Sam3SegmentAgent implements AgentDriver {
       artifact(stderrPath, "log", "SAM 3 stderr", "text/plain")
     ];
     const traceNode = `agent:${request.experimentId}:sam3.segment`;
-    await emit(request, { type: "node:created", nodeId: traceNode, experimentId: request.experimentId, parentNodeId: `experiment:${request.experimentId}`, label: "SAM 3 segmentation", role: "asset-processor", data: { model: settings.model, precision: settings.precision, jobs: preparedJobs.length } });
+    await emit(request, { type: "node:created", nodeId: traceNode, experimentId: request.experimentId, parentNodeId: `experiment:${request.experimentId}`, label: "SAM 3 segmentation", role: "asset-processor", data: { model: settings.model, modelSource: settings.modelSource, backend: settings.backend, precision: settings.precision, jobs: preparedJobs.length } });
     await emit(request, { type: "node:started", nodeId: traceNode, experimentId: request.experimentId, label: "SAM 3 segmentation", role: "asset-processor" });
     const startedAt = new Date().toISOString();
     const renderedCommand = renderCommand(settings.command);
@@ -477,7 +491,7 @@ export class Sam3Runtime implements EngineDriver {
     try {
       const settings = config(context.campaign);
       const rendered = renderCommand(settings.doctorCommand);
-      const result = await execute(rendered, context.projectRoot, context.signal, Math.min(settings.timeoutSeconds, 60), settings.maxOutputCharacters, childEnvironment(settings.environmentAllowlist, { GAMEFACTORY_SAM3_DEVICE: settings.device }));
+      const result = await execute(rendered, context.projectRoot, context.signal, Math.min(settings.timeoutSeconds, 60), settings.maxOutputCharacters, childEnvironment(settings.environmentAllowlist, { GAMEFACTORY_SAM3_DEVICE: settings.device, GAMEFACTORY_SAM3_BACKEND: settings.backend }));
       const message = result.stdout.trim().split(/\r?\n/).filter(Boolean).at(-1) ?? (result.stderr.trim() || `exit ${String(result.code)}`);
       return { ok: result.code === 0 && !result.failure, checks: [{ name: "python-worker", ok: result.code === 0 && !result.failure, message }] };
     } catch (error) {
