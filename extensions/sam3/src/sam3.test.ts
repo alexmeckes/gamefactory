@@ -100,6 +100,8 @@ test("SAM 3 extension produces verified, hashed mask and cutout artifacts", asyn
     assert.ok(events.some((event) => event.type === "node:completed" && event.role === "asset-processor"));
     const resultFile = JSON.parse(await readFile(resolve(root, ".factory", "sam3", "exp-sam3", "result.json"), "utf8")) as { jobs: unknown[] };
     assert.equal(resultFile.jobs.length, 1);
+    const providerRequest = JSON.parse(await readFile(resolve(root, ".factory", "sam3", "exp-sam3", "request.json"), "utf8")) as { precision?: string };
+    assert.equal(providerRequest.precision, "bfloat16");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

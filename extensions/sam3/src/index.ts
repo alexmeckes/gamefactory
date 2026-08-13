@@ -26,6 +26,7 @@ interface Sam3Config {
   doctorCommand: string[];
   model: string;
   device: string;
+  precision: "float32" | "float16" | "bfloat16";
   checkpointPath?: string;
   timeoutSeconds: number;
   maxOutputCharacters: number;
@@ -111,12 +112,21 @@ function command(value: unknown, fallback: string[], label: string): string[] {
   return [...value];
 }
 
+function precision(value: unknown, device: string): Sam3Config["precision"] {
+  const result = value ?? (device.startsWith("cuda") ? "bfloat16" : "float32");
+  if (result !== "float32" && result !== "float16" && result !== "bfloat16") {
+    throw new Error("parameters.sam3.precision must be float32, float16, or bfloat16");
+  }
+  return result;
+}
+
 function config(campaign: AgentRequest["campaign"]): Sam3Config {
   const raw = campaign.parameters?.sam3;
   const value = raw === undefined ? {} : object(raw, "parameters.sam3");
   const baseCommand = command(value.command, ["python", "{worker}"], "parameters.sam3.command");
+  const device = string(value.device ?? "cuda", "parameters.sam3.device", 64);
   const environmentAllowlist = value.environmentAllowlist === undefined
-    ? ["HF_TOKEN", "HF_HOME", "CUDA_VISIBLE_DEVICES"]
+    ? ["HF_TOKEN", "HF_HOME", "CUDA_DEVICE_ORDER", "CUDA_VISIBLE_DEVICES"]
     : Array.isArray(value.environmentAllowlist)
       && value.environmentAllowlist.length <= 32
       && value.environmentAllowlist.every((item) => typeof item === "string" && /^[A-Za-z_][A-Za-z0-9_]*$/.test(item))
@@ -127,7 +137,8 @@ function config(campaign: AgentRequest["campaign"]): Sam3Config {
     command: baseCommand,
     doctorCommand: command(value.doctorCommand, [...baseCommand, "--doctor"], "parameters.sam3.doctorCommand"),
     model: string(value.model ?? "sam3", "parameters.sam3.model", 256),
-    device: string(value.device ?? "cuda", "parameters.sam3.device", 64),
+    device,
+    precision: precision(value.precision, device),
     ...(typeof value.checkpointPath === "string" && value.checkpointPath.length > 0 ? { checkpointPath: value.checkpointPath } : {}),
     timeoutSeconds: integer(value.timeoutSeconds, 900, 1, 86_400, "parameters.sam3.timeoutSeconds"),
     maxOutputCharacters: integer(value.maxOutputCharacters, 30_000, 1_000, 10_000_000, "parameters.sam3.maxOutputCharacters"),
@@ -370,6 +381,7 @@ export class Sam3SegmentAgent implements AgentDriver {
       candidateId: request.candidate.id,
       model: settings.model,
       device: settings.device,
+      precision: settings.precision,
       ...(settings.checkpointPath ? { checkpointPath: settings.checkpointPath } : {}),
       jobs: preparedJobs
     };
@@ -381,7 +393,7 @@ export class Sam3SegmentAgent implements AgentDriver {
       artifact(stderrPath, "log", "SAM 3 stderr", "text/plain")
     ];
     const traceNode = `agent:${request.experimentId}:sam3.segment`;
-    await emit(request, { type: "node:created", nodeId: traceNode, experimentId: request.experimentId, parentNodeId: `experiment:${request.experimentId}`, label: "SAM 3 segmentation", role: "asset-processor", data: { model: settings.model, jobs: preparedJobs.length } });
+    await emit(request, { type: "node:created", nodeId: traceNode, experimentId: request.experimentId, parentNodeId: `experiment:${request.experimentId}`, label: "SAM 3 segmentation", role: "asset-processor", data: { model: settings.model, precision: settings.precision, jobs: preparedJobs.length } });
     await emit(request, { type: "node:started", nodeId: traceNode, experimentId: request.experimentId, label: "SAM 3 segmentation", role: "asset-processor" });
     const startedAt = new Date().toISOString();
     const renderedCommand = renderCommand(settings.command);
@@ -400,13 +412,13 @@ export class Sam3SegmentAgent implements AgentDriver {
     if (processResult.code !== 0 || processResult.failure) {
       const detail = processResult.failure ?? `exit-${String(processResult.code)}`;
       await emit(request, { type: "node:failed", nodeId: traceNode, experimentId: request.experimentId, label: "SAM 3 segmentation", role: "asset-processor", status: "failed", message: detail });
-      throw new Sam3ExecutionError(`SAM 3 segmentation failed (${detail}): ${processResult.stderr.trim()}`, baseArtifacts, { command: renderedCommand, failure: detail, model: settings.model });
+      throw new Sam3ExecutionError(`SAM 3 segmentation failed (${detail}): ${processResult.stderr.trim()}`, baseArtifacts, { command: renderedCommand, failure: detail, model: settings.model, precision: settings.precision });
     }
     let provider: ProviderResult;
     try {
       provider = parseProviderResult(JSON.parse(await readFile(resultPath, "utf8")) as unknown);
     } catch (error) {
-      throw new Sam3ExecutionError(`SAM 3 provider did not return a valid result: ${error instanceof Error ? error.message : String(error)}`, [...baseArtifacts, artifact(resultPath, "other", "Invalid SAM 3 result", "application/json")], { command: renderedCommand, model: settings.model });
+      throw new Sam3ExecutionError(`SAM 3 provider did not return a valid result: ${error instanceof Error ? error.message : String(error)}`, [...baseArtifacts, artifact(resultPath, "other", "Invalid SAM 3 result", "application/json")], { command: renderedCommand, model: settings.model, precision: settings.precision });
     }
     const requestById = new Map(preparedJobs.map((job) => [job.id, job]));
     const returnedJobIds = new Set<string>();
@@ -447,13 +459,13 @@ export class Sam3SegmentAgent implements AgentDriver {
       finishedAt,
       summary: `Segmented ${preparedJobs.length} concept job(s) into ${outputRecords.length} instance(s)`,
       artifacts,
-      metadata: { provider: provider.provider, model: provider.model, checkpoint: provider.checkpoint, outputs: outputRecords }
+      metadata: { provider: provider.provider, model: provider.model, checkpoint: provider.checkpoint, precision: settings.precision, outputs: outputRecords }
     };
     return {
       summary: contributor.summary,
       artifacts,
       contributors: [contributor],
-      metadata: { apiVersion: API_VERSION, outcome: outputRecords.length > 0 ? "segmented" : "no_instances", provider: provider.provider, model: provider.model, checkpoint: provider.checkpoint, requestPath: settings.requestPath, jobs: preparedJobs.length, instances: outputRecords.length, outputs: outputRecords }
+      metadata: { apiVersion: API_VERSION, outcome: outputRecords.length > 0 ? "segmented" : "no_instances", provider: provider.provider, model: provider.model, checkpoint: provider.checkpoint, precision: settings.precision, requestPath: settings.requestPath, jobs: preparedJobs.length, instances: outputRecords.length, outputs: outputRecords }
     };
   }
 }

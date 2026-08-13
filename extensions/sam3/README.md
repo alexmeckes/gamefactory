@@ -56,13 +56,45 @@ Every output is canonical-path checked, hashed, and returned as an artifact. The
       "command": ["python", "{worker}"],
       "model": "sam3",
       "device": "cuda",
-      "checkpointPath": "D:/models/sam3.pt",
+      "precision": "bfloat16",
+      "checkpointPath": "D:/GameFactory/runtimes/sam3/checkpoints/sam3.pt",
       "timeoutSeconds": 900,
       "maxOutputCharacters": 30000,
-      "environmentAllowlist": ["HF_TOKEN", "HF_HOME", "CUDA_VISIBLE_DEVICES"]
+      "environmentAllowlist": ["HF_TOKEN", "HF_HOME", "CUDA_DEVICE_ORDER", "CUDA_VISIBLE_DEVICES"]
     }
   }
 }
 ```
 
 `checkpointPath` is optional. Without it, the official package resolves the gated checkpoint through Hugging Face. Secrets are inherited only by the worker process, are never copied into requests or traces, and their values are not recorded.
+
+For CUDA, `precision` defaults to `bfloat16`, matching Meta's examples and substantially reducing activation memory. Use `float16` only if the GPU lacks BF16 support; CPU inference requires `float32`.
+
+## Tested Windows runtime
+
+The local Windows installation used to validate this extension lives entirely under `D:/GameFactory/runtimes/sam3` for new files and caches:
+
+- official SAM 3 source commit `96914d2425f90a64f45ca977c2b5165418099543` in `source/`;
+- Python environment in `venv/` with PyTorch `2.10.0+cu128`, torchvision `0.25.0+cu128`, and Triton Windows `3.6.0.post26`;
+- Hugging Face cache in `huggingface/`, pip cache in `pip-cache/`, temporary files in `temp/`, and weights in `checkpoints/`.
+
+Point a campaign at the isolated worker with:
+
+```json
+{
+  "command": ["D:/GameFactory/runtimes/sam3/venv/Scripts/python.exe", "{worker}"],
+  "doctorCommand": ["D:/GameFactory/runtimes/sam3/venv/Scripts/python.exe", "{worker}", "--doctor"],
+  "checkpointPath": "D:/GameFactory/runtimes/sam3/checkpoints/sam3.pt",
+  "device": "cuda",
+  "precision": "bfloat16"
+}
+```
+
+The official checkpoint is gated. After accepting Meta's terms at `https://huggingface.co/facebook/sam3`, authenticate and download without writing to the system drive:
+
+```powershell
+$env:HF_HOME = 'D:\GameFactory\runtimes\sam3\huggingface'
+$env:HF_HUB_CACHE = 'D:\GameFactory\runtimes\sam3\huggingface\hub'
+D:\GameFactory\runtimes\sam3\venv\Scripts\hf.exe auth login
+D:\GameFactory\runtimes\sam3\venv\Scripts\hf.exe download facebook/sam3 sam3.pt --local-dir D:\GameFactory\runtimes\sam3\checkpoints
+```

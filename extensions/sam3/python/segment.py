@@ -86,14 +86,21 @@ def safe_stem(value: str) -> str:
     return "".join(character if character.isalnum() or character in "-_" else "-" for character in value)
 
 
-def process_job(model: Any, processor_type: Any, job: dict[str, Any]) -> dict[str, Any]:
+def process_job(model: Any, processor_type: Any, job: dict[str, Any], device: str, precision: str) -> dict[str, Any]:
     import numpy as np
+    import torch
     from PIL import Image, ImageFilter
 
     image = Image.open(job["sourcePath"]).convert("RGBA")
     processor = processor_type(model, confidence_threshold=float(job["threshold"]))
-    state = processor.set_image(image.convert("RGB"))
-    inference = processor.set_text_prompt(state=state, prompt=job["prompt"])
+    dtype = {
+        "float16": torch.float16,
+        "bfloat16": torch.bfloat16,
+    }.get(precision)
+    autocast = torch.autocast(device_type="cuda", dtype=dtype) if device.startswith("cuda") and dtype else __import__("contextlib").nullcontext()
+    with torch.inference_mode(), autocast:
+        state = processor.set_image(image.convert("RGB"))
+        inference = processor.set_text_prompt(state=state, prompt=job["prompt"])
     raw_masks = tensor_items(inference.get("masks", []))
     scores = scalar_items(inference.get("scores"), len(raw_masks))
     ranked = sorted(zip(raw_masks, scores), key=lambda item: item[1], reverse=True)
@@ -154,16 +161,23 @@ def run() -> int:
     from sam3.model.sam3_image_processor import Sam3Processor
 
     checkpoint = request.get("checkpointPath")
+    device = request.get("device", "cuda")
+    precision = request.get("precision", "bfloat16" if str(device).startswith("cuda") else "float32")
+    if precision not in {"float32", "float16", "bfloat16"}:
+        raise ValueError("precision must be float32, float16, or bfloat16")
+    if not str(device).startswith("cuda") and precision != "float32":
+        raise ValueError("CPU inference requires float32 precision")
     model = build_sam3_image_model(
-        device=request.get("device", "cuda"),
+        device=device,
         checkpoint_path=checkpoint,
         load_from_HF=checkpoint is None,
     )
-    jobs = [process_job(model, Sam3Processor, job) for job in request["jobs"]]
+    jobs = [process_job(model, Sam3Processor, job, str(device), precision) for job in request["jobs"]]
     result = {
         "provider": "meta",
         "model": request.get("model", "sam3"),
         "checkpoint": Path(checkpoint).name if checkpoint else "huggingface-gated",
+        "precision": precision,
         "jobs": jobs,
     }
     Path(result_path).write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
