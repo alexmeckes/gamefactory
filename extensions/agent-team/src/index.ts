@@ -65,6 +65,13 @@ interface RepairEdge {
   maximumAttempts: number;
 }
 
+interface AdvisorConfig extends ContributorConfig {
+  outcomes: string[];
+  onFailure: boolean;
+  maximumAttempts: number;
+  instructions?: string;
+}
+
 interface GraphNodeConfig extends ContributorConfig {
   role: AgentRole;
   readOnly: boolean;
@@ -75,6 +82,7 @@ interface GraphNodeConfig extends ContributorConfig {
   maximumAttempts: number;
   required: boolean;
   repair?: RepairEdge;
+  advisor?: AdvisorConfig;
 }
 
 interface GraphAgentTeamConfig {
@@ -175,7 +183,7 @@ interface ProcessResult {
 }
 
 interface InvocationReason {
-  kind: "initial" | "retry" | "repair" | "review";
+  kind: "initial" | "retry" | "repair" | "review" | "advisor";
   source?: string;
   repairAttempt?: number;
 }
@@ -592,6 +600,48 @@ function conditions(value: unknown, location: string): GraphCondition[] {
   });
 }
 
+function outcomeList(value: unknown, fallback: string[], location: string): string[] {
+  const result = value ?? fallback;
+  if (!Array.isArray(result) || result.length === 0 || result.length > 32 || !result.every((outcome) => typeof outcome === "string" && OUTCOME_PATTERN.test(outcome))) {
+    throw new Error(`${location} must be a non-empty array of at most 32 outcome names`);
+  }
+  return [...new Set(result as string[])];
+}
+
+function advisorConfig(value: unknown, location: string, primary: ContributorConfig): AdvisorConfig | undefined {
+  if (value === undefined) return undefined;
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${location} must be an object`);
+  const record = value as Record<string, unknown>;
+  if (record.onFailure !== undefined && typeof record.onFailure !== "boolean") throw new Error(`${location}.onFailure must be a boolean`);
+  if (record.instructions !== undefined && (typeof record.instructions !== "string" || record.instructions.length > 100_000)) {
+    throw new Error(`${location}.instructions must be a string with at most 100000 characters`);
+  }
+  const advisorAdapter = record.adapter ?? primary.adapter;
+  const inheritedCommand = record.command === undefined && advisorAdapter === primary.adapter ? primary.command : record.command;
+  const configured = contributor({
+    ...record,
+    id: record.id ?? `${primary.id}-advisor`,
+    adapter: advisorAdapter,
+    ...(inheritedCommand ? { command: inheritedCommand } : {})
+  }, `${primary.id}-advisor`, location, {
+    ...(primary.provider ? { provider: primary.provider } : {}),
+    ...(primary.model ? { model: primary.model } : {}),
+    ...(primary.reasoningEffort ? { reasoningEffort: primary.reasoningEffort } : {}),
+    ...(primary.billingMode ? { billingMode: primary.billingMode } : {})
+  });
+  if (configured.id === primary.id) throw new Error(`${location}.id must differ from the primary contributor id`);
+  if (configured.model === primary.model && configured.reasoningEffort === primary.reasoningEffort) {
+    throw new Error(`${location} must change model or reasoningEffort from the primary contributor`);
+  }
+  return {
+    ...configured,
+    outcomes: outcomeList(record.outcomes, ["needs_advisor"], `${location}.outcomes`),
+    onFailure: record.onFailure !== false,
+    maximumAttempts: integer(record.maximumAttempts, 1, 1, 4, `${location}.maximumAttempts`),
+    ...(typeof record.instructions === "string" ? { instructions: record.instructions } : {})
+  };
+}
+
 function repairEdge(value: unknown, location: string): RepairEdge | undefined {
   if (value === undefined) return undefined;
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${location} must be an object`);
@@ -642,14 +692,23 @@ function graphNode(value: unknown, index: number, defaults: Pick<ContributorConf
   if (typeof record.instructions === "string") result.instructions = record.instructions;
   const repair = repairEdge(record.repair, `${location}.repair`);
   if (repair) result.repair = repair;
+  const advisor = advisorConfig(record.advisor, `${location}.advisor`, base);
+  if (advisor) result.advisor = advisor;
   return result;
 }
 
 function validateGraph(nodes: GraphNodeConfig[]): void {
   const byId = new Map<string, GraphNodeConfig>();
+  const contributorIds = new Set<string>();
   for (const node of nodes) {
     if (byId.has(node.id)) throw new Error(`parameters.agentTeam.graph.nodes contains duplicate id ${node.id}`);
+    if (contributorIds.has(node.id)) throw new Error(`parameters.agentTeam.graph contains duplicate contributor id ${node.id}`);
     byId.set(node.id, node);
+    contributorIds.add(node.id);
+    if (node.advisor) {
+      if (contributorIds.has(node.advisor.id)) throw new Error(`parameters.agentTeam.graph contains duplicate contributor id ${node.advisor.id}`);
+      contributorIds.add(node.advisor.id);
+    }
   }
   for (const node of nodes) {
     for (const dependency of node.dependsOn) {
@@ -1479,6 +1538,86 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
     }
   }
 
+  const reserveAttempt = (): void => {
+    if (totalAttempts >= config.maximumTotalAttempts) {
+      throw new AgentTeamExecutionError(
+        `agent.team graph exceeded maximumTotalAttempts (${config.maximumTotalAttempts})`,
+        [...states.values()].flatMap((nodeState) => nodeState.runs)
+      );
+    }
+    totalAttempts += 1;
+  };
+
+  const runAdvisor = async (
+    state: GraphNodeState,
+    triggeringRun: ContributorRun,
+    reason: InvocationReason,
+    extraInputs: PriorOutput[]
+  ): Promise<void> => {
+    const advisor = state.config.advisor;
+    if (!advisor) throw new Error("agent.team internal error: advisor escalation without advisor config");
+    const advisorNodeId = await ensureAgentTraceNode(request, advisor, state.config.role, state.config.readOnly);
+    await emitAgentTrace(request, {
+      type: "edge:created",
+      nodeId: `edge:${agentGraphTraceNode(request, state.config.id)}:${advisorNodeId}`,
+      experimentId: request.experimentId,
+      sourceNodeId: agentGraphTraceNode(request, state.config.id),
+      targetNodeId: advisorNodeId,
+      role: "advisor"
+    });
+    await emitAgentTrace(request, {
+      type: "node:progress",
+      nodeId: agentGraphTraceNode(request, state.config.id),
+      experimentId: request.experimentId,
+      label: state.config.id,
+      role: state.config.role,
+      message: `Escalating ${triggeringRun.provenance.outcome} to ${advisor.id}`,
+      data: journalValue({
+        advisorId: advisor.id,
+        triggerOutcome: triggeringRun.provenance.outcome,
+        triggerStatus: triggeringRun.provenance.status,
+        ...(advisor.model ? { model: advisor.model } : {}),
+        ...(advisor.reasoningEffort ? { reasoningEffort: advisor.reasoningEffort } : {})
+      })
+    });
+    const priorAdvisorRuns: PriorOutput[] = [];
+    for (let advisorAttempt = 1; advisorAttempt <= advisor.maximumAttempts; advisorAttempt += 1) {
+      reserveAttempt();
+      const attempt = state.runs.length + 1;
+      const advisorRun = await invokeContributor(advisor, state.config.role, state.config.readOnly, request, [
+        ...graphInputs(state.config, states, config.maxOutputCharacters),
+        ...extraInputs,
+        priorOutput(triggeringRun, config.maxOutputCharacters),
+        ...priorAdvisorRuns
+      ], {
+        mode: "graph",
+        nodeId: state.config.id,
+        attempt,
+        instructions: advisor.instructions ?? [
+          `Act as the escalation advisor for ${state.config.id}.`,
+          "Continue from the supplied primary attempt and preserve useful evidence instead of restarting blindly.",
+          `Resolve the stated uncertainty or failure and return a decisive supported outcome. If it still cannot be resolved, return ${advisor.outcomes[0]} with the remaining gap and evidence.`
+        ].join(" "),
+        context: [...config.context, ...state.config.context],
+        reason: {
+          kind: "advisor",
+          source: state.config.id,
+          ...(reason.repairAttempt !== undefined ? { repairAttempt: reason.repairAttempt } : {})
+        }
+      });
+      state.runs.push(advisorRun);
+      state.outcome = advisorRun.provenance.outcome;
+      state.summary = advisorRun.provenance.summary;
+      if (advisorRun.provenance.status === "complete" && !advisor.outcomes.includes(advisorRun.provenance.outcome)) {
+        state.status = "complete";
+        return;
+      }
+      priorAdvisorRuns.push(priorOutput(advisorRun, config.maxOutputCharacters));
+    }
+    state.status = "failed";
+    state.summary = `Advisor ${advisor.id} did not resolve ${state.config.id}: ${state.summary}`;
+  };
+
   const runActivation = async (
     state: GraphNodeState,
     reason: InvocationReason,
@@ -1486,13 +1625,7 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
   ): Promise<void> => {
     state.status = "running";
     for (let localAttempt = 1; localAttempt <= state.config.maximumAttempts; localAttempt += 1) {
-      if (totalAttempts >= config.maximumTotalAttempts) {
-        throw new AgentTeamExecutionError(
-          `agent.team graph exceeded maximumTotalAttempts (${config.maximumTotalAttempts})`,
-          [...states.values()].flatMap((nodeState) => nodeState.runs)
-        );
-      }
-      totalAttempts += 1;
+      reserveAttempt();
       const attempt = state.runs.length + 1;
       const invocationReason: InvocationReason = localAttempt === 1 ? reason : {
         kind: "retry",
@@ -1506,13 +1639,22 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
         mode: "graph",
         nodeId: state.config.id,
         attempt,
-        instructions: state.config.instructions ?? INSTRUCTIONS[state.config.role],
+        instructions: state.config.advisor ? [
+          state.config.instructions ?? INSTRUCTIONS[state.config.role],
+          `A bounded advisor escalation is available. If you cannot produce a sufficiently supported result, return one of these escalation outcomes: ${state.config.advisor.outcomes.join(", ")}. Preserve your partial findings, evidence, assumptions, and exact remaining gap for the advisor. Use escalation only for a material capability or uncertainty gap, not ordinary difficulty.`
+        ].join("\n\n") : state.config.instructions ?? INSTRUCTIONS[state.config.role],
         context: [...config.context, ...state.config.context],
         reason: invocationReason
       });
       state.runs.push(run);
       state.outcome = run.provenance.outcome;
       state.summary = run.provenance.summary;
+      const advisorRequested = state.config.advisor?.outcomes.includes(run.provenance.outcome) === true;
+      const advisorForFailure = state.config.advisor?.onFailure === true && run.provenance.status === "failed" && !request.signal.aborted;
+      if (advisorRequested || advisorForFailure) {
+        await runAdvisor(state, run, reason, extraInputs);
+        return;
+      }
       if (run.provenance.status === "complete") {
         state.status = "complete";
         return;
@@ -1664,6 +1806,7 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
           status: state.status,
           outcome: state.outcome,
           attempts: state.runs.length,
+          advisorInvocations: state.runs.filter((run) => run.provenance.reason.kind === "advisor").length,
           summary: state.summary
         }];
       }))

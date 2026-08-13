@@ -17,6 +17,36 @@ turn-level `effort` field. Traces and prompt manifests retain both the requested
 model/effort and the provider-resolved model/effort. A routing benchmark only
 counts a run as successful when both values match.
 
+## Advisor escalation
+
+A graph node can declare a bounded advisor route when its efficient primary
+model may encounter a real capability gap:
+
+```json
+{
+  "model": "gpt-5.6-luna",
+  "reasoningEffort": "high",
+  "advisor": {
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "high",
+    "outcomes": ["needs_advisor"],
+    "onFailure": true,
+    "maximumAttempts": 1
+  }
+}
+```
+
+The primary agent is told that escalation exists and may return
+`needs_advisor` with partial findings, evidence, assumptions, and the remaining
+gap. A configured hard invocation failure can also trigger the handoff. The
+advisor receives the complete primary handoff and runs as a separate,
+attributable invocation. It does not silently replace or relabel the Luna run.
+
+Advisor attempts count against `maximumTotalAttempts`. If the advisor fails or
+returns an escalation outcome through its bounded attempts, the required graph
+node fails closed. The trace records an advisor edge, both model identities,
+both usage records, and every preserved artifact.
+
 ## Initial routing tournament
 
 The 2026-08-13 tournament ran two read-only, deterministic repository-audit
@@ -34,8 +64,8 @@ This is a routing smoke benchmark, not a universal model ranking. With only two
 tasks, its useful conclusions are directional:
 
 - use Luna/high for divergent, high-volume creative exploration where its
-  distinct search behavior is valuable, not as the default for repository
-  analysis;
+  distinct search behavior is valuable, with a sparse Sol advisor route for
+  material capability gaps rather than making Sol the default;
 - use Sol/medium for routine, deterministic verification;
 - use Sol/high for technical synthesis and implementation;
 - use Sol/xhigh for sparse, consequential design selection and final

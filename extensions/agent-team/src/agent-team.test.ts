@@ -86,6 +86,27 @@ if (["alpha", "beta"].includes(request.nodeId)) {
 } else if (request.nodeId === "conditional") {
   assert.equal(request.inputs[0].outcome, "pass");
   console.log(JSON.stringify({ summary: "conditional branch ran", outcome: "complete" }));
+} else if (["advisor-scout", "advisor-failure"].includes(request.nodeId)) {
+  if (request.contributorId === request.nodeId) {
+    assert.equal(request.model, "gpt-5.6-luna");
+    assert.equal(request.reasoningEffort, "high");
+    if (request.nodeId === "advisor-failure") {
+      console.error("primary scout failed before resolving the evidence");
+      process.exitCode = 2;
+    } else {
+      console.log(JSON.stringify({ summary: "partial Luna exploration", outcome: "needs_advisor", findings: { evidence: ["value.txt"], remainingGap: "requires frontier synthesis" } }));
+    }
+  } else {
+    assert.equal(request.contributorId, request.nodeId + "-advisor");
+    assert.equal(request.model, "gpt-5.6-sol");
+    assert.equal(request.reasoningEffort, "high");
+    assert.equal(request.reason.kind, "advisor");
+    const primary = request.inputs.find((input) => input.contributorId === request.nodeId);
+    assert.ok(primary);
+    if (request.nodeId === "advisor-scout") assert.equal(primary.structured.findings.remainingGap, "requires frontier synthesis");
+    if (request.nodeId === "advisor-failure") assert.match(primary.output + " " + primary.summary, /failed|scout/i);
+    console.log(JSON.stringify({ summary: "Sol advisor resolved the gap", outcome: "pass", findings: { inheritedEvidence: true } }));
+  }
 } else if (["writer-a", "writer-b"].includes(request.nodeId)) {
   await new Promise((resolve) => setTimeout(resolve, 100));
   await writeFile(request.nodeId + ".txt", "written\\n", "utf8");
@@ -327,6 +348,74 @@ test("agent graph runs independent readers in parallel and honors dependency ord
     assert.equal(metadata.mode, "graph");
     assert.equal(metadata.totalAttempts, 3);
     assert.equal(metadata.nodes.join?.outcome, "pass");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("agent graph escalates an explicit Luna capability gap to a bounded Sol advisor with preserved evidence", async () => {
+  const root = await repository();
+  const events: FactoryTraceEventInput[] = [];
+  try {
+    const result = await new AgentTeam().run({
+      campaign: graphCampaign(root, [graphCommand("advisor-scout", {
+        role: "scout",
+        permissions: "read",
+        provider: "openai-codex-app-server",
+        model: "gpt-5.6-luna",
+        reasoningEffort: "high",
+        billingMode: "subscription",
+        advisor: {
+          model: "gpt-5.6-sol",
+          reasoningEffort: "high",
+          outcomes: ["needs_advisor"],
+          onFailure: true,
+          maximumAttempts: 1
+        }
+      })]),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-advisor",
+      history: [],
+      signal: new AbortController().signal,
+      trace: { runId: "run-advisor", campaignId: "agent-team-graph-contract", emit: async (event) => { events.push(event); } }
+    });
+    assert.match(result.summary, /Sol advisor resolved/);
+    assert.deepEqual(result.contributors?.map((item) => [item.agentId, (item.metadata as { reason: { kind: string } }).reason.kind]), [
+      ["advisor-scout", "initial"],
+      ["advisor-scout-advisor", "advisor"]
+    ]);
+    assert.equal(result.contributors?.[0]?.usage?.model, "gpt-5.6-luna");
+    assert.equal(result.contributors?.[1]?.usage?.model, "gpt-5.6-sol");
+    const metadata = result.metadata as { totalAttempts: number; nodes: Record<string, { outcome: string; advisorInvocations: number }> };
+    assert.equal(metadata.totalAttempts, 2);
+    assert.equal(metadata.nodes["advisor-scout"]?.outcome, "pass");
+    assert.equal(metadata.nodes["advisor-scout"]?.advisorInvocations, 1);
+    assert.ok(events.some((event) => event.type === "edge:created" && event.role === "advisor"));
+    assert.ok(events.some((event) => event.type === "node:progress" && event.message?.includes("Escalating needs_advisor")));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("agent graph escalates a configured Luna hard failure to Sol", async () => {
+  const root = await repository();
+  try {
+    const result = await new AgentTeam().run({
+      campaign: graphCampaign(root, [graphCommand("advisor-failure", {
+        role: "scout",
+        permissions: "read",
+        model: "gpt-5.6-luna",
+        reasoningEffort: "high",
+        advisor: { model: "gpt-5.6-sol", reasoningEffort: "high", onFailure: true }
+      })]),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-advisor-failure",
+      history: [],
+      signal: new AbortController().signal
+    });
+    assert.match(result.summary, /Sol advisor resolved/);
+    assert.deepEqual(result.contributors?.map((item) => item.status), ["failed", "complete"]);
+    assert.deepEqual(result.contributors?.map((item) => (item.metadata as { reason: { kind: string } }).reason.kind), ["initial", "advisor"]);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

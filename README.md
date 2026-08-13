@@ -17,6 +17,7 @@ What is implemented:
 - model-neutral command-agent integration plus a native Codex App Server adapter;
 - specialist agent teams with parallel scouts/critics and one protected writer;
 - optional task-specific agent DAGs with structured handoffs, conditions, retries, and bounded critic repairs;
+- explicit advisor escalation from efficient primary agents to frontier models, preserving partial evidence and separate provenance;
 - parallel candidate tournaments with deterministic winner selection;
 - fsync-backed experiment phase journals with idempotent restart recovery;
 - a graph-first realtime flight recorder with live agent/subagent attempts, model, token, and billing-basis accounting, exact extension activation provenance, separate creative-input nodes, bounded progress, dependency edges, historical replay, evaluator waterfalls, metrics, and artifact inspection;

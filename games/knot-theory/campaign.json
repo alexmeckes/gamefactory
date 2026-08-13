@@ -63,6 +63,13 @@
             "adapter": "codex-app-server",
             "model": "gpt-5.6-luna",
             "reasoningEffort": "high",
+            "advisor": {
+              "model": "gpt-5.6-sol",
+              "reasoningEffort": "high",
+              "outcomes": ["needs_advisor"],
+              "onFailure": true,
+              "maximumAttempts": 1
+            },
             "role": "scout",
             "permissions": "read",
             "instructions": "Explore interaction feel, teaching, visual feedback, accessibility, and audio for direct rope manipulation. Identify the smallest set of signals that makes grabbing, pinning, threading, tension, failure, and success legible."
@@ -72,6 +79,13 @@
             "adapter": "codex-app-server",
             "model": "gpt-5.6-luna",
             "reasoningEffort": "high",
+            "advisor": {
+              "model": "gpt-5.6-sol",
+              "reasoningEffort": "high",
+              "outcomes": ["needs_advisor"],
+              "onFailure": true,
+              "maximumAttempts": 1
+            },
             "role": "scout",
             "permissions": "read",
             "instructions": "Develop contrasting five-to-ten-minute level arcs using one rope. Seek an earned machine-like finale and avoid a mere sequence of silhouette tracing tasks. Keep implementation feasible in one compact Godot project."
