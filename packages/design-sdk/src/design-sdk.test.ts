@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { designIntentSha256, gameDesignSystemSha256, parseDesignIntent, parseDesignIntentReference, parseGameDesignSystem, parseHumanPlaytestReport, resolveDesignPath } from "./index.js";
+import { designIntentSha256, gameDesignSystemSha256, parseDesignIntent, parseDesignIntentReference, parseGameDesignSystem, parseHumanPlaytestReport, parseVisualDirection, resolveDesignPath, visualDirectionSha256 } from "./index.js";
 
 const fixture = {
   apiVersion: "gamefactory.design/v1",
@@ -82,6 +82,7 @@ test("design SDK preserves an extensible, reproducible visual language", () => {
     id: "tactile-workshop",
     version: "1.0.0",
     title: "Tactile workshop",
+    maturity: "direction",
     identity: { intent: "Make the rope feel physical and authored", toneWords: ["tactile", "quiet"], avoidWords: ["generic"] },
     principles: [{ id: "rope-first", statement: "The rope owns the highest contrast", rationale: "Topology must remain readable", priority: 1 }],
     tokens: {
@@ -90,7 +91,7 @@ test("design SDK preserves an extensible, reproducible visual language", () => {
       customMaterialLanguage: { fibers: "visible near contact points" }
     },
     patterns: [{ id: "anchor", intent: "Show fixed topology", rules: ["Use a brass center"], avoid: ["glow-only state"], examples: [] }],
-    references: [{ path: "design/references/material.png", role: "Material and hierarchy study", source: "imagegen", sha256: "a".repeat(64), prompt: "A tactile rope workshop material study" }],
+    references: [{ path: "design/references/material.png", role: "Material and hierarchy study", purpose: "material", authority: "inspiration", source: "imagegen", sha256: "a".repeat(64), prompt: "A tactile rope workshop material study" }],
     implementations: [{ id: "godot-theme", adapter: "godot-theme", path: "design/theme/game.tres", sha256: "b".repeat(64) }],
     metadata: { experiment: "candidate-a" }
   });
@@ -99,4 +100,26 @@ test("design SDK preserves an extensible, reproducible visual language", () => {
   assert.equal(gameDesignSystemSha256(system), gameDesignSystemSha256(parseGameDesignSystem(JSON.parse(JSON.stringify(system)))));
   assert.throws(() => parseGameDesignSystem({ ...system, references: [{ ...system.references[0], prompt: undefined }] }), /prompt is required/);
   assert.throws(() => parseGameDesignSystem({ ...system, tokens: { color: {} } }), /must not be empty/);
+  assert.throws(() => parseGameDesignSystem({ ...system, references: [{ ...system.references[0], authority: "production-target" }] }), /must be captured/);
+});
+
+test("visual direction separates concept inspiration from captured production targets", () => {
+  const fixtureDirection = {
+    apiVersion: "gamefactory.visual-direction/v1",
+    id: "workshop",
+    intent: "A tactile workshop whose interactions remain readable",
+    renderingStrategy: { mode: "layered 2D", feasibility: "Use engine-native sprites and lighting at the shipping camera" },
+    references: [
+      { path: "visual/concept.png", label: "Material mood", purpose: "material", authority: "inspiration", source: "other", sha256: "c".repeat(64), provenanceNote: "Legacy prompt unavailable" },
+      { path: "visual/slice.png", label: "Running slice", purpose: "gameplay", authority: "production-target", source: "captured", sha256: "d".repeat(64) }
+    ],
+    nonnegotiables: ["Gameplay remains readable"],
+    qualityDimensions: { readability: "Interactions read at gameplay scale" },
+    antiPatterns: ["concept art presented as a screenshot"],
+    views: [{ id: "gameplay", purpose: "Prove the shipping camera" }]
+  };
+  const direction = parseVisualDirection(fixtureDirection);
+  assert.equal(direction.references[0]?.authority, "inspiration");
+  assert.equal(visualDirectionSha256(direction), visualDirectionSha256(parseVisualDirection(JSON.parse(JSON.stringify(direction)))));
+  assert.throws(() => parseVisualDirection({ ...fixtureDirection, references: [{ ...fixtureDirection.references[0], authority: "production-target" }] }), /must be captured/);
 });

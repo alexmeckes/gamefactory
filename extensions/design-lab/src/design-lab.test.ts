@@ -132,11 +132,12 @@ test("design system evaluator verifies ImageGen provenance and pinned candidate 
       id: "fixture-system",
       version: "1.0.0",
       title: "Fixture system",
+      maturity: "direction",
       identity: { intent: "A legible tactile system", toneWords: ["tactile"], avoidWords: ["generic"] },
       principles: [{ id: "clarity", statement: "Clarity before ornament", rationale: "Interaction must read", priority: 1 }],
       tokens: { color: { primary: "#ffffff" }, motion: { settleSeconds: 0.2 } },
       patterns: [],
-      references: [{ path: "design/references/material.png", role: "Material study", source: "imagegen", sha256: sha256(reference), prompt: "A tactile material study" }],
+      references: [{ path: "design/references/material.png", role: "Material study", purpose: "material", authority: "inspiration", source: "imagegen", sha256: sha256(reference), prompt: "A tactile material study" }],
       implementations: [{ id: "godot-theme", adapter: "godot-theme", path: "design/theme/game.tres", sha256: sha256(theme) }]
     }, null, 2)}\n`, "utf8");
     const campaign: Campaign = {
@@ -161,6 +162,60 @@ test("design system evaluator verifies ImageGen provenance and pinned candidate 
     const tampered = await evaluator.evaluate({ campaign, candidate: { id: "candidate", root, metadata: {} }, experimentId: "candidate", priorEvaluations: [], signal });
     assert.equal(tampered.status, "fail");
     assert.match(tampered.violations[0]?.message ?? "", /hash mismatch/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("design system evaluator gates production-slice maturity on captured engine evidence", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "gamefactory-production-slice-"));
+  try {
+    await mkdir(resolve(root, "design/references"), { recursive: true });
+    const concept = Buffer.from("concept bytes");
+    const capture = Buffer.from("captured engine bytes");
+    const manifest = "{\"camera\":\"shipping\"}\n";
+    await writeFile(resolve(root, "concept.png"), concept);
+    await writeFile(resolve(root, "design/references/slice.png"), capture);
+    await writeFile(resolve(root, "design/production-slice.json"), manifest, "utf8");
+    await writeFile(resolve(root, "visual-direction.json"), `${JSON.stringify({
+      apiVersion: "gamefactory.visual-direction/v1",
+      id: "fixture-direction",
+      intent: "Prove a feasible authored game view",
+      renderingStrategy: { mode: "layered 2D", feasibility: "Capture the implementation at its shipping camera" },
+      references: [{ path: "concept.png", label: "Concept-only material study", purpose: "material", authority: "inspiration", source: "other", sha256: sha256(concept), provenanceNote: "Legacy prompt unavailable" }],
+      nonnegotiables: ["Gameplay reads"],
+      qualityDimensions: { readability: "The interaction reads in motion" },
+      antiPatterns: ["concept art presented as engine evidence"],
+      views: [{ id: "slice", purpose: "Prove the production method" }]
+    }, null, 2)}\n`, "utf8");
+    await writeFile(resolve(root, "design-system.json"), `${JSON.stringify({
+      apiVersion: "gamefactory.design-system/v1",
+      id: "fixture-production-system",
+      version: "1.1.0",
+      title: "Fixture production slice",
+      maturity: "production-slice",
+      identity: { intent: "A feasible authored system", toneWords: ["authored"], avoidWords: ["generic"] },
+      principles: [{ id: "proof", statement: "Prove before expanding", rationale: "Avoid speculative assets", priority: 1 }],
+      tokens: { color: { primary: "#ffffff" } },
+      patterns: [],
+      references: [{ path: "design/references/slice.png", role: "Running engine slice", purpose: "gameplay", authority: "production-target", source: "captured", sha256: sha256(capture) }],
+      implementations: [{ id: "slice", adapter: "godot-production-slice", path: "design/production-slice.json", sha256: sha256(manifest) }]
+    }, null, 2)}\n`, "utf8");
+    const campaign: Campaign = {
+      apiVersion: "gamefactory.dev/v1",
+      id: "production-slice-test",
+      objective: "verify staged art production",
+      projectRoot: root,
+      workflow: "tournament",
+      requires: [],
+      parameters: { designSystem: { path: "design-system.json", visualDirectionPath: "visual-direction.json", minimumMaturity: "production-slice", requiredAdapters: ["godot-production-slice"], requiredReferenceAuthorities: ["production-target"] } },
+      acceptance: { primaryMetric: "design_system_integrity", direction: "maximize" }
+    };
+    const evaluation = await new DesignSystemEvaluator().evaluate({ campaign, candidate: { id: "candidate", root, metadata: {} }, experimentId: "candidate", priorEvaluations: [], signal: new AbortController().signal });
+    assert.equal(evaluation.status, "pass");
+    assert.equal(evaluation.metrics.design_system_maturity, 1);
+    assert.equal(evaluation.metrics.design_system_production_targets, 1);
+    assert.equal(evaluation.metrics.visual_direction_references, 1);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

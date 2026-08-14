@@ -1,0 +1,89 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "id": "firefly-gameplay-selection",
+  "objective": "Select the strongest small graybox puzzle language for Firefly Glassworks before producing any final visual assets.",
+  "projectRoot": ".",
+  "workflow": "tournament",
+  "requires": ["workspace:git.worktree", "agent:agent.team", "evaluator:godot.scenario"],
+  "mutablePaths": ["project.godot", "main.tscn", "main.gd", "README.md", "src/**", "levels/**"],
+  "immutablePaths": ["AGENTS.md", "GAME.md", "STYLE.md", "visual-direction.json", "visual-reference/**", "campaign.*.json", "factory.*.json", "addons/gamefactory/**", "assets/**", "audio/**", "design/**", "DESIGN_SYSTEM.md", "design-system.json"],
+  "parameters": {
+    "tournament": {
+      "workspace": "git.worktree",
+      "agents": ["agent.team"],
+      "evaluators": [{"id":"godot.scenario", "cost":1}],
+      "candidateCount": 2,
+      "concurrency": 2,
+      "director": {"agent":"agent.team", "model":"gpt-5.6-sol", "reasoningEffort":"high", "advisorReasoningEffort":"xhigh", "timeoutSeconds":1800, "maxOutputCharacters":30000}
+    },
+    "agentTeam": {
+      "maximumParallel": 3,
+      "maxOutputCharacters": 30000,
+      "handoffCharacters": 10000,
+      "historyLimit": 3,
+      "provider": "openai-codex-app-server",
+      "billingMode": "subscription",
+      "graph": {
+        "maximumTotalAttempts": 24,
+        "maximumRepairAttempts": 1,
+        "context": [
+          {"path":"GAME.md", "kind":"other", "mediaType":"text/markdown", "label":"Product brief"},
+          {"path":"main.gd", "kind":"other", "mediaType":"text/plain", "label":"Deliberately plain two-level seed"}
+        ],
+        "nodes": [
+          {
+            "id":"interaction-scout", "adapter":"codex-app-server", "model":"gpt-5.6-luna", "reasoningEffort":"high",
+            "advisor":{"model":"gpt-5.6-sol", "reasoningEffort":"high", "outcomes":["needs_advisor"], "onFailure":true, "maximumAttempts":1},
+            "role":"scout", "permissions":"read",
+            "instructions":"Explore direct-manipulation beam controls, immediate feedback, reset behavior, teaching without modal prose, and accessibility. Propose one bounded interaction hypothesis; do not discuss production art beyond semantic feedback needs."
+          },
+          {
+            "id":"puzzle-scout", "adapter":"codex-app-server", "model":"gpt-5.6-luna", "reasoningEffort":"high",
+            "advisor":{"model":"gpt-5.6-sol", "reasoningEffort":"high", "outcomes":["needs_advisor"], "onFailure":true, "maximumAttempts":1},
+            "role":"scout", "permissions":"read",
+            "instructions":"Explore compact puzzle grammars that deepen one living beam beyond generic pipe rotation. Seek recombination, meaningful consequences, and a small final twist that stays implementable. State falsifiers and avoid a feature checklist."
+          },
+          {
+            "id":"systems-scout", "adapter":"codex-app-server", "model":"gpt-5.6-sol", "reasoningEffort":"high", "role":"scout", "permissions":"read", "inheritContext":false,
+            "instructions":"Audit the seed architecture and deterministic hooks. Identify the smallest robust state model, solvability evidence, anti-cheating checks, and implementation seams needed for an eight-to-twelve-minute puzzle prototype."
+          },
+          {
+            "id":"gameplay-planner", "adapter":"codex-app-server", "model":"gpt-5.6-sol", "reasoningEffort":"high", "timeoutSeconds":1200, "role":"planner", "permissions":"read", "inheritContext":false,
+            "dependsOn":["interaction-scout", "puzzle-scout", "systems-scout"],
+            "instructions":"Synthesize one opinionated graybox candidate: core rule, manipulation contract, teaching sequence, progression, finale hypothesis, reset/replay behavior, and deterministic evidence. Keep presentation semantic and leave visual production entirely for a later campaign."
+          },
+          {
+            "id":"graybox-builder", "adapter":"codex-app-server", "model":"gpt-5.6-sol", "reasoningEffort":"high", "timeoutSeconds":3000, "role":"implementer", "permissions":"write", "inheritContext":false,
+            "dependsOn":["gameplay-planner"],
+            "instructions":"Implement a complete but visually plain playable graybox. Preserve one living beam, direct manipulation, reset/replay, deterministic hooks, honest telemetry, and at least one genuine rule recombination. Improve gameplay_contract_score only through observed authored behavior. Do not add generated assets, production typography, decorative shaders, audio production, or design-system files."
+          },
+          {
+            "id":"contract-gate", "adapter":"command", "command":["C:\\Users\\alexm\\OneDrive\\Documents\\New project\\oldschool-mmo-godot\\tools\\godot\\Godot_v4.7.1-stable_win64_console.exe", "--disable-crash-handler", "--headless", "--path", ".", "--script", "res://addons/gamefactory/contract_runner.gd"],
+            "role":"worker", "permissions":"read", "inheritContext":false, "dependsOn":["graybox-builder"], "refreshAfterRepair":true,
+            "instructions":"Run the engine-native graybox contract."
+          },
+          {
+            "id":"graybox-capture", "adapter":"command", "command":["C:\\Users\\alexm\\OneDrive\\Documents\\New project\\oldschool-mmo-godot\\tools\\godot\\Godot_v4.7.1-stable_win64_console.exe", "--disable-crash-handler", "--path", ".", "--script", "res://addons/gamefactory/capture_runner.gd"],
+            "role":"worker", "permissions":"read", "inheritContext":false, "dependsOn":["graybox-builder", "contract-gate"], "refreshAfterRepair":true,
+            "instructions":"Capture the running graybox only as interaction evidence, not visual-quality evidence."
+          },
+          {
+            "id":"gameplay-critic", "adapter":"codex-app-server", "model":"gpt-5.6-sol", "reasoningEffort":"xhigh", "timeoutSeconds":1800, "role":"critic", "permissions":"read", "inheritContext":false,
+            "dependsOn":["graybox-builder", "contract-gate", "graybox-capture"],
+            "instructions":"Inspect code, deterministic telemetry, and captures for solvability, degenerate solutions, fake metrics, unclear manipulation, weak teaching, meaningless mechanic accumulation, reset/progression failures, and whether the final puzzle actually recombines learned rules. Judge likely clarity but do not claim fun. Return pass or one bounded revise brief.",
+            "repair":{"target":"graybox-builder", "outcomes":["revise"], "maximumAttempts":1, "allowedPaths":["project.godot", "main.tscn", "main.gd", "README.md", "src/**", "levels/**"], "preserve":["contract-gate"]}
+          }
+        ]
+      }
+    },
+    "godot": {
+      "binary":"C:\\Users\\alexm\\OneDrive\\Documents\\New project\\oldschool-mmo-godot\\tools\\godot\\Godot_v4.7.1-stable_win64_console.exe",
+      "importCheck":true,
+      "rendered":false,
+      "timeoutSeconds":180,
+      "scenario":{"provider":"godot.factory/v1", "version":"1", "path":"res://main.tscn", "parameters":{"seed":161803, "ticks":720, "physics_hz":60, "duration_seconds":12}}
+    }
+  },
+  "acceptance":{"primaryMetric":"gameplay_contract_score", "direction":"maximize", "minimumDelta":5},
+  "budget":{"maximumExperiments":2, "maximumConsecutiveCrashes":2, "wallTimeMinutes":120}
+}

@@ -1,0 +1,16 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "extensions": [
+    "../../extensions/git",
+    "../../extensions/agent-team",
+    "../../extensions/tournament",
+    "../../extensions/design-lab",
+    "../../extensions/godot",
+    "../../extensions/sam3",
+    "../../extensions/asset-foundry"
+  ],
+  "resultLog": "games/firefly-glassworks/.factory/results/production.jsonl",
+  "journalLog": "games/firefly-glassworks/.factory/journal/production.jsonl",
+  "traceLog": "games/firefly-glassworks/.factory/traces/production.jsonl",
+  "artifactDirectory": "games/firefly-glassworks/.factory/artifacts"
+}

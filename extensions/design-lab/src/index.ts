@@ -8,8 +8,12 @@ import {
   parseDesignIntent,
   parseDesignIntentReference,
   parseHumanPlaytestReport,
+  parseVisualDirection,
   resolveDesignPath,
+  visualDirectionSha256,
   type DesignIntent,
+  type DesignReferenceAuthority,
+  type DesignSystemMaturity,
   type GameDesignSystem,
   type MetricAggregate,
   type PlaytestMetric
@@ -33,7 +37,14 @@ interface LoadedIntent {
   sha256: string;
 }
 
-interface LoadedDesignSystem { path: string; system: GameDesignSystem; sha256: string; imagegenReferences: number; }
+interface LoadedDesignSystem {
+  path: string;
+  system: GameDesignSystem;
+  sha256: string;
+  imagegenReferences: number;
+  productionTargets: number;
+  visualDirection?: { path: string; sha256: string; references: number };
+}
 
 interface PlaytestRun {
   id: string;
@@ -59,15 +70,32 @@ function configuredStrings(value: unknown, location: string): string[] {
   return value;
 }
 
-function designSystemConfig(campaign: Parameters<Evaluator["evaluate"]>[0]["campaign"]): { path: string; requiredTokenGroups: string[]; requiredAdapters: string[]; minimumReferences: number; requireImagegenReference: boolean } {
+function designSystemConfig(campaign: Parameters<Evaluator["evaluate"]>[0]["campaign"]): { path: string; visualDirectionPath?: string; requiredTokenGroups: string[]; requiredAdapters: string[]; requiredReferenceAuthorities: DesignReferenceAuthority[]; minimumReferences: number; requireImagegenReference: boolean; minimumMaturity: DesignSystemMaturity } {
   const config = object(campaign.parameters?.designSystem);
   const requiredTokenGroups = configuredStrings(config.requiredTokenGroups, "parameters.designSystem.requiredTokenGroups");
   const requiredAdapters = configuredStrings(config.requiredAdapters, "parameters.designSystem.requiredAdapters");
+  const rawAuthorities = configuredStrings(config.requiredReferenceAuthorities, "parameters.designSystem.requiredReferenceAuthorities");
+  const requiredReferenceAuthorities = rawAuthorities.map((authority) => {
+    if (authority !== "inspiration" && authority !== "production-target" && authority !== "baseline" && authority !== "evidence") throw new Error(`parameters.designSystem.requiredReferenceAuthorities contains unsupported authority ${authority}`);
+    return authority;
+  }) as DesignReferenceAuthority[];
   const minimumReferences = config.minimumReferences ?? 0;
   if (typeof minimumReferences !== "number" || !Number.isSafeInteger(minimumReferences) || minimumReferences < 0 || minimumReferences > 64) throw new Error("parameters.designSystem.minimumReferences must be an integer from 0 to 64");
   if (config.requireImagegenReference !== undefined && typeof config.requireImagegenReference !== "boolean") throw new Error("parameters.designSystem.requireImagegenReference must be boolean");
   if (config.path !== undefined && (typeof config.path !== "string" || config.path.length === 0)) throw new Error("parameters.designSystem.path must be a non-empty string");
-  return { path: typeof config.path === "string" && config.path.length > 0 ? config.path : "design-system.json", requiredTokenGroups, requiredAdapters, minimumReferences, requireImagegenReference: config.requireImagegenReference === true };
+  if (config.visualDirectionPath !== undefined && (typeof config.visualDirectionPath !== "string" || config.visualDirectionPath.length === 0)) throw new Error("parameters.designSystem.visualDirectionPath must be a non-empty string");
+  const minimumMaturity = config.minimumMaturity ?? "direction";
+  if (minimumMaturity !== "direction" && minimumMaturity !== "production-slice" && minimumMaturity !== "production") throw new Error("parameters.designSystem.minimumMaturity must be direction, production-slice, or production");
+  return {
+    path: typeof config.path === "string" && config.path.length > 0 ? config.path : "design-system.json",
+    ...(typeof config.visualDirectionPath === "string" ? { visualDirectionPath: config.visualDirectionPath } : {}),
+    requiredTokenGroups,
+    requiredAdapters,
+    requiredReferenceAuthorities,
+    minimumReferences,
+    requireImagegenReference: config.requireImagegenReference === true,
+    minimumMaturity
+  };
 }
 
 async function verifiedDesignSystemFile(root: string, path: string, expectedHash: string, label: string): Promise<string> {
@@ -87,19 +115,30 @@ async function loadDesignSystem(candidate: Candidate, campaign: Parameters<Evalu
   const system = parseGameDesignSystem(JSON.parse(await readFile(path, "utf8")) as unknown);
   for (const group of config.requiredTokenGroups) if (!system.tokens[group]) throw new Error(`Design system is missing required token group ${group}`);
   for (const adapter of config.requiredAdapters) if (!system.implementations.some((item) => item.adapter === adapter)) throw new Error(`Design system is missing required adapter ${adapter}`);
+  const maturityRank: Record<DesignSystemMaturity, number> = { direction: 0, "production-slice": 1, production: 2 };
+  if (maturityRank[system.maturity] < maturityRank[config.minimumMaturity]) throw new Error(`Design system maturity ${system.maturity} does not satisfy required ${config.minimumMaturity}`);
   if (system.references.length < config.minimumReferences) throw new Error(`Design system requires at least ${config.minimumReferences} references`);
   const imagegenReferences = system.references.filter((item) => item.source === "imagegen").length;
+  const productionTargets = system.references.filter((item) => item.authority === "production-target").length;
+  for (const authority of config.requiredReferenceAuthorities) if (!system.references.some((item) => item.authority === authority)) throw new Error(`Design system requires at least one ${authority} reference`);
   if (config.requireImagegenReference && imagegenReferences === 0) throw new Error("Design system requires at least one ImageGen-authored reference study");
   await Promise.all([
     ...system.references.map((item, index) => verifiedDesignSystemFile(candidate.root, item.path, item.sha256, `design system reference ${index + 1}`)),
     ...system.implementations.map((item, index) => verifiedDesignSystemFile(candidate.root, item.path, item.sha256, `design system implementation ${index + 1}`))
   ]);
-  return { path, system, sha256: gameDesignSystemSha256(system), imagegenReferences };
+  let visualDirection: LoadedDesignSystem["visualDirection"];
+  if (config.visualDirectionPath) {
+    const directionPath = resolveDesignPath(candidate.root, config.visualDirectionPath);
+    const direction = parseVisualDirection(JSON.parse(await readFile(directionPath, "utf8")) as unknown);
+    await Promise.all(direction.references.map((item, index) => verifiedDesignSystemFile(candidate.root, item.path, item.sha256, `visual direction reference ${index + 1}`)));
+    visualDirection = { path: directionPath, sha256: visualDirectionSha256(direction), references: direction.references.length };
+  }
+  return { path, system, sha256: gameDesignSystemSha256(system), imagegenReferences, productionTargets, ...(visualDirection ? { visualDirection } : {}) };
 }
 
 export class DesignSystemEvaluator implements Evaluator {
   readonly id = "design.system";
-  readonly version = "1.0.0";
+  readonly version = "1.1.0";
 
   async evaluate(input: Parameters<Evaluator["evaluate"]>[0]): Promise<Evaluation> {
     if (!input.candidate) {
@@ -111,10 +150,11 @@ export class DesignSystemEvaluator implements Evaluator {
         evaluator: this.id,
         version: this.version,
         status: "pass",
-        metrics: { design_system_integrity: 1, design_system_principles: loaded.system.principles.length, design_system_token_groups: Object.keys(loaded.system.tokens).length, design_system_patterns: loaded.system.patterns.length, design_system_references: loaded.system.references.length, design_system_imagegen_references: loaded.imagegenReferences, design_system_implementations: loaded.system.implementations.length },
+        metrics: { design_system_integrity: 1, design_system_maturity: loaded.system.maturity === "production" ? 2 : loaded.system.maturity === "production-slice" ? 1 : 0, design_system_principles: loaded.system.principles.length, design_system_token_groups: Object.keys(loaded.system.tokens).length, design_system_patterns: loaded.system.patterns.length, design_system_references: loaded.system.references.length, design_system_imagegen_references: loaded.imagegenReferences, design_system_production_targets: loaded.productionTargets, design_system_implementations: loaded.system.implementations.length, visual_direction_references: loaded.visualDirection?.references ?? 0 },
         violations: [],
         artifacts: [
           artifact(loaded.path, "profile", `Design system ${loaded.system.id}@${loaded.system.version}`, "application/json"),
+          ...(loaded.visualDirection ? [artifact(loaded.visualDirection.path, "profile", `Visual direction ${loaded.visualDirection.sha256.slice(0, 12)}`, "application/json")] : []),
           ...loaded.system.references.map((item) => artifact(resolveDesignPath(input.candidate!.root, item.path), item.path.toLowerCase().endsWith(".png") ? "image" : "other", item.role, item.path.toLowerCase().endsWith(".png") ? "image/png" : "application/octet-stream")),
           ...loaded.system.implementations.map((item) => artifact(resolveDesignPath(input.candidate!.root, item.path), "other", `Design system adapter: ${item.adapter}`, item.path.toLowerCase().endsWith(".md") ? "text/markdown" : "text/plain"))
         ],

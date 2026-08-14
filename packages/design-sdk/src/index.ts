@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { relative, resolve } from "node:path";
 
 export * from "./design-system.js";
+export * from "./visual-direction.js";
 
 export const DESIGN_API_VERSION = "gamefactory.design/v1" as const;
 export const HUMAN_PLAYTEST_API_VERSION = "gamefactory.human-playtest/v1" as const;

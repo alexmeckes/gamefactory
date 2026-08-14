@@ -66,7 +66,7 @@
           { "path": "GAME.md", "kind": "other", "mediaType": "text/markdown", "label": "Product brief" },
           { "path": "STYLE.md", "kind": "other", "mediaType": "text/markdown", "label": "Style direction" },
           { "path": "visual-direction.json", "kind": "other", "mediaType": "application/json", "label": "Visual quality contract" },
-          { "path": "visual-reference/art-target.png", "kind": "image", "mediaType": "image/png", "label": "Pinned aspirational art target" },
+          { "path": "visual-reference/art-target.png", "kind": "image", "mediaType": "image/png", "label": "Concept-only material and mood inspiration; not a gameplay or production target" },
           { "path": "visual-reference/baseline-title.png", "kind": "image", "mediaType": "image/png", "label": "Unpolished title baseline" },
           { "path": "visual-reference/baseline-first-puzzle.png", "kind": "image", "mediaType": "image/png", "label": "Unpolished teaching baseline" },
           { "path": "visual-reference/baseline-finale.png", "kind": "image", "mediaType": "image/png", "label": "Unpolished finale baseline" },
@@ -123,7 +123,7 @@
             "role": "implementer",
             "permissions": "write",
             "dependsOn": ["topology-scout", "tactility-scout", "puzzle-scout"],
-            "instructions": "Act as the candidate's Design System Director. Use the installed imagegen skill with Codex's built-in ImageGen tool to create exactly two controlled visual-language studies informed by STYLE.md, visual-direction.json, the pinned target, the campaign assignment, and scout findings. These are references for material, hierarchy, component, and motion language—not final screenshots to copy. Copy the selected project-bound PNGs into design/references/, record the exact final prompts, and never use an API-key CLI fallback. Then author DESIGN_SYSTEM.md, design-system.json using apiVersion gamefactory.design-system/v1, and a valid Godot Theme resource at design/theme/knot_theory_theme.tres. The JSON must define identity, prioritized principles, extensible token groups (color, typography, spacing, shape, material, motion, audio, feedback, accessibility), reusable patterns, SHA-256-pinned references, and SHA-256-pinned implementations. Every ImageGen reference must use source imagegen and include its prompt. Do not make gameplay implementation changes. Preserve creative latitude: define a coherent language and semantic roles rather than freezing a screen layout. Return JSON with outcome complete, summary, artifacts for all authored files, and findings describing the chosen system and rejected visual directions."
+            "instructions": "Act as the candidate's lightweight Design Direction Director. Use the installed imagegen skill with Codex's built-in ImageGen tool to create at most two controlled visual-language studies informed by STYLE.md, visual-direction.json, the concept-only material reference, the campaign assignment, and scout findings. These are cheap inspiration for material, hierarchy, component, and motion language—not final screenshots or a full asset library. Copy selected project-bound PNGs into design/references/, record exact prompts, and never use an API-key CLI fallback. Then author DESIGN_SYSTEM.md, design-system.json using apiVersion gamefactory.design-system/v1 with maturity direction, and a valid Godot Theme resource at design/theme/knot_theory_theme.tres. Every reference must declare purpose and authority; generated studies use authority inspiration, and only later running-engine captures may use production-target. Do not make gameplay implementation changes. Preserve creative latitude rather than freezing a layout."
           },
           {
             "id": "visual-director",
@@ -241,6 +241,8 @@
     },
     "designSystem": {
       "path": "design-system.json",
+      "visualDirectionPath": "visual-direction.json",
+      "minimumMaturity": "direction",
       "requiredTokenGroups": ["color", "typography", "spacing", "material", "motion", "audio", "accessibility"],
       "requiredAdapters": ["godot-theme"],
       "minimumReferences": 2,

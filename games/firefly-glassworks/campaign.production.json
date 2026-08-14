@@ -1,0 +1,93 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "id": "firefly-production-expansion",
+  "objective": "Expand the accepted Firefly Glassworks production slice across the complete small game without changing its proven gameplay or visual language.",
+  "projectRoot": ".",
+  "workflow": "tournament",
+  "requires": ["workspace:git.worktree", "agent:agent.team", "evaluator:design.system", "evaluator:godot.visual", "evaluator:godot.scenario"],
+  "optional": ["agent:sam3.segment", "agent:asset.command"],
+  "mutablePaths": ["project.godot", "main.tscn", "main.gd", "README.md", "src/**", "levels/**", "assets/**", "audio/**", "design/**", "DESIGN_SYSTEM.md", "design-system.json", "sam3.request.json"],
+  "immutablePaths": ["AGENTS.md", "GAME.md", "STYLE.md", "visual-direction.json", "visual-reference/**", "campaign.*.json", "factory.*.json", "addons/gamefactory/**"],
+  "parameters": {
+    "tournament": {
+      "workspace":"git.worktree", "agents":["agent.team"],
+      "evaluators":[{"id":"design.system", "cost":1}, {"id":"godot.visual", "cost":2}, {"id":"godot.scenario", "cost":10}],
+      "candidateCount":2, "concurrency":2,
+      "director":{"agent":"agent.team", "model":"gpt-5.6-sol", "reasoningEffort":"high", "advisorReasoningEffort":"xhigh", "timeoutSeconds":1800, "maxOutputCharacters":30000}
+    },
+    "agentTeam": {
+      "maximumParallel":3, "maxOutputCharacters":30000, "handoffCharacters":10000, "historyLimit":3,
+      "provider":"openai-codex-app-server", "billingMode":"subscription",
+      "graph": {
+        "maximumTotalAttempts":20, "maximumRepairAttempts":1,
+        "context":[
+          {"path":"GAME.md", "kind":"other", "mediaType":"text/markdown", "label":"Product brief"},
+          {"path":"visual-direction.json", "kind":"other", "mediaType":"application/json", "label":"Typed visual contract"},
+          {"path":"DESIGN_SYSTEM.md", "kind":"other", "mediaType":"text/markdown", "label":"Accepted production-slice language"},
+          {"path":"design-system.json", "kind":"other", "mediaType":"application/json", "label":"Accepted production-slice contract"},
+          {"path":"design/references/firefly-production-slice.png", "kind":"image", "mediaType":"image/png", "label":"Captured production target"}
+        ],
+        "nodes":[
+          {
+            "id":"expansion-planner", "adapter":"codex-app-server", "model":"gpt-5.6-sol", "reasoningEffort":"high", "timeoutSeconds":1200, "role":"planner", "permissions":"read",
+            "instructions":"Audit the accepted gameplay and production slice. Plan the smallest coherent expansion across title, remaining puzzles and instruments, finale, success, reset, and replay. Map every added asset to a proven gameplay role and the accepted semantic vocabulary; identify deliberate reuse and forbid a second visual language."
+          },
+          {
+            "id":"presentation-expander", "adapter":"codex-app-server", "model":"gpt-5.6-sol", "reasoningEffort":"xhigh", "timeoutSeconds":4200, "role":"implementer", "permissions":"write",
+            "dependsOn":["expansion-planner"],
+            "instructions":"Expand only the accepted production-slice vocabulary across the complete small game. Reuse its camera, materials, typography, instrument construction, beam language, lighting, motion, and interaction patterns. Add project-bound assets only for proven gameplay roles; preserve exact provenance and update design-system hashes when resources change. Complete title, authored puzzle progression, finale, success, reset, and replay while preserving deterministic hooks. Do not chase concept-art detail, invent a parallel UI style, or add mechanics solely to justify assets."
+          },
+          {
+            "id":"production-contract", "adapter":"command", "command":["C:\\Users\\alexm\\OneDrive\\Documents\\New project\\oldschool-mmo-godot\\tools\\godot\\Godot_v4.7.1-stable_win64_console.exe", "--disable-crash-handler", "--headless", "--path", ".", "--script", "res://addons/gamefactory/contract_runner.gd"],
+            "role":"worker", "permissions":"read", "inheritContext":false, "dependsOn":["presentation-expander"], "refreshAfterRepair":true,
+            "instructions":"Run the complete gameplay contract after expansion and every repair."
+          },
+          {
+            "id":"production-capture", "adapter":"command", "command":["C:\\Users\\alexm\\OneDrive\\Documents\\New project\\oldschool-mmo-godot\\tools\\godot\\Godot_v4.7.1-stable_win64_console.exe", "--disable-crash-handler", "--path", ".", "--script", "res://addons/gamefactory/capture_runner.gd"],
+            "role":"worker", "permissions":"read", "inheritContext":false, "dependsOn":["presentation-expander", "production-contract"], "refreshAfterRepair":true,
+            "instructions":"Capture title, representative puzzle, solved state, and complete beam motion after expansion."
+          },
+          {
+            "id":"production-regression", "adapter":"codex-app-server", "model":"gpt-5.6-sol", "reasoningEffort":"high", "timeoutSeconds":1200, "role":"critic", "permissions":"read", "inheritContext":false,
+            "dependsOn":["presentation-expander", "production-contract"], "refreshAfterRepair":true,
+            "instructions":"Verify solvability, progression, input coverage, reset/replay, deterministic hooks, honest telemetry, and the accepted gameplay rule survived production expansion."
+          },
+          {
+            "id":"final-visual-critic", "adapter":"codex-app-server", "model":"gpt-5.6-sol", "reasoningEffort":"xhigh", "timeoutSeconds":1800, "role":"critic", "permissions":"read",
+            "dependsOn":["presentation-expander", "production-contract", "production-capture", "production-regression"], "refreshAfterRepair":true,
+            "instructions":"Inspect all required views and the seven-frame beam sequence. Compare expansion against the captured production slice, not an imaginary concept-art screenshot. Gate material depth, focal hierarchy, beam legibility, authored specificity, composition/typography, motion, consistency, accessibility, and whether every asset serves proven gameplay. Return findings.scorecard numeric 0-100 for material_depth, focal_hierarchy, beam_legibility, authored_specificity, composition_typography, motion_feedback; findings.evidence for title, first-puzzle, solved, and sequence beam-route; and findings.blockingIssues. Never call proxy evidence fun.",
+            "repair":{"target":"presentation-expander", "outcomes":["revise"], "maximumAttempts":1, "allowedPaths":["project.godot", "main.tscn", "main.gd", "README.md", "src/**", "levels/**", "assets/**", "audio/**", "design/**", "DESIGN_SYSTEM.md", "design-system.json", "sam3.request.json"], "preserve":["production-regression"]}
+          }
+        ]
+      }
+    },
+    "godot": {
+      "binary":"C:\\Users\\alexm\\OneDrive\\Documents\\New project\\oldschool-mmo-godot\\tools\\godot\\Godot_v4.7.1-stable_win64_console.exe",
+      "importCheck":true, "rendered":false, "timeoutSeconds":180,
+      "scenario":{"provider":"godot.factory/v1", "version":"1", "path":"res://main.tscn", "parameters":{"seed":161803, "ticks":1200, "physics_hz":60, "duration_seconds":20}},
+      "visualReview": {
+        "reviewNode":"final-visual-critic", "minimumScore":76, "minimumDimensionScore":58, "minimumWidth":960, "minimumHeight":600,
+        "requiredDimensions":["material_depth", "focal_hierarchy", "beam_legibility", "authored_specificity", "composition_typography", "motion_feedback"],
+        "requiredViews":[
+          {"id":"title", "path":".factory/previews/title.png", "baselineSha256":"613e1f8d5a1e6d72bf23e6a0427ebce389fceedb5dafa794afabb52beffa917a"},
+          {"id":"first-puzzle", "path":".factory/previews/first-puzzle.png", "baselineSha256":"529505fe0a0a17efcc491fa197290a2268f0e8006f28f8eb2fe26e4113d9ea12"},
+          {"id":"solved", "path":".factory/previews/solved.png", "baselineSha256":"560bb85d30ed1c9d09e88ef88a31cf40ec3d88e530b1604f59c091cf65900ca0"}
+        ],
+        "requiredSequences":[{"id":"beam-route", "paths":[".factory/previews/motion-000.png", ".factory/previews/motion-001.png", ".factory/previews/motion-002.png", ".factory/previews/motion-003.png", ".factory/previews/motion-004.png", ".factory/previews/motion-005.png", ".factory/previews/motion-006.png"], "minimumFrames":7}]
+      }
+    },
+    "designSystem": {
+      "path":"design-system.json", "visualDirectionPath":"visual-direction.json", "minimumMaturity":"production-slice",
+      "requiredTokenGroups":["color", "typography", "spacing", "material", "motion", "accessibility"],
+      "requiredAdapters":["godot-production-slice"], "requiredReferenceAuthorities":["production-target"], "minimumReferences":1, "requireImagegenReference":false
+    },
+    "sam3": {
+      "requestPath":"sam3.request.json",
+      "command":["D:/GameFactory/runtimes/sam3/venv/Scripts/python.exe", "{worker}"],
+      "doctorCommand":["D:/GameFactory/runtimes/sam3/venv/Scripts/python.exe", "{worker}", "--doctor"],
+      "modelSource":"facebook/sam3", "backend":"transformers", "device":"cuda", "precision":"bfloat16", "timeoutSeconds":900
+    }
+  },
+  "acceptance":{"primaryMetric":"visual_quality", "direction":"maximize", "minimumDelta":2},
+  "budget":{"maximumExperiments":2, "maximumConsecutiveCrashes":2, "wallTimeMinutes":180}
+}

@@ -15,8 +15,10 @@ fuse, three readable workshop instruments, and composable heat reactions.
   score or label automated telemetry as human evidence of fun.
 - Mouse is primary. Make pause, speed, wave start, tower selection, upgrade or
   sell, and restart discoverable if those mechanics exist.
-- Treat an accepted `design-system.json`, `DESIGN_SYSTEM.md`, and Godot theme as
-  the semantic design language. Do not silently drift into one-off styling.
+- Treat `direction` maturity as cheap guidance, not a finished asset system.
+  Prove gameplay first, then prove one representative captured
+  `production-slice` before expanding its reusable vocabulary. Do not silently
+  drift into one-off styling or call concept art engine evidence.
 - Use code-native Godot rendering or project-bound generated assets. Keep
   external credentials out of the candidate and trace.
 
@@ -26,4 +28,3 @@ The final board metaphor, enemy taxonomy, exact heat grammar, progression,
 route, balance, and animation language remain open. Prefer a small surprising
 system with strong feedback over a broad checklist of familiar tower-defense
 features.
-

@@ -1,0 +1,5 @@
+.godot/
+.factory/
+*.import
+*.uid
+*.tmp

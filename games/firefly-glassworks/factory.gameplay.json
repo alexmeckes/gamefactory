@@ -1,0 +1,13 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "extensions": [
+    "../../extensions/git",
+    "../../extensions/agent-team",
+    "../../extensions/tournament",
+    "../../extensions/godot"
+  ],
+  "resultLog": "games/firefly-glassworks/.factory/results/gameplay.jsonl",
+  "journalLog": "games/firefly-glassworks/.factory/journal/gameplay.jsonl",
+  "traceLog": "games/firefly-glassworks/.factory/traces/gameplay.jsonl",
+  "artifactDirectory": "games/firefly-glassworks/.factory/artifacts"
+}

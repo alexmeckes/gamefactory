@@ -62,13 +62,13 @@
       "provider": "openai-codex-app-server",
       "billingMode": "subscription",
       "graph": {
-        "maximumTotalAttempts": 32,
+        "maximumTotalAttempts": 40,
         "maximumRepairAttempts": 2,
         "context": [
           {"path":"GAME.md", "kind":"other", "mediaType":"text/markdown", "label":"Product brief"},
           {"path":"STYLE.md", "kind":"other", "mediaType":"text/markdown", "label":"Style direction"},
           {"path":"visual-direction.json", "kind":"other", "mediaType":"application/json", "label":"Visual quality contract"},
-          {"path":"visual-reference/art-target.png", "kind":"image", "mediaType":"image/png", "label":"Aspirational workshop art target"},
+          {"path":"visual-reference/art-target.png", "kind":"image", "mediaType":"image/png", "label":"Concept-only material and mood inspiration; not a gameplay or production target"},
           {"path":"visual-reference/baseline-title.png", "kind":"image", "mediaType":"image/png", "label":"Unpolished title baseline"},
           {"path":"visual-reference/baseline-board.png", "kind":"image", "mediaType":"image/png", "label":"Unpolished board baseline"},
           {"path":"visual-reference/baseline-wave.png", "kind":"image", "mediaType":"image/png", "label":"Unpolished combat baseline"},
@@ -115,7 +115,7 @@
             "role":"planner",
             "permissions":"read",
             "dependsOn":["systems-scout", "feel-scout", "encounter-scout"],
-            "instructions":"Act as Design System Director. Audit the committed DESIGN_SYSTEM.md, design-system.json, Godot Theme, ImageGen studies, pinned target, and current implementation. Identify a small set of high-leverage gaps and safe semantic extensions; do not regenerate the same reference studies for every tournament candidate. Recommend targeted ImageGen or SAM3 asset work only where code-native rendering cannot reach the intended craft. Preserve creative latitude through semantic roles rather than frozen layouts."
+            "instructions":"Act as a lightweight Direction Auditor. Audit STYLE.md, visual-direction.json, the direction-maturity design system, Godot Theme, studies, and current implementation. Treat the legacy concept image only as material and mood inspiration. Identify a small set of high-leverage semantic gaps and an engine-feasible rendering hypothesis; do not build an asset library or regenerate studies before gameplay passes. Preserve creative latitude through semantic roles rather than frozen layouts."
           },
           {
             "id":"visual-director",
@@ -125,8 +125,8 @@
             "timeoutSeconds":1800,
             "role":"planner",
             "permissions":"read",
-            "dependsOn":["design-system-director"],
-            "instructions":"Inspect the authored design system, both ImageGen studies, pinned target, and baseline captures with image-aware tools. Translate them into a bounded art hierarchy for this Godot build. Diagnose material separation, lighting, composition, enemy/tower readability, typography, prop craft, and motion. Preserve the system without literally copying reference layouts. Return ready with prioritized findings and an implementation brief."
+            "dependsOn":["design-system-director", "systems-critic"],
+            "instructions":"Only after the gameplay gate passes, inspect the direction system, ImageGen studies, concept-only material reference, running graybox, and baseline captures with image-aware tools. Define one representative in-engine art slice at the shipping camera: one route bend, three sockets, one tower, one enemy, the heart, one HUD interaction, and one complete anticipation/action/impact/settle beat. Choose a feasible layered 2.5D Godot strategy and explicitly reject any concept-art qualities that cannot survive gameplay scale. Do not plan the whole asset library."
           },
           {
             "id":"systems-planner",
@@ -177,7 +177,7 @@
             "repair":{"target":"systems-builder", "outcomes":["revise"], "maximumAttempts":1, "allowedPaths":["main.gd", "src/**", "levels/**"], "preserve":["contract-gate"]}
           },
           {
-            "id":"integration-planner",
+            "id":"art-slice-planner",
             "adapter":"codex-app-server",
             "model":"gpt-5.6-sol",
             "reasoningEffort":"high",
@@ -185,18 +185,77 @@
             "role":"planner",
             "permissions":"read",
             "dependsOn":["systems-critic", "visual-director"],
-            "instructions":"Turn the passed systems slice and the visual direction into one bounded polish brief. Identify presentation seams, required motion beats, hierarchy, material layers, typography, props, audio, and accessibility. Do not reopen passed systems decisions without concrete evidence."
+            "instructions":"Turn the passed gameplay loop and visual-director handoff into a bounded vertical-art-slice brief. Specify the representative live-wave state, exact production surfaces to finish, engine resources to reuse, capture conditions, performance/readability risks, and explicit out-of-scope asset families. The slice proves a production method, not the whole game. Do not reopen passed systems decisions without concrete evidence."
           },
           {
-            "id":"visual-polisher",
+            "id":"art-slice-builder",
             "adapter":"codex-app-server",
             "model":"gpt-5.6-sol",
             "reasoningEffort":"xhigh",
             "timeoutSeconds":3000,
             "role":"implementer",
             "permissions":"write",
-            "dependsOn":["integration-planner"],
-            "instructions":"Apply a cohesive authored visual and feel pass to the already working slice. Implement the design system through code-native Godot layers and project assets: material depth, composition, typography, lighting, tower/enemy silhouettes, anticipation, projectile travel, impact, settle, audio, and accessibility. Preserve runtime contracts and deterministic hooks. Finish a small number of high-leverage surfaces instead of adding unused framework."
+            "dependsOn":["art-slice-planner"],
+            "instructions":"Build only the representative production-quality art slice inside the already working Godot loop. Finish one route bend, three sockets, one tower, one enemy, the heart, one HUD interaction, and one complete anticipation/action/impact/settle beat at the shipping camera. Use project-bound sprites/textures, custom typography, lighting, shaders, particles, or code-native geometry according to the proven 2.5D strategy; code-native does not mean primitive-only. Preserve gameplay contracts. Do not expand every screen, tower, enemy, prop, or wave yet. At the end, run the engine capture, copy the representative gameplay capture into design/references/emberline-production-slice.png, and create design/production-slice.json describing the camera, implemented surfaces, reusable resources, deliberate omissions, and source capture. Update DESIGN_SYSTEM.md and exact design-system.json hashes; set maturity production-slice; add the capture with purpose gameplay, authority production-target, source captured; add the manifest as adapter godot-production-slice. Leave reusable resources and semantic seams for later expansion."
+          },
+          {
+            "id":"art-slice-contract",
+            "adapter":"command",
+            "command":["C:\\Users\\alexm\\OneDrive\\Documents\\New project\\oldschool-mmo-godot\\tools\\godot\\Godot_v4.7.1-stable_win64_console.exe", "--disable-crash-handler", "--headless", "--path", ".", "--script", "res://addons/gamefactory/contract_runner.gd"],
+            "role":"worker",
+            "permissions":"read",
+            "inheritContext":false,
+            "dependsOn":["systems-builder", "art-slice-builder"],
+            "refreshAfterRepair":true,
+            "instructions":"Run the cheap runtime contract after the bounded art slice and every slice repair."
+          },
+          {
+            "id":"art-slice-capture",
+            "adapter":"command",
+            "command":["C:\\Users\\alexm\\OneDrive\\Documents\\New project\\oldschool-mmo-godot\\tools\\godot\\Godot_v4.7.1-stable_win64_console.exe", "--disable-crash-handler", "--path", ".", "--script", "res://addons/gamefactory/capture_runner.gd"],
+            "role":"worker",
+            "permissions":"read",
+            "inheritContext":false,
+            "dependsOn":["art-slice-builder", "art-slice-contract"],
+            "refreshAfterRepair":true,
+            "instructions":"Capture the deterministic live-wave art slice and seven-frame attack/reaction evidence from the running Godot project at the shipping camera. Other views remain diagnostic at this gate."
+          },
+          {
+            "id":"art-slice-systems-regression",
+            "adapter":"codex-app-server",
+            "model":"gpt-5.6-sol",
+            "reasoningEffort":"high",
+            "timeoutSeconds":1200,
+            "role":"critic",
+            "permissions":"read",
+            "inheritContext":false,
+            "dependsOn":["systems-critic", "art-slice-builder", "art-slice-contract"],
+            "refreshAfterRepair":true,
+            "instructions":"Confirm that the bounded art slice preserved the previously passed placement, reactions, economy, upgrades, deterministic hooks, wave progression, boss, reset, and replay behavior. Use runtime evidence and concrete state inspection. This is a regression gate, not an invitation to redesign the passed loop."
+          },
+          {
+            "id":"art-slice-critic",
+            "adapter":"codex-app-server",
+            "model":"gpt-5.6-sol",
+            "reasoningEffort":"xhigh",
+            "timeoutSeconds":1800,
+            "role":"critic",
+            "permissions":"read",
+            "dependsOn":["systems-critic", "art-slice-builder", "art-slice-contract", "art-slice-capture", "art-slice-systems-regression"],
+            "refreshAfterRepair":true,
+            "instructions":"Gate the production method before visual expansion. Inspect the running live-wave slice and full motion sequence at gameplay scale. Judge material separation, silhouette, typography, interaction readability, motion, performance feasibility, and whether the resources can be reused. The legacy concept image is inspiration only and cannot supply gameplay evidence. Return pass only if this small slice looks authored and engine-feasible; otherwise return one bounded repair brief. Never require completion of out-of-scope screens or asset families, and never call proxy evidence fun.",
+            "repair":{"target":"art-slice-builder", "outcomes":["revise"], "maximumAttempts":1, "allowedPaths":["project.godot", "main.tscn", "main.gd", "src/**", "assets/**", "audio/**", "design/**", "DESIGN_SYSTEM.md", "design-system.json"], "preserve":["art-slice-systems-regression"]}
+          },
+          {
+            "id":"presentation-expander",
+            "adapter":"codex-app-server",
+            "model":"gpt-5.6-sol",
+            "reasoningEffort":"xhigh",
+            "timeoutSeconds":3000,
+            "role":"implementer",
+            "permissions":"write",
+            "dependsOn":["art-slice-critic"],
+            "instructions":"Expand only the production vocabulary proven by the accepted art slice across the title, planning board, remaining towers and enemies, boss, victory/defeat, and replay. Reuse its resources, typography, material layers, camera assumptions, and motion grammar. Add assets only for proven gameplay roles; do not invent a second visual language or chase concept-art detail that failed the gameplay-scale gate. Preserve runtime contracts, accessibility, and deterministic hooks."
           },
           {
             "id":"runtime-contract",
@@ -205,9 +264,9 @@
             "role":"worker",
             "permissions":"read",
             "inheritContext":false,
-            "dependsOn":["systems-builder", "visual-polisher"],
+            "dependsOn":["presentation-expander"],
             "refreshAfterRepair":true,
-            "instructions":"Re-run the cheap runtime contract after polish and every repair."
+            "instructions":"Re-run the runtime contract after production-vocabulary expansion and every final repair."
           },
           {
             "id":"visual-capture",
@@ -216,9 +275,9 @@
             "role":"worker",
             "permissions":"read",
             "inheritContext":false,
-            "dependsOn":["systems-builder", "visual-polisher", "runtime-contract"],
+            "dependsOn":["presentation-expander", "runtime-contract"],
             "refreshAfterRepair":true,
-            "instructions":"Capture deterministic title, board, live wave, and seven-frame attack/reaction evidence from the running Godot project."
+            "instructions":"Capture deterministic title, board, live wave, and seven-frame attack/reaction evidence after full presentation expansion."
           },
           {
             "id":"visual-experience-critic",
@@ -228,10 +287,10 @@
             "timeoutSeconds":1800,
             "role":"critic",
             "permissions":"read",
-            "dependsOn":["systems-builder", "visual-polisher", "visual-capture", "runtime-contract"],
+            "dependsOn":["systems-critic", "art-slice-critic", "presentation-expander", "visual-capture", "runtime-contract"],
             "refreshAfterRepair":true,
-            "instructions":"Act as a strict visual/experience director. Inspect every still and the complete seven-frame motion sequence with image-aware tools. Compare observable craft against the pinned target, baselines, STYLE.md, visual-direction.json, and design system. Pass only if the contract clears; otherwise return one small prioritized repair brief. Always return findings.scorecard numeric 0-100 for material_depth, focal_hierarchy, combat_legibility, authored_specificity, composition_typography, motion_feedback. Always return findings.evidence with one object per required view containing view, path, and a concrete observation, plus one object with sequence tower-fire and a concrete temporal observation, plus findings.blockingIssues. Never inflate scores or call it fun without human playtest.",
-            "repair":{"target":"visual-polisher", "outcomes":["revise"], "maximumAttempts":1, "allowedPaths":["project.godot", "main.tscn", "main.gd", "src/**", "assets/**", "audio/**", "design/**", "DESIGN_SYSTEM.md", "design-system.json"], "preserve":["runtime-contract"]}
+            "instructions":"Act as a strict final visual/experience director. Inspect every still and the complete seven-frame motion sequence with image-aware tools. Use the captured production slice as the feasibility and visual-vocabulary target; use the legacy concept image only for material and mood inspiration; use baselines only to measure improvement. Pass only if the proven vocabulary expands coherently without harming gameplay readability. Always return findings.scorecard numeric 0-100 for material_depth, focal_hierarchy, combat_legibility, authored_specificity, composition_typography, motion_feedback. Always return findings.evidence with one object per required view containing view, path, and a concrete observation, plus one object with sequence tower-fire and a concrete temporal observation, plus findings.blockingIssues. Never inflate scores or call it fun without human playtest.",
+            "repair":{"target":"presentation-expander", "outcomes":["revise"], "maximumAttempts":1, "allowedPaths":["project.godot", "main.tscn", "main.gd", "src/**", "assets/**", "audio/**", "design/**", "DESIGN_SYSTEM.md", "design-system.json"], "preserve":["runtime-contract"]}
           }
         ]
       }
@@ -266,8 +325,11 @@
     },
     "designSystem": {
       "path":"design-system.json",
+      "visualDirectionPath":"visual-direction.json",
+      "minimumMaturity":"production-slice",
       "requiredTokenGroups":["color", "typography", "spacing", "material", "motion", "audio", "accessibility"],
-      "requiredAdapters":["godot-theme"],
+      "requiredAdapters":["godot-theme", "godot-production-slice"],
+      "requiredReferenceAuthorities":["production-target"],
       "minimumReferences":2,
       "requireImagegenReference":true
     }

@@ -2,6 +2,10 @@ import { createHash } from "node:crypto";
 
 export const DESIGN_SYSTEM_API_VERSION = "gamefactory.design-system/v1" as const;
 
+export type DesignSystemMaturity = "direction" | "production-slice" | "production";
+export type DesignReferencePurpose = "mood" | "material" | "silhouette" | "gameplay" | "interaction" | "motion" | "baseline";
+export type DesignReferenceAuthority = "inspiration" | "production-target" | "baseline" | "evidence";
+
 export interface DesignSystemPrinciple {
   id: string;
   statement: string;
@@ -20,6 +24,8 @@ export interface DesignSystemPattern {
 export interface DesignSystemReference {
   path: string;
   role: string;
+  purpose: DesignReferencePurpose;
+  authority: DesignReferenceAuthority;
   source: "curated" | "imagegen" | "captured" | "other";
   sha256: string;
   prompt?: string;
@@ -37,6 +43,7 @@ export interface GameDesignSystem {
   id: string;
   version: string;
   title: string;
+  maturity: DesignSystemMaturity;
   identity: {
     intent: string;
     toneWords: string[];
@@ -94,6 +101,8 @@ export function parseGameDesignSystem(value: unknown): GameDesignSystem {
   const record = object(value, "design system");
   if (record.apiVersion !== DESIGN_SYSTEM_API_VERSION) throw new Error(`design system apiVersion must be ${DESIGN_SYSTEM_API_VERSION}`);
   const identity = object(record.identity, "design system identity");
+  const maturity = record.maturity;
+  if (maturity !== "direction" && maturity !== "production-slice" && maturity !== "production") throw new Error("design system maturity must be direction, production-slice, or production");
   if (!Array.isArray(record.principles) || record.principles.length === 0 || record.principles.length > 64) throw new Error("design system principles must contain from 1 to 64 entries");
   const principleIds = new Set<string>();
   const principles = record.principles.map((raw, index) => {
@@ -116,11 +125,19 @@ export function parseGameDesignSystem(value: unknown): GameDesignSystem {
   if (!Array.isArray(record.references) || record.references.length > 64) throw new Error("design system references must be an array with at most 64 entries");
   const references: DesignSystemReference[] = record.references.map((raw, index) => {
     const item = object(raw, `design system references[${index}]`);
+    const rawPurpose = item.purpose;
+    if (rawPurpose !== "mood" && rawPurpose !== "material" && rawPurpose !== "silhouette" && rawPurpose !== "gameplay" && rawPurpose !== "interaction" && rawPurpose !== "motion" && rawPurpose !== "baseline") throw new Error(`design system references[${index}].purpose is unsupported`);
+    const purpose: DesignReferencePurpose = rawPurpose;
+    const rawAuthority = item.authority;
+    if (rawAuthority !== "inspiration" && rawAuthority !== "production-target" && rawAuthority !== "baseline" && rawAuthority !== "evidence") throw new Error(`design system references[${index}].authority is unsupported`);
+    const authority: DesignReferenceAuthority = rawAuthority;
     const rawSource = item.source;
     if (rawSource !== "curated" && rawSource !== "imagegen" && rawSource !== "captured" && rawSource !== "other") throw new Error(`design system references[${index}].source is unsupported`);
     const source: DesignSystemReference["source"] = rawSource;
     if (source === "imagegen" && typeof item.prompt !== "string") throw new Error(`design system references[${index}].prompt is required for ImageGen references`);
-    return { path: text(item.path, `design system references[${index}].path`, 4096), role: text(item.role, `design system references[${index}].role`), source, sha256: hash(item.sha256, `design system references[${index}].sha256`), ...(typeof item.prompt === "string" ? { prompt: text(item.prompt, `design system references[${index}].prompt`, 32_000) } : {}) };
+    if (authority === "production-target" && source !== "captured") throw new Error(`design system references[${index}] production targets must be captured from the implementation`);
+    if (authority === "production-target" && purpose !== "gameplay" && purpose !== "interaction" && purpose !== "motion") throw new Error(`design system references[${index}] production targets must demonstrate gameplay, interaction, or motion`);
+    return { path: text(item.path, `design system references[${index}].path`, 4096), role: text(item.role, `design system references[${index}].role`), purpose, authority, source, sha256: hash(item.sha256, `design system references[${index}].sha256`), ...(typeof item.prompt === "string" ? { prompt: text(item.prompt, `design system references[${index}].prompt`, 32_000) } : {}) };
   });
   if (!Array.isArray(record.implementations) || record.implementations.length === 0 || record.implementations.length > 64) throw new Error("design system implementations must contain from 1 to 64 entries");
   const implementations = record.implementations.map((raw, index) => { const item = object(raw, `design system implementations[${index}]`); return { id: id(item.id, `design system implementations[${index}].id`), adapter: text(item.adapter, `design system implementations[${index}].adapter`, 256), path: text(item.path, `design system implementations[${index}].path`, 4096), sha256: hash(item.sha256, `design system implementations[${index}].sha256`) }; });
@@ -130,6 +147,7 @@ export function parseGameDesignSystem(value: unknown): GameDesignSystem {
     id: id(record.id, "design system id"),
     version: text(record.version, "design system version", 128),
     title: text(record.title, "design system title", 512),
+    maturity,
     identity: { intent: text(identity.intent, "design system identity.intent"), toneWords: strings(identity.toneWords, "design system identity.toneWords", 32), avoidWords: strings(identity.avoidWords, "design system identity.avoidWords", 32) },
     principles,
     tokens,
