@@ -4,7 +4,6 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const phases = {
   gameplay: {
     campaign: "games/firefly-glassworks/campaign.gameplay.json",
@@ -31,7 +30,7 @@ function assertClean(label) {
 
 function runFactory(command, phase) {
   return new Promise((resolveRun, reject) => {
-    const child = spawn(npmCommand, ["run", "factory", "--", command, phase.campaign, "--config", phase.config], {
+    const child = spawn(process.execPath, ["packages/cli/dist/index.js", command, phase.campaign, "--config", phase.config], {
       cwd: repositoryRoot,
       stdio: "inherit",
       windowsHide: true
