@@ -19,17 +19,37 @@ interface VisualViewConfig {
   baselineSha256?: string;
 }
 
+interface VisualSequenceConfig {
+  id: string;
+  paths: string[];
+  minimumFrames: number;
+}
+
 interface VisualReviewConfig {
   reviewNode: string;
   minimumScore: number;
   minimumDimensionScore: number;
   requiredDimensions: string[];
   requiredViews: VisualViewConfig[];
+  requiredSequences: VisualSequenceConfig[];
   minimumWidth: number;
   minimumHeight: number;
 }
 
 interface ProcessResult { exitCode: number | null; stdout: string; stderr: string; timedOut: boolean; }
+
+// Factory runs are non-interactive and already preserve stderr and exit status.
+// On Windows, a forcibly cancelled Godot process can otherwise enter the native
+// crash handler and leave an Application Error dialog blocking later runs.
+export function automationArgs(args: string[]): string[] {
+  return ["--disable-crash-handler", ...args];
+}
+
+const GODOT_ERROR = /(?:SCRIPT ERROR:|PARSE ERROR:|\bERROR:|Cannot call method|Invalid call\.)/i;
+
+export function godotProcessSucceeded(result: ProcessResult): boolean {
+  return result.exitCode === 0 && !result.timedOut && !GODOT_ERROR.test(`${result.stdout}\n${result.stderr}`);
+}
 
 function config(campaign: Campaign): GodotConfig {
   const raw = campaign.parameters?.godot;
@@ -68,15 +88,35 @@ function visualReviewConfig(campaign: Campaign): VisualReviewConfig | undefined 
     if (typeof view.id !== "string" || typeof view.path !== "string") return [];
     return [{ id: view.id, path: view.path, ...(typeof view.baselineSha256 === "string" ? { baselineSha256: view.baselineSha256.toLowerCase() } : {}) }];
   }) : [];
+  if (value.requiredSequences !== undefined && (!Array.isArray(value.requiredSequences) || value.requiredSequences.length === 0)) {
+    throw new Error("parameters.godot.visualReview.requiredSequences must be a non-empty array when configured");
+  }
+  const sequences = Array.isArray(value.requiredSequences) ? value.requiredSequences.flatMap((item): VisualSequenceConfig[] => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+    const sequence = item as Record<string, unknown>;
+    const paths = Array.isArray(sequence.paths)
+      ? sequence.paths.filter((path): path is string => typeof path === "string" && path.length > 0)
+      : [];
+    if (typeof sequence.id !== "string" || paths.length < 2 || paths.length > 32 || new Set(paths).size !== paths.length) return [];
+    const minimumFrames = typeof sequence.minimumFrames === "number" ? sequence.minimumFrames : paths.length;
+    if (!Number.isInteger(minimumFrames) || minimumFrames < 2 || minimumFrames > paths.length) return [];
+    return [{ id: sequence.id, paths, minimumFrames }];
+  }) : [];
+  if (Array.isArray(value.requiredSequences) && sequences.length !== value.requiredSequences.length) {
+    throw new Error("parameters.godot.visualReview.requiredSequences contains an invalid id, path list, or minimumFrames value");
+  }
+  const evidenceIds = [...views.map((view) => view.id), ...sequences.map((sequence) => sequence.id)];
+  if (new Set(evidenceIds).size !== evidenceIds.length) throw new Error("parameters.godot.visualReview view and sequence ids must be unique");
   if (typeof value.reviewNode !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/.test(value.reviewNode) || dimensions.length === 0 || views.length === 0) {
     throw new Error("parameters.godot.visualReview requires reviewNode, requiredDimensions, and requiredViews");
   }
-  const result = {
+  const result: VisualReviewConfig = {
     reviewNode: value.reviewNode,
     minimumScore: typeof value.minimumScore === "number" ? value.minimumScore : 72,
     minimumDimensionScore: typeof value.minimumDimensionScore === "number" ? value.minimumDimensionScore : 55,
     requiredDimensions: dimensions,
     requiredViews: views,
+    requiredSequences: sequences,
     minimumWidth: typeof value.minimumWidth === "number" ? value.minimumWidth : 640,
     minimumHeight: typeof value.minimumHeight === "number" ? value.minimumHeight : 360
   };
@@ -158,7 +198,7 @@ export class GodotEngine implements EngineDriver {
   async doctor({ campaign, projectRoot, signal }: Parameters<EngineDriver["doctor"]>[0]): Promise<DoctorResult> {
     const settings = config(campaign);
     try {
-      const version = await execute(settings.binary, ["--version"], projectRoot, signal, 15);
+      const version = await execute(settings.binary, automationArgs(["--version"]), projectRoot, signal, 15);
       return { ok: version.exitCode === 0, checks: [{ name: "godot-binary", ok: version.exitCode === 0, message: version.stdout.trim() || version.stderr.trim() }] };
     } catch (error) {
       return { ok: false, checks: [{ name: "godot-binary", ok: false, message: error instanceof Error ? error.message : String(error) }] };
@@ -167,11 +207,12 @@ export class GodotEngine implements EngineDriver {
 
   async build(context: Parameters<NonNullable<EngineDriver["build"]>>[0]): Promise<ExecutionResult> {
     const settings = config(context.campaign);
-    const run = await execute(settings.binary, ["--headless", "--editor", "--quit", "--path", context.candidate.root], context.candidate.root, context.signal, settings.timeoutSeconds);
+    const run = await execute(settings.binary, automationArgs(["--headless", "--editor", "--quit", "--path", context.candidate.root]), context.candidate.root, context.signal, settings.timeoutSeconds);
     const output = resolve(context.candidate.root, ".factory", "runs", context.experimentId, "import");
     await mkdir(output, { recursive: true });
     const artifacts = await writeProcessLogs(output, "godot-import", run);
-    return { ok: run.exitCode === 0, exitCode: run.exitCode, stdout: run.stdout, stderr: run.stderr, artifacts, metrics: { import_ok: run.exitCode === 0 ? 1 : 0 } };
+    const ok = godotProcessSucceeded(run);
+    return { ok, exitCode: run.exitCode, stdout: run.stdout, stderr: run.stderr, artifacts, metrics: { import_ok: ok ? 1 : 0 } };
   }
 }
 
@@ -185,6 +226,7 @@ export class GodotScenarioRunner implements ScenarioRunner {
     const requestPath = resolve(output, "request.json");
     await writeFile(requestPath, `${JSON.stringify(input.scenario, null, 2)}\n`, "utf8");
     const args = [
+      "--disable-crash-handler",
       ...(settings.rendered ? [] : ["--headless"]),
       "--path", input.candidate.root,
       "--script", "res://addons/gamefactory/scenario_runner.gd",
@@ -197,6 +239,15 @@ export class GodotScenarioRunner implements ScenarioRunner {
       return { status: "crash", metrics: {}, artifacts: [], violations: [{ code: "godot.launch", message: error instanceof Error ? error.message : String(error), severity: "error" }] };
     }
     const artifacts = await writeProcessLogs(output, "godot-scenario", processResult);
+    if (!godotProcessSucceeded(processResult)) {
+      return {
+        status: "crash",
+        metrics: {},
+        artifacts,
+        violations: [{ code: "godot.process", message: `Godot reported an engine or script error despite exit code ${processResult.exitCode}.`, severity: "error" }],
+        metadata: { timedOut: processResult.timedOut }
+      };
+    }
     const resultPath = resolve(output, "result.json");
     try {
       const raw = JSON.parse(await readFile(resultPath, "utf8")) as Partial<ScenarioResult>;
@@ -333,6 +384,34 @@ export class GodotVisualEvaluator implements Evaluator {
         && (item as Record<string, unknown>).view === view.id
         && typeof (item as Record<string, unknown>).observation === "string");
       if (!cited) violations.push({ code: `godot.visual.evidence.${view.id}`, message: `Visual review did not record an observation for ${view.id}.`, severity: "error" });
+    }
+    for (const sequence of settings.requiredSequences) {
+      const hashes = new Set<string>();
+      let validFrames = 0;
+      for (const [frame, configuredPath] of sequence.paths.entries()) {
+        try {
+          const path = candidateLocalPath(input.candidate.root, configuredPath);
+          const bytes = await readFile(path);
+          const dimensions = pngDimensions(bytes);
+          const sha256 = createHash("sha256").update(bytes).digest("hex");
+          hashes.add(sha256);
+          if (dimensions && dimensions.width >= settings.minimumWidth && dimensions.height >= settings.minimumHeight) validFrames += 1;
+          else violations.push({ code: `godot.visual.sequence.${sequence.id}`, message: `${sequence.id} frame ${frame + 1} is not a valid ${settings.minimumWidth}x${settings.minimumHeight}+ PNG capture.`, severity: "error" });
+          artifacts.push({ kind: "image", path, mediaType: "image/png", label: `Visual sequence ${sequence.id}: frame ${frame + 1}`, metadata: { sequence: sequence.id, frame, sha256, ...(dimensions ?? {}) } });
+        } catch (error) {
+          violations.push({ code: `godot.visual.sequence.${sequence.id}`, message: `Missing ${sequence.id} frame ${frame + 1}: ${error instanceof Error ? error.message : String(error)}`, severity: "error" });
+        }
+      }
+      if (validFrames < sequence.minimumFrames) {
+        violations.push({ code: `godot.visual.sequence.${sequence.id}.frames`, message: `${sequence.id} has ${validFrames} valid frame(s); ${sequence.minimumFrames} are required.`, severity: "error" });
+      }
+      if (hashes.size < 2) {
+        violations.push({ code: `godot.visual.sequence.${sequence.id}.motion`, message: `${sequence.id} does not demonstrate visible change across frames.`, severity: "error" });
+      }
+      const cited = evidence.some((item) => item && typeof item === "object" && !Array.isArray(item)
+        && (item as Record<string, unknown>).sequence === sequence.id
+        && typeof (item as Record<string, unknown>).observation === "string");
+      if (!cited) violations.push({ code: `godot.visual.evidence.${sequence.id}`, message: `Visual review did not record an observation for sequence ${sequence.id}.`, severity: "error" });
     }
     if (review.value.outcome !== "pass") {
       violations.push({ code: "godot.visual.judgment", message: `Visual critic returned ${String(review.value.outcome ?? "no outcome")} instead of pass.`, severity: "error" });

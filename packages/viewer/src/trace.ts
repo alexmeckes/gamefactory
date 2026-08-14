@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFile, realpath, stat } from "node:fs/promises";
+import { open, readFile, realpath, stat } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 import {
   WorkflowJournal,
@@ -235,6 +235,7 @@ export interface FactoryTrace {
   activeRunId?: string;
   sources: ViewerSources;
   artifactFiles: Map<string, { path: string; mediaType?: string; label: string }>;
+  traceBytes: number;
 }
 
 export interface ResolvedViewerArtifact {
@@ -330,13 +331,42 @@ function artifactReferences(record: ExperimentRecord): ArtifactReference[] {
   ];
 }
 
-export async function readFactoryTrace(options: FactoryViewerOptions): Promise<FactoryTrace> {
+async function readTraceTail(path: string, previous?: FactoryTrace): Promise<{ events: FactoryTraceEvent[]; bytes: number }> {
+  let size: number;
+  try {
+    size = (await stat(path)).size;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return { events: [], bytes: 0 };
+    throw error;
+  }
+  const canAppend = previous?.sources.tracePath === path && size >= previous.traceBytes;
+  const start = canAppend ? previous.traceBytes : 0;
+  if (size === start) return { events: canAppend ? previous.traceEvents : [], bytes: start };
+  const handle = await open(path, "r");
+  try {
+    const buffer = Buffer.alloc(size - start);
+    const { bytesRead } = await handle.read(buffer, 0, buffer.length, start);
+    const bytes = buffer.subarray(0, bytesRead);
+    const newline = bytes.lastIndexOf(10);
+    if (newline < 0) return { events: canAppend ? previous.traceEvents : [], bytes: start };
+    const complete = bytes.subarray(0, newline + 1).toString("utf8");
+    const appended = complete.split(/\r?\n/).filter(Boolean).map((line, index) => {
+      try { return JSON.parse(line) as FactoryTraceEvent; }
+      catch (error) { throw new Error(`Malformed trace JSON at ${path} after byte ${start}, line ${index + 1}: ${error instanceof Error ? error.message : String(error)}`); }
+    });
+    return { events: [...(canAppend ? previous.traceEvents : []), ...appended], bytes: start + newline + 1 };
+  } finally {
+    await handle.close();
+  }
+}
+
+export async function readFactoryTrace(options: FactoryViewerOptions, previous?: FactoryTrace): Promise<FactoryTrace> {
   const sources = resolveViewerSources(options);
-  const [entries, records, activeRunId, traceEvents] = await Promise.all([
+  const [entries, records, activeRunId, trace] = await Promise.all([
     new WorkflowJournal(sources.journalPath).read(),
     readJsonl<ExperimentRecord>(sources.resultPath),
     activeLeaseRunId(sources.leasePath),
-    readJsonl<FactoryTraceEvent>(sources.tracePath)
+    readTraceTail(sources.tracePath, previous)
   ]);
   const campaignEntries = entries.filter((entry) => entry.campaignId === options.campaign.id);
   const campaignRecords = records.filter((record) => record.campaignId === options.campaign.id);
@@ -353,7 +383,7 @@ export async function readFactoryTrace(options: FactoryViewerOptions): Promise<F
       }
     }
   }
-  return { entries: campaignEntries, records: campaignRecords, traceEvents: traceEvents.filter((event) => event.campaignId === options.campaign.id), ...(activeRunId ? { activeRunId } : {}), sources, artifactFiles };
+  return { entries: campaignEntries, records: campaignRecords, traceEvents: trace.events.filter((event) => event.campaignId === options.campaign.id), ...(activeRunId ? { activeRunId } : {}), sources, artifactFiles, traceBytes: trace.bytes };
 }
 
 function asObject(value: unknown): Record<string, unknown> | undefined {

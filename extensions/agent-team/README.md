@@ -13,6 +13,8 @@ The legacy configuration runs read-only scouts in parallel, one read-only planne
     "agentTeam": {
       "maximumParallel": 4,
       "maxOutputCharacters": 20000,
+      "handoffCharacters": 10000,
+      "historyLimit": 6,
       "provider": "openai",
       "model": "your-model-id",
       "billingMode": "subscription",
@@ -85,7 +87,9 @@ Use `agentTeam.graph` when the director needs a task-specific team instead of th
             "repair": {
               "target": "builder",
               "outcomes": ["revise"],
-              "maximumAttempts": 2
+              "maximumAttempts": 2,
+              "allowedPaths": ["src/presentation/**", "assets/**"],
+              "preserve": ["render-evidence"]
             }
           }
         ]
@@ -105,17 +109,19 @@ Node fields:
 - `permissions` is `read` or `write`. `readOnly` is accepted as an equivalent boolean. An implementer defaults to write; every other role defaults to read.
 - `dependsOn` names predecessor nodes.
 - `when` conditionally runs a node after a direct predecessor produces one of the named outcomes. It can be one condition or an array, for example `{ "node": "review", "outcomes": ["revise"] }`.
-- `context` adds candidate-local artifact references to the request. Graph-level context is included in every node request.
+- `context` adds candidate-local artifact references to the request. Graph-level context is included by default; `inheritContext: false` lets a node opt out when large visual references are irrelevant to its job.
 - `instructions` replaces the role's default instruction text.
 - `maximumAttempts` retries a failed command activation and defaults to 1.
 - `timeoutSeconds` sets a per-attempt safety backstop and defaults to 900. Long-running Sol/xhigh writers and visual reviewers can override it without forcing every scout to inherit the same runway. The value must be positive and no greater than 86400.
 - `required: false` permits a failed optional node without failing the whole graph. Dependents can use `when` with the `failed` outcome to run a fallback.
-- `repair` lets a read-only reviewer route `revise` (or configured outcomes) back to a directly preceding writer. The writer receives the review as an additional structured input, then all reviewers for that writer run again.
+- `repair` lets a read-only reviewer route `revise` (or configured outcomes) back to a directly preceding writer. The writer receives the review as an additional structured input, then derived evidence and reviewers rerun in dependency order. Optional `allowedPaths` fails closed if the repair mutates another surface. Optional `preserve` names direct read-only contracts whose accepted outcomes are included as frozen constraints and must survive re-evaluation.
 - `refreshAfterRepair: true` marks a read-only node whose evidence is derived directly from a writer, such as screenshots, builds, or telemetry. After that writer is repaired, these nodes rerun before reviewers so a critic never judges stale evidence.
 - `adapter: "agent-driver"` plus `driver: "<agent capability>"` invokes another lazily activated GameFactory agent extension inside the graph. This is intended for bounded tools such as `sam3.segment`; it cannot recursively invoke `agent.team`, and its artifacts and metadata join the ordinary handoff/provenance stream.
 - `provider` and `model` identify the configured invocation backend. `billingMode` is `subscription`, `credits`, `metered`, or `unknown`. These may be set once on `agentTeam` and overridden per contributor. Configured identity is labeled as configured rather than presented as provider-verified telemetry.
 
 `maximumTotalAttempts` caps every subprocess invocation, including retries and reviews. `maximumRepairAttempts` caps total writer revision rounds across the graph. Each repair edge also has its own `maximumAttempts`. Unresolved repairs are reported in result metadata instead of creating an unbounded loop.
+
+`handoffCharacters` separately bounds upstream context (default 12000, capped by `maxOutputCharacters`), while `historyLimit` keeps only the newest experiment summaries (default 6; zero disables history). Structured results are passed without duplicating their raw stdout, and oversized structured payloads become a bounded summary with a pointer to the preserved full output.
 
 The App Server adapter streams turn/item events, subscription token usage,
 provider model reroutes, and native Codex collaboration calls. Collaboration

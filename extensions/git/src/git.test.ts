@@ -6,9 +6,27 @@ import { resolve } from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
 import type { Campaign, Candidate } from "@gamefactory/core";
-import { GitWorktreeWorkspace } from "./index.js";
+import { GitWorktreeWorkspace, removeWorktreeTransactionally } from "./index.js";
 
 const exec = promisify(execFile);
+
+test("transactional cleanup leaves a candidate intact when quarantine cannot be acquired", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "gamefactory-cleanup-"));
+  const candidate = resolve(root, "candidate");
+  await mkdir(candidate);
+  await writeFile(resolve(candidate, "evidence.txt"), "keep me\n", "utf8");
+  let attempts = 0;
+  try {
+    await assert.rejects(() => removeWorktreeTransactionally(root, candidate, {
+      rename: async () => { attempts += 1; throw Object.assign(new Error("busy"), { code: "EBUSY" }); },
+      remove: async () => undefined
+    }), /busy/);
+    assert.equal(attempts, 4);
+    assert.equal(await readFile(resolve(candidate, "evidence.txt"), "utf8"), "keep me\n");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 test("Git workspace maps a subproject, enforces paths, and cherry-picks accepted work", async () => {
   const repository = await mkdtemp(resolve(tmpdir(), "gamefactory-git-"));

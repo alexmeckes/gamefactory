@@ -162,7 +162,8 @@
             "id": "visual-capture",
             "adapter": "command",
             "command": [
-              "C:\\Users\\alexm\\OneDrive\\Documents\\New project\\oldschool-mmo-godot\\tools\\godot\\Godot_v4.7-stable_win64_console.exe",
+              "C:\\Users\\alexm\\OneDrive\\Documents\\New project\\oldschool-mmo-godot\\tools\\godot\\Godot_v4.7.1-stable_win64_console.exe",
+              "--disable-crash-handler",
               "--path",
               ".",
               "--script",
@@ -202,7 +203,7 @@
       }
     },
     "godot": {
-      "binary": "C:\\Users\\alexm\\OneDrive\\Documents\\New project\\oldschool-mmo-godot\\tools\\godot\\Godot_v4.7-stable_win64_console.exe",
+      "binary": "C:\\Users\\alexm\\OneDrive\\Documents\\New project\\oldschool-mmo-godot\\tools\\godot\\Godot_v4.7.1-stable_win64_console.exe",
       "importCheck": true,
       "rendered": false,
       "timeoutSeconds": 120,

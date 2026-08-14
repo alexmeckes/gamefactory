@@ -105,7 +105,7 @@ export async function startFactoryViewer(options: FactoryViewerServerOptions): P
     refreshing = (async () => {
       const nextSignature = await factoryTraceSignature(options);
       if (nextSignature === signature) return false;
-      trace = await readFactoryTrace(options);
+      trace = await readFactoryTrace(options, trace);
       signature = nextSignature;
       return true;
     })().finally(() => { refreshing = undefined; });

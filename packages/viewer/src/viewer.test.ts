@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { appendFile, mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
@@ -136,6 +136,33 @@ test("viewer reconstructs candidate lanes, provenance, metrics, and live state",
     assert.deepEqual(snapshot.usage.billingModes, ["metered"]);
     assert.equal(snapshot.usage.models[0]?.model, "test-model");
     assert.equal(snapshot.usage.models[0]?.reasoningEffort, "high");
+  } finally {
+    await rm(value.root, { recursive: true, force: true });
+  }
+});
+
+test("viewer tails complete trace lines without losing or duplicating partial events", async () => {
+  const value = await fixture();
+  try {
+    const first = await readFactoryTrace(value.options);
+    const path = resolve(value.root, ".factory/traces/demo.jsonl");
+    await mkdir(resolve(value.root, ".factory/traces"), { recursive: true });
+    const event = JSON.stringify({
+      version: 1, sequence: 1, timestamp: "2026-08-12T12:00:01.000Z", runId,
+      campaignId: campaign.id, type: "node:progress", nodeId: "agent:live", message: "thinking"
+    });
+    const midpoint = Math.floor(event.length / 2);
+    await appendFile(path, event.slice(0, midpoint), "utf8");
+    const partial = await readFactoryTrace(value.options, first);
+    assert.equal(partial.traceEvents.length, 0);
+    assert.equal(partial.traceBytes, first.traceBytes);
+    await appendFile(path, `${event.slice(midpoint)}\n`, "utf8");
+    const complete = await readFactoryTrace(value.options, partial);
+    assert.equal(complete.traceEvents.length, 1);
+    assert.equal(complete.traceEvents[0]?.message, "thinking");
+    const unchanged = await readFactoryTrace(value.options, complete);
+    assert.equal(unchanged.traceEvents.length, 1);
+    assert.equal(unchanged.traceBytes, complete.traceBytes);
   } finally {
     await rm(value.root, { recursive: true, force: true });
   }

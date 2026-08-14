@@ -65,6 +65,8 @@ interface RepairEdge {
   target: string;
   outcomes: string[];
   maximumAttempts: number;
+  allowedPaths: string[];
+  preserve: string[];
 }
 
 interface AdvisorConfig extends ContributorConfig {
@@ -81,6 +83,7 @@ interface GraphNodeConfig extends ContributorConfig {
   when: GraphCondition[];
   instructions?: string;
   context: ContextReferenceConfig[];
+  inheritContext: boolean;
   maximumAttempts: number;
   required: boolean;
   refreshAfterRepair: boolean;
@@ -93,6 +96,8 @@ interface GraphAgentTeamConfig {
   nodes: GraphNodeConfig[];
   context: ContextReferenceConfig[];
   maxOutputCharacters: number;
+  handoffCharacters: number;
+  historyLimit: number;
   maximumParallel: number;
   maximumTotalAttempts: number;
   maximumRepairAttempts: number;
@@ -198,6 +203,7 @@ interface InvocationOptions {
   instructions: string;
   context: ContextReferenceConfig[];
   reason: InvocationReason;
+  historyLimit?: number;
 }
 
 interface GraphNodeState {
@@ -517,6 +523,15 @@ function stringList(value: unknown, location: string, maximum = 64): string[] {
   return [...new Set(value as string[])];
 }
 
+function pathPatternList(value: unknown, location: string, maximum = 64): string[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length > maximum || !value.every((item) => {
+    if (typeof item !== "string" || item.length === 0 || item.length > 512 || item.includes("\0") || isAbsolute(item)) return false;
+    return !item.replaceAll("\\", "/").split("/").includes("..");
+  })) throw new Error(`${location} must be an array of safe candidate-relative path patterns`);
+  return [...new Set(value as string[])];
+}
+
 function identityString(value: unknown, location: string): string | undefined {
   if (value === undefined) return undefined;
   if (typeof value !== "string" || value.trim().length === 0 || value.length > 256) throw new Error(`${location} must be a non-empty string with at most 256 characters`);
@@ -694,7 +709,9 @@ function repairEdge(value: unknown, location: string): RepairEdge | undefined {
   return {
     target: record.target,
     outcomes: [...new Set(rawOutcomes as string[])],
-    maximumAttempts: integer(record.maximumAttempts, 1, 1, 16, `${location}.maximumAttempts`)
+    maximumAttempts: integer(record.maximumAttempts, 1, 1, 16, `${location}.maximumAttempts`),
+    allowedPaths: pathPatternList(record.allowedPaths, `${location}.allowedPaths`),
+    preserve: stringList(record.preserve, `${location}.preserve`)
   };
 }
 
@@ -722,6 +739,7 @@ function graphNode(value: unknown, index: number, defaults: Pick<ContributorConf
   if (record.refreshAfterRepair !== undefined && typeof record.refreshAfterRepair !== "boolean") {
     throw new Error(`${location}.refreshAfterRepair must be a boolean`);
   }
+  if (record.inheritContext !== undefined && typeof record.inheritContext !== "boolean") throw new Error(`${location}.inheritContext must be a boolean`);
   const result: GraphNodeConfig = {
     ...base,
     role,
@@ -729,6 +747,7 @@ function graphNode(value: unknown, index: number, defaults: Pick<ContributorConf
     dependsOn: stringList(record.dependsOn ?? record.dependencies, `${location}.dependsOn`),
     when: conditions(record.when, `${location}.when`),
     context: contextList(record.context, `${location}.context`),
+    inheritContext: record.inheritContext !== false,
     maximumAttempts: integer(record.maximumAttempts, 1, 1, 8, `${location}.maximumAttempts`),
     required: record.required !== false,
     refreshAfterRepair: record.refreshAfterRepair === true
@@ -768,6 +787,12 @@ function validateGraph(nodes: GraphNodeConfig[]): void {
       if (target.readOnly) throw new Error(`graph node ${node.id} repair target ${target.id} must have write permission`);
       if (!node.readOnly) throw new Error(`graph repair source ${node.id} must be read-only`);
       if (!node.dependsOn.includes(target.id)) throw new Error(`graph repair source ${node.id} must depend directly on writer ${target.id}`);
+      for (const preserved of node.repair.preserve) {
+        const contract = byId.get(preserved);
+        if (!contract) throw new Error(`graph node ${node.id} preserves unknown node ${preserved}`);
+        if (!contract.readOnly) throw new Error(`graph node ${node.id} preserved contract ${preserved} must be read-only`);
+        if (!contract.dependsOn.includes(target.id)) throw new Error(`graph node ${node.id} preserved contract ${preserved} must depend directly on writer ${target.id}`);
+      }
     }
     if (node.refreshAfterRepair) {
       if (!node.readOnly) throw new Error(`graph refresh node ${node.id} must be read-only`);
@@ -790,7 +815,7 @@ function validateGraph(nodes: GraphNodeConfig[]): void {
   for (const node of nodes) visit(node.id);
 }
 
-function readConfig(request: AgentRequest): AgentTeamConfig {
+function readConfig(request: Pick<AgentRequest, "campaign">): AgentTeamConfig {
   const value = request.campaign.parameters?.agentTeam;
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("parameters.agentTeam must configure a legacy pipeline or graph");
@@ -815,6 +840,8 @@ function readConfig(request: AgentRequest): AgentTeamConfig {
     ...(typeof rawTimeoutSeconds === "number" ? { timeoutSeconds: rawTimeoutSeconds } : {})
   };
   const maxOutputCharacters = integer(record.maxOutputCharacters, 20_000, 1, 1_000_000, "parameters.agentTeam.maxOutputCharacters");
+  const handoffCharacters = integer(record.handoffCharacters, Math.min(maxOutputCharacters, 12_000), 512, 100_000, "parameters.agentTeam.handoffCharacters");
+  const historyLimit = integer(record.historyLimit, 6, 0, 100, "parameters.agentTeam.historyLimit");
   const maximumParallel = integer(record.maximumParallel, 4, 1, 32, "parameters.agentTeam.maximumParallel");
   if (record.graph !== undefined) {
     if (!record.graph || typeof record.graph !== "object" || Array.isArray(record.graph)) {
@@ -831,6 +858,8 @@ function readConfig(request: AgentRequest): AgentTeamConfig {
       nodes,
       context: contextList(graph.context, "parameters.agentTeam.graph.context"),
       maxOutputCharacters,
+      handoffCharacters,
+      historyLimit,
       maximumParallel,
       maximumTotalAttempts: integer(graph.maximumTotalAttempts, Math.max(64, nodes.length * 4), 1, 1_000, "parameters.agentTeam.graph.maximumTotalAttempts"),
       maximumRepairAttempts: integer(graph.maximumRepairAttempts, 4, 0, 64, "parameters.agentTeam.graph.maximumRepairAttempts")
@@ -845,6 +874,10 @@ function readConfig(request: AgentRequest): AgentTeamConfig {
     maxOutputCharacters,
     maximumParallel
   };
+}
+
+export function validateAgentTeamConfiguration(campaign: AgentRequest["campaign"]): void {
+  readConfig({ campaign });
 }
 
 async function serializeCandidate<T>(root: string, operation: () => Promise<T>): Promise<T> {
@@ -1044,6 +1077,15 @@ async function structuredOutput(stdout: string, root: string): Promise<Structure
 }
 
 function priorOutput(run: ContributorRun, maximum: number): PriorOutput {
+  let structured = run.structured;
+  if (structured && JSON.stringify(structured).length > maximum) {
+    structured = {
+      ...(structured.summary ? { summary: structured.summary } : {}),
+      ...(structured.outcome ? { outcome: structured.outcome } : {}),
+      findings: boundedOutput(JSON.stringify(structured.findings ?? structured.context ?? {}), maximum),
+      context: { handoffTruncated: true, availableAt: run.provenance.structuredOutputPath ?? run.provenance.stdoutPath }
+    };
+  }
   const output: PriorOutput = {
     contributorId: run.provenance.contributorId,
     nodeId: run.provenance.nodeId,
@@ -1051,11 +1093,11 @@ function priorOutput(run: ContributorRun, maximum: number): PriorOutput {
     attempt: run.provenance.attempt,
     outcome: run.provenance.outcome,
     summary: run.provenance.summary,
-    output: boundedOutput(run.stdout, maximum),
+    output: structured ? "" : boundedOutput(run.stdout, maximum),
     stdoutPath: run.provenance.stdoutPath,
     artifacts: run.declaredArtifacts
   };
-  if (run.structured) output.structured = run.structured;
+  if (structured) output.structured = structured;
   return output;
 }
 
@@ -1089,7 +1131,11 @@ async function invokeContributor(
   const promptManifestPath = resolve(outputDirectory, "prompt-manifest.json");
   const contextReferences = await normalizeContext(options.context, request.candidate.root);
   const roleCharter = await loadRoleCharter(stage);
-  let promptManifest = await effectivePromptManifest({ config, stage, readOnly, request, inputs, instructions: options.instructions, contextReferences });
+  const history = options.historyLimit === undefined
+    ? request.history
+    : options.historyLimit === 0 ? [] : request.history.slice(-options.historyLimit);
+  const invocationRequest = history === request.history ? request : { ...request, history };
+  let promptManifest = await effectivePromptManifest({ config, stage, readOnly, request: invocationRequest, inputs, instructions: options.instructions, contextReferences });
   const payload = {
     objective: request.campaign.objective,
     experimentId: request.experimentId,
@@ -1115,7 +1161,7 @@ async function invokeContributor(
     instructions: options.instructions,
     contextReferences,
     inputs,
-    history: request.history.map((item) => ({
+    history: history.map((item) => ({
       id: item.experimentId,
       status: item.status,
       summary: item.summary,
@@ -1425,6 +1471,22 @@ function meaningfulStatus(output: string): string {
     .join("\n");
 }
 
+function meaningfulStatusPaths(output: string): string[] {
+  return output.split(/\r?\n/).filter(Boolean).flatMap((line): string[] => {
+    const path = line.slice(3).split(" -> ").at(-1)?.replaceAll("\\", "/") ?? "";
+    return path && !isFactoryPath(path) ? [path] : [];
+  });
+}
+
+function matchesPath(path: string, pattern: string): boolean {
+  const escaped = pattern.replaceAll("\\", "/").replace(/^\.\//, "")
+    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+    .replaceAll("**", "\u0000")
+    .replaceAll("*", "[^/]*")
+    .replaceAll("\u0000", ".*");
+  return new RegExp(`^${escaped}$`).test(path.replaceAll("\\", "/"));
+}
+
 async function gitOutput(request: AgentRequest, args: string[], operation: string): Promise<string> {
   const result = await processCommand("git", args, "", request, "scout", "read-only-guard");
   if (result.code !== 0 || result.spawnError) {
@@ -1435,10 +1497,26 @@ async function gitOutput(request: AgentRequest, args: string[], operation: strin
 }
 
 async function fingerprint(path: string): Promise<string> {
-  const stats = await lstat(path);
+  let stats;
+  try { stats = await lstat(path); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return "missing";
+    throw error;
+  }
   if (stats.isSymbolicLink()) return `link:${await readlink(path)}`;
   if (stats.isFile()) return `file:${createHash("sha256").update(await readFile(path)).digest("hex")}`;
   return `other:${stats.mode}:${stats.size}`;
+}
+
+async function meaningfulFileState(request: AgentRequest): Promise<Map<string, string>> {
+  const rawStatus = await gitOutput(request, ["-c", "core.quotepath=false", "status", "--porcelain=v1", "--untracked-files=all"], "repair scope");
+  const paths = [...new Set(meaningfulStatusPaths(rawStatus))].sort();
+  return new Map(await Promise.all(paths.map(async (path) => [path, await fingerprint(resolve(request.candidate.root, path))] as const)));
+}
+
+function changedSince(before: Map<string, string>, after: Map<string, string>): string[] {
+  const paths = new Set([...before.keys(), ...after.keys()]);
+  return [...paths].filter((path) => before.get(path) !== after.get(path)).sort();
 }
 
 async function gitSnapshot(request: AgentRequest): Promise<string> {
@@ -1691,9 +1769,9 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
       reserveAttempt();
       const attempt = state.runs.length + 1;
       const advisorRun = await invokeContributor(advisor, state.config.role, state.config.readOnly, request, [
-        ...graphInputs(state.config, states, config.maxOutputCharacters),
+        ...graphInputs(state.config, states, config.handoffCharacters),
         ...extraInputs,
-        priorOutput(triggeringRun, config.maxOutputCharacters),
+        priorOutput(triggeringRun, config.handoffCharacters),
         ...priorAdvisorRuns
       ], {
         mode: "graph",
@@ -1704,7 +1782,8 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
           "Continue from the supplied primary attempt and preserve useful evidence instead of restarting blindly.",
           `Resolve the stated uncertainty or failure and return a decisive supported outcome. If it still cannot be resolved, return ${advisor.outcomes[0]} with the remaining gap and evidence.`
         ].join(" "),
-        context: [...config.context, ...state.config.context],
+        context: [...(state.config.inheritContext ? config.context : []), ...state.config.context],
+        historyLimit: config.historyLimit,
         reason: {
           kind: "advisor",
           source: state.config.id,
@@ -1718,7 +1797,7 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
         state.status = "complete";
         return;
       }
-      priorAdvisorRuns.push(priorOutput(advisorRun, config.maxOutputCharacters));
+      priorAdvisorRuns.push(priorOutput(advisorRun, config.handoffCharacters));
     }
     state.status = "failed";
     state.summary = `Advisor ${advisor.id} did not resolve ${state.config.id}: ${state.summary}`;
@@ -1739,7 +1818,7 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
         ...(reason.repairAttempt !== undefined ? { repairAttempt: reason.repairAttempt } : {})
       };
       const run = await invokeContributor(state.config, state.config.role, state.config.readOnly, request, [
-        ...graphInputs(state.config, states, config.maxOutputCharacters),
+        ...graphInputs(state.config, states, config.handoffCharacters),
         ...extraInputs
       ], {
         mode: "graph",
@@ -1749,7 +1828,8 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
           state.config.instructions ?? INSTRUCTIONS[state.config.role],
           `A bounded advisor escalation is available. If you cannot produce a sufficiently supported result, return one of these escalation outcomes: ${state.config.advisor.outcomes.join(", ")}. Preserve your partial findings, evidence, assumptions, and exact remaining gap for the advisor. Use escalation only for a material capability or uncertainty gap, not ordinary difficulty.`
         ].join("\n\n") : state.config.instructions ?? INSTRUCTIONS[state.config.role],
-        context: [...config.context, ...state.config.context],
+        context: [...(state.config.inheritContext ? config.context : []), ...state.config.context],
+        historyLimit: config.historyLimit,
         reason: invocationReason
       });
       state.runs.push(run);
@@ -1838,23 +1918,55 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
     const edgeAttempt = (repairCounts.get(source.id) ?? 0) + 1;
     repairCounts.set(source.id, edgeAttempt);
     const targetState = states.get(source.repair.target)!;
+    const repairScopeBefore = source.repair.allowedPaths.length > 0 ? await meaningfulFileState(request) : undefined;
+    const preserved = source.repair.preserve.flatMap((nodeId): Array<{ id: string; outcome: string; input: PriorOutput }> => {
+      const preservedState = states.get(nodeId)!;
+      const run = latestRun(preservedState);
+      if (!run || preservedState.status !== "complete") return [];
+      const input = priorOutput(run, config.handoffCharacters);
+      input.summary = `FROZEN CONTRACT — preserve the previously accepted ${nodeId} outcome (${preservedState.outcome}): ${input.summary}`;
+      return [{ id: nodeId, outcome: preservedState.outcome, input }];
+    });
     await runBatch([targetState], { kind: "repair", source: source.id, repairAttempt: edgeAttempt }, new Map([
-      [targetState.config.id, [priorOutput(sourceRun, config.maxOutputCharacters)]]
+      [targetState.config.id, [priorOutput(sourceRun, config.handoffCharacters), ...preserved.map((item) => item.input)]]
     ]));
     if (targetState.status === "failed") break;
+    if (repairScopeBefore) {
+      const changed = changedSince(repairScopeBefore, await meaningfulFileState(request));
+      const outside = changed.filter((path) => !source.repair!.allowedPaths.some((pattern) => matchesPath(path, pattern)));
+      if (outside.length > 0) {
+        throw new AgentTeamExecutionError(
+          `Repair from ${source.id} changed files outside its allowedPaths: ${outside.join(", ")}`,
+          [...states.values()].flatMap((state) => state.runs)
+        );
+      }
+    }
 
-    const refreshers = config.nodes
-      .filter((node) => node.refreshAfterRepair && node.dependsOn.includes(targetState.config.id))
-      .map((node) => states.get(node.id)!)
+    const reviewIds = new Set([
+      ...config.nodes.filter((node) => node.refreshAfterRepair && node.dependsOn.includes(targetState.config.id)).map((node) => node.id),
+      ...config.nodes.filter((node) => node.repair?.target === targetState.config.id).map((node) => node.id),
+      ...source.repair.preserve
+    ]);
+    const reviewers = [...reviewIds]
+      .map((nodeId) => states.get(nodeId)!)
       .filter((state) => state.status !== "skipped");
-    await runBatch(refreshers, { kind: "review", source: targetState.config.id, repairAttempt: edgeAttempt });
-    if (refreshers.some((state) => state.status === "failed")) break;
-
-    const reviewers = config.nodes
-      .filter((node) => node.repair?.target === targetState.config.id)
-      .map((node) => states.get(node.id)!)
-      .filter((state) => state.status !== "skipped");
-    await runBatch(reviewers, { kind: "review", source: targetState.config.id, repairAttempt: edgeAttempt });
+    const reviewPending = new Set(reviewers.map((state) => state.config.id));
+    while (reviewPending.size > 0) {
+      const ready = reviewers.filter((state) => reviewPending.has(state.config.id)
+        && state.config.dependsOn.every((dependency) => !reviewPending.has(dependency)));
+      if (ready.length === 0) throw new AgentTeamExecutionError("Repair review graph could not be scheduled", [...states.values()].flatMap((state) => state.runs));
+      await runBatch(ready, { kind: "review", source: targetState.config.id, repairAttempt: edgeAttempt });
+      for (const state of ready) reviewPending.delete(state.config.id);
+      if (ready.some((state) => state.status === "failed")) break;
+    }
+    if (reviewers.some((state) => state.status === "failed")) break;
+    const regressions = preserved.filter((contract) => states.get(contract.id)!.outcome !== contract.outcome);
+    if (regressions.length > 0) {
+      throw new AgentTeamExecutionError(
+        `Repair from ${source.id} regressed frozen contract(s): ${regressions.map((item) => `${item.id} ${item.outcome} -> ${states.get(item.id)!.outcome}`).join(", ")}`,
+        [...states.values()].flatMap((state) => state.runs)
+      );
+    }
   }
 
   const unresolvedRepairs = config.nodes

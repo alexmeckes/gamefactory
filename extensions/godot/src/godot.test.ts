@@ -5,7 +5,19 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
 import type { Campaign } from "@gamefactory/core";
-import { GodotVisualEvaluator } from "./index.js";
+import { automationArgs, godotProcessSucceeded, GodotVisualEvaluator } from "./index.js";
+
+test("Godot automation disables the interactive native crash handler", () => {
+  assert.deepEqual(
+    automationArgs(["--headless", "--editor", "--quit"]),
+    ["--disable-crash-handler", "--headless", "--editor", "--quit"]
+  );
+});
+
+test("Godot automation rejects exit-zero runs that contain engine errors", () => {
+  assert.equal(godotProcessSucceeded({ exitCode: 0, stdout: "SCRIPT ERROR: null texture", stderr: "", timedOut: false }), false);
+  assert.equal(godotProcessSucceeded({ exitCode: 0, stdout: "Godot Engine", stderr: "", timedOut: false }), true);
+});
 
 function png(width: number, height: number, marker: number): Buffer {
   const bytes = Buffer.alloc(32, marker);
@@ -39,6 +51,9 @@ function campaign(root: string, baselineSha256?: string): Campaign {
           requiredViews: [
             { id: "title", path: ".factory/previews/title.png", ...(baselineSha256 ? { baselineSha256 } : {}) },
             { id: "puzzle", path: ".factory/previews/puzzle.png" }
+          ],
+          requiredSequences: [
+            { id: "tower-fire", paths: [".factory/previews/motion-000.png", ".factory/previews/motion-001.png", ".factory/previews/motion-002.png"] }
           ]
         }
       }
@@ -55,6 +70,9 @@ async function fixture(): Promise<{ root: string; title: Buffer }> {
   await Promise.all([
     writeFile(resolve(preview, "title.png"), title),
     writeFile(resolve(preview, "puzzle.png"), png(1152, 720, 2)),
+    writeFile(resolve(preview, "motion-000.png"), png(1152, 720, 3)),
+    writeFile(resolve(preview, "motion-001.png"), png(1152, 720, 4)),
+    writeFile(resolve(preview, "motion-002.png"), png(1152, 720, 5)),
     writeFile(resolve(review, "output.json"), `${JSON.stringify({
       summary: "rendered views clear the visual bar",
       outcome: "pass",
@@ -62,7 +80,8 @@ async function fixture(): Promise<{ root: string; title: Buffer }> {
         scorecard: { material_depth: 80, focal_hierarchy: 76 },
         evidence: [
           { view: "title", path: ".factory/previews/title.png", observation: "Layered hardware and rope create clear depth." },
-          { view: "puzzle", path: ".factory/previews/puzzle.png", observation: "Contrast directs attention to the active rope crossing." }
+          { view: "puzzle", path: ".factory/previews/puzzle.png", observation: "Contrast directs attention to the active rope crossing." },
+          { sequence: "tower-fire", observation: "Three distinct frames show anticipation, projectile travel, and impact." }
         ]
       }
     }, null, 2)}\n`, "utf8")
@@ -82,7 +101,45 @@ test("Godot visual evaluator gates candidates using semantic scores and rendered
     });
     assert.equal(result.status, "pass");
     assert.equal(result.metrics.visual_quality, 78);
-    assert.equal(result.artifacts.filter((artifact) => artifact.kind === "image").length, 2);
+    assert.equal(result.artifacts.filter((artifact) => artifact.kind === "image").length, 5);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("Godot visual evaluator rejects a static frame sequence presented as motion", async () => {
+  const { root } = await fixture();
+  try {
+    const still = png(1152, 720, 9);
+    await Promise.all([0, 1, 2].map((frame) => writeFile(resolve(root, ".factory", "previews", `motion-00${frame}.png`), still)));
+    const result = await new GodotVisualEvaluator().evaluate({
+      campaign: campaign(root),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-visual",
+      priorEvaluations: [],
+      signal: new AbortController().signal
+    });
+    assert.equal(result.status, "fail");
+    assert.ok(result.violations.some((violation) => violation.code === "godot.visual.sequence.tower-fire.motion"));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("Godot visual evaluator fails closed on malformed sequence configuration", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "gamefactory-godot-config-"));
+  try {
+    const value = campaign(root);
+    const godot = value.parameters!.godot as Record<string, unknown>;
+    const review = godot.visualReview as Record<string, unknown>;
+    review.requiredSequences = [{ id: "bad", paths: ["same.png", "same.png"] }];
+    await assert.rejects(() => new GodotVisualEvaluator().evaluate({
+      campaign: value,
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-invalid-sequence",
+      priorEvaluations: [],
+      signal: new AbortController().signal
+    }), /requiredSequences contains an invalid/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

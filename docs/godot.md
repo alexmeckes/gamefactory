@@ -47,12 +47,29 @@ broken game behavior, and telemetry cannot substitute for seeing the game.
             "path": ".factory/previews/title.png",
             "baselineSha256": "optional-pinned-hash"
           }
+        ],
+        "requiredSequences": [
+          {
+            "id": "primary-action",
+            "paths": [
+              ".factory/previews/action-000.png",
+              ".factory/previews/action-001.png",
+              ".factory/previews/action-002.png"
+            ],
+            "minimumFrames": 3
+          }
         ]
       }
     }
   }
 }
 ```
+
+Every required sequence frame must be a valid candidate-local PNG at the
+configured minimum dimensions. At least `minimumFrames` frames must exist, at
+least two hashes must differ, and the semantic critic must cite the sequence
+with a concrete temporal observation. This proves observable state change; it
+does not claim that an automated trace is human evidence of feel or fun.
 
 The scene root may implement:
 

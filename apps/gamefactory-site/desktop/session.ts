@@ -141,7 +141,7 @@ export class DesktopFactorySession {
       const heartbeat = this.state.running && now - this.lastHeartbeatAt >= 1_000;
       if (!force && !heartbeat && nextSignature === this.signature) return;
       if (heartbeat) this.lastHeartbeatAt = now;
-      const trace = await readFactoryTrace(this.options!);
+      const trace = await readFactoryTrace(this.options!, this.trace);
       this.trace = trace;
       this.signature = nextSignature;
       this.snapshot = createFactorySnapshot(trace, this.campaign!);

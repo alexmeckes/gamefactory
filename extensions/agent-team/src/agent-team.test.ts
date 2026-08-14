@@ -64,6 +64,7 @@ if (["alpha", "beta"].includes(request.nodeId)) {
   assert.deepEqual(request.inputs.map((input) => input.nodeId).sort(), ["alpha", "beta"]);
   assert.ok(request.inputs.every((input) => input.structured.context.source === input.nodeId));
   assert.ok(request.inputs.every((input) => input.artifacts[0].path.endsWith("value.txt")));
+  assert.ok(request.inputs.every((input) => input.output === ""), "structured handoffs should not duplicate raw stdout");
   console.log(JSON.stringify({ summary: "joined structured findings", outcome: "pass" }));
 } else if (request.nodeId === "discover") {
   console.log("human-readable prelude");
@@ -83,6 +84,11 @@ if (["alpha", "beta"].includes(request.nodeId)) {
   console.log(JSON.stringify(value === "repaired\\n"
     ? { summary: "review passed", outcome: "pass" }
     : { summary: "needs repair", outcome: "revise", findings: [{ issue: "value is not repaired" }] }));
+} else if (request.nodeId === "frozen-contract") {
+  const value = await readFile("value.txt", "utf8");
+  console.log(JSON.stringify(value === "implemented\\n"
+    ? { summary: "contract passed", outcome: "pass" }
+    : { summary: "contract regressed", outcome: "revise" }));
 } else if (request.nodeId === "capture") {
   const value = await readFile("value.txt", "utf8");
   const capturePath = ".factory/capture-" + request.attempt + ".txt";
@@ -526,6 +532,51 @@ test("agent graph refreshes derived evidence before reviewing a repaired writer"
     assert.equal(metadata.nodes["visual-reviewer"]?.attempts, 2);
     assert.equal(metadata.nodes["visual-reviewer"]?.outcome, "pass");
     assert.equal(await readFile(resolve(root, ".factory", "capture-2.txt"), "utf8"), "repaired\n");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("agent graph blocks a repair that escapes its declared path scope", async () => {
+  const root = await repository();
+  try {
+    await assert.rejects(() => new AgentTeam().run({
+      campaign: graphCampaign(root, [
+        graphCommand("discover", { role: "scout", permissions: "read" }),
+        graphCommand("builder", { role: "implementer", permissions: "write", dependsOn: ["discover"] }),
+        graphCommand("reviewer", {
+          role: "critic", permissions: "read", dependsOn: ["builder"],
+          repair: { target: "builder", outcomes: ["revise"], maximumAttempts: 1, allowedPaths: ["other.txt"] }
+        })
+      ], { maximumRepairAttempts: 1, maximumTotalAttempts: 8 }),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-repair-scope",
+      history: [],
+      signal: new AbortController().signal
+    }), /outside its allowedPaths: value\.txt/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("agent graph rechecks and blocks regression of a frozen passed contract", async () => {
+  const root = await repository();
+  try {
+    await assert.rejects(() => new AgentTeam().run({
+      campaign: graphCampaign(root, [
+        graphCommand("discover", { role: "scout", permissions: "read" }),
+        graphCommand("builder", { role: "implementer", permissions: "write", dependsOn: ["discover"] }),
+        graphCommand("frozen-contract", { role: "critic", permissions: "read", dependsOn: ["builder"] }),
+        graphCommand("reviewer", {
+          role: "critic", permissions: "read", dependsOn: ["builder"],
+          repair: { target: "builder", outcomes: ["revise"], maximumAttempts: 1, allowedPaths: ["value.txt"], preserve: ["frozen-contract"] }
+        })
+      ], { maximumRepairAttempts: 1, maximumTotalAttempts: 10 }),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-frozen-contract",
+      history: [],
+      signal: new AbortController().signal
+    }), /regressed frozen contract.*pass -> revise/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
