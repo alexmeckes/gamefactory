@@ -1,10 +1,10 @@
 # Firefly Glassworks — Workshop Carries the Rule
 
-This candidate is a deliberately plain Godot graybox for one bounded gameplay
-hypothesis: a beam-triggered latch adds a readable second routing stage when
-opening it creates a visible, persistent board state that still requires
-another mirror rotation. Mirrors remain the only player-controlled puzzle
-instrument.
+Firefly Glassworks is a four-level Godot puzzle prototype built through the
+GameFactory gameplay-first loop. Its gameplay hypothesis is that a
+beam-triggered latch adds a readable second routing stage: opening it creates
+a visible, persistent board state that still requires another mirror rotation.
+Mirrors remain the only player-controlled puzzle instrument.
 
 Play with the mouse, or select mirrors with the arrow keys and rotate with
 Space/Enter. Press R or use the board button for a complete level reset.
@@ -27,5 +27,9 @@ node scripts/run-firefly-phases.mjs production
 ```
 
 Each phase requires a clean Git worktree and must accept a real candidate
-commit before the next phase can begin. This phase intentionally uses only
-engine-drawn graybox geometry and system typography.
+commit before the next phase can begin. Levels 1–3 intentionally retain the
+gameplay graybox. Level 4 is the accepted production slice: an illustrated
+smoke-dark workbench with ImageGen-derived brass/glass instruments, an
+engine-native beam and state layer, a pinned design system, and running-Godot
+capture evidence. That boundary proves the visual method before the production
+campaign expands it to every level and screen.
