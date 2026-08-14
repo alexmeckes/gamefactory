@@ -106,8 +106,12 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-async function renameWithTransientRetries(fileSystem: CleanupFileSystem, source: string, destination: string): Promise<void> {
-  const delays = [0, 100, 250, 500];
+async function renameWithTransientRetries(
+  fileSystem: CleanupFileSystem,
+  source: string,
+  destination: string,
+  delays: readonly number[]
+): Promise<void> {
   let lastError: unknown;
   for (const delay of delays) {
     if (delay > 0) await new Promise<void>((resolveDelay) => setTimeout(resolveDelay, delay));
@@ -130,7 +134,8 @@ async function renameWithTransientRetries(fileSystem: CleanupFileSystem, source:
 export async function removeWorktreeTransactionally(
   projectRoot: string,
   root: string,
-  fileSystem: CleanupFileSystem = cleanupFileSystem
+  fileSystem: CleanupFileSystem = cleanupFileSystem,
+  retryDelays: readonly number[] = [0, 250, 750, 1_500, 3_000, 6_000]
 ): Promise<void> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(new Error("Worktree cleanup timed out")), 20_000);
@@ -145,7 +150,7 @@ export async function removeWorktreeTransactionally(
     const traversal = relative(trashParent, trashRoot);
     if (!traversal || traversal.startsWith("..")) throw new Error("Unsafe worktree quarantine path");
     await mkdir(trashParent, { recursive: true });
-    await renameWithTransientRetries(fileSystem, root, trashRoot);
+    await renameWithTransientRetries(fileSystem, root, trashRoot, retryDelays);
     await run("git", ["worktree", "prune"], projectRoot, controller.signal).catch(() => undefined);
     await fileSystem.remove(trashRoot).catch(() => undefined);
   } finally {

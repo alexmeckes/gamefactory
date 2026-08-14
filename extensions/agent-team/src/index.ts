@@ -1509,7 +1509,11 @@ async function fingerprint(path: string): Promise<string> {
 }
 
 async function meaningfulFileState(request: AgentRequest): Promise<Map<string, string>> {
-  const rawStatus = await gitOutput(request, ["-c", "core.quotepath=false", "status", "--porcelain=v1", "--untracked-files=all"], "repair scope");
+  const rawStatus = await gitOutput(request, [
+    "-c", "core.quotepath=false",
+    "-c", "status.relativePaths=true",
+    "status", "--porcelain=v1", "--untracked-files=all"
+  ], "repair scope");
   const paths = [...new Set(meaningfulStatusPaths(rawStatus))].sort();
   return new Map(await Promise.all(paths.map(async (path) => [path, await fingerprint(resolve(request.candidate.root, path))] as const)));
 }
@@ -1523,7 +1527,11 @@ async function gitSnapshot(request: AgentRequest): Promise<string> {
   // Git for Windows may refresh and replace a worktree index while answering
   // status. Keep snapshot reads ordered within a candidate. Separate worktrees
   // still run independently.
-  const rawStatus = await gitOutput(request, ["-c", "core.quotepath=false", "status", "--porcelain=v1", "--untracked-files=all"], "status");
+  const rawStatus = await gitOutput(request, [
+    "-c", "core.quotepath=false",
+    "-c", "status.relativePaths=true",
+    "status", "--porcelain=v1", "--untracked-files=all"
+  ], "status");
   const trackedDiff = await gitOutput(request, ["diff", "--no-ext-diff", "--binary", "HEAD", "--", ".", ":(exclude)**/.factory/**"], "diff");
   const rawUntracked = await gitOutput(request, ["ls-files", "--others", "--exclude-standard", "-z"], "untracked files");
   const untrackedPaths = rawUntracked.split("\0").filter((path) => path && !isFactoryPath(path)).sort();

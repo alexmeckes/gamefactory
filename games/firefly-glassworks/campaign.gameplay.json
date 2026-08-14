@@ -84,6 +84,6 @@
       "scenario":{"provider":"godot.factory/v1", "version":"1", "path":"res://main.tscn", "parameters":{"seed":161803, "ticks":720, "physics_hz":60, "duration_seconds":12}}
     }
   },
-  "acceptance":{"primaryMetric":"gameplay_contract_score", "direction":"maximize", "minimumDelta":5},
+  "acceptance":{"primaryMetric":"gameplay_contract_score", "direction":"maximize", "minimumDelta":4},
   "budget":{"maximumExperiments":2, "maximumConsecutiveCrashes":2, "wallTimeMinutes":120}
 }

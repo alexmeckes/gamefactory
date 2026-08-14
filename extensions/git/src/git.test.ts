@@ -20,9 +20,31 @@ test("transactional cleanup leaves a candidate intact when quarantine cannot be 
     await assert.rejects(() => removeWorktreeTransactionally(root, candidate, {
       rename: async () => { attempts += 1; throw Object.assign(new Error("busy"), { code: "EBUSY" }); },
       remove: async () => undefined
-    }), /busy/);
+    }, [0, 0, 0, 0]), /busy/);
     assert.equal(attempts, 4);
     assert.equal(await readFile(resolve(candidate, "evidence.txt"), "utf8"), "keep me\n");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("transactional cleanup survives a worktree that remains briefly busy", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "gamefactory-cleanup-retry-"));
+  const candidate = resolve(root, "candidate");
+  await mkdir(candidate);
+  let attempts = 0;
+  let quarantined = false;
+  try {
+    await removeWorktreeTransactionally(root, candidate, {
+      rename: async () => {
+        attempts += 1;
+        if (attempts < 5) throw Object.assign(new Error("busy"), { code: "EPERM" });
+        quarantined = true;
+      },
+      remove: async () => undefined
+    }, [0, 0, 0, 0, 0]);
+    assert.equal(attempts, 5);
+    assert.equal(quarantined, true);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

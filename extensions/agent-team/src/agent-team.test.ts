@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
@@ -556,6 +556,39 @@ test("agent graph blocks a repair that escapes its declared path scope", async (
     }), /outside its allowedPaths: value\.txt/);
   } finally {
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("agent graph evaluates repair paths relative to a nested candidate root", async () => {
+  const repositoryRoot = await repository();
+  const root = resolve(repositoryRoot, "game");
+  try {
+    await mkdir(root);
+    await writeFile(resolve(root, "graph-fixture.mjs"), graphFixtureSource, "utf8");
+    await writeFile(resolve(root, "value.txt"), "baseline\n", "utf8");
+    await exec("git", ["add", "--all"], { cwd: repositoryRoot });
+    await exec("git", ["-c", "user.name=Test", "-c", "user.email=test@localhost", "commit", "-qm", "nested project"], { cwd: repositoryRoot });
+    await exec("git", ["config", "status.relativePaths", "false"], { cwd: repositoryRoot });
+
+    const result = await new AgentTeam().run({
+      campaign: graphCampaign(root, [
+        graphCommand("discover", { role: "scout", permissions: "read" }),
+        graphCommand("builder", { role: "implementer", permissions: "write", dependsOn: ["discover"] }),
+        graphCommand("reviewer", {
+          role: "critic", permissions: "read", dependsOn: ["builder"],
+          repair: { target: "builder", outcomes: ["revise"], maximumAttempts: 1, allowedPaths: ["value.txt"] }
+        })
+      ], { maximumRepairAttempts: 1, maximumTotalAttempts: 8 }),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-nested-repair-scope",
+      history: [],
+      signal: new AbortController().signal
+    });
+
+    assert.match(result.summary, /repair complete/);
+    assert.equal(await readFile(resolve(root, "value.txt"), "utf8"), "repaired\n");
+  } finally {
+    await rm(repositoryRoot, { recursive: true, force: true });
   }
 });
 
