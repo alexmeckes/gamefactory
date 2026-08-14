@@ -2,5 +2,5 @@
   "provider": "godot.factory/v1",
   "version": "1",
   "path": "res://main.tscn",
-  "parameters": { "seed": 271828, "ticks": 900, "physics_hz": 60, "duration_seconds": 15 }
+  "parameters": { "seed": 271828, "ticks": 900, "physics_hz": 60, "duration_seconds": 15, "scenario": "defensive", "simulation_scale": 18 }
 }
