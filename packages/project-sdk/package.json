@@ -1,5 +1,5 @@
 {
-  "name": "@gamefactory/viewer",
+  "name": "@gamefactory/project-sdk",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,10 +9,17 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./sqlite": {
+      "types": "./dist/sqlite.d.ts",
+      "import": "./dist/sqlite.js"
     }
   },
   "dependencies": {
     "@gamefactory/core": "0.1.0",
-    "@gamefactory/project-sdk": "0.1.0"
+    "better-sqlite3": "^12.2.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13"
   }
 }

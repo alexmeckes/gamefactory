@@ -1,8 +1,12 @@
-import type { FactorySnapshot, ReplayBundle } from "../lib/types";
+import type { AnyReplayBundle, FactorySnapshot, ProjectReplayBundle, ProjectSnapshot } from "../lib/types";
 
 export type DesktopRunStatus = "idle" | "watching" | "running" | "stopping" | "complete" | "error";
 
 export interface DesktopSelection {
+  kind?: "campaign" | "project";
+  projectPath?: string;
+  projectId?: string;
+  projectTitle?: string;
   campaignPath: string;
   configPath: string;
   factoryRoot: string;
@@ -37,7 +41,10 @@ export interface DesktopArtifactText {
 export interface DesktopFactoryApi {
   getState(): Promise<DesktopState>;
   getSnapshot(runId?: string): Promise<FactorySnapshot | undefined>;
+  getProjectSnapshot(selection?: { phaseId?: string; attemptId?: string; runId?: string }): Promise<ProjectSnapshot | undefined>;
+  getProjectReplay(): Promise<ProjectReplayBundle | undefined>;
   chooseCampaign(): Promise<DesktopState>;
+  chooseProject(): Promise<DesktopState>;
   startRun(): Promise<DesktopState>;
   stopRun(): Promise<DesktopState>;
   refreshReadiness(): Promise<DesktopState>;
@@ -45,9 +52,10 @@ export interface DesktopFactoryApi {
   removeCredential(name: string): Promise<DesktopState>;
   getArtifactText(id: string): Promise<DesktopArtifactText>;
   openArtifact(id: string): Promise<{ opened: boolean; error?: string }>;
-  exportReplay(bundle: ReplayBundle): Promise<{ saved: boolean; path?: string }>;
+  exportReplay(bundle: AnyReplayBundle): Promise<{ saved: boolean; path?: string }>;
   onState(listener: (state: DesktopState) => void): () => void;
   onSnapshot(listener: (snapshot: FactorySnapshot) => void): () => void;
+  onProjectSnapshot(listener: (snapshot: ProjectSnapshot) => void): () => void;
 }
 
 declare global {

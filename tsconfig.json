@@ -6,6 +6,7 @@
     { "path": "./packages/design-sdk" },
     { "path": "./packages/extension-sdk" },
     { "path": "./packages/workflow-sdk" },
+    { "path": "./packages/project-sdk" },
     { "path": "./packages/testing" },
     { "path": "./packages/viewer" },
     { "path": "./extensions/autoresearch" },

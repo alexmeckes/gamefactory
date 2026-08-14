@@ -13,3 +13,4 @@ export * from "./usage.js";
 export * from "./registry.js";
 export * from "./results.js";
 export * from "./runner.js";
+export * from "./storage.js";

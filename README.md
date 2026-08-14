@@ -11,7 +11,7 @@ What is implemented:
 - a zero-runtime-dependency campaign kernel and capability registry;
 - manifest-only discovery and on-demand extension activation;
 - bounded, resumable baseline/propose/evaluate/keep/discard campaigns;
-- append-only JSONL experiment records and engine-neutral artifacts;
+- append-only JSONL experiment records, a local SQLite project-event index, and engine-neutral artifacts;
 - deterministic mock drivers and integration tests;
 - detached Git worktree isolation;
 - model-neutral command-agent integration plus a native Codex App Server adapter;
@@ -72,8 +72,25 @@ npm run factory -- bridge campaign.json --config factory.config.json
 
 The browser viewer is read-only. The desktop Observatory can additionally
 start and safely stop runs while reusing the same runner and durable trace; it
-does not add a database, reporter extension, or engine-specific capture step to
-the factory loop. See [the viewer guide](docs/viewer.md).
+does not add an engine-specific capture step to the factory loop. See [the
+viewer guide](docs/viewer.md).
+
+## Local runtime storage
+
+Keep active repositories outside cloud-synced folders. Set
+`GAMEFACTORY_DATA_ROOT` to place generated journals, traces, results, preserved
+artifacts, and the project SQLite index on a local disk while retaining the
+same portable relative paths from checked-in campaign files:
+
+```powershell
+[Environment]::SetEnvironmentVariable("GAMEFACTORY_DATA_ROOT", "D:\GameFactoryData", "User")
+```
+
+Project journeys remain available as fsync-backed JSONL audit logs. When a
+local data root is configured, the CLI also maintains `factory.sqlite` in WAL
+mode for transactional event lookup. Images, video, logs, and other large
+artifacts remain content-addressed files; SQLite stores event metadata rather
+than large blobs. Git remains the source-code backup and synchronization layer.
 
 Start a game from an ordinary description with five short multiple-choice decisions. Every question includes `Figure it out`, which leaves that decision open for design agents instead of applying a hidden default:
 

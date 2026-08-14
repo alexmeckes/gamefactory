@@ -161,7 +161,7 @@ export interface Experiment {
 }
 
 export interface FactorySnapshot {
-  version: number;
+  version: 2;
   generatedAt: string;
   campaign: {
     id: string;
@@ -245,3 +245,15 @@ export interface ReplayBundle {
   exportedAt: string;
   snapshot: FactorySnapshot;
 }
+
+export type ProjectSnapshot = import("@gamefactory/viewer").FactoryProjectSnapshot;
+
+export interface ProjectReplayBundle {
+  format: "gamefactory-viewer-bundle";
+  version: 2;
+  exportedAt: string;
+  project: ProjectSnapshot;
+  runs: Record<string, FactorySnapshot>;
+}
+
+export type AnyReplayBundle = ReplayBundle | ProjectReplayBundle;

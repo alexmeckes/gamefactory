@@ -4,7 +4,7 @@
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { DesktopState } from "@/desktop/contracts";
 import { demoSnapshot } from "@/lib/demo";
-import type { BillingMode, EffectivePromptManifest, FactorySnapshot, GraphEdge, GraphNode, ReplayBundle, Usage } from "@/lib/types";
+import type { BillingMode, EffectivePromptManifest, FactorySnapshot, GraphEdge, GraphNode, ProjectReplayBundle, ProjectSnapshot, ReplayBundle, Usage } from "@/lib/types";
 
 const NODE_WIDTH = 178;
 const NODE_HEIGHT = 76;
@@ -119,10 +119,22 @@ function isSnapshot(value: unknown): value is FactorySnapshot {
   );
 }
 
-function readBundle(value: unknown): FactorySnapshot | undefined {
-  if (isSnapshot(value)) return value;
+interface ImportedReplay {
+  snapshot: FactorySnapshot;
+  project?: ProjectSnapshot;
+  runs?: Record<string, FactorySnapshot>;
+}
+
+function readBundle(value: unknown): ImportedReplay | undefined {
+  if (isSnapshot(value)) return { snapshot: value };
   if (value && typeof value === "object" && isSnapshot((value as Partial<ReplayBundle>).snapshot)) {
-    return (value as ReplayBundle).snapshot;
+    return { snapshot: (value as ReplayBundle).snapshot };
+  }
+  if (value && typeof value === "object") {
+    const bundle = value as Partial<ProjectReplayBundle>;
+    if (bundle.version === 2 && bundle.project && isSnapshot(bundle.project.run) && bundle.runs && typeof bundle.runs === "object") {
+      return { snapshot: bundle.project.run as FactorySnapshot, project: bundle.project, runs: bundle.runs };
+    }
   }
   return undefined;
 }
@@ -407,6 +419,8 @@ export default function FactoryConsole({ desktop = false }: { desktop?: boolean 
   const [bridgeKey, setBridgeKey] = useState("");
   const [bridgePanel, setBridgePanel] = useState(false);
   const [desktopState, setDesktopState] = useState<DesktopState>({ status: "idle", running: false, message: "Opening local factory" });
+  const [projectSnapshot, setProjectSnapshot] = useState<ProjectSnapshot>();
+  const [projectReplayRuns, setProjectReplayRuns] = useState<Record<string, FactorySnapshot>>();
   const [cursor, setCursor] = useState(demoSnapshot.sequence);
   const [following, setFollowing] = useState(true);
   const [playing, setPlaying] = useState(false);
@@ -511,11 +525,13 @@ export default function FactoryConsole({ desktop = false }: { desktop?: boolean 
 
   async function importReplay(file?: File) {
     if (!file) return;
-    if (file.size > 8 * 1024 * 1024) { setConnection("replay exceeds the 8 MB viewer limit"); return; }
+    if (file.size > 64 * 1024 * 1024) { setConnection("replay exceeds the 64 MB viewer limit"); return; }
     try {
       const replay = readBundle(JSON.parse(await file.text()) as unknown);
       if (!replay) throw new Error("invalid replay");
-      applySnapshot({ ...replay, live: false }, "replay");
+      setProjectSnapshot(replay.project);
+      setProjectReplayRuns(replay.runs);
+      applySnapshot({ ...replay.snapshot, live: false }, "replay");
       desktopFollowingRef.current = false;
       setFollowing(false);
       setConnection(`loaded ${file.name} locally`);
@@ -537,14 +553,22 @@ export default function FactoryConsole({ desktop = false }: { desktop?: boolean 
         if (!active || !desktopFollowingRef.current) return;
         applySnapshot(value, "desktop");
       };
+      const receiveProjectSnapshot = (value: ProjectSnapshot) => {
+        if (!active) return;
+        setProjectSnapshot(value);
+        if (desktopFollowingRef.current) applySnapshot(value.run as FactorySnapshot, "desktop");
+      };
       const removeState = api.onState(receiveState);
       const removeSnapshot = api.onSnapshot(receiveSnapshot);
+      const removeProjectSnapshot = api.onProjectSnapshot(receiveProjectSnapshot);
       void api.getState().then(receiveState).catch((error: unknown) => setConnection(error instanceof Error ? error.message : String(error)));
       void api.getSnapshot().then((value) => { if (value) receiveSnapshot(value); }).catch((error: unknown) => setConnection(error instanceof Error ? error.message : String(error)));
+      void api.getProjectSnapshot().then((value) => { if (value) receiveProjectSnapshot(value); }).catch(() => undefined);
       return () => {
         active = false;
         removeState();
         removeSnapshot();
+        removeProjectSnapshot();
       };
     }
     let startTimer: number | undefined;
@@ -596,6 +620,8 @@ export default function FactoryConsole({ desktop = false }: { desktop?: boolean 
     try {
       desktopFollowingRef.current = true;
       const state = await window.gamefactoryDesktop!.chooseCampaign();
+      setProjectSnapshot(undefined);
+      setProjectReplayRuns(undefined);
       setDesktopState(state);
       setConnection(state.message);
       const value = await window.gamefactoryDesktop!.getSnapshot();
@@ -603,6 +629,55 @@ export default function FactoryConsole({ desktop = false }: { desktop?: boolean 
     } catch (error) {
       setConnection(error instanceof Error ? error.message : String(error));
     }
+  }
+
+  async function chooseDesktopProject() {
+    try {
+      desktopFollowingRef.current = true;
+      const state = await window.gamefactoryDesktop!.chooseProject();
+      setDesktopState(state);
+      setConnection(state.message);
+      const value = await window.gamefactoryDesktop!.getProjectSnapshot();
+      if (value) {
+        setProjectSnapshot(value);
+        setProjectReplayRuns(undefined);
+        applySnapshot(value.run as FactorySnapshot, "desktop");
+      }
+    } catch (error) {
+      setConnection(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  async function selectProjectRun(phaseId: string, attemptId: string, runId?: string) {
+    if (source === "replay" && projectSnapshot && projectReplayRuns) {
+      const phase = projectSnapshot.phases.find((item) => item.id === phaseId);
+      const attempt = phase?.attempts.find((item) => item.id === attemptId);
+      const targetRunId = runId ?? attempt?.selectedRunId ?? attempt?.runs[0]?.id;
+      const archived = targetRunId ? projectReplayRuns[`${phaseId}/${attemptId}/${targetRunId}`] : undefined;
+      if (!archived || !phase || !attempt) return;
+      setProjectSnapshot({ ...projectSnapshot, selection: { phaseId, attemptId, campaignId: archived.campaign.id, runId: archived.runId }, run: archived as unknown as ProjectSnapshot["run"] });
+      applySnapshot(archived, "replay");
+      setFollowing(false);
+      return;
+    }
+    const value = await window.gamefactoryDesktop?.getProjectSnapshot({ phaseId, attemptId, ...(runId ? { runId } : {}) });
+    if (!value) return;
+    desktopFollowingRef.current = false;
+    setProjectSnapshot(value);
+    applySnapshot(value.run as FactorySnapshot, "desktop");
+    setFollowing(false);
+  }
+
+  async function selectRecordedRun(runId: string) {
+    if (projectSnapshot) {
+      await selectProjectRun(projectSnapshot.selection.phaseId, projectSnapshot.selection.attemptId, runId);
+      return;
+    }
+    const value = await window.gamefactoryDesktop?.getSnapshot(runId);
+    if (!value) return;
+    desktopFollowingRef.current = false;
+    applySnapshot(value, "desktop");
+    setFollowing(false);
   }
 
   async function toggleDesktopRun() {
@@ -654,7 +729,8 @@ export default function FactoryConsole({ desktop = false }: { desktop?: boolean 
       return;
     }
     try {
-      const result = await window.gamefactoryDesktop!.exportReplay(replayBundle(snapshot));
+      const bundle = projectSnapshot ? await window.gamefactoryDesktop!.getProjectReplay() : undefined;
+      const result = await window.gamefactoryDesktop!.exportReplay(bundle ?? replayBundle(snapshot));
       if (result.saved) setConnection(`saved replay to ${result.path}`);
     } catch (error) {
       setConnection(error instanceof Error ? error.message : String(error));
@@ -685,8 +761,8 @@ export default function FactoryConsole({ desktop = false }: { desktop?: boolean 
 
       {desktop ? (
         <><section className="bridge-panel desktop-panel" aria-label="Desktop factory controls">
-          <div className="bridge-copy"><span className="section-kicker">Local control room</span><h2>{desktopState.selection?.campaignId ?? "Choose a factory campaign."}</h2><p>{desktopState.selection ? desktopState.selection.campaignPath : "Open a campaign.json file. Observatory will locate its factory configuration and durable trace without starting a network bridge."}</p></div>
-          <div className="bridge-actions"><span className="desktop-status">{desktopState.message}</span><button onClick={() => void chooseDesktopCampaign()} type="button">Open campaign</button><button className="secondary" disabled={!desktopState.selection} onClick={() => void toggleDesktopRun()} type="button">{desktopState.running ? "Stop safely" : "Run factory"}</button></div>
+          <div className="bridge-copy"><span className="section-kicker">Local control room</span><h2>{desktopState.selection?.projectTitle ?? desktopState.selection?.campaignId ?? "Choose a factory project."}</h2><p>{desktopState.selection?.projectPath ?? desktopState.selection?.campaignPath ?? "Open a gamefactory.project.json to see the complete project journey, or open one campaign directly."}</p></div>
+          <div className="bridge-actions"><span className="desktop-status">{desktopState.message}</span><button onClick={() => void chooseDesktopProject()} type="button">Open project</button><button className="secondary" onClick={() => void chooseDesktopCampaign()} type="button">Open campaign</button><button className="secondary" disabled={!desktopState.selection} onClick={() => void toggleDesktopRun()} type="button">{desktopState.running ? "Stop safely" : desktopState.selection?.kind === "project" ? "Run project" : "Run campaign"}</button></div>
         </section><details className="desktop-setup"><summary><span><strong>Local readiness</strong><small>{desktopState.readiness?.status ?? "not checked"} · {desktopState.credentials?.length ?? 0} stored credentials</small></span><i /></summary><div className="desktop-setup-grid"><section><div className="setup-heading"><span className="section-kicker">Factory doctor</span><button onClick={() => void refreshDesktopReadiness()} type="button">Check again</button></div><div className="readiness-list">{desktopState.readiness?.checks.map((check) => <div className={check.ok ? "ready" : "issue"} key={check.capability}><i /><span><strong>{check.capability}</strong><small>{check.message}</small></span></div>) ?? <p>No readiness check yet.</p>}</div></section><section><span className="section-kicker">OS-protected credentials</span><p>Only names enter the renderer. Secret entry happens in a native password dialog and values are never returned to this UI or written to traces.</p><div className="credential-form"><input aria-label="Credential name" value={credentialName} onChange={(event) => setCredentialName(event.target.value)} spellCheck={false} /><button disabled={!credentialName.trim()} onClick={() => void addDesktopCredential()} type="button">Add or update</button></div><div className="credential-list">{desktopState.credentials?.map((name) => <div key={name}><code>{name}</code><button onClick={() => void removeDesktopCredential(name)} type="button">Remove</button></div>)}</div></section></div></details></>
       ) : bridgePanel ? (
         <section className="bridge-panel" aria-label="Connect local GameFactory bridge">
@@ -699,9 +775,14 @@ export default function FactoryConsole({ desktop = false }: { desktop?: boolean 
         </section>
       ) : null}
 
+      {desktop && projectSnapshot && (source === "desktop" || source === "replay") ? <section className="project-journey" aria-label="Project journey">
+        <div className="project-journey-heading"><div><span className="section-kicker">Project journey</span><h2>{projectSnapshot.project.title}</h2></div><span className={`project-status status-${projectSnapshot.project.status}`}>{projectSnapshot.project.status}</span></div>
+        <div className="phase-strip">{projectSnapshot.phases.map((phase) => <div className={`phase-card phase-${phase.status}`} key={phase.id}><span>{String(phase.order).padStart(2, "0")}</span><strong>{phase.title}</strong><small>{phase.status}{phase.acceptedRevision ? ` · ${phase.acceptedRevision.slice(0, 8)}` : ""}</small><div>{phase.attempts.map((attempt) => <button className={projectSnapshot.selection.phaseId === phase.id && projectSnapshot.selection.attemptId === attempt.id ? "active" : ""} key={attempt.id} onClick={() => void selectProjectRun(phase.id, attempt.id)} type="button">{attempt.id} · {attempt.status}</button>)}</div></div>)}</div>
+      </section> : null}
+
       <section className="hero" id="top">
         <div><p className="eyebrow">{snapshot.live ? "Live orchestration trace" : source === "demo" ? "Interactive example trace" : source === "desktop" ? "Local factory history" : "Recorded orchestration trace"}</p><h1>{snapshot.campaign.id}</h1><p className="objective">{snapshot.campaign.objective}</p></div>
-        <div className="run-ident"><span>workflow / {snapshot.campaign.workflow}</span><span>run / {snapshot.runId}</span><span>sequence / {cursor} of {snapshot.sequence}</span>{source === "demo" ? <span>telemetry / example · models intentionally unreported</span> : null}</div>
+        <div className="run-ident"><span>workflow / {snapshot.campaign.workflow}</span><span>run / {snapshot.runId}</span>{desktop && snapshot.runs.length > 1 ? <select aria-label="Recorded run" onChange={(event) => void selectRecordedRun(event.target.value)} value={snapshot.runId}>{snapshot.runs.map((run) => <option key={run.id} value={run.id}>{run.id} · {run.status}</option>)}</select> : null}<span>sequence / {cursor} of {snapshot.sequence}</span>{source === "demo" ? <span>telemetry / example · models intentionally unreported</span> : null}</div>
       </section>
 
       <section className="stat-grid" aria-label="Run summary">
@@ -725,7 +806,7 @@ export default function FactoryConsole({ desktop = false }: { desktop?: boolean 
         </div>
         <div className={`replay-drop panel-block${dropActive ? " drop-active" : ""}`} onDragEnter={(event) => { event.preventDefault(); setDropActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDropActive(false)} onDrop={(event) => { event.preventDefault(); setDropActive(false); void importReplay(event.dataTransfer.files[0]); }}>
           <span className="section-kicker">Portable replay</span><h2>Take the factory trace with you.</h2><p>Replay files are parsed {desktop ? "inside the desktop app" : "in your browser"}. Nothing is uploaded, and opening one never touches the running factory.</p>
-          <div className="drop-actions"><button onClick={() => fileInput.current?.click()} type="button">Choose replay</button><button className="secondary" onClick={() => void exportReplay()} type="button">{desktop ? "Export this run" : "Download this run"}</button></div>
+          <div className="drop-actions"><button onClick={() => fileInput.current?.click()} type="button">Choose replay</button><button className="secondary" onClick={() => void exportReplay()} type="button">{desktop ? projectSnapshot ? "Export project" : "Export this run" : "Download this run"}</button></div>
           <input ref={fileInput} hidden accept="application/json,.json" onChange={(event) => void importReplay(event.target.files?.[0])} type="file" />
         </div>
       </section>

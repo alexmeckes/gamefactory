@@ -17,11 +17,13 @@ import {
   type WorkflowJournalEntry,
   type WorkflowJournalPhase,
   invocationTokenTotal,
-  parseInvocationUsage
+  parseInvocationUsage,
+  resolveFactoryStatePath
 } from "@gamefactory/core";
 
 export interface FactoryViewerOptions {
   cwd: string;
+  dataRoot?: string;
   campaign: Campaign;
   config: FactoryConfig;
   pollIntervalMs?: number;
@@ -262,25 +264,16 @@ export async function resolveViewerArtifact(trace: FactoryTrace, id: string): Pr
   }
 }
 
-function outputPath(cwd: string, configured: string | undefined, fallback: string, label: string): string {
-  const root = resolve(cwd);
-  const target = resolve(root, configured ?? fallback);
-  const traversal = relative(root, target);
-  if (!traversal || traversal.startsWith("..") || isAbsolute(traversal)) {
-    throw new Error(`${label} must stay inside the viewer working directory`);
-  }
-  return target;
-}
-
 export function resolveViewerSources(options: FactoryViewerOptions): ViewerSources {
   const { cwd, campaign, config } = options;
-  const journalPath = outputPath(cwd, config.journalLog, `.factory/journal/${campaign.id}.jsonl`, "journalLog");
+  const storage = { cwd, ...(options.dataRoot ? { dataRoot: options.dataRoot } : {}) };
+  const journalPath = resolveFactoryStatePath(storage, config.journalLog, `.factory/journal/${campaign.id}.jsonl`, "journalLog");
   return {
     journalPath,
-    resultPath: outputPath(cwd, config.resultLog, `.factory/results/${campaign.id}.jsonl`, "resultLog"),
-    artifactDirectory: outputPath(cwd, config.artifactDirectory, ".factory/artifacts", "artifactDirectory"),
+    resultPath: resolveFactoryStatePath(storage, config.resultLog, `.factory/results/${campaign.id}.jsonl`, "resultLog"),
+    artifactDirectory: resolveFactoryStatePath(storage, config.artifactDirectory, ".factory/artifacts", "artifactDirectory"),
     leasePath: `${journalPath}.lock`,
-    tracePath: outputPath(cwd, config.traceLog, `.factory/traces/${campaign.id}.jsonl`, "traceLog")
+    tracePath: resolveFactoryStatePath(storage, config.traceLog, `.factory/traces/${campaign.id}.jsonl`, "traceLog")
   };
 }
 

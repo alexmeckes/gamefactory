@@ -1,0 +1,13 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "id": "firefly-art-slice-selection",
+  "objective": "Select one engine-feasible production-quality visual method for the accepted Firefly Glassworks gameplay loop by finishing only a representative puzzle slice.",
+  "projectRoot": ".",
+  "workflow": "tournament",
+  "requires": [],
+  "acceptance": {
+    "primaryMetric": "visual_quality",
+    "direction": "maximize",
+    "minimumDelta": 5
+  }
+}

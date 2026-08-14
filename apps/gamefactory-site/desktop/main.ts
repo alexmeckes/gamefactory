@@ -3,7 +3,8 @@ import { execFile } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import type { ReplayBundle } from "../lib/types";
+import { configuredFactoryDataRoot } from "@gamefactory/core";
+import type { AnyReplayBundle } from "../lib/types";
 import type { DesktopState } from "./contracts";
 import { DesktopFactorySession, inferConfigPath } from "./session";
 
@@ -24,6 +25,9 @@ function send(channel: string, value: unknown): void {
 const session = new DesktopFactorySession(
   (state) => send("factory:state", state),
   (snapshot) => send("factory:snapshot", snapshot),
+  350,
+  (snapshot) => send("factory:project-snapshot", snapshot),
+  configuredFactoryDataRoot(),
 );
 
 function trusted(event: IpcMainEvent | IpcMainInvokeEvent): void {
@@ -67,10 +71,19 @@ function settingsPath(): string { return join(app.getPath("userData"), "observat
 async function persist(state: DesktopState): Promise<void> {
   if (!state.selection) return;
   await mkdir(dirname(settingsPath()), { recursive: true });
-  await writeFile(settingsPath(), `${JSON.stringify({ campaignPath: state.selection.campaignPath, configPath: state.selection.configPath }, null, 2)}\n`, "utf8");
+  const value = state.selection.kind === "project" && state.selection.projectPath
+    ? { kind: "project", projectPath: state.selection.projectPath }
+    : { kind: "campaign", campaignPath: state.selection.campaignPath, configPath: state.selection.configPath };
+  await writeFile(settingsPath(), `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
 async function restore(): Promise<void> {
+  const projectArg = argument("--project");
+  if (projectArg) {
+    const state = await session.openProject({ projectPath: resolve(projectArg) });
+    await persist(state);
+    return;
+  }
   const campaignArg = argument("--campaign");
   const configArg = argument("--config");
   if (campaignArg) {
@@ -79,13 +92,29 @@ async function restore(): Promise<void> {
     return;
   }
   try {
-    const value = JSON.parse(await readFile(settingsPath(), "utf8")) as { campaignPath?: unknown; configPath?: unknown };
+    const value = JSON.parse(await readFile(settingsPath(), "utf8")) as { kind?: unknown; projectPath?: unknown; campaignPath?: unknown; configPath?: unknown };
+    if (value.kind === "project" && typeof value.projectPath === "string") {
+      await session.openProject({ projectPath: value.projectPath });
+      return;
+    }
     if (typeof value.campaignPath === "string" && typeof value.configPath === "string") {
       await session.open({ campaignPath: value.campaignPath, configPath: value.configPath });
     }
   } catch {
     // First launch, a moved project, or a malformed preference simply returns to the chooser.
   }
+}
+
+async function chooseProject(): Promise<DesktopState> {
+  const selected = await dialog.showOpenDialog(window!, {
+    title: "Choose a GameFactory project",
+    properties: ["openFile"],
+    filters: [{ name: "GameFactory project", extensions: ["json"] }],
+  });
+  if (selected.canceled || !selected.filePaths[0]) return session.getState();
+  const state = await session.openProject({ projectPath: selected.filePaths[0] });
+  await persist(state);
+  return state;
 }
 
 async function chooseCampaign(): Promise<DesktopState> {
@@ -152,8 +181,21 @@ function registerIpc(): void {
     void finishSmokeTest();
   });
   ipcMain.handle("factory:get-state", (event) => { trusted(event); return session.getState(); });
-  ipcMain.handle("factory:get-snapshot", (event) => { trusted(event); return session.getSnapshot(); });
+  ipcMain.handle("factory:get-snapshot", (event, runId: unknown) => {
+    trusted(event);
+    if (runId !== undefined && typeof runId !== "string") throw new Error("Run id must be a string");
+    return session.getSnapshot(runId);
+  });
+  ipcMain.handle("factory:get-project-snapshot", (event, selection: unknown) => {
+    trusted(event);
+    if (selection !== undefined && (!selection || typeof selection !== "object" || Array.isArray(selection))) throw new Error("Project selection must be an object");
+    const value = selection as { phaseId?: unknown; attemptId?: unknown; runId?: unknown } | undefined;
+    for (const item of [value?.phaseId, value?.attemptId, value?.runId]) if (item !== undefined && typeof item !== "string") throw new Error("Project selection values must be strings");
+    return session.getProjectSnapshot(value as { phaseId?: string; attemptId?: string; runId?: string } | undefined);
+  });
+  ipcMain.handle("factory:get-project-replay", (event) => { trusted(event); return session.getProjectReplay(); });
   ipcMain.handle("factory:choose-campaign", async (event) => { trusted(event); return chooseCampaign(); });
+  ipcMain.handle("factory:choose-project", async (event) => { trusted(event); return chooseProject(); });
   ipcMain.handle("factory:start-run", async (event) => { trusted(event); return session.startRun(); });
   ipcMain.handle("factory:stop-run", async (event) => { trusted(event); return session.stopRun(); });
   ipcMain.handle("factory:refresh-readiness", async (event) => { trusted(event); return session.refreshReadiness(); });
@@ -180,13 +222,14 @@ function registerIpc(): void {
     const error = await shell.openPath(artifact.path);
     return error ? { opened: false, error } : { opened: true };
   });
-  ipcMain.handle("factory:export-replay", async (event, bundle: ReplayBundle) => {
+  ipcMain.handle("factory:export-replay", async (event, bundle: AnyReplayBundle) => {
     trusted(event);
-    if (bundle?.format !== "gamefactory-viewer-bundle" || bundle.version !== 1) throw new Error("Invalid replay bundle");
-    const campaign = bundle.snapshot?.campaign?.id ?? "factory-run";
+    if (bundle?.format !== "gamefactory-viewer-bundle" || (bundle.version !== 1 && bundle.version !== 2)) throw new Error("Invalid replay bundle");
+    const campaign = bundle.version === 2 ? bundle.project?.project?.id ?? "factory-project" : bundle.snapshot?.campaign?.id ?? "factory-run";
+    const suffix = bundle.version === 2 ? bundle.project.project.projectRunId : bundle.snapshot.runId;
     const result = await dialog.showSaveDialog(window!, {
       title: "Export GameFactory replay",
-      defaultPath: `${campaign}-${bundle.snapshot.runId}.gamefactory.json`,
+      defaultPath: `${campaign}-${suffix}.gamefactory.json`,
       filters: [{ name: "GameFactory replay", extensions: ["json"] }],
     });
     if (result.canceled || !result.filePath) return { saved: false };
@@ -231,6 +274,7 @@ function installMenu(): void {
   };
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { label: "File", submenu: [
+      { label: "Open Project...", accelerator: "CmdOrCtrl+Shift+O", click: () => reportAction(chooseProject) },
       { label: "Open Campaign...", accelerator: "CmdOrCtrl+O", click: () => reportAction(chooseCampaign) },
       { type: "separator" },
       { label: "Quit", role: "quit" },

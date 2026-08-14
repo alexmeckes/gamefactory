@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { open, mkdir, readFile, stat, unlink } from "node:fs/promises";
 import { hostname } from "node:os";
-import { dirname, isAbsolute, relative, resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { promisify } from "node:util";
 import type { Campaign, CampaignResult, EngineDriver, FactoryConfig, Logger, Workflow } from "./types.js";
 import { BudgetController } from "./budget.js";
@@ -12,23 +12,16 @@ import { JsonlResultStore } from "./results.js";
 import { ContentAddressedArtifactStore } from "./artifacts.js";
 import { WorkflowJournal, type JournalJsonValue } from "./journal.js";
 import { JsonlTraceStore, type TraceSink } from "./trace.js";
+import { resolveFactoryStatePath } from "./storage.js";
 
 const execFileAsync = promisify(execFile);
 
 export interface RunnerOptions {
   cwd: string;
+  dataRoot?: string;
   config: FactoryConfig;
   logger: Logger;
   signal?: AbortSignal;
-}
-
-function outputPath(cwd: string, configured: string | undefined, fallback: string, label: string): string {
-  const target = resolve(cwd, configured ?? fallback);
-  const traversal = relative(resolve(cwd), target);
-  if (!traversal || traversal.startsWith("..") || isAbsolute(traversal)) {
-    throw new Error(`${label} must stay inside the runner working directory`);
-  }
-  return target;
 }
 
 function assertRuntimeCampaign(campaign: Campaign): void {
@@ -75,6 +68,31 @@ async function gitProjectRevision(projectRoot: string): Promise<string | undefin
     if (error instanceof Error && error.message.startsWith("Project repository is dirty")) throw error;
     return undefined;
   }
+}
+
+export interface CampaignRunIdentity {
+  campaignFingerprint: string;
+  configFingerprint: string;
+  runFingerprint: string;
+  runId: string;
+}
+
+/**
+ * Resolves the same stable identity used by FactoryRunner. Operational campaign
+ * budgets are intentionally excluded so extending a budget resumes the same
+ * behavioral run, while configuration changes start a distinct run.
+ */
+export function resolveCampaignRunIdentity(campaign: Campaign, config: FactoryConfig): CampaignRunIdentity {
+  const configFingerprint = createHash("sha256").update(JSON.stringify(config)).digest("hex");
+  const { budget: _operationalBudget, ...campaignBehavior } = campaign;
+  const campaignFingerprint = createHash("sha256").update(JSON.stringify(campaignBehavior)).digest("hex");
+  const runFingerprint = createHash("sha256").update(`${campaignFingerprint}:${configFingerprint}`).digest("hex");
+  return {
+    campaignFingerprint,
+    configFingerprint,
+    runFingerprint,
+    runId: `${campaign.id}-${runFingerprint.slice(0, 16)}`
+  };
 }
 
 export class FactoryRunner {
@@ -134,15 +152,12 @@ export class FactoryRunner {
       : undefined;
 
     const startedAt = new Date().toISOString();
-    const resultPath = outputPath(this.options.cwd, this.options.config.resultLog, `.factory/results/${campaign.id}.jsonl`, "resultLog");
+    const storage = { cwd: this.options.cwd, ...(this.options.dataRoot ? { dataRoot: this.options.dataRoot } : {}) };
+    const resultPath = resolveFactoryStatePath(storage, this.options.config.resultLog, `.factory/results/${campaign.id}.jsonl`, "resultLog");
     const store = new JsonlResultStore(resultPath);
-    const configFingerprint = createHash("sha256").update(JSON.stringify(this.options.config)).digest("hex");
-    const { budget: _operationalBudget, ...campaignBehavior } = campaign;
-    const campaignFingerprint = createHash("sha256").update(JSON.stringify(campaignBehavior)).digest("hex");
-    const runFingerprint = createHash("sha256").update(`${campaignFingerprint}:${configFingerprint}`).digest("hex");
-    const runId = `${campaign.id}-${runFingerprint.slice(0, 16)}`;
-    const journal = new WorkflowJournal(outputPath(this.options.cwd, this.options.config.journalLog, `.factory/journal/${campaign.id}.jsonl`, "journalLog"));
-    const traceStore = new JsonlTraceStore(outputPath(this.options.cwd, this.options.config.traceLog, `.factory/traces/${campaign.id}.jsonl`, "traceLog"));
+    const { campaignFingerprint, configFingerprint, runId } = resolveCampaignRunIdentity(campaign, this.options.config);
+    const journal = new WorkflowJournal(resolveFactoryStatePath(storage, this.options.config.journalLog, `.factory/journal/${campaign.id}.jsonl`, "journalLog"));
+    const traceStore = new JsonlTraceStore(resolveFactoryStatePath(storage, this.options.config.traceLog, `.factory/traces/${campaign.id}.jsonl`, "traceLog"));
     let traceWarningReported = false;
     const trace: TraceSink = {
       runId,
@@ -185,7 +200,7 @@ export class FactoryRunner {
       }
     };
     const artifactStore = new ContentAddressedArtifactStore(
-      outputPath(this.options.cwd, this.options.config.artifactDirectory, ".factory/artifacts", "artifactDirectory"),
+      resolveFactoryStatePath(storage, this.options.config.artifactDirectory, ".factory/artifacts", "artifactDirectory"),
       this.options.logger
     );
 

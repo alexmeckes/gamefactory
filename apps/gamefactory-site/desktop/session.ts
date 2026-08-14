@@ -11,16 +11,23 @@ import {
   type FactoryConfig,
   type Logger,
 } from "@gamefactory/core";
+import { loadProject, ProjectRunner, type LoadedGameFactoryProject } from "@gamefactory/project-sdk";
 import {
+  createFactoryProjectSnapshot,
   createFactorySnapshot,
+  factoryProjectTraceSignature,
   factoryTraceSignature,
+  readFactoryProjectTrace,
   readFactoryTrace,
   resolveViewerArtifact,
+  type FactoryProjectSnapshot,
+  type FactoryProjectTrace,
   type FactoryTrace,
   type FactoryViewerOptions,
   type FactoryViewerSnapshot,
 } from "@gamefactory/viewer";
 import type { DesktopArtifactText, DesktopSelection, DesktopState } from "./contracts";
+import type { ProjectReplayBundle } from "../lib/types";
 
 const execFileAsync = promisify(execFile);
 
@@ -81,9 +88,18 @@ export interface OpenDesktopCampaignOptions {
   factoryRoot?: string;
 }
 
+export interface OpenDesktopProjectOptions {
+  projectPath: string;
+  factoryRoot?: string;
+}
+
 export class DesktopFactorySession {
   private campaign?: Campaign;
   private config?: FactoryConfig;
+  private project?: LoadedGameFactoryProject;
+  private projectTrace?: FactoryProjectTrace;
+  private projectSnapshot?: FactoryProjectSnapshot;
+  private projectSelection: { phaseId?: string; attemptId?: string; runId?: string } = {};
   private options?: FactoryViewerOptions;
   private selection?: DesktopSelection;
   private state: DesktopState = { status: "idle", running: false, message: "Choose a campaign to begin" };
@@ -94,6 +110,7 @@ export class DesktopFactorySession {
   private refreshPromise?: Promise<void>;
   private lastHeartbeatAt = 0;
   private runner?: FactoryRunner;
+  private projectRunner?: ProjectRunner;
   private runController?: AbortController;
   private runPromise?: Promise<void>;
   private readonly credentialStore = new LocalCredentialStore();
@@ -102,10 +119,42 @@ export class DesktopFactorySession {
     private readonly onState: (state: DesktopState) => void = () => undefined,
     private readonly onSnapshot: (snapshot: FactoryViewerSnapshot) => void = () => undefined,
     private readonly pollIntervalMs = 350,
+    private readonly onProjectSnapshot: (snapshot: FactoryProjectSnapshot) => void = () => undefined,
+    private readonly dataRoot?: string,
   ) {}
 
   getState(): DesktopState { return structuredClone(this.state); }
-  getSnapshot(): FactoryViewerSnapshot | undefined { return this.snapshot ? structuredClone(this.snapshot) : undefined; }
+  getSnapshot(runId?: string): FactoryViewerSnapshot | undefined {
+    if (runId && this.trace && this.campaign) {
+      this.projectSelection.runId = runId;
+      this.snapshot = createFactorySnapshot(this.trace, this.campaign, runId);
+    }
+    return this.snapshot ? structuredClone(this.snapshot) : undefined;
+  }
+  getProjectSnapshot(selection?: { phaseId?: string; attemptId?: string; runId?: string }): FactoryProjectSnapshot | undefined {
+    if (selection && this.projectTrace) {
+      this.projectSelection = { ...this.projectSelection, ...selection };
+      this.projectSnapshot = createFactoryProjectSnapshot(this.projectTrace, this.projectSelection);
+      this.adoptProjectSelection();
+    }
+    return this.projectSnapshot ? structuredClone(this.projectSnapshot) : undefined;
+  }
+  getProjectReplay(): ProjectReplayBundle | undefined {
+    if (!this.projectSnapshot || !this.projectTrace) return undefined;
+    const runs: Record<string, FactoryViewerSnapshot> = {};
+    for (const attempt of this.projectTrace.attempts.values()) {
+      const summary = createFactorySnapshot(attempt.trace, attempt.campaign);
+      const runIds = summary.runs.length > 0 ? summary.runs.map((run) => run.id) : [summary.runId];
+      for (const runId of runIds) runs[`${attempt.phaseId}/${attempt.attemptId}/${runId}`] = { ...createFactorySnapshot(attempt.trace, attempt.campaign, runId), live: false };
+    }
+    return {
+      format: "gamefactory-viewer-bundle",
+      version: 2,
+      exportedAt: new Date().toISOString(),
+      project: { ...structuredClone(this.projectSnapshot), run: { ...structuredClone(this.projectSnapshot.run), live: false } },
+      runs
+    };
+  }
 
   async open(value: OpenDesktopCampaignOptions): Promise<DesktopState> {
     if (this.state.running) throw new Error("Stop the active factory run before changing campaigns");
@@ -113,10 +162,15 @@ export class DesktopFactorySession {
     const configPath = resolve(value.configPath ?? await inferConfigPath(campaignPath));
     const factoryRoot = resolve(value.factoryRoot ?? await inferFactoryRoot(campaignPath));
     const [campaign, config] = await Promise.all([loadCampaign(campaignPath), loadFactoryConfig(configPath)]);
+    this.project = undefined;
+    this.projectTrace = undefined;
+    this.projectSnapshot = undefined;
+    this.projectSelection = {};
     this.campaign = campaign;
     this.config = config;
-    this.options = { cwd: factoryRoot, campaign, config, pollIntervalMs: this.pollIntervalMs };
+    this.options = { cwd: factoryRoot, ...(this.dataRoot ? { dataRoot: this.dataRoot } : {}), campaign, config, pollIntervalMs: this.pollIntervalMs };
     this.selection = {
+      kind: "campaign",
       campaignPath,
       configPath,
       factoryRoot,
@@ -132,7 +186,46 @@ export class DesktopFactorySession {
     return this.getState();
   }
 
+  async openProject(value: OpenDesktopProjectOptions): Promise<DesktopState> {
+    if (this.state.running) throw new Error("Stop the active factory run before changing projects");
+    const projectPath = resolve(value.projectPath);
+    const factoryRoot = resolve(value.factoryRoot ?? await inferFactoryRoot(projectPath));
+    this.project = await loadProject(projectPath);
+    this.projectSelection = {};
+    this.projectTrace = await readFactoryProjectTrace(this.project, factoryRoot, undefined, this.dataRoot);
+    this.projectSnapshot = createFactoryProjectSnapshot(this.projectTrace);
+    this.signature = undefined;
+    this.adoptProjectSelection(factoryRoot, projectPath);
+    this.setState({ ...this.state, status: "watching", running: false, message: `Watching project ${this.project.id}`, selection: this.selection });
+    this.onProjectSnapshot(structuredClone(this.projectSnapshot));
+    this.onSnapshot(structuredClone(this.projectSnapshot.run));
+    this.startWatching();
+    await this.refreshReadiness();
+    return this.getState();
+  }
+
   async refresh(force = false): Promise<void> {
+    if (this.project) {
+      if (this.refreshPromise) return this.refreshPromise;
+      this.refreshPromise = (async () => {
+        const factoryRoot = this.selection?.factoryRoot;
+        if (!factoryRoot) return;
+        const nextSignature = await factoryProjectTraceSignature(this.project!, factoryRoot, this.dataRoot);
+        const now = Date.now();
+        const heartbeat = this.state.running && now - this.lastHeartbeatAt >= 1_000;
+        if (!force && !heartbeat && nextSignature === this.signature) return;
+        if (heartbeat) this.lastHeartbeatAt = now;
+        this.projectTrace = await readFactoryProjectTrace(this.project!, factoryRoot, this.projectTrace, this.dataRoot);
+        this.projectSnapshot = createFactoryProjectSnapshot(this.projectTrace, this.projectSelection);
+        this.signature = nextSignature;
+        this.adoptProjectSelection();
+        this.onProjectSnapshot(structuredClone(this.projectSnapshot));
+        this.onSnapshot(structuredClone(this.projectSnapshot.run));
+      })().catch((error: unknown) => {
+        this.setState({ ...this.state, message: `Project trace refresh delayed: ${error instanceof Error ? error.message : String(error)}` });
+      }).finally(() => { this.refreshPromise = undefined; });
+      return this.refreshPromise;
+    }
     if (!this.options || !this.campaign) return;
     if (this.refreshPromise) return this.refreshPromise;
     this.refreshPromise = (async () => {
@@ -144,7 +237,7 @@ export class DesktopFactorySession {
       const trace = await readFactoryTrace(this.options!, this.trace);
       this.trace = trace;
       this.signature = nextSignature;
-      this.snapshot = createFactorySnapshot(trace, this.campaign!);
+      this.snapshot = createFactorySnapshot(trace, this.campaign!, this.projectSelection.runId);
       this.onSnapshot(structuredClone(this.snapshot));
     })().catch((error: unknown) => {
       const message = error instanceof Error ? error.message : String(error);
@@ -157,7 +250,7 @@ export class DesktopFactorySession {
     if (!this.campaign || !this.config || !this.options) throw new Error("Choose a campaign before checking readiness");
     this.setState({ ...this.state, readiness: { status: "checking", checks: this.state.readiness?.checks ?? [] } });
     const checks: Array<{ capability: string; ok: boolean; message: string }> = [];
-    const runner = new FactoryRunner({ cwd: this.options.cwd, config: this.config, logger: new SessionLogger(() => undefined) });
+    const runner = new FactoryRunner({ cwd: this.options.cwd, ...(this.dataRoot ? { dataRoot: this.dataRoot } : {}), config: this.config, logger: new SessionLogger(() => undefined) });
     try {
       await runner.initialize();
       checks.push(...await runner.doctor(this.campaign));
@@ -221,12 +314,14 @@ export class DesktopFactorySession {
       const suffix = details && Object.keys(details).length ? ` · ${JSON.stringify(details).slice(0, 500)}` : "";
       this.setState({ ...this.state, message: `[${level}] ${message}${suffix}` });
     });
-    this.runner = new FactoryRunner({ cwd: this.options.cwd, config: this.config, logger, signal: this.runController.signal });
-    this.setState({ ...this.state, status: "running", running: true, message: `Starting ${this.campaign.id}`, selection: this.selection, startedAt });
+    if (this.project) this.projectRunner = new ProjectRunner(this.project, { cwd: this.options.cwd, ...(this.dataRoot ? { dataRoot: this.dataRoot } : {}), logger, signal: this.runController.signal });
+    else this.runner = new FactoryRunner({ cwd: this.options.cwd, ...(this.dataRoot ? { dataRoot: this.dataRoot } : {}), config: this.config, logger, signal: this.runController.signal });
+    this.setState({ ...this.state, status: "running", running: true, message: this.project ? `Starting project ${this.project.id}` : `Starting ${this.campaign.id}`, selection: this.selection, startedAt });
     this.runPromise = (async () => {
       try {
-        await this.runner!.initialize();
-        const result = await this.runner!.run(this.campaign!);
+        const result = this.project
+          ? await this.projectRunner!.run()
+          : await (async () => { await this.runner!.initialize(); return this.runner!.run(this.campaign!); })();
         this.setState({ ...this.state, status: "complete", running: false, message: `Run ${result.status}`, selection: this.selection, startedAt, finishedAt: new Date().toISOString() });
       } catch (error) {
         if (this.runController?.signal.aborted) {
@@ -237,6 +332,7 @@ export class DesktopFactorySession {
       } finally {
         try { await this.runner?.dispose(); } catch (error) { this.setError(error, "Factory cleanup failed"); }
         this.runner = undefined;
+        this.projectRunner = undefined;
         this.runController = undefined;
         this.runPromise = undefined;
         await this.refresh(true);
@@ -271,5 +367,31 @@ export class DesktopFactorySession {
   private setState(state: DesktopState): void {
     this.state = structuredClone(state);
     this.onState(this.getState());
+  }
+
+  private adoptProjectSelection(factoryRoot = this.selection?.factoryRoot, projectPath = this.selection?.projectPath): void {
+    if (!this.project || !this.projectTrace || !this.projectSnapshot || !factoryRoot) return;
+    const selected = this.projectSnapshot.selection;
+    const phase = this.project.phases.find((item) => item.id === selected.phaseId)!;
+    const attempt = phase.attempts.find((item) => item.id === selected.attemptId)!;
+    const attemptTrace = this.projectTrace.attempts.get(`${selected.phaseId}/${selected.attemptId}`)!;
+    this.projectSelection = { phaseId: selected.phaseId, attemptId: selected.attemptId, runId: selected.runId };
+    this.campaign = attemptTrace.campaign;
+    this.config = attemptTrace.config;
+    this.options = attemptTrace.options;
+    this.trace = attemptTrace.trace;
+    this.snapshot = this.projectSnapshot.run;
+    this.selection = {
+      kind: "project",
+      projectPath: projectPath ?? this.project.manifestPath,
+      projectId: this.project.id,
+      projectTitle: this.project.title,
+      campaignPath: attempt.campaignPath,
+      configPath: attempt.configPath,
+      factoryRoot,
+      projectRoot: this.project.root,
+      campaignId: attemptTrace.campaign.id,
+      objective: attemptTrace.campaign.objective
+    };
   }
 }

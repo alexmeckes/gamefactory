@@ -77,3 +77,33 @@ test("desktop session reads only content-addressed textual evidence inside the a
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("desktop session opens a project and switches phases without reopening it", async () => {
+  const root = await mkdtemp(join(tmpdir(), "gamefactory-observatory-project-"));
+  try {
+    await mkdir(join(root, ".factory", "traces"), { recursive: true });
+    for (const id of ["gameplay", "art"]) {
+      await writeFile(join(root, `${id}.campaign.json`), JSON.stringify({ apiVersion: "gamefactory.dev/v1", id, objective: id, projectRoot: ".", workflow: "fixture", requires: [], acceptance: { primaryMetric: "score", direction: "maximize" } }), "utf8");
+      await writeFile(join(root, `${id}.config.json`), JSON.stringify({ apiVersion: "gamefactory.dev/v1", extensions: [], traceLog: `.factory/traces/${id}.jsonl` }), "utf8");
+      await writeFile(join(root, ".factory", "traces", `${id}.jsonl`), `${JSON.stringify({ version: 1, sequence: 1, timestamp: "2026-01-01T00:00:00.000Z", runId: `${id}-run`, campaignId: id, type: "node:created", nodeId: `campaign:${id}-run`, role: "campaign", label: id })}\n`, "utf8");
+    }
+    const projectPath = join(root, "gamefactory.project.json");
+    await writeFile(projectPath, JSON.stringify({ apiVersion: "gamefactory.dev/v1", kind: "Project", id: "desktop-project", title: "Desktop project", projectRoot: ".", phases: [
+      { id: "gameplay", title: "Gameplay", order: 10, attempts: [{ id: "v1", campaign: "gameplay.campaign.json", config: "gameplay.config.json" }] },
+      { id: "art", title: "Art", order: 20, attempts: [{ id: "v1", campaign: "art.campaign.json", config: "art.config.json" }] }
+    ] }), "utf8");
+    const projects = [];
+    const session = new DesktopFactorySession(() => undefined, () => undefined, 10_000, (snapshot) => projects.push(snapshot));
+    const state = await session.openProject({ projectPath, factoryRoot: root });
+    assert.equal(state.selection.kind, "project");
+    assert.equal(state.selection.projectId, "desktop-project");
+    assert.equal(projects.at(-1).phases.length, 2);
+    const selected = session.getProjectSnapshot({ phaseId: "art", attemptId: "v1", runId: "art-run" });
+    assert.equal(selected.selection.campaignId, "art");
+    assert.equal(session.getSnapshot().runId, "art-run");
+    const replay = session.getProjectReplay();
+    assert.equal(replay.version, 2);
+    assert.deepEqual(Object.keys(replay.runs).sort(), ["art/v1/art-run", "gameplay/v1/gameplay-run"]);
+    await session.dispose();
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

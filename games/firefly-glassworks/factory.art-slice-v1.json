@@ -1,0 +1,8 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "extensions": [],
+  "resultLog": "games/firefly-glassworks/.factory/results/art-slice.jsonl",
+  "journalLog": "games/firefly-glassworks/.factory/journal/art-slice.jsonl",
+  "traceLog": "games/firefly-glassworks/.factory/traces/art-slice.jsonl",
+  "artifactDirectory": "games/firefly-glassworks/.factory/artifacts"
+}

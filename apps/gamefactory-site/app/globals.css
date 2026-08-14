@@ -120,6 +120,21 @@ button { color: inherit; }
 .hero h1 { margin: 0; font: 570 clamp(35px, 5vw, 68px)/0.96 var(--font-geist-sans), sans-serif; letter-spacing: -0.055em; }
 .objective { max-width: 810px; margin: 22px 0 0; color: var(--muted); font-size: 15px; line-height: 1.65; }
 .run-ident { min-width: 300px; display: grid; gap: 7px; color: var(--dim); font: 9px/1.3 var(--font-geist-mono), monospace; text-align: right; overflow-wrap: anywhere; }
+.run-ident select { max-width: 360px; margin-left: auto; padding: 6px 8px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel); color: var(--muted); font: inherit; }
+.project-journey { padding: 22px 28px; border-bottom: 1px solid var(--line); background: linear-gradient(180deg, rgba(27, 42, 36, .34), rgba(10, 12, 12, .2)); }
+.project-journey-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 15px; }
+.project-journey-heading h2 { margin: 4px 0 0; font: 500 22px/1.1 var(--font-geist-sans), sans-serif; }
+.project-status { padding: 6px 9px; border: 1px solid var(--line-strong); border-radius: 999px; color: var(--muted); font: 650 9px/1 var(--font-geist-mono), monospace; text-transform: uppercase; }
+.phase-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 9px; }
+.phase-card { min-width: 0; padding: 13px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); display: grid; gap: 6px; }
+.phase-card > span, .phase-card > small { color: var(--dim); font: 9px/1.25 var(--font-geist-mono), monospace; text-transform: uppercase; }
+.phase-card > strong { font: 600 13px/1.3 var(--font-geist-sans), sans-serif; }
+.phase-card > div { display: flex; flex-wrap: wrap; gap: 5px; }
+.phase-card button { padding: 5px 7px; border: 1px solid var(--line); border-radius: 4px; background: transparent; color: var(--dim); cursor: pointer; font: 8px/1.2 var(--font-geist-mono), monospace; }
+.phase-card button.active { border-color: var(--mint); color: var(--mint); background: rgba(139, 229, 183, .08); }
+.phase-complete { border-color: rgba(139, 229, 183, .35); }
+.phase-live { border-color: var(--amber); }
+.phase-blocked { border-color: var(--danger); }
 
 .stat-grid, .usage-bar, .workspace-grid, .lower-grid, footer { max-width: 1600px; margin-left: auto; margin-right: auto; }
 .stat-grid { padding: 0 38px 16px; display: grid; grid-template-columns: repeat(5, 1fr); }
