@@ -275,6 +275,7 @@ async function ensureAgentTraceNode(request: AgentRequest, config: ContributorCo
 const OUTCOME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const CONTROL_OUTCOME_ALIASES = new Map<string, string>([
   ["revision_required", "revise"],
+  ["revision_requested", "revise"],
   ["requires_revision", "revise"],
   ["needs_revision", "revise"],
   ["changes_required", "revise"],
@@ -1525,12 +1526,18 @@ async function fingerprint(path: string): Promise<string> {
 }
 
 async function meaningfulFileState(request: AgentRequest): Promise<Map<string, string>> {
+  const prefix = (await gitOutput(request, ["rev-parse", "--show-prefix"], "repair scope prefix"))
+    .trim()
+    .replaceAll("\\", "/");
   const rawStatus = await gitOutput(request, [
     "-c", "core.quotepath=false",
     "-c", "status.relativePaths=true",
     "status", "--porcelain=v1", "--untracked-files=all"
   ], "repair scope");
-  const paths = [...new Set(meaningfulStatusPaths(rawStatus))].sort();
+  const paths = [...new Set(meaningfulStatusPaths(rawStatus)
+    .filter((path) => prefix.length === 0 || path === prefix.slice(0, -1) || path.startsWith(prefix))
+    .map((path) => prefix.length > 0 && path.startsWith(prefix) ? path.slice(prefix.length) : path)
+    .filter(Boolean))].sort();
   return new Map(await Promise.all(paths.map(async (path) => [path, await fingerprint(resolve(request.candidate.root, path))] as const)));
 }
 
