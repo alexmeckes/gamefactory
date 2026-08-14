@@ -1,26 +1,44 @@
 extends Node2D
 
-# This is intentionally a graybox. It tests whether one visible, monotonic
-# workshop latch can make mirror routing support a readable second stage.
-# It does not claim that deterministic completion is human evidence of fun.
+# Production-slice presentation for the accepted graybox interaction. Decorative
+# sprites sit below engine-authored orientation, state, and beam geometry. The
+# deterministic contract remains evidence of stability, not human evidence of fun.
 
 const BeamSolver = preload("res://src/beam_solver.gd")
+const WORKBENCH_TEXTURE: Texture2D = preload("res://assets/illustrated/workbench-backdrop.png")
+const INSTRUMENT_ATLAS: Texture2D = preload("res://assets/illustrated/instrument-atlas.png")
 const VIEW := Vector2(1152, 720)
 const GRID_ORIGIN := Vector2(188, 126)
 const CELL := 88.0
 const COLS := 8
 const ROWS := 5
 const DIRS := [Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT, Vector2i.UP]
-const BG := Color("11151b")
-const PANEL := Color("1b222c")
-const GRID := Color("34404d")
-const INK := Color("e5edf4")
-const MUTED := Color("8c9aa7")
-const SOURCE := Color("ffb84d")
-const TARGET := Color("75e6db")
-const MIRROR := Color("da8cff")
-const LATCH := Color("79a8ff")
-const DANGER := Color("ff6b6b")
+const BOARD_RECT := Rect2(188, 126, 704, 440)
+const RESET_RECT := Rect2(946, 590, 158, 54)
+const ATLAS_QUAD := 627.0
+const ATLAS_MOUNT := Rect2(0, 0, ATLAS_QUAD, ATLAS_QUAD)
+const ATLAS_GLASS := Rect2(ATLAS_QUAD, 0, ATLAS_QUAD, ATLAS_QUAD)
+const ATLAS_SOURCE := Rect2(0, ATLAS_QUAD, ATLAS_QUAD, ATLAS_QUAD)
+const ATLAS_RECEIVER := Rect2(ATLAS_QUAD, ATLAS_QUAD, ATLAS_QUAD, ATLAS_QUAD)
+const BG := Color("0b0d0f")
+const PANEL := Color("171a1c")
+const GRID := Color("665844")
+const INK := Color("eee8da")
+const MUTED := Color("aaa394")
+const SOURCE := Color("ffb94f")
+const SOURCE_HOT := Color("fff1b0")
+const TARGET := Color("80d7d1")
+const TARGET_HOT := Color("d4fffa")
+const MIRROR := Color("9bbfc8")
+const LATCH := Color("bd8c48")
+const BRASS := Color("a7773f")
+const BRASS_LIGHT := Color("d1a05c")
+const DEEP_SHADOW := Color("060708")
+const DANGER := Color("e07065")
+const MIRROR_TURN_DURATION := 0.18
+const BEAM_REVEAL_DURATION := 0.42
+const RECEIVER_SETTLE_DURATION := 0.12
+const CAPTURE_SAMPLE_DELAYS := [0.075, 0.151, 0.231, 0.280, 0.080, 0.260, 0.300]
 
 var mode := "title"
 var level_index := 0
@@ -50,6 +68,10 @@ var unique_mirrors_touched: Dictionary = {}
 var initial_fingerprint := ""
 var completion_delay := -1.0
 var motion_reveal := 1.0
+var visual_latch_open := false
+var pending_latch_reveal := false
+var latch_reveal_threshold := 1.0
+var receiver_settle := 0.0
 var last_event := "cold"
 var level_activation_action := -1
 var level_arrival_action := -1
@@ -57,6 +79,8 @@ var level_post_activation_rotations := 0
 var factory_mode := false
 var factory_step := 0
 var capture_stage := -1
+var beam_clock := 0.0
+var mirror_turns: Dictionary = {}
 
 var levels := [
 	{
@@ -161,13 +185,14 @@ func load_level(index: int) -> void:
 	beam_loop = false
 	beam_termination = "untraced"
 	completion_delay = -1.0
-	motion_reveal = 1.0
 	focused_mirror = 0
 	level_activation_action = -1
 	level_arrival_action = -1
 	level_post_activation_rotations = 0
 	last_event = "cold"
+	mirror_turns.clear()
 	recompute_beam()
+	begin_visual_recompute(false)
 	if beam_hit or latch_open:
 		no_input_states_valid = false
 	initial_fingerprint = gameplay_fingerprint()
@@ -236,8 +261,10 @@ func apply_action(action: Dictionary, count_input := true) -> void:
 		rotations += 1
 		unique_mirrors_touched["%d:%d,%d" % [level_index, cell.x, cell.y]] = true
 	mirrors[cell] = 1 - int(mirrors[cell])
+	mirror_turns[cell] = 1.0
 	last_event = "mirror_rotated"
 	recompute_beam()
+	begin_visual_recompute(was_open)
 	if count_input and was_open:
 		post_activation_rotations += 1
 		level_post_activation_rotations += 1
@@ -271,13 +298,81 @@ func recompute_beam() -> void:
 	maximum_trace_passes = maxi(maximum_trace_passes, passes)
 	beam_points.clear()
 	for path_cell in trace.get("cells", []):
-		beam_points.append(cell_center(path_cell))
+		var point := cell_center(path_cell)
+		if not BeamSolver.inside(path_cell, COLS, ROWS):
+			point = Vector2(
+				clampf(point.x, BOARD_RECT.position.x, BOARD_RECT.end.x),
+				clampf(point.y, BOARD_RECT.position.y, BOARD_RECT.end.y)
+			)
+		beam_points.append(point)
 	beam_hit = bool(trace.get("hit", false))
 	beam_loop = bool(trace.get("loop", false))
 	beam_termination = str(trace.get("termination", "unknown"))
 	if latch_open and not beam_hit:
 		open_but_incomplete_observed = true
 	queue_redraw()
+
+
+func beam_reveal_fraction_at(cell: Vector2i) -> float:
+	if beam_points.size() < 2:
+		return 1.0
+	var wanted := cell_center(cell)
+	for index in range(beam_points.size()):
+		if beam_points[index].distance_squared_to(wanted) < 0.25:
+			return clampf(float(index) / float(beam_points.size() - 1), 0.0, 1.0)
+	return 1.0
+
+
+func begin_visual_recompute(previous_latch_open: bool) -> void:
+	receiver_settle = 0.0
+	pending_latch_reveal = false
+	if factory_mode:
+		motion_reveal = 1.0
+		visual_latch_open = latch_open
+		receiver_settle = 1.0 if beam_hit else 0.0
+		return
+	motion_reveal = 0.0
+	if not latch_open:
+		visual_latch_open = false
+	elif previous_latch_open:
+		visual_latch_open = true
+	else:
+		# Simulation opens the latch immediately; its presentation changes only
+		# when the same live beam reveal reaches the contacted sensor.
+		visual_latch_open = false
+		pending_latch_reveal = true
+		latch_reveal_threshold = beam_reveal_fraction_at(current_level().latch.sensor)
+
+
+func advance_presentation(elapsed: float) -> bool:
+	if elapsed <= 0.0:
+		return false
+	if not factory_mode:
+		beam_clock += elapsed
+	var changed := false
+	for cell in mirror_turns.keys():
+		var amount := maxf(0.0, float(mirror_turns[cell]) - elapsed / MIRROR_TURN_DURATION)
+		if amount <= 0.0:
+			mirror_turns.erase(cell)
+		else:
+			mirror_turns[cell] = amount
+		changed = true
+
+	var remaining := elapsed
+	if motion_reveal < 1.0:
+		var reveal_time_left := (1.0 - motion_reveal) * BEAM_REVEAL_DURATION
+		var reveal_elapsed := minf(remaining, reveal_time_left)
+		motion_reveal = minf(1.0, motion_reveal + reveal_elapsed / BEAM_REVEAL_DURATION)
+		remaining -= reveal_elapsed
+		changed = true
+	if pending_latch_reveal and motion_reveal + 0.0001 >= latch_reveal_threshold:
+		visual_latch_open = true
+		pending_latch_reveal = false
+		changed = true
+	if beam_hit and motion_reveal >= 0.9999 and receiver_settle < 1.0 and remaining > 0.0:
+		receiver_settle = minf(1.0, receiver_settle + remaining / RECEIVER_SETTLE_DURATION)
+		changed = true
+	return changed
 
 
 func request_completion() -> void:
@@ -305,6 +400,9 @@ func complete_level() -> void:
 
 
 func _process(delta: float) -> void:
+	var presentation_changed := advance_presentation(delta)
+	if presentation_changed or (mode == "play" and not factory_mode):
+		queue_redraw()
 	if completion_delay >= 0.0:
 		completion_delay -= delta
 		if completion_delay <= 0.0:
@@ -326,7 +424,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		var cell := point_to_cell(event.position)
 		if mirrors.has(cell):
 			apply_action({"type": "rotate", "cell": cell})
-		elif Rect2(924, 612, 150, 46).has_point(event.position):
+		elif RESET_RECT.has_point(event.position):
 			apply_action({"type": "reset"})
 		return
 	if not event is InputEventKey or not event.pressed or event.echo:
@@ -351,15 +449,35 @@ func draw_text(text: String, position: Vector2, size: int, color := INK) -> void
 	draw_string(ThemeDB.fallback_font, position, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, color)
 
 
+func draw_text_centered(text: String, rect: Rect2, size: int, color := INK) -> void:
+	var measured := ThemeDB.fallback_font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size)
+	var baseline := rect.position + Vector2((rect.size.x - measured.x) * 0.5, (rect.size.y + measured.y) * 0.5 - 2.0)
+	draw_text(text, baseline, size, color)
+
+
 func draw_button(rect: Rect2, label: String, active := false) -> void:
-	draw_rect(rect, SOURCE if active else PANEL, true)
-	draw_rect(rect, INK if active else GRID, false, 2.0)
-	var width := ThemeDB.fallback_font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 19).x
-	draw_text(label, rect.position + Vector2((rect.size.x - width) * 0.5, 30), 19, BG if active else INK)
+	draw_rect(Rect2(rect.position + Vector2(4, 5), rect.size), Color(DEEP_SHADOW, 0.82), true)
+	draw_rect(rect, Color("28231c") if not active else Color("bd7c32"), true)
+	draw_rect(rect.grow(-2), Color("0c0e0f") if not active else Color("442a12"), true)
+	draw_rect(rect, BRASS_LIGHT if not active else SOURCE_HOT, false, 2.0)
+	draw_line(rect.position + Vector2(10, 8), rect.position + Vector2(rect.size.x - 10, 8), Color(BRASS_LIGHT, 0.52), 1.0)
+	draw_text_centered(label, rect, 17, SOURCE_HOT if active else INK)
+
+
+func is_production_slice() -> bool:
+	return level_index == 0 or level_index == 3
+
+
+func draw_workbench_base() -> void:
+	draw_rect(Rect2(Vector2.ZERO, VIEW), BG, true)
+	draw_texture_rect(WORKBENCH_TEXTURE, Rect2(Vector2.ZERO, VIEW), false, Color(0.78, 0.76, 0.72, 1.0))
+	draw_rect(Rect2(Vector2.ZERO, VIEW), Color(0.015, 0.019, 0.021, 0.20), true)
+	draw_line(Vector2(24, 24), Vector2(1128, 24), Color(BRASS_LIGHT, 0.16), 1.0)
+	draw_line(Vector2(24, 696), Vector2(1128, 696), Color(DEEP_SHADOW, 0.75), 2.0)
 
 
 func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO, VIEW), BG, true)
+	draw_workbench_base()
 	if mode == "title":
 		draw_title()
 	elif mode == "won":
@@ -369,27 +487,21 @@ func _draw() -> void:
 
 
 func draw_title() -> void:
-	draw_text("FIREFLY GLASSWORKS", Vector2(244, 254), 48)
-	draw_text("GRAYBOX BUILD - GAMEPLAY BEFORE ART", Vector2(351, 301), 17, MUTED)
-	draw_line(Vector2(332, 349), Vector2(820, 349), GRID, 2.0)
-	draw_text("Turn plates. Wake one latch. Use what the workshop remembers.", Vector2(257, 398), 21, INK)
-	draw_button(Rect2(439, 470, 274, 54), "BEGIN EXPERIMENT", true)
+	draw_text("A QUIET GLASSWORK", Vector2(461, 185), 14, MUTED)
+	draw_text("FIREFLY", Vector2(431, 274), 30, SOURCE)
+	draw_text("GLASSWORKS", Vector2(314, 342), 66, INK)
+	draw_line(Vector2(368, 380), Vector2(784, 380), Color(BRASS_LIGHT, 0.58), 2.0)
+	draw_text("Turn the glass. Wake the bench. Guide one living light.", Vector2(326, 423), 18, MUTED)
+	draw_button(Rect2(452, 482, 248, 56), "ENTER WORKSHOP", true)
 
 
 func draw_game() -> void:
 	var level := current_level()
-	var beam_visibly_arrived := beam_hit and motion_reveal >= 0.999
-	draw_text("FIREFLY GLASSWORKS / GRAYBOX", Vector2(48, 48), 22)
-	draw_text("%02d / %02d" % [level_index + 1, levels.size()], Vector2(1000, 48), 17, MUTED)
-	draw_text(level.name, Vector2(48, 82), 32)
-	draw_text(level.lesson, Vector2(48, 110), 16, MUTED)
-	for y in range(ROWS):
-		for x in range(COLS):
-			var cell := Vector2i(x, y)
-			var rect := Rect2(GRID_ORIGIN + Vector2(x, y) * CELL, Vector2(CELL, CELL))
-			if mirrors.has(cell) and (cell == hover_cell or cell == focused_cell()):
-				draw_rect(rect.grow(-4), Color(MIRROR, 0.10), true)
-			draw_rect(rect, GRID, false, 1.0)
+	draw_text("FIREFLY GLASSWORKS", Vector2(48, 43), 14, Color(SOURCE, 0.88))
+	draw_text("%02d  /  %02d" % [level_index + 1, levels.size()], Vector2(1018, 43), 14, MUTED)
+	draw_text(level.name, Vector2(48, 82), 31, INK)
+	draw_text(level.lesson, Vector2(48, 109), 16, MUTED)
+	draw_board()
 	if not level.get("latch", {}).is_empty():
 		draw_latch_link(level.latch.sensor, level.latch.shutter)
 	draw_source(level.source, int(level.direction))
@@ -400,81 +512,176 @@ func draw_game() -> void:
 		draw_sensor(level.latch.sensor)
 		draw_shutter(level.latch.shutter)
 	draw_beam()
-	draw_rect(Rect2(914, 126, 190, 438), PANEL, true)
-	draw_rect(Rect2(914, 126, 190, 438), GRID, false, 2.0)
-	draw_text("OBSERVATIONS", Vector2(934, 162), 16, MUTED)
-	draw_text("Beam", Vector2(934, 203), 16, MUTED)
-	var beam_label := "ARRIVED" if beam_visibly_arrived else ("IN TRANSIT" if beam_hit else "SEARCHING")
-	draw_text(beam_label, Vector2(934, 230), 20, TARGET if beam_visibly_arrived else SOURCE)
-	draw_text("Rotations", Vector2(934, 276), 16, MUTED)
-	draw_text(str(rotations), Vector2(934, 309), 27)
-	draw_text("Workshop latch", Vector2(934, 354), 16, MUTED)
-	if level.get("latch", {}).is_empty():
-		draw_text("NOT PRESENT", Vector2(934, 382), 18, MUTED)
-	else:
-		draw_text("OPEN" if latch_open else "CLOSED", Vector2(934, 382), 21, LATCH if latch_open else INK)
-		draw_text("persists to reset", Vector2(934, 408), 14, MUTED)
-	draw_text("One verb", Vector2(934, 453), 16, MUTED)
-	draw_text("ROTATE", Vector2(934, 480), 18, MIRROR)
+	draw_control_surface()
+
+
+func draw_board() -> void:
+	draw_rect(BOARD_RECT.grow(13), Color(DEEP_SHADOW, 0.78), true)
+	draw_rect(BOARD_RECT.grow(10), Color("2b261f"), true)
+	draw_rect(BOARD_RECT.grow(10), Color(BRASS, 0.48), false, 2.0)
+	draw_rect(BOARD_RECT, Color(Color("080b0d"), 0.67), true)
+	draw_rect(BOARD_RECT.grow(-2), Color(Color("8e7a5e"), 0.24), false, 1.0)
+	for y in range(ROWS):
+		for x in range(COLS):
+			var cell := Vector2i(x, y)
+			var rect := Rect2(GRID_ORIGIN + Vector2(x, y) * CELL, Vector2(CELL, CELL))
+			if mirrors.has(cell) and (cell == hover_cell or cell == focused_cell()):
+				draw_rect(rect.grow(-6), Color(INK, 0.055), true)
+				draw_rect(rect.grow(-7), Color(INK, 0.46), false, 1.0)
+			draw_rect(rect, Color(GRID, 0.29), false, 1.0)
+	for corner in [BOARD_RECT.position, BOARD_RECT.position + Vector2(BOARD_RECT.size.x, 0), BOARD_RECT.end, BOARD_RECT.position + Vector2(0, BOARD_RECT.size.y)]:
+		draw_circle(corner, 4.5, Color(DEEP_SHADOW, 0.9))
+		draw_circle(corner, 2.5, BRASS)
+
+
+func draw_control_surface() -> void:
+	draw_line(Vector2(922, 126), Vector2(922, 560), Color(BRASS_LIGHT, 0.28), 1.0)
+	draw_line(Vector2(928, 126), Vector2(928, 560), Color(DEEP_SHADOW, 0.72), 2.0)
+	draw_text("BENCH CONTROL", Vector2(946, 155), 13, MUTED)
+	draw_line(Vector2(946, 169), Vector2(1092, 169), Color(BRASS_LIGHT, 0.26), 1.0)
+	draw_text("TURN", Vector2(946, 217), 14, INK)
+	draw_text("CLICK  /  SPACE", Vector2(946, 241), 13, MUTED)
+	draw_circle(Vector2(1082, 213), 11, Color(DEEP_SHADOW, 0.9))
+	draw_line(Vector2(1075, 220), Vector2(1089, 206), MIRROR, 3.0)
+	draw_text("FOCUS", Vector2(946, 292), 14, INK)
+	draw_text("ARROWS  /  TAB", Vector2(946, 316), 13, MUTED)
 	if beam_loop:
-		draw_text("LOOP DETECTED", Vector2(934, 521), 16, DANGER)
-	draw_button(Rect2(924, 612, 150, 46), "RESET [R]")
-	draw_text("Click a violet plate, or select with arrows and press Space.", Vector2(188, 602), 16, MUTED)
-	draw_text("Ring -> linked barrier. A split barrier is physically open.", Vector2(188, 638), 15, MUTED)
+		draw_text("LOOP", Vector2(946, 370), 14, DANGER)
+		draw_rect(Rect2(946, 381, 74, 2), DANGER, true)
+	draw_button(RESET_RECT, "RESET  [R]")
+	draw_text("STATE RESTORES AT ONCE", Vector2(946, 666), 11, Color(MUTED, 0.68))
+
+
+func draw_atlas_region(center: Vector2, size: Vector2, region: Rect2, modulate := Color.WHITE) -> void:
+	draw_texture_rect_region(INSTRUMENT_ATLAS, Rect2(center - size * 0.5, size), region, modulate)
 
 
 func draw_source(cell: Vector2i, direction: int) -> void:
 	var center := cell_center(cell)
-	draw_circle(center, 17, SOURCE)
-	draw_circle(center, 25, SOURCE, false, 3.0)
-	draw_line(center, center + Vector2(DIRS[direction]) * 31.0, SOURCE, 5.0)
+	draw_circle(center + Vector2(2, 4), 31, Color(DEEP_SHADOW, 0.62))
+	if is_production_slice():
+		draw_atlas_region(center, Vector2(78, 78), ATLAS_SOURCE, Color(0.82, 0.78, 0.70, 1.0))
+	else:
+		draw_circle(center, 26, Color(BRASS, 0.72))
+		draw_circle(center, 19, PANEL)
+	draw_circle(center, 12, Color(SOURCE, 0.44))
+	draw_circle(center, 7, SOURCE)
+	draw_circle(center - Vector2(2, 2), 2.4, SOURCE_HOT)
+	var heading := Vector2(DIRS[direction])
+	draw_line(center + heading * 18.0, center + heading * 34.0, DEEP_SHADOW, 8.0)
+	draw_line(center + heading * 18.0, center + heading * 34.0, BRASS_LIGHT, 5.0)
+	draw_line(center + heading * 22.0, center + heading * 38.0, SOURCE_HOT, 1.5)
 
 
 func draw_target(cell: Vector2i) -> void:
 	var center := cell_center(cell)
-	var visibly_arrived := beam_hit and motion_reveal >= 0.999
-	draw_circle(center, 26, TARGET if visibly_arrived else Color(TARGET, 0.22))
-	draw_circle(center, 26, TARGET, false, 4.0)
-	draw_circle(center, 9, BG)
+	var settle := receiver_settle if beam_hit else 0.0
+	var visibly_arrived := settle > 0.0
+	var eased_settle := settle * settle * (3.0 - 2.0 * settle)
+	draw_circle(center + Vector2(2, 4), 32, Color(DEEP_SHADOW, 0.68))
+	if is_production_slice():
+		draw_atlas_region(center, Vector2(79, 79), ATLAS_RECEIVER, Color(0.74, 0.78, 0.80, 1.0))
+	else:
+		draw_circle(center, 27, Color(BRASS, 0.58))
+		draw_circle(center, 21, PANEL)
+	draw_circle(center, 19, Color(TARGET, lerpf(0.24, 0.68, eased_settle)))
+	draw_circle(center, 19, Color(TARGET, lerpf(0.76, 1.0, eased_settle)), false, 2.5)
+	draw_circle(center, lerpf(10.0, 11.5, eased_settle), DEEP_SHADOW if not visibly_arrived else Color(TARGET, eased_settle))
+	if visibly_arrived:
+		draw_circle(center, lerpf(2.0, 5.0, eased_settle), Color(TARGET_HOT, eased_settle))
+		for direction in DIRS:
+			draw_line(center + Vector2(direction) * 23.0, center + Vector2(direction) * lerpf(24.0, 29.0, eased_settle), Color(TARGET_HOT, eased_settle), 2.0)
+	else:
+		draw_circle(center, 4, Color(INK, 0.28), false, 1.0)
+
+
+func mirror_base_angle(orientation: int) -> float:
+	# The solver contract defines 0 as '/' and 1 as '\\'. A vertical atlas
+	# blade therefore rotates +45 degrees for 0 in screen coordinates.
+	return PI * 0.25 if orientation == 0 else -PI * 0.25
 
 
 func draw_mirror(cell: Vector2i, orientation: int, focused: bool) -> void:
 	var center := cell_center(cell)
-	draw_circle(center, 34 if focused else 29, Color(MIRROR, 0.13))
-	draw_circle(center, 34 if focused else 29, INK if focused else MIRROR, false, 2.0)
-	var a := Vector2(-22, 22) if orientation == 0 else Vector2(-22, -22)
-	var b := -a
-	draw_line(center + a, center + b, MIRROR, 7.0)
-	draw_circle(center, 5, INK)
+	draw_set_transform(center + Vector2(2, 5), 0.0, Vector2(1.0, 0.40))
+	draw_circle(Vector2.ZERO, 34, Color(DEEP_SHADOW, 0.64))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	if is_production_slice():
+		draw_atlas_region(center, Vector2(76, 76), ATLAS_MOUNT, Color(0.78, 0.74, 0.66, 1.0))
+	else:
+		draw_circle(center, 29, Color(BRASS, 0.54))
+		draw_circle(center, 23, PANEL)
+	var base_angle := mirror_base_angle(orientation)
+	var turn := float(mirror_turns.get(cell, 0.0))
+	var eased_turn := turn * turn * (3.0 - 2.0 * turn)
+	var angle := base_angle - eased_turn * PI * 0.5
+	if is_production_slice():
+		draw_set_transform(center, angle, Vector2.ONE)
+		draw_texture_rect_region(INSTRUMENT_ATLAS, Rect2(-43, -43, 86, 86), ATLAS_GLASS, Color(0.82, 0.89, 0.92, 1.0))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var axis := Vector2(0, -28).rotated(angle)
+	draw_line(center - axis, center + axis, Color(DEEP_SHADOW, 0.84), 8.0)
+	draw_line(center - axis, center + axis, MIRROR, 4.0)
+	draw_line(center - axis * 0.86, center + axis * 0.86, Color(INK, 0.88), 1.4)
+	draw_circle(center, 4.5, BRASS_LIGHT)
+	draw_circle(center, 2.0, INK)
+	if focused:
+		draw_circle(center, 39, Color(INK, 0.92), false, 1.5)
+		for direction in DIRS:
+			var normal := Vector2(direction)
+			draw_line(center + normal * 35.0, center + normal * 41.0, SOURCE_HOT, 2.0)
 
 
 func draw_latch_link(sensor: Vector2i, shutter: Vector2i) -> void:
 	var start := cell_center(sensor) + Vector2(30, 0)
 	var finish := cell_center(shutter) + Vector2(30, 0)
 	var middle := Vector2(finish.x, start.y)
-	draw_polyline(PackedVector2Array([start, middle, finish]), LATCH if latch_open else MUTED, 3.0)
-	draw_circle(middle, 4, LATCH if latch_open else MUTED)
+	var route := PackedVector2Array([start, middle, finish])
+	draw_polyline(route, Color(DEEP_SHADOW, 0.88), 8.0)
+	draw_polyline(route, BRASS if not visual_latch_open else BRASS_LIGHT, 4.0)
+	draw_polyline(route, Color(INK, 0.26) if not visual_latch_open else Color(SOURCE_HOT, 0.54), 1.0)
+	draw_circle(middle, 6, DEEP_SHADOW)
+	draw_circle(middle, 3.5, BRASS_LIGHT if visual_latch_open else BRASS)
 
 
 func draw_sensor(cell: Vector2i) -> void:
 	var center := cell_center(cell)
-	draw_circle(center, 24, Color(LATCH, 0.18))
-	draw_circle(center, 24, LATCH, false, 5.0)
-	draw_circle(center, 10 if latch_open else 5, LATCH if latch_open else INK, latch_open)
+	draw_circle(center + Vector2(2, 4), 31, Color(DEEP_SHADOW, 0.62))
+	if is_production_slice():
+		draw_atlas_region(center, Vector2(72, 72), ATLAS_MOUNT, Color(0.75, 0.72, 0.66, 1.0))
+	else:
+		draw_circle(center, 27, Color(BRASS, 0.62))
+	draw_circle(center, 18, PANEL if not visual_latch_open else Color(SOURCE, 0.34))
+	draw_circle(center, 18, BRASS_LIGHT, false, 2.5)
+	draw_circle(center, 5 if not visual_latch_open else 11, Color(INK, 0.72) if not visual_latch_open else SOURCE_HOT, visual_latch_open)
+	if visual_latch_open:
+		draw_rect(Rect2(center - Vector2(6, 6), Vector2(12, 12)), Color(SOURCE, 0.66), false, 2.0)
+	else:
+		draw_circle(center, 8, Color(DEEP_SHADOW, 0.96), false, 2.0)
 	for direction in DIRS:
-		draw_line(center + Vector2(direction) * 27.0, center + Vector2(direction) * 34.0, LATCH, 4.0)
+		draw_line(center + Vector2(direction) * 29.0, center + Vector2(direction) * 35.0, BRASS_LIGHT, 3.0)
 
 
 func draw_shutter(cell: Vector2i) -> void:
 	var center := cell_center(cell)
-	if latch_open:
-		draw_rect(Rect2(center + Vector2(-36, -24), Vector2(20, 48)), LATCH, true)
-		draw_rect(Rect2(center + Vector2(16, -24), Vector2(20, 48)), LATCH, true)
-		draw_line(center + Vector2(-12, -25), center + Vector2(-12, 25), LATCH, 2.0)
-		draw_line(center + Vector2(12, -25), center + Vector2(12, 25), LATCH, 2.0)
+	draw_line(center + Vector2(-38, -27), center + Vector2(38, -27), Color(DEEP_SHADOW, 0.88), 7.0)
+	draw_line(center + Vector2(-38, 27), center + Vector2(38, 27), Color(DEEP_SHADOW, 0.88), 7.0)
+	draw_line(center + Vector2(-38, -27), center + Vector2(38, -27), BRASS, 3.0)
+	draw_line(center + Vector2(-38, 27), center + Vector2(38, 27), BRASS, 3.0)
+	if visual_latch_open:
+		draw_rect(Rect2(center + Vector2(-38, -23), Vector2(19, 46)), Color("6d573b"), true)
+		draw_rect(Rect2(center + Vector2(19, -23), Vector2(19, 46)), Color("6d573b"), true)
+		draw_rect(Rect2(center + Vector2(-35, -20), Vector2(12, 40)), BRASS_LIGHT, false, 2.0)
+		draw_rect(Rect2(center + Vector2(23, -20), Vector2(12, 40)), BRASS_LIGHT, false, 2.0)
+		draw_line(center + Vector2(-15, -22), center + Vector2(-15, 22), SOURCE_HOT, 2.0)
+		draw_line(center + Vector2(15, -22), center + Vector2(15, 22), SOURCE_HOT, 2.0)
 	else:
-		draw_rect(Rect2(center + Vector2(-36, -14), Vector2(72, 28)), LATCH, true)
-		draw_line(center + Vector2(-30, 0), center + Vector2(30, 0), INK, 4.0)
+		draw_rect(Rect2(center + Vector2(-38, -16), Vector2(76, 32)), Color(DEEP_SHADOW, 0.86), true)
+		draw_rect(Rect2(center + Vector2(-35, -13), Vector2(70, 26)), Color("6d573b"), true)
+		draw_rect(Rect2(center + Vector2(-32, -10), Vector2(64, 20)), Color("332e28"), true)
+		draw_line(center + Vector2(-30, -7), center + Vector2(30, -7), BRASS_LIGHT, 2.0)
+		draw_line(center + Vector2(-30, 7), center + Vector2(30, 7), Color(DEEP_SHADOW, 0.92), 2.0)
+		draw_line(center + Vector2(-26, 0), center + Vector2(26, 0), INK, 2.5)
 
 
 func draw_beam() -> void:
@@ -482,21 +689,32 @@ func draw_beam() -> void:
 		return
 	var total_segments := beam_points.size() - 1
 	var visible := clampf(motion_reveal, 0.0, 1.0) * float(total_segments)
+	var leading_point := beam_points[0]
 	for index in range(total_segments):
 		var amount := clampf(visible - float(index), 0.0, 1.0)
 		if amount <= 0.0:
 			break
 		var start := beam_points[index]
 		var finish := start.lerp(beam_points[index + 1], amount)
-		draw_line(start, finish, Color(SOURCE, 0.24), 11.0)
-		draw_line(start, finish, SOURCE if not beam_hit else TARGET, 3.0)
+		leading_point = finish
+		draw_line(start, finish, Color(DEEP_SHADOW, 0.92), 13.0)
+		draw_line(start, finish, Color(SOURCE, 0.22), 9.0)
+		draw_line(start, finish, SOURCE, 3.5)
+		draw_line(start, finish, Color(SOURCE_HOT, 0.92), 1.1)
+		if index > 0 and amount >= 0.999:
+			draw_circle(start, 6.5, Color(DEEP_SHADOW, 0.82))
+			draw_circle(start, 3.2, SOURCE_HOT)
+	var pulse := 0.5 + 0.5 * sin(beam_clock * 7.0)
+	draw_circle(leading_point, 7.0 + pulse * 2.0, Color(SOURCE, 0.12))
+	draw_circle(leading_point, 3.4, SOURCE_HOT)
+	draw_circle(leading_point, 1.5, Color.WHITE)
 
 
 func draw_won() -> void:
-	draw_text("WORKSHOP SEQUENCE COMPLETE", Vector2(252, 290), 43, TARGET)
-	draw_text("The beam opened a rule, then returned through what changed.", Vector2(285, 347), 20)
-	draw_text("Deterministic proof of causality is not evidence that this is fun.", Vector2(297, 386), 17, MUTED)
-	draw_button(Rect2(439, 456, 274, 54), "RUN AGAIN", true)
+	draw_text("RECEIVER LIT", Vector2(454, 250), 15, TARGET)
+	draw_text("THE WORKSHOP REMEMBERS", Vector2(250, 329), 45, INK)
+	draw_text("One route opened another. The glass is ready to turn again.", Vector2(328, 380), 18, MUTED)
+	draw_button(Rect2(452, 458, 248, 56), "RUN AGAIN", true)
 
 
 func capture_motion_frame(index: int) -> void:
@@ -516,7 +734,9 @@ func capture_motion_frame(index: int) -> void:
 			# Scripted rotations use the same action path and remain visible in the
 			# counter. They are deterministic capture evidence, not player input.
 			apply_action(capture_actions[capture_stage], true)
-	motion_reveal = [0.18, 0.36, 0.55, 0.78, 1.0, 0.62, 1.0][clampi(index, 0, 6)]
+	# Deterministic stills sample elapsed time through the exact update used by
+	# _process. No capture-only reveal, contact, or arrival state is assigned.
+	advance_presentation(CAPTURE_SAMPLE_DELAYS[clampi(index, 0, 6)])
 	queue_redraw()
 
 

@@ -1,0 +1,198 @@
+{
+  "apiVersion": "gamefactory.design-system/v1",
+  "id": "firefly-layered-illustrated-workshop",
+  "version": "1.0.0",
+  "title": "Firefly Glassworks — Layered Illustrated Workshop",
+  "maturity": "production-slice",
+  "identity": {
+    "intent": "An intimate smoke-dark glass workshop where a tiny living amber beam remains the clearest moving subject and state reads from structure before hue.",
+    "toneWords": ["tactile", "nocturnal", "precise", "hand-blown", "restrained"],
+    "avoidWords": ["neon-grid", "dashboard", "spectacle", "glossy-card", "clutter"]
+  },
+  "principles": [
+    {
+      "id": "living-light-first",
+      "statement": "One living amber light is always the first moving subject.",
+      "rationale": "A dark separation stroke, hot core, contact facets, and leading mote keep direction and contact readable over every material.",
+      "priority": 1
+    },
+    {
+      "id": "geometry-before-hue",
+      "statement": "Important state differences use aperture, continuity, separation, fill, and value before color.",
+      "rationale": "The puzzle remains legible in desaturation and does not ask labels to carry mechanical meaning.",
+      "priority": 2
+    },
+    {
+      "id": "semantic-engine-authority",
+      "statement": "Godot owns input, orientation, state, and beam topology; painterly assets provide material specificity beneath it.",
+      "rationale": "Static art cannot drift from simulation, obscure a transition, or bake one topology into a reusable layer.",
+      "priority": 3
+    },
+    {
+      "id": "one-centered-pivot",
+      "statement": "Every transformable mirror layer shares the authoritative cell center and full-cell hit region.",
+      "rationale": "A single pivot prevents rotation drift and preserves exact direct manipulation at 88 pixels per cell.",
+      "priority": 4
+    },
+    {
+      "id": "prove-before-expansion",
+      "statement": "Finish the representative finale and the minimum first-puzzle reuse proof before expanding the asset vocabulary.",
+      "rationale": "Production feasibility is established by a running interaction, not by speculative breadth or concept art.",
+      "priority": 5
+    }
+  ],
+  "tokens": {
+    "color": {
+      "surface.workbench": "#0b0d0f",
+      "surface.board": "#080b0d@0.67",
+      "ink.primary": "#eee8da",
+      "ink.muted": "#aaa394",
+      "material.brass": "#a7773f",
+      "material.brassHighlight": "#d1a05c",
+      "light.firefly": "#ffb94f",
+      "light.fireflyHot": "#fff1b0",
+      "light.receiver": "#80d7d1",
+      "light.receiverHot": "#d4fffa",
+      "material.glassEdge": "#9bbfc8",
+      "state.danger": "#e07065"
+    },
+    "typography": {
+      "family": "ThemeDB.fallback_font",
+      "provenance": "Godot 4 engine-bundled fallback sans; no host font dependency",
+      "brand": { "sizePx": 14, "case": "uppercase", "color": "light.firefly" },
+      "puzzleTitle": { "sizePx": 31, "case": "uppercase", "color": "ink.primary" },
+      "lesson": { "sizePx": 16, "color": "ink.muted" },
+      "utility": { "minimumPx": 13, "maximumPx": 17, "case": "uppercase" },
+      "compatibilityDisplay": { "maximumPx": 66, "scope": "unfinished title and won surfaces only" }
+    },
+    "spacing": {
+      "cellPx": 88,
+      "boardOriginPx": [188, 126],
+      "boardSizePx": [704, 440],
+      "boardFramePx": [10, 13],
+      "instrumentDestinationPx": [72, 86],
+      "focusRadiusPx": 39,
+      "resetControlPx": [158, 54]
+    },
+    "material": {
+      "bench": "Topology-neutral ImageGen raster, runtime-darkened, broad soot and wood wear only",
+      "brass": "Painterly atlas patina plus native rails, pivots, and crisp value edges",
+      "glass": "Irregular smoke-blue atlas insert plus native pale orientation spine",
+      "shadow": "Shallow local contact shadow with no global bloom, fog, or particles",
+      "beam": "Native CanvasItem geometry only; never a bitmap path"
+    },
+    "motion": {
+      "mirrorQuarterTurnSeconds": 0.18,
+      "completionDelaySeconds": 0.55,
+      "beamRevealSeconds": 0.42,
+      "receiverSettleSeconds": 0.12,
+      "captureSampleDelaysSeconds": [0.075, 0.151, 0.231, 0.280, 0.080, 0.260, 0.300],
+      "captureSampling": "Elapsed seconds advance the same presentation update as live play; no capture-only reveal fraction or semantic state is assigned",
+      "leadingMoteHz": 7,
+      "resetStateRestore": "immediate",
+      "authority": "Simulation state changes before nonblocking presentation settles"
+    },
+    "accessibility": {
+      "stateWithoutHue": ["sensor hollow versus filled", "shutter continuous versus split", "receiver hollow versus filled", "focus ring plus cardinal ticks"],
+      "beamWidthsPx": { "separation": 13, "aura": 9, "core": 3.5, "hotCenter": 1.1 },
+      "minimumHitAreaPx": [88, 88],
+      "resetKey": "R",
+      "keyboardManipulation": ["arrow keys", "tab", "space", "enter"],
+      "textureRule": "Low contrast below all semantic overlays"
+    }
+  },
+  "patterns": [
+    {
+      "id": "layered-instrument-assembly",
+      "intent": "Seat a reusable painterly instrument in the workbench while preserving exact gameplay semantics.",
+      "rules": [
+        "Draw native contact shadow, painterly brass mount, centered painterly insert, native orientation/focus/state geometry, then the beam.",
+        "Rotate inserts around cell_center(cell) and keep the full 88 by 88 cell as the hit target.",
+        "Use atlas pixels for material only; derive every interactive state from simulated state."
+      ],
+      "avoid": ["alpha-derived hit masks", "baked focus rings", "baked orientation ticks", "topology-specific sprites"],
+      "examples": ["source collar", "mirror mount and blade", "sensor mount", "receiver housing"]
+    },
+    {
+      "id": "persistent-contact-transformation",
+      "intent": "Make sensor contact and shutter persistence immediately legible without a dashboard.",
+      "rules": [
+        "Render the cold sensor as a hollow dark aperture and contact as a filled bright aperture with a square contour.",
+        "Render the closed shutter as one continuous blocking member and open as two retracted halves with an empty center.",
+        "Update authoritative latch state immediately, then switch its visible contact and open forms when the live beam reveal reaches the sensor.",
+        "Keep the split shutter visible during the open-but-incomplete state."
+      ],
+      "avoid": ["color-only state", "OPEN or CLOSED labels as primary evidence", "static state baked into art"],
+      "examples": ["motion-003 sensor contact", "motion-004 persistent open gap"]
+    },
+    {
+      "id": "living-amber-beam",
+      "intent": "Preserve direction, contact, travel, and arrival over textured workshop materials.",
+      "rules": [
+        "Keep the route amber before and after arrival.",
+        "Use a dark separation stroke, restrained aura, narrow hot core, contact facets, and leading mote.",
+        "Restart the 0.42 second visual reveal from normal recompute timing and begin the 0.12 second receiver settle only after full travel.",
+        "Express arrival through the receiver aperture and value response."
+      ],
+      "avoid": ["recoloring the solved path cyan", "bloom that joins segments", "particle fog", "baked beam routes"],
+      "examples": ["motion-005 partial lower-route travel", "motion-006 cool receiver arrival"]
+    },
+    {
+      "id": "minimal-bench-control",
+      "intent": "Keep chrome subordinate to the puzzle while preserving obvious manipulation and reset.",
+      "rules": [
+        "Show puzzle title, one-sentence lesson, level position, turn legend, arrow/Tab focus hint, focus feedback, and reset.",
+        "Use the right-side negative space for one restrained control surface.",
+        "Keep reset visually distinct and immediately available."
+      ],
+      "avoid": ["observations dashboard", "rotation counter", "redundant state labels", "floating explanatory prose"],
+      "examples": ["BENCH CONTROL turn and focus legends", "RESET [R] brass-outlined control"]
+    }
+  ],
+  "references": [
+    {
+      "path": "design/references/firefly-production-slice.png",
+      "role": "Running Godot production target at the shipping camera",
+      "purpose": "gameplay",
+      "authority": "production-target",
+      "source": "captured",
+      "sha256": "052cbc072f1df651cccae735d83df1b2a53a618af14935c27a5ac396a6bdbbdd"
+    },
+    {
+      "path": "assets/illustrated/instrument-atlas.png",
+      "role": "Painterly brass and glass implementation atlas",
+      "purpose": "material",
+      "authority": "inspiration",
+      "source": "imagegen",
+      "sha256": "7ee275bfc9c4838925eea605db5d188304cfe84af307294b9f72fdc5b3fefa70",
+      "prompt": "Use case: stylized-concept\nAsset type: layered 2D Godot game sprite atlas\nPrimary request: create exactly four isolated hand-painted top-down game components arranged as a precise two-by-two atlas on a perfectly flat solid #00ff00 chroma-key background.\nSubject: top-left is one circular aged-brass instrument mount with an empty center; top-right is one slim imperfect hand-blown smoke-blue glass reflector blade with an opaque crisp silhouette, shown vertically; bottom-left is one compact aged-brass firefly emitter collar with a tiny warm amber glass seat but no emitted beam; bottom-right is one cool moonlit receiver housing with an empty dark aperture but no arrived state.\nStyle/medium: polished painterly 2D game sprites, tactile gouache and restrained impasto, orthographic top-down view, low-frequency hand-authored irregularity, production-readable at 88 pixels per game cell.\nComposition/framing: exact equal quadrants in a two-by-two atlas; one centered component per quadrant; identical apparent scale; generous padding; no overlap.\nColor palette: oxidized umber brass, smoke charcoal, muted blue-cyan glass, tiny warm amber seat; never use green inside a component.\nMaterials/textures: gently hammered aged brass, restrained verdigris pinpricks, imperfect hand-blown glass edge, soft internal value variation; crisp outer silhouettes.\nConstraints: the background must be one perfectly uniform #00ff00 color with no shadows, gradients, texture, reflections, floor plane, lighting variation, or seams; no cast shadows; no contact shadows; no text; no watermark; no logos; no border; no grid; no beam or light path; no focus ring; no orientation indicator; no sensor state; no shutter; no receiver fill; no extra objects."
+    },
+    {
+      "path": "assets/illustrated/workbench-backdrop.png",
+      "role": "Topology-neutral smoke-charcoal workshop implementation layer",
+      "purpose": "material",
+      "authority": "inspiration",
+      "source": "imagegen",
+      "sha256": "5361c9c32e095b7db76ff4c404483ca92db1d2a747021ffb3ea6d1c1996ba119",
+      "prompt": "Use case: stylized-concept\nAsset type: 2D game workshop backdrop material\nPrimary request: an empty, smoke-dark glassworker's bench surface viewed perfectly straight down, suitable as a quiet full-screen background behind a precise puzzle board.\nScene/backdrop: one broad charcoal-blackened workbench slab with a restrained inset frame, subtle hand-rubbed soot, old scoring scratches, and faint edge-worn umber; no objects and no puzzle topology.\nStyle/medium: polished painterly 2D game environment layer, tactile gouache and low-frequency brushwork, intimate handmade workshop specificity, designed to remain quiet at 1152x720 gameplay scale.\nComposition/framing: wide 16:10 landscape; central and left-middle areas calm and low contrast; slightly darker edges; a modest right-side recess for controls without forming a card or panel.\nLighting/mood: nocturnal workshop, extremely restrained warm grazing light from upper left and cool moonlit ambient lift from lower right; no dramatic spotlight.\nColor palette: smoke charcoal, carbon black, muted umber, tiny traces of aged brass warmth and moonlit slate; near-black overall.\nMaterials/textures: dense dark hardwood or compressed charcoal bench, burnished worn edge, soot, hand-scored construction marks; broad low-frequency variation only.\nConstraints: no text; no watermark; no logo; no grid; no cells; no beam; no glowing paths; no instruments; no receiver; no controls; no props; no shelves; no hands; no particles; no fog; no bloom; no topology-specific marks; avoid high-contrast scratches or bright focal elements."
+    }
+  ],
+  "implementations": [
+    {
+      "id": "representative-workshop-slice",
+      "adapter": "godot-production-slice",
+      "path": "design/production-slice.json",
+      "sha256": "a75646840d90c43c50fa6488a745602a77b4592be64372a652896c7896e42e96"
+    }
+  ],
+  "metadata": {
+    "boundedScope": ["WAKE, ROUTE, RETURN", "FIRST REFLECTION reuse proof", "seven-frame beam route", "one reset surface"],
+    "deliberateOmissions": ["middle puzzle finish", "production title", "production ending", "asset variants", "audio", "particles", "fog", "bloom", "3D conversion"],
+    "provenanceManifest": "assets/illustrated/provenance.json",
+    "designSystemGuide": {
+      "path": "DESIGN_SYSTEM.md",
+      "sha256": "cc8a8ec4844af32c382f69a0b4b4b31c6e47fe74012a2762350dacf06f8ef17c"
+    },
+    "evidenceBoundary": "Running captures and deterministic scenarios establish implementation feasibility and gameplay stability, not human evidence of fun."
+  }
+}

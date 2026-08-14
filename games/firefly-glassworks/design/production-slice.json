@@ -1,0 +1,169 @@
+{
+  "apiVersion": "gamefactory.godot-production-slice/v1",
+  "id": "firefly-layered-illustrated-workshop",
+  "title": "Layered Illustrated Workshop — representative interaction slice",
+  "maturity": "production-slice",
+  "hypothesis": "A compact painterly sprite vocabulary can make the fixed-camera puzzle feel like an intimate glass workshop while engine-authored geometry remains the sole authority for interaction, orientation, beam topology, and state.",
+  "camera": {
+    "engine": "Godot 4.7.1",
+    "renderer": "gl_compatibility",
+    "viewport": { "width": 1152, "height": 720 },
+    "stretchMode": "canvas_items",
+    "cameraType": "fixed Node2D canvas; no Camera2D transform",
+    "board": {
+      "origin": [188, 126],
+      "size": [704, 440],
+      "grid": [8, 5],
+      "cellSize": 88
+    }
+  },
+  "method": {
+    "name": "layered-sprite-hybrid",
+    "decorativeLayers": "ImageGen-authored raster backdrop and four-quadrant instrument atlas",
+    "semanticLayers": "Godot CanvasItem geometry derived from simulated state and one shared nonblocking presentation clock",
+    "movingContingency": "The solver-aligned reflector spine, focus contour, beam-contact sensor aperture, shutter halves, post-travel receiver settle, and beam remain crisp native geometry over the painterly layers.",
+    "provenance": "assets/illustrated/provenance.json"
+  },
+  "resources": [
+    {
+      "path": "main.gd",
+      "sha256": "011ac324fdaf4d7882215a64f568ffd2f93cb997504088a9b7d5db3c5c5ec656",
+      "purpose": "Authoritative gameplay state plus layered presentation seam"
+    },
+    {
+      "path": "src/beam_solver.gd",
+      "sha256": "8a3267dee2aa5a8173908e7489939e88d9e68ee1dd46739c7915631a0275eb8e",
+      "purpose": "Preserved deterministic beam topology"
+    },
+    {
+      "path": "src/production_capture_runner.gd",
+      "sha256": "8960f92eb08b4a5341e21bd49131dc894bc90725fd31cb8d06205940738bdfd0",
+      "purpose": "Shipping-camera capture into mutable design evidence"
+    },
+    {
+      "path": "src/presentation_contract_runner.gd",
+      "sha256": "34f909d70195424cd35278fc13fe4853f53b62488b1f4e9a0847e4c64c1716de",
+      "purpose": "Deterministic mirror-semantics and live-presentation boundary checks"
+    },
+    {
+      "path": "assets/illustrated/instrument-atlas.png",
+      "sha256": "7ee275bfc9c4838925eea605db5d188304cfe84af307294b9f72fdc5b3fefa70",
+      "dimensions": [1254, 1254],
+      "purpose": "Decorative brass mount, glass reflector, source collar, and receiver housing"
+    },
+    {
+      "path": "assets/illustrated/workbench-backdrop.png",
+      "sha256": "5361c9c32e095b7db76ff4c404483ca92db1d2a747021ffb3ea6d1c1996ba119",
+      "dimensions": [1586, 992],
+      "purpose": "Topology-neutral smoke-charcoal workbench backdrop"
+    },
+    {
+      "path": "assets/illustrated/provenance.json",
+      "sha256": "ccc62eca0443c429a6e1c5f1902e99552677a1e299f73229a0419c3c9da0c860",
+      "purpose": "Exact ImageGen prompts, source mode, and byte-preserving postprocess record"
+    }
+  ],
+  "atlas": {
+    "quadrantSize": 627,
+    "quadrants": {
+      "topLeft": "aged-brass empty mount reused by mirrors and sensor",
+      "topRight": "vertical smoke-blue reflector blade rotated around its exact cell center",
+      "bottomLeft": "amber source collar without a baked beam",
+      "bottomRight": "cold receiver housing without a baked arrived state"
+    },
+    "pivotRule": "Every transformable layer is drawn from a centered destination rectangle and rotated around cell_center(cell).",
+    "maskRule": "Atlas alpha is decorative only and never changes the full-cell input hit region.",
+    "stateRule": "No focus, orientation spine, contact fill, shutter state, receiver fill, or beam path is stored in the atlas."
+  },
+  "implementedSurfaces": [
+    {
+      "id": "representative-finale",
+      "level": "WAKE, ROUTE, RETURN",
+      "scope": "Finished material island for source, three reusable mirrors, sensor, linkage, shutter, receiver, board, beam, lesson, and reset control."
+    },
+    {
+      "id": "shared-vocabulary-proof",
+      "level": "FIRST REFLECTION",
+      "scope": "The same background, source, receiver, mirror assembly, beam, and control surface render without topology-specific repainting."
+    },
+    {
+      "id": "living-beam",
+      "scope": "Always-amber native beam with dark separation stroke, narrow hot core, contact facets, leading mote, and a 0.42-second reveal restarted by ordinary recompute timing. Receiver geometry supplies the cool arrival response after full travel."
+    },
+    {
+      "id": "quarter-turn",
+      "scope": "Authoritative orientation changes immediately through apply_action; a 0.18-second native visual quarter-turn settles around the same cell pivot."
+    },
+    {
+      "id": "contact-transformation",
+      "scope": "Authoritative latch state updates immediately; the sensor changes from hollow to filled and the shutter from one blocker to two retracted halves only when the shared reveal reaches sensor contact."
+    },
+    {
+      "id": "control-surface",
+      "scope": "One restrained right-side turn legend, arrow/Tab focus hint, and reset control; observations dashboard and rotation counter are absent."
+    }
+  ],
+  "motionSequence": [
+    { "frame": "motion-000", "intent": "Initial finale route; cold sensor and continuous closed shutter." },
+    { "frame": "motion-001", "intent": "Receiver-side mirror prepared; no false arrival." },
+    { "frame": "motion-002", "intent": "Lower route mirror prepared; topology remains incomplete." },
+    { "frame": "motion-003", "intent": "Upper mirror contacts the sensor through live reveal timing; filled aperture and split shutter are visible." },
+    { "frame": "motion-004", "intent": "Full open-but-incomplete state persists after contact without a color-only label." },
+    { "frame": "motion-005", "intent": "Upper mirror returns; leading beam travels through the opened lower route." },
+    { "frame": "motion-006", "intent": "Beam arrives through the same live reveal path; receiver changes from hollow to filled and completes its value-bright settle." }
+  ],
+  "captures": [
+    { "path": "design/captures/first-puzzle.png", "sha256": "61471451851fb4e1d36c2e97229b1c3bd4b397efd3d5c6274646dc51a70c9f5c", "dimensions": [1152, 720] },
+    { "path": "design/captures/motion-000.png", "sha256": "b0efdb86cce0072e06cbf30d871645483040d2568c9eedca58a66bd050942061", "dimensions": [1152, 720] },
+    { "path": "design/captures/motion-001.png", "sha256": "966774d97f9d24be77f794f9c76ad17edf19ee5554e93f4cf634ce9b7df06876", "dimensions": [1152, 720] },
+    { "path": "design/captures/motion-002.png", "sha256": "3d5acb519cf7687d9670d742a9dac24f2639782a71a618b401d856be149502b1", "dimensions": [1152, 720] },
+    { "path": "design/captures/motion-003.png", "sha256": "b7b5f8d4424635c400237929a6a0dd1acf178c536cc91ada56911c46dab7ce85", "dimensions": [1152, 720] },
+    { "path": "design/captures/motion-004.png", "sha256": "c0c5d607dc8e8cd0d8dcf2152422c1b2c93e39bcfa9caa311aab31d6d4839945", "dimensions": [1152, 720] },
+    { "path": "design/captures/motion-005.png", "sha256": "954986bc939ba30b9eef71aaf8213e98431c76c5cc9db20581205bf0e3e5bfce", "dimensions": [1152, 720] },
+    { "path": "design/captures/motion-006.png", "sha256": "2a2a62617cdf7e65f30de6bc7517a0b95bac1999c5510a299d111f740544b294", "dimensions": [1152, 720] },
+    { "path": "design/captures/solved.png", "sha256": "052cbc072f1df651cccae735d83df1b2a53a618af14935c27a5ac396a6bdbbdd", "dimensions": [1152, 720] }
+  ],
+  "sourceCapture": {
+    "path": "design/references/firefly-production-slice.png",
+    "sha256": "052cbc072f1df651cccae735d83df1b2a53a618af14935c27a5ac396a6bdbbdd",
+    "dimensions": [1152, 720],
+    "source": "captured",
+    "camera": "shipping",
+    "command": "Godot 4.7.1 --path . --script res://src/production_capture_runner.gd"
+  },
+  "reuseConstraints": [
+    "Reuse atlas layers only at centered cell pivots; never derive input masks from alpha.",
+    "Keep beam, orientation, focus, sensor contact, shutter geometry, and receiver arrival engine-controlled and above decorative art.",
+    "The background may be reused because it contains no cell grid, route, piece, beam, or state.",
+    "Do not invent a topology-specific repaint or a bespoke mirror asset for another puzzle.",
+    "At other cameras or cell scales, revalidate sprite edge clarity, beam separation, and pivot stability before expansion."
+  ],
+  "deliberateOmissions": [
+    "No bespoke finish for WAKE THE WORKSHOP or USE WHAT CHANGED.",
+    "No production title or won-screen art beyond compatibility with shared colors and type scale.",
+    "No asset family variants, shelves, tools, hands, decorative labels, particles, fog, bloom, audio, camera change, or 3D conversion.",
+    "No topology, orientation, beam, contact, or state feedback baked into static assets.",
+    "No claim that deterministic completion or model inspection establishes fun."
+  ],
+  "validation": {
+    "importOk": 1,
+    "gameplayContractScore": 100,
+    "levelsCompleted": 4,
+    "latchActivations": 4,
+    "resetFingerprintMatch": 1,
+    "maximumTracePasses": 2,
+    "finaleShortestRotations": 4,
+    "finaleShortestSolutions": 12,
+    "finaleWakeFirstShortestSolutions": 6,
+    "finalePreparedFirstShortestSolutions": 2,
+    "prepareFirstWitnessValid": 1,
+    "wakeFirstWitnessValid": 1,
+    "advancePreparationRequired": 0,
+    "presentationContract": "pass",
+    "mirrorSemanticsAligned": 1,
+    "liveBeamReveal": 1,
+    "contactRevealCoupled": 1,
+    "receiverSettleCoupled": 1,
+    "evidenceBoundary": "Deterministic validation establishes stability and contract preservation only."
+  }
+}
