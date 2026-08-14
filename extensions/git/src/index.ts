@@ -1,6 +1,6 @@
 import { lstat, mkdir, rename, rm } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-import { basename, dirname, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
 import { spawn } from "node:child_process";
 import type { Campaign, Candidate, WorkspaceDriver } from "@gamefactory/core";
 import { defineExtension } from "@gamefactory/extension-sdk";
@@ -78,12 +78,26 @@ function run(command: string, args: string[], cwd: string, signal: AbortSignal):
   });
 }
 
-function worktreeRoot(repositoryRoot: string, campaign: Campaign, experimentId: string): string {
-  const parent = resolve(repositoryRoot, "..", ".gamefactory-worktrees");
+function worktreeParent(repositoryRoot: string, campaign: Campaign): string {
+  const parameters = campaign.parameters as Record<string, unknown> | undefined;
+  const git = parameters?.git && typeof parameters.git === "object" && !Array.isArray(parameters.git)
+    ? parameters.git as Record<string, unknown>
+    : undefined;
+  const configured = typeof git?.worktreeRoot === "string" && git.worktreeRoot.trim() ? git.worktreeRoot : undefined;
+  const parent = configured ? resolve(configured) : resolve(repositoryRoot, "..", ".gamefactory-worktrees");
+  const insideRepository = relative(repositoryRoot, parent);
+  if (!insideRepository || (!insideRepository.startsWith("..") && !isAbsolute(insideRepository))) {
+    throw new Error("Git worktreeRoot must be outside the repository");
+  }
+  return parent;
+}
+
+function worktreeRoot(repositoryRoot: string, campaign: Campaign, experimentId: string): { parent: string; root: string } {
+  const parent = worktreeParent(repositoryRoot, campaign);
   const root = resolve(parent, `${basename(repositoryRoot)}-${campaign.id}-${experimentId}-${process.pid}-${randomUUID().slice(0, 8)}`);
   const traversal = relative(parent, root);
   if (traversal.startsWith("..") || traversal === "") throw new Error("Unsafe worktree path");
-  return root;
+  return { parent, root };
 }
 
 interface CleanupFileSystem {
@@ -165,7 +179,9 @@ function managedWorktree(campaign: Campaign, candidate: Candidate): { repository
   }
   const repositoryRoot = resolve(candidate.metadata.repositoryRoot);
   const worktree = resolve(candidate.metadata.worktreeRoot);
-  const managedParent = resolve(repositoryRoot, "..", ".gamefactory-worktrees");
+  const managedParent = typeof candidate.metadata.managedParent === "string"
+    ? resolve(candidate.metadata.managedParent)
+    : worktreeParent(repositoryRoot, campaign);
   const traversal = relative(managedParent, worktree);
   const campaignTraversal = relative(repositoryRoot, resolve(campaign.projectRoot));
   const candidateTraversal = relative(worktree, resolve(candidate.root));
@@ -181,13 +197,14 @@ export class GitWorktreeWorkspace implements WorkspaceDriver {
   async createCandidate({ campaign, experimentId, signal }: { campaign: Campaign; experimentId: string; signal: AbortSignal }): Promise<Candidate> {
     const repositoryRoot = (await run("git", ["rev-parse", "--show-toplevel"], campaign.projectRoot, signal)).stdout;
     const baseRevision = (await run("git", ["rev-parse", "HEAD"], campaign.projectRoot, signal)).stdout;
-    const worktree = worktreeRoot(repositoryRoot, campaign, experimentId);
+    const managed = worktreeRoot(repositoryRoot, campaign, experimentId);
+    const worktree = managed.root;
     await mkdir(dirname(worktree), { recursive: true });
     await removeWorktreeTransactionally(repositoryRoot, worktree);
     await run("git", ["worktree", "add", "--detach", worktree, baseRevision], repositoryRoot, signal);
     const projectRelative = relative(repositoryRoot, campaign.projectRoot);
     const root = resolve(worktree, projectRelative);
-    return { id: experimentId, root, baseRevision, metadata: { isolated: true, provider: this.id, worktreeRoot: worktree, repositoryRoot, projectRelative } };
+    return { id: experimentId, root, baseRevision, metadata: { isolated: true, provider: this.id, worktreeRoot: worktree, managedParent: managed.parent, repositoryRoot, projectRelative } };
   }
 
   async acceptCandidate({ campaign, candidate, signal }: { campaign: Campaign; candidate: Candidate; signal: AbortSignal }): Promise<{ revision?: string; candidateRevision?: string; changed?: boolean }> {

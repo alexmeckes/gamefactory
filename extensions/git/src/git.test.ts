@@ -50,6 +50,45 @@ test("transactional cleanup survives a worktree that remains briefly busy", asyn
   }
 });
 
+test("Git workspace can isolate candidates in a configured external root", async () => {
+  const repository = await mkdtemp(resolve(tmpdir(), "gamefactory-git-external-repo-"));
+  const externalRoot = await mkdtemp(resolve(tmpdir(), "gamefactory-git-external-worktrees-"));
+  const projectRoot = resolve(repository, "game");
+  const signal = new AbortController().signal;
+  const workspace = new GitWorktreeWorkspace();
+  const campaign: Campaign = {
+    apiVersion: "gamefactory.dev/v1",
+    id: "external-worktree-contract",
+    objective: "change value",
+    projectRoot,
+    workflow: "autoresearch",
+    requires: [],
+    mutablePaths: ["value.txt"],
+    acceptance: { primaryMetric: "score", direction: "maximize" },
+    parameters: { git: { worktreeRoot: externalRoot } }
+  };
+  let candidate: Candidate | undefined;
+  try {
+    await mkdir(projectRoot);
+    await writeFile(resolve(projectRoot, "value.txt"), "old\n", "utf8");
+    await exec("git", ["init", "-q"], { cwd: repository });
+    await exec("git", ["add", "--all"], { cwd: repository });
+    await exec("git", ["-c", "user.name=Test", "-c", "user.email=test@localhost", "commit", "-qm", "initial"], { cwd: repository });
+
+    candidate = await workspace.createCandidate({ campaign, experimentId: "external", signal });
+    assert.equal(resolve(String(candidate.metadata.managedParent)), resolve(externalRoot));
+    assert.equal(resolve(String(candidate.metadata.worktreeRoot), ".."), resolve(externalRoot));
+    await writeFile(resolve(candidate.root, "value.txt"), "new\n", "utf8");
+    await workspace.acceptCandidate({ campaign, candidate, signal });
+    candidate = undefined;
+    assert.equal((await readFile(resolve(projectRoot, "value.txt"), "utf8")).trim(), "new");
+  } finally {
+    if (candidate) await workspace.discardCandidate({ campaign, candidate, signal }).catch(() => undefined);
+    await rm(repository, { recursive: true, force: true });
+    await rm(externalRoot, { recursive: true, force: true });
+  }
+});
+
 test("Git workspace maps a subproject, enforces paths, and cherry-picks accepted work", async () => {
   const repository = await mkdtemp(resolve(tmpdir(), "gamefactory-git-"));
   const projectRoot = resolve(repository, "game");

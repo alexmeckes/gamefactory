@@ -142,6 +142,7 @@ export interface ContributorProvenance {
   exitCode: number | null;
   status: "complete" | "failed";
   outcome: string;
+  reportedOutcome?: string;
   summary: string;
   requestPath: string;
   stdoutPath: string;
@@ -272,6 +273,19 @@ async function ensureAgentTraceNode(request: AgentRequest, config: ContributorCo
   return nodeId;
 }
 const OUTCOME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+const CONTROL_OUTCOME_ALIASES = new Map<string, string>([
+  ["revision_required", "revise"],
+  ["requires_revision", "revise"],
+  ["needs_revision", "revise"],
+  ["changes_required", "revise"],
+  ["passed", "pass"],
+  ["approved", "pass"]
+]);
+
+function canonicalControlOutcome(outcome: string): string {
+  const key = outcome.toLowerCase().replaceAll("-", "_").replaceAll(".", "_");
+  return CONTROL_OUTCOME_ALIASES.get(key) ?? outcome;
+}
 const candidateQueues = new Map<string, Promise<void>>();
 const COMPATIBILITY_ENVIRONMENT = ["PATH", "PATHEXT", "SystemRoot", "WINDIR", "COMSPEC", "TEMP", "TMP", "TMPDIR", "LANG", "LC_ALL", "LC_CTYPE", "TERM", "NO_COLOR"] as const;
 const CODEX_HOST_ENVIRONMENT = ["HOME", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "APPDATA", "LOCALAPPDATA", "CODEX_HOME"] as const;
@@ -1391,7 +1405,8 @@ async function invokeContributor(
     ...(parsed ? [writeFile(structuredOutputPath, `${JSON.stringify(parsed, null, 2)}\n`, "utf8")] : [])
   ]);
   const status = result.code === 0 && !result.spawnError && !parseFailure && !result.failure ? "complete" : "failed";
-  const outcome = status === "failed" ? "failed" : parsed?.outcome ?? "complete";
+  const reportedOutcome = status === "failed" ? "failed" : parsed?.outcome ?? "complete";
+  const outcome = canonicalControlOutcome(reportedOutcome);
   const summary = parsed?.summary ?? lastLine(result.stdout, `${stage} ${config.id} ${status}`);
   const usage = parseInvocationUsage(result.appServer?.usage ?? parsed?.usage, {
     ...(config.provider ? { provider: config.provider } : {}),
@@ -1423,6 +1438,7 @@ async function invokeContributor(
     exitCode: result.code,
     status,
     outcome,
+    ...(reportedOutcome !== outcome ? { reportedOutcome } : {}),
     summary,
     requestPath,
     stdoutPath,
@@ -1624,6 +1640,7 @@ function contribution(run: ContributorRun): AgentContribution {
       attempt: run.provenance.attempt,
       reason: run.provenance.reason,
       outcome: run.provenance.outcome,
+      ...(run.provenance.reportedOutcome ? { reportedOutcome: run.provenance.reportedOutcome } : {}),
       command: run.provenance.command,
       durationMs: run.provenance.durationMs,
       exitCode: run.provenance.exitCode,

@@ -74,16 +74,16 @@ if (["alpha", "beta"].includes(request.nodeId)) {
   assert.equal(discovery.structured.context.hypothesis, "raise-value");
   const repairing = request.reason.kind === "repair";
   if (repairing) {
-    const review = request.inputs.find((input) => ["reviewer", "visual-reviewer"].includes(input.nodeId));
-    assert.equal(review.structured.outcome, "revise");
+    const review = request.inputs.find((input) => ["reviewer", "alias-reviewer", "visual-reviewer"].includes(input.nodeId));
+    assert.ok(["revise", "revision_required"].includes(review.structured.outcome));
   }
   await writeFile("value.txt", repairing ? "repaired\\n" : "implemented\\n", "utf8");
   console.log(JSON.stringify({ summary: repairing ? "repair complete" : "implementation complete", outcome: "complete" }));
-} else if (request.nodeId === "reviewer") {
+  } else if (["reviewer", "alias-reviewer"].includes(request.nodeId)) {
   const value = await readFile("value.txt", "utf8");
-  console.log(JSON.stringify(value === "repaired\\n"
-    ? { summary: "review passed", outcome: "pass" }
-    : { summary: "needs repair", outcome: "revise", findings: [{ issue: "value is not repaired" }] }));
+    console.log(JSON.stringify(value === "repaired\\n"
+      ? { summary: "review passed", outcome: "pass" }
+      : { summary: "needs repair", outcome: request.nodeId === "alias-reviewer" ? "revision_required" : "revise", findings: [{ issue: "value is not repaired" }] }));
 } else if (request.nodeId === "frozen-contract") {
   const value = await readFile("value.txt", "utf8");
   console.log(JSON.stringify(value === "implemented\\n"
@@ -589,6 +589,33 @@ test("agent graph evaluates repair paths relative to a nested candidate root", a
     assert.equal(await readFile(resolve(root, "value.txt"), "utf8"), "repaired\n");
   } finally {
     await rm(repositoryRoot, { recursive: true, force: true });
+  }
+});
+
+test("agent graph canonicalizes a reported revision_required outcome for repair control", async () => {
+  const root = await repository();
+  try {
+    const result = await new AgentTeam().run({
+      campaign: graphCampaign(root, [
+        graphCommand("discover", { role: "scout", permissions: "read" }),
+        graphCommand("builder", { role: "implementer", permissions: "write", dependsOn: ["discover"] }),
+        graphCommand("alias-reviewer", {
+          role: "critic", permissions: "read", dependsOn: ["builder"],
+          repair: { target: "builder", outcomes: ["revise"], maximumAttempts: 1, allowedPaths: ["value.txt"] }
+        })
+      ], { maximumRepairAttempts: 1, maximumTotalAttempts: 8 }),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-repair-outcome-alias",
+      history: [],
+      signal: new AbortController().signal
+    });
+
+    assert.equal(await readFile(resolve(root, "value.txt"), "utf8"), "repaired\n");
+    const firstReview = result.contributors?.find((item) => item.agentId === "alias-reviewer");
+    assert.equal(firstReview?.metadata?.outcome, "revise");
+    assert.equal(firstReview?.metadata?.reportedOutcome, "revision_required");
+  } finally {
+    await rm(root, { recursive: true, force: true });
   }
 });
 

@@ -1,6 +1,6 @@
 {
   "apiVersion": "gamefactory.dev/v1",
-  "id": "firefly-art-slice-selection",
+  "id": "firefly-art-slice-selection-v2",
   "objective": "Select one engine-feasible production-quality visual method for the accepted Firefly Glassworks gameplay loop by finishing only a representative puzzle slice.",
   "projectRoot": ".",
   "workflow": "tournament",
@@ -9,6 +9,7 @@
   "mutablePaths": ["project.godot", "main.tscn", "main.gd", "README.md", "src/**", "levels/**", "assets/**", "audio/**", "design/**", "DESIGN_SYSTEM.md", "design-system.json", "sam3.request.json"],
   "immutablePaths": ["AGENTS.md", "GAME.md", "STYLE.md", "visual-direction.json", "visual-reference/**", "campaign.*.json", "factory.*.json", "addons/gamefactory/**"],
   "parameters": {
+    "git": {"worktreeRoot":"D:/GameFactory/worktrees"},
     "tournament": {
       "workspace":"git.worktree",
       "agents":["agent.team"],
