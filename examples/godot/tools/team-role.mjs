@@ -5,21 +5,21 @@ const stage = String(request.stage);
 const contributor = String(request.contributorId);
 
 if (stage === "scout") {
-  console.log(`${contributor}: the deterministic score is isolated in tuning.json; change only that bounded surface.`);
+  console.log(`${contributor}: inspect Pulse Runner's collection, survival, and movement metrics; keep changes inside tuning.json.`);
 } else if (stage === "planner") {
-  console.log(`${contributor}: choose a candidate-specific increment, preserve the scenario contract, and touch only tuning.json.`);
+  console.log(`${contributor}: choose a candidate-specific player-speed change, preserve the scenario contract, and touch only tuning.json.`);
 } else if (stage === "implementer") {
   const tuningUrl = new URL("../tuning.json", import.meta.url);
   const tuning = JSON.parse(await readFile(tuningUrl, "utf8"));
   const slot = Number(request.experimentId.match(/c(\d+)$/)?.[1] ?? 1);
-  const increments = [0.03, 0.08, 0.05];
+  const increments = [25, 60, 40];
   const increment = increments[(slot - 1) % increments.length];
-  tuning.fun_score = Number((Number(tuning.fun_score ?? 0.5) + increment).toFixed(4));
+  tuning.player_speed = Number((Number(tuning.player_speed ?? 230) + increment).toFixed(2));
   await writeFile(tuningUrl, `${JSON.stringify(tuning, null, 2)}\n`, "utf8");
-  console.log(`${contributor}: raised fun_score by ${increment} to ${tuning.fun_score}.`);
+  console.log(`${contributor}: raised player_speed by ${increment} to ${tuning.player_speed}.`);
 } else if (stage === "critic") {
   const tuning = JSON.parse(await readFile(new URL("../tuning.json", import.meta.url), "utf8"));
-  console.log(`${contributor}: candidate remains bounded and proposes fun_score=${tuning.fun_score}.`);
+  console.log(`${contributor}: candidate remains bounded and proposes player_speed=${tuning.player_speed}.`);
 } else {
   throw new Error(`Unsupported team stage: ${stage}`);
 }

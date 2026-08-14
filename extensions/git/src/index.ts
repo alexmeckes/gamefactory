@@ -1,6 +1,6 @@
-import { mkdir, rm } from "node:fs/promises";
+import { lstat, mkdir, rename, rm } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-import { basename, dirname, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
 import { spawn } from "node:child_process";
 import type { Campaign, Candidate, WorkspaceDriver } from "@gamefactory/core";
 import { defineExtension } from "@gamefactory/extension-sdk";
@@ -78,21 +78,95 @@ function run(command: string, args: string[], cwd: string, signal: AbortSignal):
   });
 }
 
-function worktreeRoot(repositoryRoot: string, campaign: Campaign, experimentId: string): string {
-  const parent = resolve(repositoryRoot, "..", ".gamefactory-worktrees");
+function worktreeParent(repositoryRoot: string, campaign: Campaign): string {
+  const parameters = campaign.parameters as Record<string, unknown> | undefined;
+  const git = parameters?.git && typeof parameters.git === "object" && !Array.isArray(parameters.git)
+    ? parameters.git as Record<string, unknown>
+    : undefined;
+  const configured = typeof git?.worktreeRoot === "string" && git.worktreeRoot.trim() ? git.worktreeRoot : undefined;
+  const parent = configured ? resolve(configured) : resolve(repositoryRoot, "..", ".gamefactory-worktrees");
+  const insideRepository = relative(repositoryRoot, parent);
+  if (!insideRepository || (!insideRepository.startsWith("..") && !isAbsolute(insideRepository))) {
+    throw new Error("Git worktreeRoot must be outside the repository");
+  }
+  return parent;
+}
+
+function worktreeRoot(repositoryRoot: string, campaign: Campaign, experimentId: string): { parent: string; root: string } {
+  const parent = worktreeParent(repositoryRoot, campaign);
   const root = resolve(parent, `${basename(repositoryRoot)}-${campaign.id}-${experimentId}-${process.pid}-${randomUUID().slice(0, 8)}`);
   const traversal = relative(parent, root);
   if (traversal.startsWith("..") || traversal === "") throw new Error("Unsafe worktree path");
-  return root;
+  return { parent, root };
 }
 
-async function removeWorktree(projectRoot: string, root: string): Promise<void> {
+interface CleanupFileSystem {
+  rename(source: string, destination: string): Promise<void>;
+  remove(path: string): Promise<void>;
+}
+
+const cleanupFileSystem: CleanupFileSystem = {
+  rename,
+  remove: (path) => rm(path, { recursive: true, force: true })
+};
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await lstat(path);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw error;
+  }
+}
+
+async function renameWithTransientRetries(
+  fileSystem: CleanupFileSystem,
+  source: string,
+  destination: string,
+  delays: readonly number[]
+): Promise<void> {
+  let lastError: unknown;
+  for (const delay of delays) {
+    if (delay > 0) await new Promise<void>((resolveDelay) => setTimeout(resolveDelay, delay));
+    try {
+      await fileSystem.rename(source, destination);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (!["EBUSY", "EPERM", "EACCES"].includes((error as NodeJS.ErrnoException).code ?? "")) throw error;
+    }
+  }
+  throw lastError;
+}
+
+/**
+ * Removes a managed worktree without ever recursively deleting the live path.
+ * The rename is the transaction boundary: failure leaves the candidate intact;
+ * success makes any later deletion failure harmless, recoverable trash.
+ */
+export async function removeWorktreeTransactionally(
+  projectRoot: string,
+  root: string,
+  fileSystem: CleanupFileSystem = cleanupFileSystem,
+  retryDelays: readonly number[] = [0, 250, 750, 1_500, 3_000, 6_000]
+): Promise<void> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(new Error("Worktree cleanup timed out")), 20_000);
   try {
-    await run("git", ["worktree", "remove", "--force", root], projectRoot, controller.signal).catch(() => undefined);
-    await rm(root, { recursive: true, force: true });
+    if (!(await pathExists(root))) {
+      await run("git", ["worktree", "prune"], projectRoot, controller.signal).catch(() => undefined);
+      return;
+    }
+    const managedParent = dirname(root);
+    const trashParent = resolve(managedParent, ".gamefactory-trash");
+    const trashRoot = resolve(trashParent, `${basename(root)}-${process.pid}-${randomUUID().slice(0, 8)}`);
+    const traversal = relative(trashParent, trashRoot);
+    if (!traversal || traversal.startsWith("..")) throw new Error("Unsafe worktree quarantine path");
+    await mkdir(trashParent, { recursive: true });
+    await renameWithTransientRetries(fileSystem, root, trashRoot, retryDelays);
     await run("git", ["worktree", "prune"], projectRoot, controller.signal).catch(() => undefined);
+    await fileSystem.remove(trashRoot).catch(() => undefined);
   } finally {
     clearTimeout(timeout);
   }
@@ -105,7 +179,9 @@ function managedWorktree(campaign: Campaign, candidate: Candidate): { repository
   }
   const repositoryRoot = resolve(candidate.metadata.repositoryRoot);
   const worktree = resolve(candidate.metadata.worktreeRoot);
-  const managedParent = resolve(repositoryRoot, "..", ".gamefactory-worktrees");
+  const managedParent = typeof candidate.metadata.managedParent === "string"
+    ? resolve(candidate.metadata.managedParent)
+    : worktreeParent(repositoryRoot, campaign);
   const traversal = relative(managedParent, worktree);
   const campaignTraversal = relative(repositoryRoot, resolve(campaign.projectRoot));
   const candidateTraversal = relative(worktree, resolve(candidate.root));
@@ -121,22 +197,23 @@ export class GitWorktreeWorkspace implements WorkspaceDriver {
   async createCandidate({ campaign, experimentId, signal }: { campaign: Campaign; experimentId: string; signal: AbortSignal }): Promise<Candidate> {
     const repositoryRoot = (await run("git", ["rev-parse", "--show-toplevel"], campaign.projectRoot, signal)).stdout;
     const baseRevision = (await run("git", ["rev-parse", "HEAD"], campaign.projectRoot, signal)).stdout;
-    const worktree = worktreeRoot(repositoryRoot, campaign, experimentId);
+    const managed = worktreeRoot(repositoryRoot, campaign, experimentId);
+    const worktree = managed.root;
     await mkdir(dirname(worktree), { recursive: true });
-    await removeWorktree(repositoryRoot, worktree);
+    await removeWorktreeTransactionally(repositoryRoot, worktree);
     await run("git", ["worktree", "add", "--detach", worktree, baseRevision], repositoryRoot, signal);
     const projectRelative = relative(repositoryRoot, campaign.projectRoot);
     const root = resolve(worktree, projectRelative);
-    return { id: experimentId, root, baseRevision, metadata: { isolated: true, provider: this.id, worktreeRoot: worktree, repositoryRoot, projectRelative } };
+    return { id: experimentId, root, baseRevision, metadata: { isolated: true, provider: this.id, worktreeRoot: worktree, managedParent: managed.parent, repositoryRoot, projectRelative } };
   }
 
   async acceptCandidate({ campaign, candidate, signal }: { campaign: Campaign; candidate: Candidate; signal: AbortSignal }): Promise<{ revision?: string; candidateRevision?: string; changed?: boolean }> {
     const { worktree, repositoryRoot } = managedWorktree(campaign, candidate);
-    const status = (await run("git", ["status", "--porcelain"], worktree, signal)).stdout;
+    const status = (await run("git", ["status", "--porcelain", "--untracked-files=all"], worktree, signal)).stdout;
     const files = changedFiles(status).filter((path) => !isFactoryArtifact(path));
     enforcePaths(campaign, candidate, files);
     if (files.length === 0) {
-      await removeWorktree(repositoryRoot, worktree);
+      await removeWorktreeTransactionally(repositoryRoot, worktree);
       return { changed: false };
     }
     await run("git", ["add", "--all", "--", ".", ":(exclude)**/.factory/**"], worktree, signal);
@@ -160,14 +237,14 @@ export class GitWorktreeWorkspace implements WorkspaceDriver {
       }
       return (await run("git", ["rev-parse", "HEAD"], repositoryRoot, signal)).stdout;
     });
-    await removeWorktree(repositoryRoot, worktree);
+    await removeWorktreeTransactionally(repositoryRoot, worktree);
     return { revision: acceptedRevision, candidateRevision: revision, changed: true };
   }
 
   async discardCandidate({ campaign, candidate, signal }: { campaign: Campaign; candidate: Candidate; signal: AbortSignal }): Promise<void> {
     void signal;
     const { worktree, repositoryRoot } = managedWorktree(campaign, candidate);
-    await removeWorktree(repositoryRoot, worktree);
+    await removeWorktreeTransactionally(repositoryRoot, worktree);
   }
 }
 

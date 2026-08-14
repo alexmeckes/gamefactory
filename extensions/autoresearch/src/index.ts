@@ -1,6 +1,18 @@
 import { decideAcceptance, flattenMetrics } from "@gamefactory/core";
-import type { AgentDriver, CampaignResult, Evaluation, Evaluator, ExperimentRecord, Workflow, WorkflowContext, WorkspaceDriver } from "@gamefactory/core";
+import type { AgentDriver, CampaignResult, ExperimentRecord, Workflow, WorkflowContext, WorkspaceDriver } from "@gamefactory/core";
 import { defineExtension } from "@gamefactory/extension-sdk";
+import {
+  agentJournalData,
+  campaignResult,
+  evaluateWaterfall,
+  failureAgentResult,
+  isArtifactPreservationFailure,
+  journalPhase,
+  latestAcceptedEvaluations,
+  preserveAgentResult,
+  recoverWorkflow,
+  replayBudget
+} from "@gamefactory/workflow-sdk";
 
 interface LoopParameters {
   workspace: string;
@@ -18,36 +30,6 @@ function parameters(context: WorkflowContext): LoopParameters {
   return { workspace, agent, evaluators };
 }
 
-async function evaluateAll(context: WorkflowContext, evaluatorIds: string[], candidate: Parameters<Evaluator["evaluate"]>[0]["candidate"], experimentId: string): Promise<Evaluation[]> {
-  const evaluations: Evaluation[] = [];
-  for (const id of evaluatorIds) {
-    const evaluator = context.get<Evaluator>("evaluator", id);
-    evaluations.push(await evaluator.evaluate({ campaign: context.campaign, candidate, experimentId, priorEvaluations: evaluations, signal: context.signal }));
-    if (evaluations.at(-1)?.status === "fail") break;
-  }
-  return evaluations;
-}
-
-async function preserveEvaluations(context: WorkflowContext, evaluations: Evaluation[], namespace: string): Promise<Evaluation[]> {
-  return Promise.all(evaluations.map(async (evaluation) => ({
-    ...evaluation,
-    artifacts: await context.preserveArtifacts(evaluation.artifacts, `${namespace}/evaluator-${evaluation.evaluator}`)
-  })));
-}
-
-function campaignResult(context: WorkflowContext, experiments: ExperimentRecord[], status: CampaignResult["status"], summary: string): CampaignResult {
-  const kept = experiments.filter((record) => record.status === "baseline" || record.status === "keep");
-  return {
-    campaignId: context.campaign.id,
-    status,
-    startedAt: context.startedAt,
-    finishedAt: new Date().toISOString(),
-    experiments,
-    bestMetrics: kept.at(-1)?.metrics ?? {},
-    summary
-  };
-}
-
 export class AutoresearchWorkflow implements Workflow {
   readonly id = "autoresearch";
 
@@ -55,13 +37,22 @@ export class AutoresearchWorkflow implements Workflow {
     const config = parameters(context);
     const workspace = context.get<WorkspaceDriver>("workspace", config.workspace);
     const agent = context.get<AgentDriver>("agent", config.agent);
+    const recovery = await recoverWorkflow(context, workspace);
     const experiments = await context.readRecords();
-    for (const experiment of experiments) context.budget.record({ status: experiment.status, ...(experiment.usage?.costUsd !== undefined ? { costUsd: experiment.usage.costUsd } : {}) });
-    let baseline = experiments.filter((item) => item.status === "baseline" || item.status === "keep").at(-1)?.evaluations;
+    if (recovery.blocked) return campaignResult(context, experiments, "blocked", recovery.blocked);
+    replayBudget(context, experiments);
+    let baseline = latestAcceptedEvaluations(experiments);
 
     if (!baseline) {
       const startedAt = new Date().toISOString();
-      baseline = await preserveEvaluations(context, await evaluateAll(context, config.evaluators, null, "baseline"), "baseline");
+      await journalPhase(context, "baseline", "reserved", { startedAt });
+      baseline = (await evaluateWaterfall(
+        context,
+        config.evaluators.map((id, order) => ({ id, cost: order, order })),
+        null,
+        "baseline"
+      )).evaluations;
+      await journalPhase(context, "baseline", "evaluated", { evaluations: baseline });
       const record: ExperimentRecord = {
         campaignId: context.campaign.id,
         experimentId: "baseline",
@@ -74,6 +65,8 @@ export class AutoresearchWorkflow implements Workflow {
       };
       experiments.push(record);
       await context.appendRecord(record);
+      await journalPhase(context, "baseline", "recorded", { record });
+      await journalPhase(context, "baseline", "cleaned");
       await context.emit({ type: "experiment:finish", record, at: record.finishedAt });
     }
 
@@ -85,30 +78,47 @@ export class AutoresearchWorkflow implements Workflow {
     while (!context.signal.aborted) {
       const allowance = context.budget.canStart();
       if (!allowance.allowed) return campaignResult(context, experiments, "budget-exhausted", allowance.reason ?? "Budget exhausted.");
-      const experimentId = `exp-${String(context.budget.experiments + 1).padStart(4, "0")}`;
+      const nextNumber = experiments.reduce((maximum, record) => {
+        const match = /^exp-(\d+)$/.exec(record.experimentId);
+        return Math.max(maximum, match ? Number(match[1]) : 0);
+      }, 0) + 1;
+      const experimentId = `exp-${String(nextNumber).padStart(4, "0")}`;
+      const reservation = context.budget.tryReserve({ experimentId });
+      if (!reservation) return campaignResult(context, experiments, "budget-exhausted", "Unable to reserve the next experiment within budget.");
       const startedAt = new Date().toISOString();
+      await journalPhase(context, experimentId, "reserved", { startedAt });
       await context.emit({ type: "experiment:start", campaignId: context.campaign.id, experimentId, at: startedAt });
       let candidate: Awaited<ReturnType<WorkspaceDriver["createCandidate"]>> | undefined;
+      let finalizationStarted = false;
+      let appliedRecord: ExperimentRecord | undefined;
 
       try {
         candidate = await workspace.createCandidate({ campaign: context.campaign, experimentId, signal: context.signal });
-        const rawAgentResult = await agent.run({ campaign: context.campaign, candidate, experimentId, history: [...experiments], signal: context.signal });
-        const agentResult = {
-          ...rawAgentResult,
-          ...(rawAgentResult.artifacts ? { artifacts: await context.preserveArtifacts(rawAgentResult.artifacts, `${experimentId}/agent`) } : {}),
-          ...(rawAgentResult.contributors ? {
-            contributors: await Promise.all(rawAgentResult.contributors.map(async (contributor) => ({
-              ...contributor,
-              artifacts: await context.preserveArtifacts(contributor.artifacts, `${experimentId}/agent-${contributor.agentId}`)
-            })))
-          } : {})
-        };
-        const evaluations = await preserveEvaluations(context, await evaluateAll(context, config.evaluators, candidate, experimentId), experimentId);
-        const decision = decideAcceptance(context.campaign.acceptance, baseline, evaluations);
+        await journalPhase(context, experimentId, "candidate-created", { candidate });
+        const agentResult = await preserveAgentResult(context, await agent.run({
+          campaign: context.campaign,
+          candidate,
+          experimentId,
+          history: [...experiments],
+          signal: context.signal,
+          ...(context.trace ? { trace: context.trace } : {})
+        }), experimentId);
+        await journalPhase(context, experimentId, "agent-finished", agentJournalData(agentResult));
+        const evaluations = (await evaluateWaterfall(
+          context,
+          config.evaluators.map((id, order) => ({ id, cost: order, order })),
+          candidate,
+          experimentId
+        )).evaluations;
+        await journalPhase(context, experimentId, "evaluated", { evaluations });
+        await journalPhase(context, experimentId, "evidence-preserved");
+        const decision = decideAcceptance(context.campaign.acceptance, baseline, evaluations, context.campaign.humanGates ? { humanGates: context.campaign.humanGates } : {});
         let accepted = decision.accepted;
+        await journalPhase(context, experimentId, "acceptance-intent", { action: accepted ? "accept" : "discard", decision });
+        finalizationStarted = true;
         const acceptance = accepted
-          ? await workspace.acceptCandidate({ campaign: context.campaign, candidate, signal: context.signal })
-          : (await workspace.discardCandidate({ campaign: context.campaign, candidate, signal: context.signal }), {});
+          ? await workspace.acceptCandidate({ campaign: context.campaign, candidate, signal: new AbortController().signal })
+          : (await workspace.discardCandidate({ campaign: context.campaign, candidate, signal: new AbortController().signal }), {});
         if (acceptance.changed === false) accepted = false;
         const record: ExperimentRecord = {
           campaignId: context.campaign.id,
@@ -136,28 +146,63 @@ export class AutoresearchWorkflow implements Workflow {
           }
         };
         if (accepted) baseline = evaluations;
+        await journalPhase(context, experimentId, "applied", { record });
+        appliedRecord = record;
         experiments.push(record);
-        context.budget.record({ status: record.status, ...(agentResult.usage?.costUsd !== undefined ? { costUsd: agentResult.usage.costUsd } : {}) });
+        reservation.settle({ status: record.status, ...(agentResult.usage?.costUsd !== undefined ? { actualCostUsd: agentResult.usage.costUsd } : {}) });
         await context.appendRecord(record);
+        await journalPhase(context, experimentId, "recorded", { status: record.status });
+        await journalPhase(context, experimentId, "cleaned");
         await context.emit({ type: "experiment:finish", record, at: record.finishedAt });
       } catch (error) {
-        if (candidate) await workspace.discardCandidate({ campaign: context.campaign, candidate, signal: context.signal }).catch(() => undefined);
+        if (appliedRecord) throw error;
+        const failedAgent = failureAgentResult(error);
+        let failure: unknown = error;
+        let preservedFailure;
+        try {
+          preservedFailure = failedAgent ? await preserveAgentResult(context, failedAgent, experimentId) : undefined;
+        } catch (preservationError) {
+          failure = preservationError;
+        }
+        const preservationBlocked = isArtifactPreservationFailure(failure);
+        let cleanupBlocked = false;
+        if (candidate && !preservationBlocked && !finalizationStarted) {
+          try {
+            await workspace.discardCandidate({ campaign: context.campaign, candidate, signal: new AbortController().signal });
+          } catch (cleanupError) {
+            failure = cleanupError;
+            cleanupBlocked = true;
+          }
+        }
+        const blocked = preservationBlocked || finalizationStarted || cleanupBlocked;
         const cancelled = context.signal.aborted;
         const record: ExperimentRecord = {
           campaignId: context.campaign.id,
           experimentId,
           startedAt,
           finishedAt: new Date().toISOString(),
-          status: cancelled ? "cancelled" : "crash",
+          status: blocked ? "blocked" : cancelled ? "cancelled" : "crash",
           ...(candidate ? { candidateId: candidate.id } : {}),
-          summary: error instanceof Error ? error.message : String(error),
+          summary: `${failure instanceof Error ? failure.message : String(failure)}${blocked ? " Candidate state retained because evidence preservation or finalization could not be confirmed." : ""}`,
           metrics: {},
-          evaluations: []
+          evaluations: [],
+          ...(preservedFailure?.artifacts?.length ? {
+            agent: { summary: preservedFailure.summary, contributors: [], artifacts: preservedFailure.artifacts }
+          } : {}),
+          ...(preservedFailure?.metadata ? { metadata: { agent: preservedFailure.metadata } } : {})
         };
         experiments.push(record);
-        context.budget.record({ status: record.status });
+        reservation.settle({ status: record.status });
         await context.appendRecord(record);
+        if (blocked) {
+          await journalPhase(context, experimentId, "blocked", { record, candidateRetained: Boolean(candidate) });
+        } else {
+          await journalPhase(context, experimentId, "applied", { record });
+          await journalPhase(context, experimentId, "recorded", { status: record.status });
+          await journalPhase(context, experimentId, "cleaned");
+        }
         await context.emit({ type: "experiment:finish", record, at: record.finishedAt });
+        if (blocked) return campaignResult(context, experiments, "blocked", record.summary);
         if (cancelled) {
           const reason = context.signal.reason instanceof Error ? context.signal.reason.message : String(context.signal.reason ?? "");
           return campaignResult(

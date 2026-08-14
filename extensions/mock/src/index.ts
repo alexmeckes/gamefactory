@@ -61,7 +61,10 @@ export class MockEvaluator implements Evaluator {
     const score = input.candidate
       ? await readScore(resolve(input.candidate.root, PROPOSAL))
       : await readScore(resolve(input.campaign.projectRoot, BASELINE));
-    return { evaluator: this.id, version: this.version, status: "pass", metrics: { score }, violations: [], artifacts: [], confidence: 1, summary: `score=${score}` };
+    const missingArtifact = input.candidate && input.campaign.parameters?.mockMissingArtifact === true
+      ? [{ kind: "log" as const, path: resolve(input.candidate.root, "missing-evidence.log"), label: "Deliberately missing evidence" }]
+      : [];
+    return { evaluator: this.id, version: this.version, status: "pass", metrics: { score }, violations: [], artifacts: missingArtifact, confidence: 1, summary: `score=${score}` };
   }
 }
 

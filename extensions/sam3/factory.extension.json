@@ -1,0 +1,13 @@
+{
+  "name": "gamefactory.sam3",
+  "version": "0.1.0",
+  "apiVersion": "1.0",
+  "entry": "dist/index.js",
+  "activation": ["agent:sam3.segment", "agent:sam3.track", "engine:sam3.runtime"],
+  "contributes": {
+    "agent": ["sam3.segment", "sam3.track"],
+    "engine": ["sam3.runtime"]
+  },
+  "permissions": ["process:bundled-worker", "filesystem:candidate", "environment:huggingface-auth"],
+  "description": "Optional SAM 3 image and video workers for provenance-tracked masks, cutouts, and persistent animation-frame identities."
+}

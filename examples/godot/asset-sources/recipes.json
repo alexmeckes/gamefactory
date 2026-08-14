@@ -1,0 +1,20 @@
+[
+  {
+    "id": "circular-sentinel",
+    "file": "drone-variant-1.png",
+    "rawSource": "raw/drone-circular-chroma.png",
+    "prompt": "A compact circular neon security drone, top-down orthographic 2D game sprite, round armored red and crimson body, bright white-red central sensor, crisp silhouette readable at 64x64, centered with generous padding on a perfectly flat #00ff00 chroma-key background; no shadows, text, watermark, or additional objects."
+  },
+  {
+    "id": "angular-hunter",
+    "file": "drone-variant-2.png",
+    "rawSource": "raw/drone-angular-chroma.png",
+    "prompt": "A fast angular neon hunter drone, top-down orthographic 2D game sprite, triangular body with three swept armored fins, crimson metal and a bright red-white central sensor, crisp silhouette readable at 64x64, centered with generous padding on a perfectly flat #00ff00 chroma-key background; no shadows, text, watermark, or additional objects."
+  },
+  {
+    "id": "segmented-ring",
+    "file": "drone-variant-3.png",
+    "rawSource": "raw/drone-ring-chroma.png",
+    "prompt": "A segmented ring-shaped neon sentinel drone, top-down orthographic 2D game sprite, four curved armored red segments around a dark center and bright red-white sensor, crisp silhouette readable at 64x64, centered with generous padding on a perfectly flat #00ff00 chroma-key background; no shadows, text, watermark, or additional objects."
+  }
+]

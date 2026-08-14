@@ -6,9 +6,88 @@ import { resolve } from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
 import type { Campaign, Candidate } from "@gamefactory/core";
-import { GitWorktreeWorkspace } from "./index.js";
+import { GitWorktreeWorkspace, removeWorktreeTransactionally } from "./index.js";
 
 const exec = promisify(execFile);
+
+test("transactional cleanup leaves a candidate intact when quarantine cannot be acquired", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "gamefactory-cleanup-"));
+  const candidate = resolve(root, "candidate");
+  await mkdir(candidate);
+  await writeFile(resolve(candidate, "evidence.txt"), "keep me\n", "utf8");
+  let attempts = 0;
+  try {
+    await assert.rejects(() => removeWorktreeTransactionally(root, candidate, {
+      rename: async () => { attempts += 1; throw Object.assign(new Error("busy"), { code: "EBUSY" }); },
+      remove: async () => undefined
+    }, [0, 0, 0, 0]), /busy/);
+    assert.equal(attempts, 4);
+    assert.equal(await readFile(resolve(candidate, "evidence.txt"), "utf8"), "keep me\n");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("transactional cleanup survives a worktree that remains briefly busy", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "gamefactory-cleanup-retry-"));
+  const candidate = resolve(root, "candidate");
+  await mkdir(candidate);
+  let attempts = 0;
+  let quarantined = false;
+  try {
+    await removeWorktreeTransactionally(root, candidate, {
+      rename: async () => {
+        attempts += 1;
+        if (attempts < 5) throw Object.assign(new Error("busy"), { code: "EPERM" });
+        quarantined = true;
+      },
+      remove: async () => undefined
+    }, [0, 0, 0, 0, 0]);
+    assert.equal(attempts, 5);
+    assert.equal(quarantined, true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("Git workspace can isolate candidates in a configured external root", async () => {
+  const repository = await mkdtemp(resolve(tmpdir(), "gamefactory-git-external-repo-"));
+  const externalRoot = await mkdtemp(resolve(tmpdir(), "gamefactory-git-external-worktrees-"));
+  const projectRoot = resolve(repository, "game");
+  const signal = new AbortController().signal;
+  const workspace = new GitWorktreeWorkspace();
+  const campaign: Campaign = {
+    apiVersion: "gamefactory.dev/v1",
+    id: "external-worktree-contract",
+    objective: "change value",
+    projectRoot,
+    workflow: "autoresearch",
+    requires: [],
+    mutablePaths: ["value.txt"],
+    acceptance: { primaryMetric: "score", direction: "maximize" },
+    parameters: { git: { worktreeRoot: externalRoot } }
+  };
+  let candidate: Candidate | undefined;
+  try {
+    await mkdir(projectRoot);
+    await writeFile(resolve(projectRoot, "value.txt"), "old\n", "utf8");
+    await exec("git", ["init", "-q"], { cwd: repository });
+    await exec("git", ["add", "--all"], { cwd: repository });
+    await exec("git", ["-c", "user.name=Test", "-c", "user.email=test@localhost", "commit", "-qm", "initial"], { cwd: repository });
+
+    candidate = await workspace.createCandidate({ campaign, experimentId: "external", signal });
+    assert.equal(resolve(String(candidate.metadata.managedParent)), resolve(externalRoot));
+    assert.equal(resolve(String(candidate.metadata.worktreeRoot), ".."), resolve(externalRoot));
+    await writeFile(resolve(candidate.root, "value.txt"), "new\n", "utf8");
+    await workspace.acceptCandidate({ campaign, candidate, signal });
+    candidate = undefined;
+    assert.equal((await readFile(resolve(projectRoot, "value.txt"), "utf8")).trim(), "new");
+  } finally {
+    if (candidate) await workspace.discardCandidate({ campaign, candidate, signal }).catch(() => undefined);
+    await rm(repository, { recursive: true, force: true });
+    await rm(externalRoot, { recursive: true, force: true });
+  }
+});
 
 test("Git workspace maps a subproject, enforces paths, and cherry-picks accepted work", async () => {
   const repository = await mkdtemp(resolve(tmpdir(), "gamefactory-git-"));
@@ -23,7 +102,7 @@ test("Git workspace maps a subproject, enforces paths, and cherry-picks accepted
     projectRoot,
     workflow: "autoresearch",
     requires: [],
-    mutablePaths: ["value.txt"],
+    mutablePaths: ["value.txt", "assets/enemies/drone.png"],
     immutablePaths: ["locked.txt"],
     acceptance: { primaryMetric: "score", direction: "maximize" }
   };
@@ -43,6 +122,14 @@ test("Git workspace maps a subproject, enforces paths, and cherry-picks accepted
     openCandidates.splice(openCandidates.indexOf(accepted), 1);
     assert.ok(result.revision);
     assert.equal((await readFile(resolve(projectRoot, "value.txt"), "utf8")).trim(), "new");
+
+    const nested = await workspace.createCandidate({ campaign, experimentId: "nested", signal });
+    openCandidates.push(nested);
+    await mkdir(resolve(nested.root, "assets", "enemies"), { recursive: true });
+    await writeFile(resolve(nested.root, "assets", "enemies", "drone.png"), "nested asset\n", "utf8");
+    await workspace.acceptCandidate({ campaign, candidate: nested, signal });
+    openCandidates.splice(openCandidates.indexOf(nested), 1);
+    assert.equal((await readFile(resolve(projectRoot, "assets", "enemies", "drone.png"), "utf8")).trim(), "nested asset");
 
     const rejected = await workspace.createCandidate({ campaign, experimentId: "reject", signal });
     openCandidates.push(rejected);

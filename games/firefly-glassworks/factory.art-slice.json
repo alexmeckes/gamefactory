@@ -1,0 +1,16 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "extensions": [
+    "../../extensions/git",
+    "../../extensions/agent-team",
+    "../../extensions/tournament",
+    "../../extensions/design-lab",
+    "../../extensions/godot",
+    "../../extensions/sam3",
+    "../../extensions/asset-foundry"
+  ],
+  "resultLog": "games/firefly-glassworks/.factory/results/art-slice-v2.jsonl",
+  "journalLog": "games/firefly-glassworks/.factory/journal/art-slice-v2.jsonl",
+  "traceLog": "games/firefly-glassworks/.factory/traces/art-slice-v2.jsonl",
+  "artifactDirectory": "games/firefly-glassworks/.factory/artifacts"
+}

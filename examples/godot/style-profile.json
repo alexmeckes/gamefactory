@@ -1,0 +1,50 @@
+{
+  "apiVersion": "gamefactory.style/v1",
+  "id": "pulse-runner-neon",
+  "version": "1.0.0",
+  "description": "Compact top-down combat silhouettes with controlled neon accents for Pulse Runner's dark blue arena.",
+  "references": [
+    {
+      "path": "asset-sources/drone-variant-1.png",
+      "role": "canonical enemy silhouette, palette, and rendering treatment",
+      "sha256": "0613e341717929f22866f004241d20cbf9120b14cb6717b85aab31ac4c3d9180"
+    }
+  ],
+  "modalities": {
+    "image": {
+      "requiredTraits": [
+        "single centered top-down silhouette",
+        "dark mechanical body with a restrained red neon signal color",
+        "readable at 48x48 pixels",
+        "transparent exterior"
+      ],
+      "prohibitedTraits": [
+        "perspective or side view",
+        "background plate",
+        "text, logo, or watermark",
+        "warm painterly shading"
+      ],
+      "criteria": [
+        { "metric": "red_dominance", "weight": 2, "min": 0.72, "hard": true },
+        { "metric": "opaque_coverage", "weight": 1.5, "target": 0.36, "tolerance": 0.12 },
+        { "metric": "contrast", "weight": 1, "min": 0.75, "hard": true },
+        { "metric": "horizontal_symmetry", "weight": 1, "min": 0.98, "hard": true },
+        { "metric": "vertical_symmetry", "weight": 1.5, "min": 0.9, "hard": true },
+        { "metric": "mean_red", "weight": 1, "target": 0.5, "tolerance": 0.15 },
+        { "metric": "mean_green", "weight": 1, "max": 0.14, "hard": true }
+      ],
+      "metadata": {
+        "palette": {
+          "arena": "#0b1020",
+          "enemySignal": "#ff2b45",
+          "coolShadow": "#14233a"
+        },
+        "nominalDisplaySize": [48, 48]
+      }
+    }
+  },
+  "metadata": {
+    "owner": "Pulse Runner art direction",
+    "changePolicy": "Version and re-baseline before changing criteria or canonical references."
+  }
+}

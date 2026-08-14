@@ -1,0 +1,24 @@
+{
+  "apiVersion": "gamefactory.asset-provenance/v1",
+  "generator": {
+    "tool": "OpenAI built-in image_gen",
+    "mode": "generate",
+    "taxonomy": "stylized-concept"
+  },
+  "assets": [
+    {
+      "path": "assets/illustrated/instrument-atlas.png",
+      "sha256": "7ee275bfc9c4838925eea605db5d188304cfe84af307294b9f72fdc5b3fefa70",
+      "purpose": "Decorative 2x2 material atlas below native gameplay overlays",
+      "prompt": "Use case: stylized-concept\nAsset type: layered 2D Godot game sprite atlas\nPrimary request: create exactly four isolated hand-painted top-down game components arranged as a precise two-by-two atlas on a perfectly flat solid #00ff00 chroma-key background.\nSubject: top-left is one circular aged-brass instrument mount with an empty center; top-right is one slim imperfect hand-blown smoke-blue glass reflector blade with an opaque crisp silhouette, shown vertically; bottom-left is one compact aged-brass firefly emitter collar with a tiny warm amber glass seat but no emitted beam; bottom-right is one cool moonlit receiver housing with an empty dark aperture but no arrived state.\nStyle/medium: polished painterly 2D game sprites, tactile gouache and restrained impasto, orthographic top-down view, low-frequency hand-authored irregularity, production-readable at 88 pixels per game cell.\nComposition/framing: exact equal quadrants in a two-by-two atlas; one centered component per quadrant; identical apparent scale; generous padding; no overlap.\nColor palette: oxidized umber brass, smoke charcoal, muted blue-cyan glass, tiny warm amber seat; never use green inside a component.\nMaterials/textures: gently hammered aged brass, restrained verdigris pinpricks, imperfect hand-blown glass edge, soft internal value variation; crisp outer silhouettes.\nConstraints: the background must be one perfectly uniform #00ff00 color with no shadows, gradients, texture, reflections, floor plane, lighting variation, or seams; no cast shadows; no contact shadows; no text; no watermark; no logos; no border; no grid; no beam or light path; no focus ring; no orientation indicator; no sensor state; no shutter; no receiver fill; no extra objects.",
+      "postprocess": "No chroma-key removal was needed because the built-in result already supplied a transparent alpha background. The source was copied byte-for-byte into the candidate."
+    },
+    {
+      "path": "assets/illustrated/workbench-backdrop.png",
+      "sha256": "5361c9c32e095b7db76ff4c404483ca92db1d2a747021ffb3ea6d1c1996ba119",
+      "purpose": "Topology-neutral smoke-charcoal backdrop beneath the engine-authored board",
+      "prompt": "Use case: stylized-concept\nAsset type: 2D game workshop backdrop material\nPrimary request: an empty, smoke-dark glassworker's bench surface viewed perfectly straight down, suitable as a quiet full-screen background behind a precise puzzle board.\nScene/backdrop: one broad charcoal-blackened workbench slab with a restrained inset frame, subtle hand-rubbed soot, old scoring scratches, and faint edge-worn umber; no objects and no puzzle topology.\nStyle/medium: polished painterly 2D game environment layer, tactile gouache and low-frequency brushwork, intimate handmade workshop specificity, designed to remain quiet at 1152x720 gameplay scale.\nComposition/framing: wide 16:10 landscape; central and left-middle areas calm and low contrast; slightly darker edges; a modest right-side recess for controls without forming a card or panel.\nLighting/mood: nocturnal workshop, extremely restrained warm grazing light from upper left and cool moonlit ambient lift from lower right; no dramatic spotlight.\nColor palette: smoke charcoal, carbon black, muted umber, tiny traces of aged brass warmth and moonlit slate; near-black overall.\nMaterials/textures: dense dark hardwood or compressed charcoal bench, burnished worn edge, soot, hand-scored construction marks; broad low-frequency variation only.\nConstraints: no text; no watermark; no logo; no grid; no cells; no beam; no glowing paths; no instruments; no receiver; no controls; no props; no shelves; no hands; no particles; no fog; no bloom; no topology-specific marks; avoid high-contrast scratches or bright focal elements.",
+      "postprocess": "The source was copied byte-for-byte into the candidate and is scaled by Godot at runtime."
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 {
   "apiVersion": "gamefactory.dev/v1",
-  "id": "godot-multi-agent-demo",
-  "objective": "Have specialist teams propose competing deterministic fun_score improvements and select the strongest passing candidate.",
+  "id": "godot-codex-agent-demo",
+  "objective": "Have real Codex specialist agents explore competing Pulse Runner balance hypotheses, implement bounded candidates, critique the evidence, and select the strongest deterministic playable result.",
   "projectRoot": ".",
   "workflow": "tournament",
   "requires": [
@@ -10,28 +10,76 @@
     "evaluator:godot.scenario"
   ],
   "mutablePaths": ["tuning.json"],
-  "immutablePaths": ["addons/gamefactory/**", "campaign*.json", "factory.config.json", "tools/**"],
+  "immutablePaths": ["addons/gamefactory/**", "campaign*.json", "factory.config.json", "tools/**", "AGENTS.md"],
   "parameters": {
     "tournament": {
       "workspace": "git.worktree",
       "agents": ["agent.team"],
       "evaluators": [{ "id": "godot.scenario", "cost": 10 }],
-      "candidateCount": 3,
+      "candidateCount": 2,
       "concurrency": 2
     },
     "agentTeam": {
       "maximumParallel": 2,
-      "maxOutputCharacters": 12000,
-      "scouts": [
-        { "id": "systems-scout", "command": ["node", "tools/team-role.mjs"] },
-        { "id": "gameplay-scout", "command": ["node", "tools/team-role.mjs"] }
-      ],
-      "planner": { "id": "lead-planner", "command": ["node", "tools/team-role.mjs"] },
-      "implementer": { "id": "builder", "command": ["node", "tools/team-role.mjs"] },
-      "critics": [
-        { "id": "regression-critic", "command": ["node", "tools/team-role.mjs"] },
-        { "id": "quality-critic", "command": ["node", "tools/team-role.mjs"] }
-      ]
+      "maxOutputCharacters": 20000,
+      "provider": "openai-codex-app-server",
+      "billingMode": "subscription",
+      "graph": {
+        "maximumTotalAttempts": 12,
+        "maximumRepairAttempts": 1,
+        "context": [
+          { "path": "design.intent.json", "kind": "other", "mediaType": "application/json", "label": "Pulse Runner design intent" },
+          { "path": "tuning.json", "kind": "other", "mediaType": "application/json", "label": "Current gameplay tuning" }
+        ],
+        "nodes": [
+          {
+            "id": "systems-scout",
+            "adapter": "codex-app-server",
+            "role": "scout",
+            "permissions": "read",
+            "instructions": "Investigate the movement, collection, survival, and deterministic scenario relationships. Develop contrasting balance hypotheses and identify likely metric-gaming traps."
+          },
+          {
+            "id": "player-experience-scout",
+            "adapter": "codex-app-server",
+            "role": "scout",
+            "permissions": "read",
+            "instructions": "Inspect the game from a short-session player perspective. Explore responsiveness, readability, risk, recovery, and replayability without assuming faster is automatically better."
+          },
+          {
+            "id": "lead-planner",
+            "adapter": "codex-app-server",
+            "role": "planner",
+            "permissions": "read",
+            "dependsOn": ["systems-scout", "player-experience-scout"],
+            "instructions": "Choose one candidate-specific hypothesis that is meaningfully different from obvious metric chasing. Bound the implementation to tuning.json and state what the Godot scenario can and cannot establish."
+          },
+          {
+            "id": "builder",
+            "adapter": "codex-app-server",
+            "role": "implementer",
+            "permissions": "write",
+            "dependsOn": ["lead-planner"],
+            "instructions": "Implement the selected hypothesis only in tuning.json. Validate the JSON and summarize the intended player-facing change."
+          },
+          {
+            "id": "regression-critic",
+            "adapter": "codex-app-server",
+            "role": "critic",
+            "permissions": "read",
+            "dependsOn": ["builder"],
+            "instructions": "Check boundaries, deterministic scenario compatibility, regressions, and whether the implementation actually represents the planned hypothesis."
+          },
+          {
+            "id": "experience-critic",
+            "adapter": "codex-app-server",
+            "role": "critic",
+            "permissions": "read",
+            "dependsOn": ["builder"],
+            "instructions": "Critique the likely player-facing tradeoffs and evidence quality. Flag claims about fun that the deterministic scenario cannot support."
+          }
+        ]
+      }
     },
     "godot": {
       "importCheck": true,
@@ -41,18 +89,18 @@
         "provider": "godot.factory/v1",
         "version": "1",
         "path": "res://main.tscn",
-        "parameters": { "seed": 7, "ticks": 30, "physics_hz": 60 }
+        "parameters": { "seed": 7, "ticks": 300, "physics_hz": 60, "duration_seconds": 5 }
       }
     }
   },
   "acceptance": {
     "primaryMetric": "fun_score",
     "direction": "maximize",
-    "minimumDelta": 0.01
+    "minimumDelta": 0.005
   },
   "budget": {
-    "maximumExperiments": 3,
+    "maximumExperiments": 2,
     "maximumConsecutiveCrashes": 2,
-    "wallTimeMinutes": 3
+    "wallTimeMinutes": 30
   }
 }

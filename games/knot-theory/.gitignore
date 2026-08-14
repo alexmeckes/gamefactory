@@ -1,0 +1,6 @@
+.godot/
+.factory/
+assets/qa/
+*.import
+*.uid
+*.tmp

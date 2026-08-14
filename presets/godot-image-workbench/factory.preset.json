@@ -1,0 +1,23 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "name": "godot-image-workbench",
+  "extensions": [
+    "../../extensions/tournament",
+    "../../extensions/git",
+    "../../extensions/agent-team",
+    "../../extensions/asset-foundry",
+    "../../extensions/sam3",
+    "../../extensions/godot"
+  ],
+  "capabilities": [
+    "workflow:tournament",
+    "workspace:git.worktree",
+    "agent:agent.team",
+    "agent:asset.command",
+    "agent:sam3.segment",
+    "evaluator:asset.technical",
+    "evaluator:asset.style",
+    "engine:godot.engine",
+    "evaluator:godot.scenario"
+  ]
+}

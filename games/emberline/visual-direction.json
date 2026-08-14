@@ -1,0 +1,35 @@
+{
+  "apiVersion": "gamefactory.visual-direction/v1",
+  "id": "emberline-workshop",
+  "intent": "A premium tactile workshop diorama whose strategic state remains readable in motion.",
+  "renderingStrategy": {
+    "mode": "Layered 2.5D Godot presentation using project-bound sprites, textures, lighting, shaders, particles, and code-native interaction geometry.",
+    "feasibility": "Prove the shipping camera and one representative encounter in the running Godot project before expanding the asset vocabulary. Concept art directs material and mood but is not a producible screenshot contract."
+  },
+  "references": [
+    { "path": "visual-reference/art-target.png", "label": "Conceptual material, lighting, route, and silhouette inspiration; not a gameplay or production target", "purpose": "material", "authority": "inspiration", "source": "other", "sha256": "bc2ccaf5c4b213210a894219325c40469c950752236004875ab3bca1240e3fa7", "provenanceNote": "Legacy Codex ImageGen output committed before the campaign; the exact prompt was not preserved." },
+    { "path": "visual-reference/baseline-title.png", "label": "Seed title baseline to materially exceed", "purpose": "baseline", "authority": "baseline", "source": "captured", "sha256": "5907db64e9c60efa2db21e1fcea69362947062ab02575ec9d5f3765e2576d34f" },
+    { "path": "visual-reference/baseline-board.png", "label": "Seed planning-view baseline to materially exceed", "purpose": "baseline", "authority": "baseline", "source": "captured", "sha256": "1f2ec84068243ab133675fec23e41d72d37e92576b8fae48d5dbf54cff26e29e" },
+    { "path": "visual-reference/baseline-wave.png", "label": "Seed combat-view baseline to materially exceed", "purpose": "baseline", "authority": "baseline", "source": "captured", "sha256": "f61db7f848f0029a05d1df034a57dd2be1cc532b4d96368756814e21c0a24628" }
+  ],
+  "nonnegotiables": [
+    "The route, threat direction, tower identity, range, target, enemy health, heat state, currency, core health, and wave state are readable without guesswork.",
+    "The board has authored depth, material separation, controlled lighting, and environmental specificity.",
+    "At least one observable physical response distinguishes each tower and reaction.",
+    "Screenshots come from the running Godot project and differ materially from the seed baselines."
+  ],
+  "qualityDimensions": {
+    "material_depth": "Layered walnut, iron, brass, ceramic, wax, soot, glass, and light feel intentionally constructed.",
+    "focal_hierarchy": "The glass heart, imminent threats, and current decision form a clear hierarchy.",
+    "combat_legibility": "Projectiles, targeting, damage, control, reactions, and dangerous leaks are readable during a wave.",
+    "authored_specificity": "The result feels like Emberline rather than a generic tower-defense template.",
+    "composition_typography": "Board framing, cards, counters, labels, and spacing are deliberate at 1152×720.",
+    "motion_feedback": "Placement, firing, impact, reaction, kill, spend, wave, core damage, and victory have tactile feedback."
+  },
+  "antiPatterns": ["flat debug circles as the final art", "generic medieval towers", "green tile grids", "unreadable particle fog", "UI-heavy mobile-game chrome", "claims of polish without changed captures"],
+  "views": [
+    { "id": "title", "purpose": "Communicate the handcrafted fuse-and-heart fantasy and invite play." },
+    { "id": "board", "purpose": "Show the planning hierarchy, sockets, tower choices, economy, and route." },
+    { "id": "wave", "purpose": "Show a tactically legible late-wave reaction with the heart under pressure." }
+  ]
+}

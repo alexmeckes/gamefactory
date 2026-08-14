@@ -6,6 +6,10 @@
     "../../extensions/command-agent",
     "../../extensions/agent-team",
     "../../extensions/tournament",
+    "../../extensions/asset-foundry",
+    "../../extensions/design-intake",
+    "../../extensions/design-lab",
+    "../../extensions/discovery",
     "../../extensions/godot"
   ],
   "resultLog": ".factory/results/godot-demo.jsonl"

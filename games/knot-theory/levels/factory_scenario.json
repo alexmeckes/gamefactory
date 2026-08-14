@@ -1,0 +1,11 @@
+{
+  "provider": "godot.factory/v1",
+  "version": "1",
+  "path": "res://main.tscn",
+  "parameters": {
+    "seed": 314159,
+    "ticks": 480,
+    "physics_hz": 60,
+    "duration_seconds": 8
+  }
+}

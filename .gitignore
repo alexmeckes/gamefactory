@@ -7,3 +7,5 @@ coverage/
 .DS_Store
 .godot/
 exports/
+*.import
+games/*/levels/evidence/repair/

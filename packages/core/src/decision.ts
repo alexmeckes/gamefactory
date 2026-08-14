@@ -7,6 +7,10 @@ export interface AcceptanceDecision {
   baselineValue?: number;
 }
 
+export interface AcceptanceRequirements {
+  humanGates?: string[];
+}
+
 export function flattenMetrics(evaluations: Evaluation[]): Record<string, number> {
   const output: Record<string, number> = {};
   for (const evaluation of evaluations) {
@@ -21,10 +25,24 @@ export function flattenMetrics(evaluations: Evaluation[]): Record<string, number
 export function decideAcceptance(
   config: AcceptanceConfig,
   baselineEvaluations: Evaluation[],
-  candidateEvaluations: Evaluation[]
+  candidateEvaluations: Evaluation[],
+  requirements: AcceptanceRequirements = {}
 ): AcceptanceDecision {
   const failed = candidateEvaluations.filter((evaluation) => evaluation.status === "fail");
   if (failed.length > 0) return { accepted: false, reason: `hard evaluation failure: ${failed.map((item) => item.evaluator).join(", ")}` };
+
+  for (const evaluatorId of config.hardGates ?? []) {
+    const evaluation = candidateEvaluations.find((item) => item.evaluator === evaluatorId);
+    if (!evaluation || evaluation.status !== "pass") {
+      return { accepted: false, reason: `required hard gate did not pass: ${evaluatorId}` };
+    }
+  }
+  for (const evaluatorId of requirements.humanGates ?? []) {
+    const evaluation = candidateEvaluations.find((item) => item.evaluator === evaluatorId);
+    if (!evaluation || evaluation.status !== "pass") {
+      return { accepted: false, reason: `required human gate did not pass: ${evaluatorId}` };
+    }
+  }
 
   const baseline = flattenMetrics(baselineEvaluations)[config.primaryMetric];
   const candidate = flattenMetrics(candidateEvaluations)[config.primaryMetric];

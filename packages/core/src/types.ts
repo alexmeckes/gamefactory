@@ -1,9 +1,19 @@
+import type {
+  JournalJsonValue,
+  WorkflowJournalAppend,
+  WorkflowJournalEntry,
+  WorkflowRecoveryState
+} from "./journal.js";
+import type { TraceSink } from "./trace.js";
+import type { InvocationUsage } from "./usage.js";
+
 export type CapabilityKind =
   | "workspace"
   | "agent"
   | "engine"
   | "scenario"
   | "evaluator"
+  | "intake"
   | "workflow"
   | "reporter"
   | "policy";
@@ -46,6 +56,7 @@ export interface Evaluation {
   artifacts: ArtifactReference[];
   confidence?: number;
   summary?: string;
+  usage?: InvocationUsage;
 }
 
 export interface BudgetConfig {
@@ -112,11 +123,12 @@ export interface AgentRequest {
   experimentId: string;
   history: ExperimentRecord[];
   signal: AbortSignal;
+  trace?: TraceSink;
 }
 
 export interface AgentResult {
   summary: string;
-  usage?: { inputTokens?: number; outputTokens?: number; costUsd?: number };
+  usage?: InvocationUsage;
   artifacts?: ArtifactReference[];
   contributors?: AgentContribution[];
   metadata?: Record<string, unknown>;
@@ -132,6 +144,8 @@ export interface AgentContribution {
   finishedAt: string;
   summary: string;
   artifacts: ArtifactReference[];
+  invocationId?: string;
+  parentInvocationId?: string;
   usage?: AgentResult["usage"];
   metadata?: Record<string, unknown>;
 }
@@ -172,6 +186,47 @@ export interface Evaluator {
   id: string;
   version: string;
   evaluate(input: EvaluationRequest): Promise<Evaluation>;
+}
+
+export interface IntakeOption {
+  id: string;
+  label: string;
+  description: string;
+  delegates?: boolean;
+}
+
+export interface IntakeQuestion {
+  id: string;
+  prompt: string;
+  whyItMatters: string;
+  options: IntakeOption[];
+}
+
+export interface IntakeAnswer {
+  questionId: string;
+  optionId: string;
+  label: string;
+  delegated: boolean;
+}
+
+export interface IntakeRequest {
+  brief: string;
+  projectRoot: string;
+  signal: AbortSignal;
+  ask(question: IntakeQuestion): Promise<IntakeOption>;
+}
+
+export interface IntakeResult {
+  apiVersion: string;
+  provider: string;
+  summary: string;
+  answers: IntakeAnswer[];
+  document: Record<string, unknown>;
+}
+
+export interface IntakeDriver {
+  id: string;
+  run(request: IntakeRequest): Promise<IntakeResult>;
 }
 
 export interface EvaluationRequest {
@@ -237,6 +292,7 @@ export interface ExecutionResult {
 
 export interface ExperimentRecord {
   campaignId: string;
+  runId?: string;
   experimentId: string;
   startedAt: string;
   finishedAt: string;
@@ -282,9 +338,21 @@ export interface WorkflowContext {
   appendRecord(record: ExperimentRecord): Promise<void>;
   readRecords(): Promise<ExperimentRecord[]>;
   preserveArtifacts(artifacts: ArtifactReference[], namespace: string): Promise<ArtifactReference[]>;
+  journal?: WorkflowJournalContext;
+  trace?: TraceSink;
   emit(event: FactoryEvent): Promise<void>;
   budget: BudgetControllerLike;
   logger: Logger;
+}
+
+export interface WorkflowJournalContext {
+  readonly runId: string;
+  readonly fingerprints: Readonly<Record<string, string>>;
+  append(input: Omit<WorkflowJournalAppend, "runId" | "campaignId" | "fingerprints"> & {
+    data?: JournalJsonValue;
+  }): Promise<WorkflowJournalEntry>;
+  appendRecovered(input: WorkflowJournalAppend): Promise<WorkflowJournalEntry>;
+  recover(): Promise<WorkflowRecoveryState>;
 }
 
 export interface BudgetControllerLike {
@@ -328,7 +396,19 @@ export interface ExtensionManifest {
 export interface ExtensionDescriptor {
   root: string;
   manifestPath: string;
+  manifestSha256: string;
   manifest: ExtensionManifest;
+}
+
+export interface ActiveExtension {
+  name: string;
+  version: string;
+  activatedAt: string;
+  capabilities: string[];
+  activation: string[];
+  manifestSha256: string;
+  permissions: string[];
+  description?: string;
 }
 
 export interface Disposable {
@@ -341,6 +421,7 @@ export interface FactoryExtension {
 
 export interface FactoryAPI {
   readonly extensionName: string;
+  get<T>(kind: CapabilityKind, id: string): T;
   register<T>(kind: CapabilityKind, id: string, value: T): Disposable;
   onEvent(handler: (event: FactoryEvent) => Promise<void> | void): Disposable;
   log: Logger;
@@ -351,4 +432,6 @@ export interface FactoryConfig {
   extensions: string[];
   artifactDirectory?: string;
   resultLog?: string;
+  journalLog?: string;
+  traceLog?: string;
 }

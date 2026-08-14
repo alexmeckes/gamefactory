@@ -1,0 +1,12 @@
+{
+  "name": "gamefactory.video-foundry",
+  "version": "0.1.0",
+  "apiVersion": "1.0",
+  "entry": "dist/index.js",
+  "activation": ["agent:video.google-omni", "agent:animation.compile"],
+  "contributes": {
+    "agent": ["video.google-omni", "animation.compile"]
+  },
+  "permissions": ["network:google-gemini", "credential:google.gemini", "filesystem:candidate", "process:bundled-worker"],
+  "description": "Optional video-to-animation foundry: Google Gemini Omni generation plus deterministic sprite-atlas compilation."
+}

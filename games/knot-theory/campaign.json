@@ -1,0 +1,262 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "id": "knot-theory-vertical-slice",
+  "objective": "Build a polished, compact Godot puzzle vertical slice where direct manipulation of one continuous rope teaches a reusable knot language and culminates in a surprising machine-like puzzle.",
+  "projectRoot": ".",
+  "workflow": "tournament",
+  "requires": [
+    "workspace:git.worktree",
+    "agent:agent.team",
+    "evaluator:design.system",
+    "evaluator:godot.visual",
+    "evaluator:godot.scenario"
+  ],
+  "mutablePaths": [
+    "project.godot",
+    "main.tscn",
+    "main.gd",
+    "README.md",
+    "src/**",
+    "levels/**",
+    "assets/**",
+    "audio/**",
+    "design/**",
+    "DESIGN_SYSTEM.md",
+    "design-system.json"
+  ],
+  "immutablePaths": [
+    "AGENTS.md",
+    "GAME.md",
+    "STYLE.md",
+    "visual-direction.json",
+    "visual-reference/**",
+    "campaign.json",
+    "factory.config.json",
+    "addons/gamefactory/**"
+  ],
+  "parameters": {
+    "tournament": {
+      "workspace": "git.worktree",
+      "agents": ["agent.team"],
+      "evaluators": [
+        { "id": "design.system", "cost": 1 },
+        { "id": "godot.visual", "cost": 2 },
+        { "id": "godot.scenario", "cost": 10 }
+      ],
+      "candidateCount": 2,
+      "concurrency": 2,
+      "director": {
+        "agent": "agent.team",
+        "model": "gpt-5.6-sol",
+        "reasoningEffort": "high",
+        "advisorReasoningEffort": "xhigh",
+        "timeoutSeconds": 1800,
+        "maxOutputCharacters": 30000
+      }
+    },
+    "agentTeam": {
+      "maximumParallel": 3,
+      "maxOutputCharacters": 30000,
+      "provider": "openai-codex-app-server",
+      "billingMode": "subscription",
+      "graph": {
+        "maximumTotalAttempts": 24,
+        "maximumRepairAttempts": 2,
+        "context": [
+          { "path": "GAME.md", "kind": "other", "mediaType": "text/markdown", "label": "Product brief" },
+          { "path": "STYLE.md", "kind": "other", "mediaType": "text/markdown", "label": "Style direction" },
+          { "path": "visual-direction.json", "kind": "other", "mediaType": "application/json", "label": "Visual quality contract" },
+          { "path": "visual-reference/art-target.png", "kind": "image", "mediaType": "image/png", "label": "Concept-only material and mood inspiration; not a gameplay or production target" },
+          { "path": "visual-reference/baseline-title.png", "kind": "image", "mediaType": "image/png", "label": "Unpolished title baseline" },
+          { "path": "visual-reference/baseline-first-puzzle.png", "kind": "image", "mediaType": "image/png", "label": "Unpolished teaching baseline" },
+          { "path": "visual-reference/baseline-finale.png", "kind": "image", "mediaType": "image/png", "label": "Unpolished finale baseline" },
+          { "path": "main.gd", "kind": "other", "mediaType": "text/plain", "label": "Baseline rope loom" }
+        ],
+        "nodes": [
+          {
+            "id": "topology-scout",
+            "adapter": "codex-app-server",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "high",
+            "role": "scout",
+            "permissions": "read",
+            "instructions": "Explore implementable 2D rope and knot puzzle grammars for this exact Godot scope. Compare winding, crossing order, tension, contact sequences, and authored anchors. Propose a small language that can recombine surprisingly without demanding mathematically perfect knot simulation."
+          },
+          {
+            "id": "tactility-scout",
+            "adapter": "codex-app-server",
+            "model": "gpt-5.6-luna",
+            "reasoningEffort": "high",
+            "advisor": {
+              "model": "gpt-5.6-sol",
+              "reasoningEffort": "high",
+              "outcomes": ["needs_advisor"],
+              "onFailure": true,
+              "maximumAttempts": 1
+            },
+            "role": "scout",
+            "permissions": "read",
+            "instructions": "Explore interaction feel, teaching, visual feedback, accessibility, and audio for direct rope manipulation. Identify the smallest set of signals that makes grabbing, pinning, threading, tension, failure, and success legible."
+          },
+          {
+            "id": "puzzle-scout",
+            "adapter": "codex-app-server",
+            "model": "gpt-5.6-luna",
+            "reasoningEffort": "high",
+            "advisor": {
+              "model": "gpt-5.6-sol",
+              "reasoningEffort": "high",
+              "outcomes": ["needs_advisor"],
+              "onFailure": true,
+              "maximumAttempts": 1
+            },
+            "role": "scout",
+            "permissions": "read",
+            "instructions": "Develop contrasting five-to-ten-minute level arcs using one rope. Seek an earned machine-like finale and avoid a mere sequence of silhouette tracing tasks. Keep implementation feasible in one compact Godot project."
+          },
+          {
+            "id": "design-system-director",
+            "adapter": "codex-app-server",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "timeoutSeconds": 2400,
+            "role": "implementer",
+            "permissions": "write",
+            "dependsOn": ["topology-scout", "tactility-scout", "puzzle-scout"],
+            "instructions": "Act as the candidate's lightweight Design Direction Director. Use the installed imagegen skill with Codex's built-in ImageGen tool to create at most two controlled visual-language studies informed by STYLE.md, visual-direction.json, the concept-only material reference, the campaign assignment, and scout findings. These are cheap inspiration for material, hierarchy, component, and motion language—not final screenshots or a full asset library. Copy selected project-bound PNGs into design/references/, record exact prompts, and never use an API-key CLI fallback. Then author DESIGN_SYSTEM.md, design-system.json using apiVersion gamefactory.design-system/v1 with maturity direction, and a valid Godot Theme resource at design/theme/knot_theory_theme.tres. Every reference must declare purpose and authority; generated studies use authority inspiration, and only later running-engine captures may use production-target. Do not make gameplay implementation changes. Preserve creative latitude rather than freezing a layout."
+          },
+          {
+            "id": "visual-director",
+            "adapter": "codex-app-server",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "timeoutSeconds": 1800,
+            "role": "planner",
+            "permissions": "read",
+            "dependsOn": ["design-system-director"],
+            "instructions": "Act as the candidate's visual director. Inspect DESIGN_SYSTEM.md, design-system.json, its ImageGen studies, the pinned art target, and all three baseline captures with image-aware tools. Translate the versioned system into an implementable art hierarchy for this Godot project. Diagnose gaps in material separation, lighting, composition, rope readability, typography, prop craft, and motion. Keep the semantic system coherent without copying any reference layout literally. Return outcome ready with prioritized findings and a bounded implementation brief for the lead and builder."
+          },
+          {
+            "id": "lead-designer",
+            "adapter": "codex-app-server",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "timeoutSeconds": 1800,
+            "role": "planner",
+            "permissions": "read",
+            "dependsOn": ["topology-scout", "tactility-scout", "puzzle-scout", "visual-director"],
+            "instructions": "Synthesize one candidate-specific vertical slice. Choose a coherent topology model, teaching sequence, interaction contract, visual direction, deterministic test strategy, and bounded implementation plan. Treat the visual director's evidence as a quality constraint while preserving creative conviction instead of averaging every scout idea."
+          },
+          {
+            "id": "game-builder",
+            "adapter": "codex-app-server",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "timeoutSeconds": 2700,
+            "role": "implementer",
+            "permissions": "write",
+            "dependsOn": ["lead-designer"],
+            "instructions": "Implement the complete playable vertical slice in the mutable paths. Treat visual polish as product work: build authored material layers, depth, lighting, composition, typography, prop details, and tactile motion that meet the visual contract while keeping rope topology legible. Use code-native Godot rendering or generated project assets as appropriate. Run Godot import/headless checks and preserve deterministic factory hooks whose score derives from observed simulation state. Prefer a cohesive finished slice over unused framework."
+          },
+          {
+            "id": "visual-capture",
+            "adapter": "command",
+            "command": [
+              "C:\\Users\\alexm\\OneDrive\\Documents\\New project\\oldschool-mmo-godot\\tools\\godot\\Godot_v4.7.1-stable_win64_console.exe",
+              "--disable-crash-handler",
+              "--path",
+              ".",
+              "--script",
+              "res://addons/gamefactory/capture_runner.gd"
+            ],
+            "role": "worker",
+            "permissions": "read",
+            "dependsOn": ["game-builder"],
+            "refreshAfterRepair": true,
+            "instructions": "Capture deterministic engine-native evidence for the title, first teaching puzzle, and finale."
+          },
+          {
+            "id": "systems-critic",
+            "adapter": "codex-app-server",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "medium",
+            "timeoutSeconds": 1200,
+            "role": "critic",
+            "permissions": "read",
+            "dependsOn": ["game-builder"],
+            "instructions": "Inspect and test the implementation for rope stability, topology false positives, reset/progression failures, boundary violations, and honest factory metrics. Return outcome pass or revise with concrete evidence.",
+            "repair": { "target": "game-builder", "outcomes": ["revise"], "maximumAttempts": 2 }
+          },
+          {
+            "id": "visual-experience-critic",
+            "adapter": "codex-app-server",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "timeoutSeconds": 1800,
+            "role": "critic",
+            "permissions": "read",
+            "dependsOn": ["game-builder", "visual-capture"],
+            "instructions": "Act as a strict visual and experience director. Use image-aware tools to inspect every screenshot artifact from visual-capture and compare them with the pinned target, baselines, STYLE.md, and visual-direction.json. Judge observable craft, not prompt compliance. Return outcome pass only if the work clears the contract; otherwise return revise with a small prioritized repair brief. Always return findings.scorecard containing numeric 0-100 values for material_depth, focal_hierarchy, rope_legibility, authored_specificity, composition_typography, and motion_feedback. Always return findings.evidence with one object per required view containing view, path, and a concrete visual observation. Also include findings.blockingIssues. Never inflate scores to help selection and do not claim fun without a human playtest.",
+            "repair": { "target": "game-builder", "outcomes": ["revise"], "maximumAttempts": 2 }
+          }
+        ]
+      }
+    },
+    "godot": {
+      "binary": "C:\\Users\\alexm\\OneDrive\\Documents\\New project\\oldschool-mmo-godot\\tools\\godot\\Godot_v4.7.1-stable_win64_console.exe",
+      "importCheck": true,
+      "rendered": false,
+      "timeoutSeconds": 120,
+      "scenario": {
+        "provider": "godot.factory/v1",
+        "version": "1",
+        "path": "res://main.tscn",
+        "parameters": {
+          "seed": 314159,
+          "ticks": 480,
+          "physics_hz": 60,
+          "duration_seconds": 8
+        }
+      },
+      "visualReview": {
+        "reviewNode": "visual-experience-critic",
+        "minimumScore": 72,
+        "minimumDimensionScore": 55,
+        "minimumWidth": 960,
+        "minimumHeight": 600,
+        "requiredDimensions": [
+          "material_depth",
+          "focal_hierarchy",
+          "rope_legibility",
+          "authored_specificity",
+          "composition_typography",
+          "motion_feedback"
+        ],
+        "requiredViews": [
+          { "id": "title", "path": ".factory/previews/title.png", "baselineSha256": "0fded674e9a301c4c2c0b1ad37044311edc1645e3c0fd3dca10c7f969ea49c6a" },
+          { "id": "first-puzzle", "path": ".factory/previews/first-puzzle.png", "baselineSha256": "71940fb4ec58727b383b005527f5433abdfaa404dac84b8f966b7920cb67a811" },
+          { "id": "finale", "path": ".factory/previews/finale.png", "baselineSha256": "82db9b8c29133b0ff31a52a2bbb5a017cb890c6ebbc5152cd73c6166ab339704" }
+        ]
+      }
+    },
+    "designSystem": {
+      "path": "design-system.json",
+      "visualDirectionPath": "visual-direction.json",
+      "minimumMaturity": "direction",
+      "requiredTokenGroups": ["color", "typography", "spacing", "material", "motion", "audio", "accessibility"],
+      "requiredAdapters": ["godot-theme"],
+      "minimumReferences": 2,
+      "requireImagegenReference": true
+    }
+  },
+  "acceptance": {
+    "primaryMetric": "visual_quality",
+    "direction": "maximize",
+    "minimumDelta": 5
+  },
+  "budget": {
+    "maximumExperiments": 2,
+    "maximumConsecutiveCrashes": 2,
+    "wallTimeMinutes": 150
+  }
+}

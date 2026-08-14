@@ -15,5 +15,14 @@ async function findTests(directory, output = []) {
 const tests = await findTests(process.cwd());
 if (tests.length === 0) throw new Error("No compiled tests found");
 
-const child = spawn(process.execPath, ["--test", ...tests], { stdio: "inherit" });
+const requestedConcurrency = Number.parseInt(process.env.GAMEFACTORY_TEST_CONCURRENCY ?? "1", 10);
+const testConcurrency = Number.isSafeInteger(requestedConcurrency) && requestedConcurrency > 0
+  ? requestedConcurrency
+  : 1;
+
+const child = spawn(
+  process.execPath,
+  ["--test", `--test-concurrency=${testConcurrency}`, ...tests],
+  { stdio: "inherit" },
+);
 child.on("exit", (code) => process.exit(code ?? 1));

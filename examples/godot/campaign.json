@@ -1,7 +1,7 @@
 {
   "apiVersion": "gamefactory.dev/v1",
   "id": "godot-demo",
-  "objective": "Increase the deterministic fun_score without breaking the Godot scenario.",
+  "objective": "Improve Pulse Runner's collection, survival, and control balance without breaking its deterministic Godot scenario.",
   "projectRoot": ".",
   "workflow": "autoresearch",
   "requires": [
@@ -24,14 +24,14 @@
         "provider": "godot.factory/v1",
         "version": "1",
         "path": "res://main.tscn",
-        "parameters": { "seed": 7, "ticks": 30, "physics_hz": 60 }
+        "parameters": { "seed": 7, "ticks": 300, "physics_hz": 60, "duration_seconds": 5 }
       }
     }
   },
   "acceptance": {
     "primaryMetric": "fun_score",
     "direction": "maximize",
-    "minimumDelta": 0.01
+    "minimumDelta": 0.005
   },
   "budget": { "maximumExperiments": 3, "maximumConsecutiveCrashes": 2 }
 }

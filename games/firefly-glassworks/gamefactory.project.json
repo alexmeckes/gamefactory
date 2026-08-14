@@ -1,0 +1,72 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "kind": "Project",
+  "id": "firefly-glassworks",
+  "title": "Firefly Glassworks",
+  "projectRoot": ".",
+  "phases": [
+    {
+      "id": "gameplay",
+      "title": "Gameplay proof",
+      "order": 10,
+      "gate": {
+        "requireAcceptedRevision": true,
+        "requireMetrics": {
+          "gameplay_contract_score": { "minimum": 100 }
+        }
+      },
+      "attempts": [
+        {
+          "id": "gameplay-v1",
+          "campaign": "campaign.gameplay.json",
+          "config": "factory.gameplay.json",
+          "status": "active"
+        }
+      ]
+    },
+    {
+      "id": "art-direction",
+      "title": "Production art slice",
+      "order": 20,
+      "dependsOn": ["gameplay"],
+      "gate": {
+        "requireAcceptedRevision": true,
+        "requireMetrics": {
+          "visual_quality": { "minimum": 85 },
+          "gameplay_contract_score": { "minimum": 100 }
+        }
+      },
+      "attempts": [
+        {
+          "id": "art-v1",
+          "campaign": "campaign.art-slice-v1.json",
+          "config": "factory.art-slice-v1.json",
+          "status": "superseded"
+        },
+        {
+          "id": "art-v2",
+          "campaign": "campaign.art-slice.json",
+          "config": "factory.art-slice.json",
+          "status": "active"
+        }
+      ]
+    },
+    {
+      "id": "production",
+      "title": "Production expansion",
+      "order": 30,
+      "dependsOn": ["art-direction"],
+      "gate": {
+        "requireAcceptedRevision": true
+      },
+      "attempts": [
+        {
+          "id": "production-v1",
+          "campaign": "campaign.production.json",
+          "config": "factory.production.json",
+          "status": "active"
+        }
+      ]
+    }
+  ]
+}

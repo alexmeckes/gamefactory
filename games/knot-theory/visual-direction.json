@@ -1,0 +1,72 @@
+{
+  "apiVersion": "gamefactory.visual-direction/v1",
+  "id": "knot-theory-workshop",
+  "intent": "Make Knot Theory feel like a lovingly built physical knot workshop: materially rich, authored, tactile, and quiet enough that the rope remains the hero.",
+  "renderingStrategy": {
+    "mode": "Layered engine-native 2D rope simulation with project-bound workshop assets, lighting, shaders, and tactile contact feedback.",
+    "feasibility": "Prove direct manipulation and topology in a graybox, then prove one representative puzzle at the shipping camera before expanding materials or prop families."
+  },
+  "references": [
+    {
+      "path": "visual-reference/art-target.png",
+      "label": "Conceptual material, lighting, staging, and craft inspiration; not a gameplay layout or production target",
+      "purpose": "material",
+      "authority": "inspiration",
+      "source": "other",
+      "sha256": "be7366e89cac2e2818a70fc605f72606a1a048789061d30d351be68285ef68f1",
+      "provenanceNote": "Legacy aspirational reference; original generation provenance is not part of this contract."
+    },
+    {
+      "path": "visual-reference/baseline-title.png",
+      "label": "Seed title baseline",
+      "purpose": "baseline",
+      "authority": "baseline",
+      "source": "captured",
+      "sha256": "0fded674e9a301c4c2c0b1ad37044311edc1645e3c0fd3dca10c7f969ea49c6a"
+    },
+    {
+      "path": "visual-reference/baseline-first-puzzle.png",
+      "label": "Seed teaching-puzzle baseline",
+      "purpose": "baseline",
+      "authority": "baseline",
+      "source": "captured",
+      "sha256": "71940fb4ec58727b383b005527f5433abdfaa404dac84b8f966b7920cb67a811"
+    },
+    {
+      "path": "visual-reference/baseline-finale.png",
+      "label": "Seed finale baseline",
+      "purpose": "baseline",
+      "authority": "baseline",
+      "source": "captured",
+      "sha256": "82db9b8c29133b0ff31a52a2bbb5a017cb890c6ebbc5152cd73c6166ab339704"
+    }
+  ],
+  "nonnegotiables": [
+    "The single continuous rope is always the strongest, most legible visual subject.",
+    "Interaction state is readable without relying on instructional paragraphs.",
+    "Materials, depth, lighting, typography, and motion belong to one authored workshop world.",
+    "The title, first teaching puzzle, and machine-like finale each have a deliberate focal composition.",
+    "Polish must preserve deterministic scenario hooks, puzzle truth, and direct-manipulation clarity."
+  ],
+  "qualityDimensions": {
+    "material_depth": "Surfaces, rope, hardware, shadows, and highlights imply distinct physical materials rather than flat programmer shapes.",
+    "focal_hierarchy": "Composition, contrast, scale, and negative space guide attention deliberately in every captured view.",
+    "rope_legibility": "Crossings, tension, grab state, threading, and topology remain readable against the environment.",
+    "authored_specificity": "The result feels particular to a knot workshop, not like a generic dark dashboard or game-jam prototype.",
+    "composition_typography": "Type, labels, controls, spacing, and framing feel intentional and integrated with the world.",
+    "motion_feedback": "Manipulation and state changes communicate weight, tension, contact, success, and reset through coherent motion and feedback."
+  },
+  "antiPatterns": [
+    "uniform debug grid as the dominant background",
+    "single-weight line art for every material",
+    "default system-font hierarchy and floating dashboard chrome",
+    "raw circles and rectangles presented as finished props",
+    "decorative texture that obscures rope crossings",
+    "neon cyber styling, glossy mobile UI, pixel art, or photorealism"
+  ],
+  "views": [
+    { "id": "title", "purpose": "Promise, identity, and first impression." },
+    { "id": "first-puzzle", "purpose": "Teaching clarity and tactile invitation." },
+    { "id": "finale", "purpose": "Visual payoff and machine-like recombination." }
+  ]
+}

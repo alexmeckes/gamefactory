@@ -39,6 +39,28 @@ test("acceptance honors direction and minimum delta", () => {
   ).accepted, false);
 });
 
+test("acceptance enforces declared hard and human evaluator gates", () => {
+  const quality = { ...evaluation(0.8), evaluator: "quality" };
+  const human = { ...evaluation(1), evaluator: "playtest.human" };
+  assert.equal(decideAcceptance(
+    { primaryMetric: "score", direction: "maximize", hardGates: ["quality"] },
+    [evaluation(0.5)],
+    [evaluation(0.8)]
+  ).accepted, false);
+  assert.equal(decideAcceptance(
+    { primaryMetric: "score", direction: "maximize", hardGates: ["quality"] },
+    [evaluation(0.5)],
+    [evaluation(0.8), quality],
+    { humanGates: ["playtest.human"] }
+  ).accepted, false);
+  assert.equal(decideAcceptance(
+    { primaryMetric: "score", direction: "maximize", hardGates: ["quality"] },
+    [evaluation(0.5)],
+    [evaluation(0.8), quality, human],
+    { humanGates: ["playtest.human"] }
+  ).accepted, true);
+});
+
 test("budget stops after experiment limit", () => {
   const budget = new BudgetController({ maximumExperiments: 1 });
   assert.equal(budget.remainingExperiments(), 1);

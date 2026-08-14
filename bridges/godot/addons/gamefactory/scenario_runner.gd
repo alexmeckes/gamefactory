@@ -60,7 +60,11 @@ func _run() -> void:
 	var ticks: int = maxi(1, int(parameters.get("ticks", 120)))
 	var physics_hz: int = maxi(1, int(parameters.get("physics_hz", 60)))
 	Engine.physics_ticks_per_second = physics_hz
-	var capture_ticks: Array = parameters.get("capture_ticks", [])
+	var requested_capture_ticks: Array = parameters.get("capture_ticks", [])
+	var capture_ticks: Array[int] = []
+	for capture_tick in requested_capture_ticks:
+		capture_ticks.append(int(capture_tick))
+	var captured_ticks: Array[int] = []
 	var telemetry_path := _output_dir.path_join("telemetry.jsonl")
 	var telemetry := FileAccess.open(telemetry_path, FileAccess.WRITE)
 	if subject.has_method("factory_setup"):
@@ -78,8 +82,8 @@ func _run() -> void:
 		if capture_ticks.has(tick):
 			await RenderingServer.frame_post_draw
 			var image := root.get_texture().get_image()
-			if image:
-				image.save_png(_output_dir.path_join("frame-%06d.png" % tick))
+			if image and image.save_png(_output_dir.path_join("frame-%06d.png" % tick)) == OK:
+				captured_ticks.append(tick)
 	var metrics := {
 		"ticks_completed": ticks,
 		"completion": 1.0,
@@ -97,7 +101,7 @@ func _run() -> void:
 		"mediaType": "application/x-ndjson",
 		"label": "Deterministic scenario telemetry"
 	}]
-	for capture_tick in capture_ticks:
+	for capture_tick in captured_ticks:
 		artifacts.append({
 			"kind": "image",
 			"path": _output_dir.path_join("frame-%06d.png" % int(capture_tick)),
@@ -113,7 +117,9 @@ func _run() -> void:
 			"provider": request.get("provider", "godot.factory/v1"),
 			"version": request.get("version", "1"),
 			"seed": seed_value,
-			"physics_hz": physics_hz
+			"physics_hz": physics_hz,
+			"requested_capture_ticks": requested_capture_ticks,
+			"captured_ticks": captured_ticks
 		}
 	})
 	quit(0 if violations.is_empty() else 1)

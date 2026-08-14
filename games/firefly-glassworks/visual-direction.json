@@ -1,0 +1,63 @@
+{
+  "apiVersion": "gamefactory.visual-direction/v1",
+  "id": "firefly-glassworks",
+  "intent": "A quiet, tactile glass workshop where one living beam remains readable through every transformation.",
+  "renderingStrategy": {
+    "mode": "Choose an engine-feasible Godot method after gameplay selection: layered sprites and shaders, authored 2D meshes, or a similarly bounded approach that survives the shipping camera.",
+    "feasibility": "Prove one representative puzzle, one instrument interaction, and one complete beam reaction in the running project before expanding any asset family."
+  },
+  "references": [
+    {
+      "path": "visual-reference/baseline-title.png",
+      "label": "Intentionally unstyled seed title",
+      "purpose": "baseline",
+      "authority": "baseline",
+      "source": "captured",
+      "sha256": "613e1f8d5a1e6d72bf23e6a0427ebce389fceedb5dafa794afabb52beffa917a"
+    },
+    {
+      "path": "visual-reference/baseline-first-puzzle.png",
+      "label": "Intentionally unstyled representative-puzzle baseline",
+      "purpose": "baseline",
+      "authority": "baseline",
+      "source": "captured",
+      "sha256": "529505fe0a0a17efcc491fa197290a2268f0e8006f28f8eb2fe26e4113d9ea12"
+    },
+    {
+      "path": "visual-reference/baseline-solved.png",
+      "label": "Intentionally unstyled solved-beam baseline",
+      "purpose": "baseline",
+      "authority": "baseline",
+      "source": "captured",
+      "sha256": "560bb85d30ed1c9d09e88ef88a31cf40ec3d88e530b1604f59c091cf65900ca0"
+    }
+  ],
+  "nonnegotiables": [
+    "The beam path, direction, transformations, receiver state, and manipulable instruments remain readable in motion.",
+    "A production target is captured from the running Godot project at the shipping camera.",
+    "The representative art slice is accepted before the visual vocabulary expands.",
+    "Important states remain distinguishable without hue alone.",
+    "Presentation work preserves deterministic gameplay and reset contracts."
+  ],
+  "qualityDimensions": {
+    "material_depth": "Glass, brass, work surface, light, and shadow read as intentionally distinct materials.",
+    "focal_hierarchy": "The current decision, living beam, and receiver form an immediate hierarchy.",
+    "beam_legibility": "Direction, contact, transformation, and arrival remain readable at gameplay scale and through motion.",
+    "authored_specificity": "The scene belongs to this intimate glass workshop rather than a generic neon grid or dashboard.",
+    "composition_typography": "Camera, negative space, labels, controls, and type feel deliberate without overpowering the puzzle.",
+    "motion_feedback": "Rotation, beam travel, contact, transformation, arrival, reset, and success have coherent anticipation and settle."
+  },
+  "antiPatterns": [
+    "concept art presented as a running-game target",
+    "building every asset before gameplay selection",
+    "raw grid primitives presented as finished art",
+    "default-font dashboard chrome dominating the puzzle",
+    "particle fog or bloom obscuring beam topology",
+    "color-only interaction state"
+  ],
+  "views": [
+    { "id": "title", "purpose": "Promise the workshop fantasy and invite play." },
+    { "id": "first-puzzle", "purpose": "Demonstrate manipulation, hierarchy, and production feasibility." },
+    { "id": "solved", "purpose": "Demonstrate the complete beam reaction and payoff." }
+  ]
+}

@@ -1,0 +1,439 @@
+{
+  "apiVersion": "gamefactory.design-system/v1",
+  "id": "emberline-living-instrument-workshop",
+  "version": "1.0.0",
+  "title": "Emberline: Living Instrument Workshop",
+  "maturity": "direction",
+  "identity": {
+    "intent": "Make the living fuse the first tactical read through tactile workshop materials, physical non-hue state changes, distinct instrument verbs, and restrained cause-and-effect feedback while leaving screen composition open to implementation.",
+    "toneWords": [
+      "handmade",
+      "intimate",
+      "ingenious",
+      "gently urgent",
+      "tactile",
+      "slightly mysterious"
+    ],
+    "avoidWords": [
+      "medieval",
+      "neon sci-fi",
+      "glossy mobile",
+      "ornamental steampunk",
+      "particle fog",
+      "debug-flat"
+    ]
+  },
+  "principles": [
+    {
+      "id": "route-state-before-ornament",
+      "statement": "Fuse condition, threat direction, reach, target, health, and danger read before material ornament.",
+      "rationale": "The living fuse is a strategic object, not a background effect; decorative craft is useful only when it preserves decisions at normal gameplay scale.",
+      "priority": 1
+    },
+    {
+      "id": "physical-state-not-hue",
+      "statement": "Every thermal state changes silhouette, geometry, pattern, or attachment as well as color.",
+      "rationale": "STEADY, HOT, and FRAYED must remain distinguishable in grayscale, under reduced effects, and during dense combat.",
+      "priority": 2
+    },
+    {
+      "id": "one-instrument-one-verb",
+      "statement": "Spark opens and recoils, Bell compresses and exhales, and Striker winds up and fractures.",
+      "rationale": "Strong silhouette and motion identities make reaction order readable without relying on color or long labels.",
+      "priority": 3
+    },
+    {
+      "id": "heart-is-precious",
+      "statement": "Cyan glass and the brightest cool light belong first to the heart, then to protection and cooling responses.",
+      "rationale": "A reserved focal material gives incoming threats a legible line of tension toward the game's consequence.",
+      "priority": 4
+    },
+    {
+      "id": "tactile-restraint",
+      "statement": "Use one readable anticipation-action-settle beat instead of high particle volume, large bloom, or constant shake.",
+      "rationale": "Physical cause and effect feels authored while preserving route and enemy readability and supporting reduced-motion play.",
+      "priority": 5
+    },
+    {
+      "id": "semantic-composition",
+      "statement": "Tokens express roles and relative emphasis rather than fixed coordinates or a literal reference layout.",
+      "rationale": "Downstream implementers need a coherent language with room to solve the final Godot composition using engine-native evidence.",
+      "priority": 6
+    }
+  ],
+  "tokens": {
+    "color": {
+      "surface": {
+        "void": "#0A0A0E",
+        "soot": "#121116",
+        "walnut": "#241713",
+        "iron": "#29282B"
+      },
+      "line": {
+        "brass": "#DFA349",
+        "copper": "#C65A2E"
+      },
+      "state": {
+        "hot": "#F56A32",
+        "danger": "#FF5A3D",
+        "cool": "#73DDE8",
+        "safe": "#84F4EF"
+      },
+      "material": {
+        "heartCyan": "#84F4EF",
+        "ceramicBone": "#D8CBB7"
+      },
+      "text": {
+        "primary": "#F4E8D2",
+        "secondary": "#A89991",
+        "focus": "#84F4EF"
+      },
+      "usage": {
+        "warm": "Action and danger; always pair danger with a notch, chevron, tab, or label.",
+        "cool": "Heart, cooling, protection, and keyboard focus; never flood the whole board.",
+        "background": "Lower saturation and contrast than route, threats, heart, and interactive affordances."
+      }
+    },
+    "typography": {
+      "families": {
+        "display": "Humanist sans or restrained small-cap face with open counters.",
+        "interface": "Clear sturdy sans with tabular numeral support.",
+        "fallback": "Godot default sans when no project-bound font is available."
+      },
+      "roles": {
+        "display": { "sizePx": 42, "weight": 600, "trackingPx": 1.5, "use": "Title only" },
+        "heading": { "sizePx": 24, "weight": 600, "use": "Major state changes and endings" },
+        "control": { "sizePx": 17, "weight": 600, "use": "Short action verbs and instrument names" },
+        "body": { "sizePx": 18, "weight": 400, "use": "Onboarding and concise explanation" },
+        "caption": { "sizePx": 14, "weight": 500, "use": "Prices, wave detail, secondary counters" },
+        "numeric": { "sizePx": 18, "weight": 600, "tabular": true, "use": "Credit, health, wave counters" }
+      },
+      "constraints": {
+        "minimumEssentialPx": 14,
+        "referenceViewport": "1152x720",
+        "case": "Sentence case for instruction; short uppercase only for compact mechanical states."
+      }
+    },
+    "spacing": {
+      "basePx": 4,
+      "scalePx": [4, 8, 12, 16, 24, 32, 48, 64],
+      "minimumPointerTargetPx": 44,
+      "majorControlGapPx": 8,
+      "denseInternalGapPx": 4,
+      "rule": "Use relative grouping and breathing room; do not derive a fixed board grid from this scale."
+    },
+    "shape": {
+      "radiusPx": { "control": 5, "panel": 6, "focusOffset": 2 },
+      "socket": "Concentric round collar with a keyed notch; selection adds a second collar.",
+      "danger": "Downward iron chevron or sharp notch, never a soft badge alone.",
+      "success": "Seated collar, clean outward ring, or aligned seam.",
+      "fracture": "Three to five large wedges rather than confetti-sized shards.",
+      "range": "Thin authored arc with a material pattern; do not make range identity color-exclusive."
+    },
+    "material": {
+      "charredWalnut": {
+        "value": "Low-saturation grain with broad value variation.",
+        "constraint": "Subdue grain near tactical marks and essential text."
+      },
+      "sootIron": {
+        "value": "Almost-black body with rough edge highlights.",
+        "constraint": "Use heavy silhouette for clamps, armor, disabled controls, and Striker."
+      },
+      "hammeredBrass": {
+        "value": "Warm irregular rim with small value breaks.",
+        "constraint": "Reserve brightest brass for active or available affordances."
+      },
+      "copperFilament": {
+        "value": "Directional braid with a thin specular thread.",
+        "constraint": "Expand for HOT and separate into branching strands for FRAYED."
+      },
+      "boneCeramic": {
+        "value": "Pale crazed surface with a thick readable rim.",
+        "constraint": "Use for Cooling Bell and cooling collars, not general panel chrome."
+      },
+      "cyanGlass": {
+        "value": "Internal light held by a visible metal cage.",
+        "constraint": "Heart first, cooling second; localized restrained bloom only."
+      },
+      "waxAndSoot": {
+        "value": "Sparse workshop storytelling support.",
+        "constraint": "Never overlap route, hit feedback, or labels."
+      },
+      "lowEffectsRule": "Material separation survives through base value and edge treatment when reflections, particles, and bloom are reduced."
+    },
+    "motion": {
+      "durationMs": {
+        "anticipationFast": 90,
+        "anticipationReadable": 140,
+        "actionFast": 60,
+        "actionWeighted": 100,
+        "settleLight": 140,
+        "settleWeighted": 220,
+        "reducedMotionHold": 180,
+        "toastMinimum": 900,
+        "toastMaximum": 1400
+      },
+      "beats": {
+        "placement": ["hover or align", "60 ms seat", "140 ms collar settle"],
+        "spark": ["shutter open", "angular flare", "coil recoil"],
+        "bell": ["ceramic compression", "one low mist ring", "settle"],
+        "striker": ["preload", "contact", "three fracture wedges", "weighted recoil"],
+        "clamp": ["two knocks", "140 ms jaw preload", "bite", "held non-hue state"]
+      },
+      "screenShake": { "maximumPx": 4, "durationMs": 120, "allowed": "Boss clamp contact or break only" },
+      "rule": "Use one dominant movement per beat and preserve the end-state geometry when motion is reduced."
+    },
+    "audio": {
+      "buses": ["Master", "Music", "SFX", "UI"],
+      "events": {
+        "waveIgnite": "Short wax hiss into a low metal latch.",
+        "sparkFire": "Dry high narrow coil snap.",
+        "bellFire": "Hollow ceramic tone with a cool breath tail.",
+        "strikerFire": "Muted iron wind-up and weighted contact.",
+        "temper": "Descending ceramic interval and steam release.",
+        "shatter": "One sharp crack followed by two lower fragments.",
+        "flashboil": "Compressed hiss then a tight pop, never an explosion wall.",
+        "leakCore": "Cyan glass stress ping plus a low heart thump.",
+        "bossWarning": "Two slow clamp knocks distinct from wave start.",
+        "victory": "Resolved workshop chord with seated mechanism.",
+        "defeat": "Extinguished filament decay with restart control unaffected."
+      },
+      "mix": {
+        "maximumIdenticalVoices": 3,
+        "pitchVariation": "Small variation only where instrument identity remains stable.",
+        "mute": "Expose a master mute.",
+        "reducedIntensity": "Lower repeated high-frequency cues without removing semantic warnings."
+      }
+    },
+    "feedback": {
+      "available": ["bright brass rim", "open keyed notch", "concise action verb"],
+      "selected": ["double collar", "persistent range geometry", "material-specific ghost"],
+      "unaffordable": ["muted iron face", "legible price", "no danger-red treatment"],
+      "invalid": ["closed notch", "90 ms lateral mechanical nudge", "no full-screen effect"],
+      "spend": ["number ticks once", "brass fleck travels inward", "control seats"],
+      "damage": ["enemy health change", "one contact mark", "never floating numbers alone"],
+      "reaction": ["compact name or stable icon", "physical route or enemy response", "instrument-specific signature"],
+      "coreDamage": ["heart cage contracts", "crack highlights", "directional leak line"],
+      "waveReady": ["wax wick steadies", "start control warms", "outline and enabled state become explicit"]
+    },
+    "accessibility": {
+      "stateChannelsMinimum": 2,
+      "fuseStates": {
+        "steady": ["tight intact braid", "seated round collar"],
+        "hot": ["expanded coil", "one raised rectangular heat tab"],
+        "frayed": ["split sheath", "branching filament", "sharp iron danger notch"]
+      },
+      "reactionStates": {
+        "kindled": "Upward flame or coil tick.",
+        "brittleOrChilled": "Ceramic cinch around the target.",
+        "shatter": "Broken ring or large fracture wedge."
+      },
+      "focus": { "color": "#84F4EF", "outlinePx": 3, "outsideComponent": true },
+      "pointerTargetMinimumPx": 44,
+      "contrast": { "normalText": "4.5:1", "largeTextAndMeaningfulBoundaries": "3:1" },
+      "reducedMotion": "Replace travel, shake, and particle bursts with held end-state geometry for at least 180 ms; simulation and timing windows do not change.",
+      "reducedIntensity": "Lower bloom, sparks, mist, shake, and repeated high-frequency audio without removing target, state, consequence, or action cues.",
+      "grayscaleRequirement": "Route state, instrument identity, threat direction, and available response remain readable without hue."
+    }
+  },
+  "patterns": [
+    {
+      "id": "living-fuse-band",
+      "intent": "Make one authored fuse band communicate shared tactical condition without becoming a secondary meter stack.",
+      "rules": [
+        "Layer base shadow, physical sheath, conductive braid, one state attachment, and sparse local light.",
+        "Use a seated collar for STEADY, one raised tab for HOT, or one danger notch for FRAYED.",
+        "Keep the route continuous and more legible than environmental grain."
+      ],
+      "avoid": [
+        "Bars above every segment",
+        "Glow-only state",
+        "Several simultaneous state badges"
+      ],
+      "examples": [
+        "A HOT bend widens its coil spacing and lifts one brass tab while the next STEADY band remains tightly braided."
+      ]
+    },
+    {
+      "id": "instrument-identity",
+      "intent": "Keep Spark, Cooling Bell, and Striker recognizable by silhouette, material, and a single physical verb.",
+      "rules": [
+        "Spark is tall and coiled with an opening shutter and narrow angular recoil.",
+        "Bell is wide and hollow with a thick ceramic rim, compression, and one low cooling ring.",
+        "Striker is squat and directional with a visible preload, contact face, and weighted recoil."
+      ],
+      "avoid": [
+        "Same circular base with color swaps",
+        "Generic medieval tower roofs",
+        "Continuous idle particles as the identity"
+      ],
+      "examples": [
+        "At zero saturation, the coil, bowl, and offset hammer still identify the three instruments."
+      ]
+    },
+    {
+      "id": "placement-preview",
+      "intent": "Preview a concrete future interaction before the player commits economy.",
+      "rules": [
+        "Seat a material-specific ghost above the socket and show one keyed alignment cue.",
+        "Show range geometry and the first reachable fuse band or target without promising a fixed target.",
+        "Confirm with a 60 ms seat and 140 ms collar settle."
+      ],
+      "avoid": [
+        "Dense damage tables over the board",
+        "Color-only valid placement",
+        "Large opaque range fills that hide the route"
+      ],
+      "examples": [
+        "A Bell ghost shows a ceramic rim, thin reach arc, and a cooling collar preview on the nearest reachable band."
+      ]
+    },
+    {
+      "id": "threat-to-heart-line",
+      "intent": "Connect the most imminent threat to the heart and the endangered route band without brightening every object.",
+      "rules": [
+        "Place one forward iron chevron on the most imminent threat.",
+        "Pulse or notch only the threatened fuse band.",
+        "Keep the cyan heart luminous and environmental props subdued."
+      ],
+      "avoid": [
+        "Equal glow on all enemies",
+        "Full-screen red vignette for ordinary danger",
+        "Threat markers that overlap health"
+      ],
+      "examples": [
+        "A Rivet Carrier approaching a FRAYED band receives one forward chevron while that band holds its iron notch."
+      ]
+    },
+    {
+      "id": "thermal-reaction-beat",
+      "intent": "Make reaction order legible through instrument-specific cause and one physical consequence.",
+      "rules": [
+        "Use anticipation, contact, one physical response, and settle.",
+        "Pair a compact reaction name or stable icon with the response.",
+        "Preserve route continuity and enemy health readability throughout the beat."
+      ],
+      "avoid": [
+        "Generic burst motes for every reaction",
+        "Long text that obscures combat",
+        "Several simultaneous camera impulses"
+      ],
+      "examples": [
+        "Temper seats a ceramic cinch and releases one low mist ring; Shatter replaces it with three fracture wedges and Striker recoil."
+      ]
+    },
+    {
+      "id": "furnace-warden-clamp",
+      "intent": "Telegraph a single boss adaptation as a physical problem with a readable two-instrument response.",
+      "rules": [
+        "Warn with two clamp knocks, a 140 ms iron jaw preload, and a marked target band.",
+        "Clamp contact creates FRAYED geometry and a visible jaw shield, never unexplained immunity.",
+        "Cooling adds a bone-ceramic collar and visibly loosens the jaw; Striker adds a fracture seam and breaks it."
+      ],
+      "avoid": [
+        "Hidden damage immunity",
+        "Modal interruption after control returns",
+        "Repeated clicking to loosen the clamp"
+      ],
+      "examples": [
+        "The clamp jaw changes from shut iron teeth to a cyan-rimmed loose gap before the Striker response becomes decisive."
+      ]
+    },
+    {
+      "id": "workshop-control-plate",
+      "intent": "Make mouse and keyboard controls feel fitted to the workshop while remaining immediately discoverable.",
+      "rules": [
+        "Use a deep walnut or soot face, fitted 5 px corners, a 1 px rim, and a 44 px minimum target.",
+        "Use a short action verb and explicit disabled or unaffordable treatment.",
+        "Give primary actions brass emphasis and keyboard focus a 3 px cyan exterior outline."
+      ],
+      "avoid": [
+        "Glossy pill buttons",
+        "Hover-only labels",
+        "Using danger red for unaffordable state"
+      ],
+      "examples": [
+        "A ready wave-start plate warms its brass rim and steadies a small wick while the label remains readable."
+      ]
+    },
+    {
+      "id": "end-state-feedback",
+      "intent": "Close the run emotionally while keeping replay unambiguous.",
+      "rules": [
+        "Victory reseats the fuse and heart cage with a controlled cyan and amber resolution.",
+        "Defeat extinguishes filament light while retaining readable heart silhouette and restart action.",
+        "Expose one obvious replay control with the same focus and pointer contracts."
+      ],
+      "avoid": [
+        "Unskippable particle celebration",
+        "Restart hidden in prose",
+        "Losing control contrast under ending overlays"
+      ],
+      "examples": [
+        "On defeat, copper falls to a dim edge rather than blacking out the control plate; restart receives the brass rim and cyan focus behavior."
+      ]
+    }
+  ],
+  "references": [
+    {
+      "path": "design/references/emberline-material-fuse-study.png",
+      "role": "Controlled material and fuse-state study for tactile construction, STEADY/HOT/FRAYED non-hue geometry, and instrument silhouette separation; not a final screenshot or layout.",
+      "purpose": "material",
+      "authority": "inspiration",
+      "source": "imagegen",
+      "sha256": "1944d50ca067bea64f2503629505e9598dc06002b3b7596f19104174f788c0e8",
+      "prompt": "Use case: stylized-concept\nAsset type: controlled game visual-language study — material and fuse-state reference, not a final screenshot\nInput images: Image 1 is the aspirational reference for tactile workshop materials, warm/cool lighting, and miniature craftsmanship; Image 2 is a baseline readability reference showing the existing single-route board and sparse silhouettes, not a layout to copy\nPrimary request: create one polished concept study for EMBERLINE showing a compact section of a living braided copper fuse across a charred walnut workbench, with three clearly separated physical state specimens: STEADY, HOT, and FRAYED. Integrate three small handcrafted instrument maquettes nearby: a copper-coil Spark instrument with a shuttered aperture, a crazed bone-ceramic Cooling Bell with a deep bowl, and a soot-black iron Striker with a heavy offset hammer. The study must establish reusable material and silhouette language, not dictate a full level composition.\nScene/backdrop: dark intimate workbench specimen stage with restrained iron fixtures, hammered brass collars, wax traces, and cool blue-black shadow\nStyle/medium: premium tactile miniature-diorama concept art; physically believable craft; painterly-real materials; code-native Godot implementation reference\nComposition/framing: landscape 16:9, oblique top-down close study; three fuse-state specimens readable as a left-to-right progression; instruments separated with generous negative space; no complete game board and no HUD\nLighting/mood: precious ember warmth against cyan ceramic/glass cooling light; gently urgent, ingenious, slightly mysterious; controlled highlights, restrained bloom\nColor palette: soot-black, charred walnut, ember copper, aged brass, bone ceramic, cyan glass; cyan reserved for heart/cooling/safe response and amber-red reserved for heat/danger\nMaterials/textures: braided copper, split sheath fibers, raised brass heat tab, dark iron danger notch, crazed ceramic, hammered brass, oxidized copper, soot, wax, glass\nState communication: STEADY uses an intact tight braid and seated collar; HOT visibly expands the coil and raises one brass heat tab in addition to warmer light; FRAYED splits the sheath silhouette, exposes branching filament, and adds a sharp iron danger notch in addition to red-orange heat. The three states must remain distinguishable in grayscale.\nInstrument identity: Spark reads tall and coiled with an opening shutter; Bell reads wide and hollow with a ceramic rim; Striker reads squat, weighted, and directional with visible recoil mechanics\nConstraints: visual study only; no enemies, no characters, no medieval towers, no green terrain, no neon sci-fi, no glossy vector cards, no dense ornament, no interface mockup, no tiny labels, no logos, no watermark, no final-screen composition to copy"
+    },
+    {
+      "path": "design/references/emberline-hierarchy-motion-study.png",
+      "role": "Controlled hierarchy, component, and motion study for placement, instrument beats, threat-to-heart direction, and the telegraphed Warden clamp response; not a final screenshot or layout.",
+      "purpose": "motion",
+      "authority": "inspiration",
+      "source": "imagegen",
+      "sha256": "a21ed4e015d81f8641c22407343b2e6729652c0049454caf4ca44c18abd7c17c",
+      "prompt": "Use case: stylized-concept\nAsset type: controlled game visual-language study — gameplay hierarchy, reusable components, and motion beats, not a final screenshot\nInput images: Image 1 is the aspirational reference for tactile workshop materials, warm/cool lighting, and miniature craftsmanship; Image 2 is a baseline combat-readability reference whose flat circles, uniform route, and sparse feedback must be materially surpassed without copying its layout\nPrimary request: create one polished EMBERLINE concept study arranged as four generous cinematic keyframe vignettes on a dark workshop presentation plate. Show how one living fuse, three handcrafted instruments, small coal-and-rivet threats, a luminous cyan glass heart, and one furnace-warden clamp communicate cause and effect at gameplay scale. The study should define hierarchy and motion signatures that can be rebuilt with Godot drawing and shaders, not prescribe a complete interface or level.\nScene/backdrop: oblique top-down miniature workbench fragments, each vignette focused on a short fuse bend with sparse physical props and controlled negative space\nStyle/medium: premium tactile miniature-diorama concept art; physically believable craft; painterly-real materials; code-native Godot implementation reference\nComposition/framing: landscape 16:9 reference plate with four clearly separated vignettes and no complete board. Vignette 1: placement preview, an empty brass socket accepting a translucent instrument silhouette while a thin mechanical reach arc points to one fuse band. Vignette 2: instrument choreography, Spark shutter opens with a tight angular flare, Cooling Bell compresses then exhales one low ceramic-cinch mist ring, Striker winds up and snaps forward with three large fracture wedges. Vignette 3: threat hierarchy, two small enemies move along a HOT fuse toward a luminous cyan glass heart; the imminent threat has a forward iron chevron and the threatened segment has one raised tab, while background props remain subdued. Vignette 4: furnace-warden adaptation, a massive soot-iron clamp bites a FRAYED fuse segment; a cyan ceramic cooling collar visibly loosens the clamp, then a bold striker fracture seam shows the next response.\nLighting/mood: precious ember warmth against cool cyan heart and cooling accents; gently urgent, intimate, ingenious; strong focal falloff; restrained bloom and particle count\nColor palette: soot-black, charred walnut, ember copper, aged brass, bone ceramic, cyan glass; cyan reserved for heart/cooling/safe response and amber-red reserved for heat/danger\nComponent language: primary actions use warm hammered-brass rims and deep walnut faces; selection uses a double mechanical collar; danger uses iron chevrons, raised tabs, split silhouette, and notches; cooling uses ceramic cinches and condensed rings; success uses a brief seated snap and clean outward ring\nMotion language: anticipation 90–140 ms, action 60–100 ms, settle 140–220 ms; one dominant movement per beat; readable recoil and silhouette change; reduced-motion equivalents shown as held end-state geometry rather than particles\nAccessibility: every important state must remain distinguishable in grayscale through silhouette, pattern, notch, collar, chevron, or fracture geometry; heart, threat, and available response form the brightest three-step hierarchy\nConstraints: visual study only; no readable prose labels, no final HUD, no full game-screen composition, no floating magic runes, no generic medieval towers, no green terrain, no neon sci-fi, no glossy mobile cards, no particle fog, no tiny decoration, no logos, no watermark"
+    }
+  ],
+  "implementations": [
+    {
+      "id": "emberline-godot-theme",
+      "adapter": "godot-theme",
+      "path": "design/theme/emberline_theme.tres",
+      "sha256": "56715f1801f641bf139c11fb6fdc02d646c132edc0fdc99efb722723bbf1e866"
+    },
+    {
+      "id": "emberline-human-guidance",
+      "adapter": "human-guidance",
+      "path": "DESIGN_SYSTEM.md",
+      "sha256": "dd298a0be740d9f8913316781891e2d986b22e04894a13b59d514375334d9346"
+    }
+  ],
+  "metadata": {
+    "hypothesis": "A small physical fuse-state vocabulary plus instrument-specific silhouette and motion can expose local pressure and adaptation without a dense meter layer.",
+    "assumptions": [
+      "The route remains the first gameplay read at 1152x720.",
+      "One local marker per fuse band is enough during combat.",
+      "Cyan can remain reserved for the heart, protection, cooling, and focus.",
+      "Downstream Godot rendering will interpret semantic roles rather than copy reference composition."
+    ],
+    "falsifiers": [
+      "Fuse state needs a persistent legend during combat.",
+      "Bell becomes mandatory at every socket.",
+      "Particles or background material obscure route continuity.",
+      "State or instrument identity disappears in grayscale or reduced motion."
+    ],
+    "referencePolicy": "The two ImageGen files are visual-language studies, not engine captures and not evidence of human enjoyment or final visual quality.",
+    "generationMode": "Codex built-in ImageGen",
+    "generatedStudyCount": 2,
+    "referenceInputs": [
+      "STYLE.md",
+      "visual-direction.json",
+      "visual-reference/art-target.png",
+      "visual-reference/baseline-board.png",
+      "visual-reference/baseline-wave.png",
+      "systems-scout output",
+      "feel-scout output",
+      "encounter-scout output"
+    ]
+  }
+}

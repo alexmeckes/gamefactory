@@ -1,0 +1,60 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "id": "godot-multi-agent-fixture",
+  "objective": "Exercise the specialist-team tournament deterministically against Pulse Runner.",
+  "projectRoot": ".",
+  "workflow": "tournament",
+  "requires": [
+    "workspace:git.worktree",
+    "agent:agent.team",
+    "evaluator:godot.scenario"
+  ],
+  "mutablePaths": ["tuning.json"],
+  "immutablePaths": ["addons/gamefactory/**", "campaign*.json", "factory.config.json", "tools/**"],
+  "parameters": {
+    "tournament": {
+      "workspace": "git.worktree",
+      "agents": ["agent.team"],
+      "evaluators": [{ "id": "godot.scenario", "cost": 10 }],
+      "candidateCount": 3,
+      "concurrency": 2
+    },
+    "agentTeam": {
+      "maximumParallel": 2,
+      "maxOutputCharacters": 12000,
+      "provider": "local",
+      "model": "deterministic-team-role",
+      "scouts": [
+        { "id": "systems-scout", "command": ["node", "tools/team-role.mjs"] },
+        { "id": "gameplay-scout", "command": ["node", "tools/team-role.mjs"] }
+      ],
+      "planner": { "id": "lead-planner", "command": ["node", "tools/team-role.mjs"] },
+      "implementer": { "id": "builder", "command": ["node", "tools/team-role.mjs"] },
+      "critics": [
+        { "id": "regression-critic", "command": ["node", "tools/team-role.mjs"] },
+        { "id": "quality-critic", "command": ["node", "tools/team-role.mjs"] }
+      ]
+    },
+    "godot": {
+      "importCheck": true,
+      "rendered": false,
+      "timeoutSeconds": 60,
+      "scenario": {
+        "provider": "godot.factory/v1",
+        "version": "1",
+        "path": "res://main.tscn",
+        "parameters": { "seed": 7, "ticks": 300, "physics_hz": 60, "duration_seconds": 5 }
+      }
+    }
+  },
+  "acceptance": {
+    "primaryMetric": "fun_score",
+    "direction": "maximize",
+    "minimumDelta": 0.005
+  },
+  "budget": {
+    "maximumExperiments": 3,
+    "maximumConsecutiveCrashes": 2,
+    "wallTimeMinutes": 3
+  }
+}

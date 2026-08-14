@@ -34,6 +34,11 @@ as data; extension code is imported only when a campaign requests one of its
 capabilities. This is the Pi-style constraint that keeps the factory from
 turning into a universal, permanently loaded agent framework.
 
+`@gamefactory/workflow-sdk` sits beside the kernel and contains reusable control-
+plane mechanics: bounded scheduling, evaluator waterfalls, evidence preservation,
+budget replay, result construction, and recovery. Workflow extensions compose
+these primitives instead of independently reimplementing them.
+
 ## Capability contracts
 
 | Kind | Responsibility |
@@ -53,8 +58,9 @@ features should be separate extensions.
 
 ## Control loops
 
-The outer loop is human: choose a vertical slice, objective, mutable surface,
-acceptance metric, and budget. The inner loop is autonomous and bounded:
+The outer loop is human: choose or version the design intent, select a vertical
+slice, approve a creative direction, define the mutable surface, acceptance
+evidence, and budget. The inner loop is autonomous and bounded:
 
 1. Measure the current baseline.
 2. Create an isolated candidate.
@@ -66,10 +72,23 @@ acceptance metric, and budget. The inner loop is autonomous and bounded:
 This keeps ideation and taste outside the optimizer while making repeated
 implementation work scientific and reproducible.
 
+`workflow:discovery` sits before this optimization loop. It ranks divergent
+prototypes but defaults to recommendation-only, while `evaluator:playtest.agents`
+runs synthetic behavior cohorts and `evaluator:playtest.human` keeps actual player
+approval separate and explicit.
+
 Multi-agent execution uses the same contracts. `agent.team` coordinates roles
 inside one candidate, while `workflow:tournament` coordinates several isolated
 candidates. Parallel work never owns acceptance: a serialized control plane
 reserves budgets, journals outcomes, preserves evidence, and applies one winner.
+
+Every run also writes an fsync-backed phase journal. An experiment advances
+through `reserved`, `candidate-created`, `agent-finished`, `evaluated`,
+`evidence-preserved`, `acceptance-intent`, `applied`, `recorded`, and `cleaned`.
+Journal entries carry campaign/configuration fingerprints and idempotency keys.
+On restart, pre-acceptance candidates are cleaned, applied-but-unrecorded results
+are completed, and an interrupted acceptance blocks for reconciliation rather
+than silently repeating a potentially destructive transition.
 
 ## Artifact model
 

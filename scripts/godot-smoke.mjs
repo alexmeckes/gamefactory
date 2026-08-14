@@ -11,6 +11,7 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const fixtureRoot = resolve(repositoryRoot, "examples", "godot");
 const campaignName = process.argv[2] ?? "campaign.json";
 const sandboxRoot = await mkdtemp(resolve(tmpdir(), "gamefactory-godot-smoke-"));
+const keepSandbox = process.env.FACTORY_SMOKE_KEEP === "true";
 let runner;
 let succeeded = false;
 
@@ -36,6 +37,9 @@ try {
         resolve(repositoryRoot, "extensions", "command-agent"),
         resolve(repositoryRoot, "extensions", "agent-team"),
         resolve(repositoryRoot, "extensions", "tournament"),
+        resolve(repositoryRoot, "extensions", "asset-foundry"),
+        resolve(repositoryRoot, "extensions", "design-lab"),
+        resolve(repositoryRoot, "extensions", "discovery"),
         resolve(repositoryRoot, "extensions", "godot")
       ],
       resultLog: ".factory/results/godot-smoke.jsonl"
@@ -57,6 +61,7 @@ try {
       status: experiment.status,
       score: experiment.metrics[campaign.acceptance.primaryMetric],
       revision: experiment.revision,
+      recommended: experiment.metadata?.discovery?.recommended,
       contributors: experiment.agent?.contributors.map((contributor) => ({
         id: contributor.agentId,
         role: contributor.role,
@@ -66,12 +71,20 @@ try {
   };
   console.log(JSON.stringify({ result: summary }, null, 2));
   if (process.env.FACTORY_SMOKE_VERBOSE === "true") console.log(JSON.stringify({ fullResult: result }, null, 2));
-  if (result.status !== "budget-exhausted" || !result.experiments.some((item) => item.status === "keep")) {
+  const candidateCrashes = result.experiments.filter((item) => item.experimentId !== "baseline" && item.status === "crash");
+  const discoverySucceeded = campaign.workflow === "discovery" &&
+    result.status === "complete" &&
+    result.experiments.some((item) => item.metadata?.discovery?.recommended === true) &&
+    result.experiments.every((item) => item.status !== "keep");
+  const improvementSucceeded = campaign.workflow !== "discovery" &&
+    result.status === "budget-exhausted" &&
+    result.experiments.some((item) => item.status === "keep");
+  if ((!discoverySucceeded && !improvementSucceeded) || candidateCrashes.length > 0) {
     throw new Error(`Unexpected Godot smoke result: ${result.status}`);
   }
   succeeded = true;
 } finally {
   await runner?.dispose();
-  if (succeeded) await rm(sandboxRoot, { recursive: true, force: true });
-  else console.error(`Preserved failing Godot sandbox: ${sandboxRoot}`);
+  if (succeeded && !keepSandbox) await rm(sandboxRoot, { recursive: true, force: true });
+  else console.error(`Preserved Godot sandbox: ${sandboxRoot}`);
 }

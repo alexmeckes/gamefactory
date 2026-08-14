@@ -1,0 +1,10 @@
+{
+  "name": "gamefactory.discovery",
+  "version": "0.1.0",
+  "apiVersion": "1.0",
+  "entry": "dist/index.js",
+  "activation": ["workflow:discovery"],
+  "contributes": { "workflow": ["discovery"] },
+  "permissions": ["filesystem:candidate", "process:git"],
+  "description": "Divergent prototype workflow that ranks learning evidence, preserves patches, and recommends without silently committing a direction."
+}
