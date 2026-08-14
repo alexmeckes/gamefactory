@@ -357,7 +357,22 @@ export class GodotVisualEvaluator implements Evaluator {
       violations.push({ code: "godot.visual.minimum", message: `Visual quality scored ${quality.toFixed(1)}, below ${settings.minimumScore}.`, severity: "error" });
     }
 
-    const evidence = Array.isArray(findings.evidence) ? findings.evidence : [];
+    const evidence = findings.evidence;
+    const citesEvidence = (kind: "view" | "sequence", id: string): boolean => {
+      if (Array.isArray(evidence)) {
+        return evidence.some((item) => item && typeof item === "object" && !Array.isArray(item)
+          && (item as Record<string, unknown>)[kind] === id
+          && typeof (item as Record<string, unknown>).observation === "string"
+          && ((item as Record<string, unknown>).observation as string).trim().length > 0);
+      }
+      if (!evidence || typeof evidence !== "object") return false;
+      const item = (evidence as Record<string, unknown>)[id];
+      if (typeof item === "string") return item.trim().length > 0;
+      if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+      const record = item as Record<string, unknown>;
+      const observation = record.observation ?? record.finding;
+      return typeof observation === "string" && observation.trim().length > 0;
+    };
     for (const view of settings.requiredViews) {
       let path: string;
       try {
@@ -380,10 +395,7 @@ export class GodotVisualEvaluator implements Evaluator {
       } catch (error) {
         violations.push({ code: `godot.visual.capture.${view.id}`, message: `Missing required ${view.id} capture: ${error instanceof Error ? error.message : String(error)}`, severity: "error" });
       }
-      const cited = evidence.some((item) => item && typeof item === "object" && !Array.isArray(item)
-        && (item as Record<string, unknown>).view === view.id
-        && typeof (item as Record<string, unknown>).observation === "string");
-      if (!cited) violations.push({ code: `godot.visual.evidence.${view.id}`, message: `Visual review did not record an observation for ${view.id}.`, severity: "error" });
+      if (!citesEvidence("view", view.id)) violations.push({ code: `godot.visual.evidence.${view.id}`, message: `Visual review did not record an observation for ${view.id}.`, severity: "error" });
     }
     for (const sequence of settings.requiredSequences) {
       const hashes = new Set<string>();
@@ -408,10 +420,7 @@ export class GodotVisualEvaluator implements Evaluator {
       if (hashes.size < 2) {
         violations.push({ code: `godot.visual.sequence.${sequence.id}.motion`, message: `${sequence.id} does not demonstrate visible change across frames.`, severity: "error" });
       }
-      const cited = evidence.some((item) => item && typeof item === "object" && !Array.isArray(item)
-        && (item as Record<string, unknown>).sequence === sequence.id
-        && typeof (item as Record<string, unknown>).observation === "string");
-      if (!cited) violations.push({ code: `godot.visual.evidence.${sequence.id}`, message: `Visual review did not record an observation for sequence ${sequence.id}.`, severity: "error" });
+      if (!citesEvidence("sequence", sequence.id)) violations.push({ code: `godot.visual.evidence.${sequence.id}`, message: `Visual review did not record an observation for sequence ${sequence.id}.`, severity: "error" });
     }
     if (review.value.outcome !== "pass") {
       violations.push({ code: "godot.visual.judgment", message: `Visual critic returned ${String(review.value.outcome ?? "no outcome")} instead of pass.`, severity: "error" });

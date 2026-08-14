@@ -107,6 +107,36 @@ test("Godot visual evaluator gates candidates using semantic scores and rendered
   }
 });
 
+test("Godot visual evaluator accepts keyed semantic evidence from model critics", async () => {
+  const { root } = await fixture();
+  try {
+    const review = resolve(root, ".factory", "agent-team", "exp-visual", "graph", "visual-critic", "attempt-2", "output.json");
+    await writeFile(review, `${JSON.stringify({
+      summary: "rendered views clear the visual bar",
+      outcome: "pass",
+      findings: {
+        scorecard: { material_depth: 80, focal_hierarchy: 76 },
+        evidence: {
+          title: { path: ".factory/previews/title.png", finding: "Layered hardware and rope create clear depth." },
+          puzzle: { path: ".factory/previews/puzzle.png", finding: "Contrast directs attention to the active rope crossing." },
+          "tower-fire": { paths: [".factory/previews/motion-000.png", ".factory/previews/motion-001.png", ".factory/previews/motion-002.png"], finding: "The sequence shows anticipation, travel, and impact." }
+        }
+      }
+    }, null, 2)}\n`, "utf8");
+    const result = await new GodotVisualEvaluator().evaluate({
+      campaign: campaign(root),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-visual",
+      priorEvaluations: [],
+      signal: new AbortController().signal
+    });
+    assert.equal(result.status, "pass");
+    assert.equal(result.metrics.visual_quality, 78);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("Godot visual evaluator rejects a static frame sequence presented as motion", async () => {
   const { root } = await fixture();
   try {
