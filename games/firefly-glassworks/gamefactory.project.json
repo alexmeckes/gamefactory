@@ -4,6 +4,7 @@
   "id": "firefly-glassworks",
   "title": "Firefly Glassworks",
   "projectRoot": ".",
+  "history": "project-history.jsonl",
   "phases": [
     {
       "id": "gameplay",

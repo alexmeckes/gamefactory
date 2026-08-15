@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { join, relative } from "node:path";
 import { promisify } from "node:util";
-import { FactoryRunner, loadCampaign, loadFactoryConfig, resolveCampaignRunIdentity, resolveFactoryStatePath, type Campaign, type CampaignResult, type FactoryConfig, type Logger } from "@gamefactory/core";
+import { FactoryRunner, loadCampaign, loadFactoryConfig, resolveCampaignRunIdentity, resolveFactoryStatePath, type Campaign, type CampaignResult, type FactoryConfig, type FactoryTraceEvent, type Logger } from "@gamefactory/core";
 import { acquireProjectLease, ProjectJourneyJournal, type ProjectJourneyIndex } from "./journal.js";
 import { projectManifestFingerprint } from "./manifest.js";
 import type { GameFactoryProject, LoadedGameFactoryProject, LoadedProjectPhase, LoadedProjectPhaseAttempt, ProjectRunResult } from "./types.js";
@@ -19,6 +19,8 @@ export interface ProjectCampaignExecution {
 export interface ProjectRunnerOptions {
   cwd: string;
   dataRoot?: string;
+  worktreeRoot?: string;
+  onTraceEvent?: (event: FactoryTraceEvent) => Promise<void> | void;
   journeyIndex?: ProjectJourneyIndex;
   logger: Logger;
   signal?: AbortSignal;
@@ -38,7 +40,7 @@ async function gitRevision(root: string): Promise<string | undefined> {
 }
 
 function rawProject(project: LoadedGameFactoryProject): GameFactoryProject {
-  return { apiVersion: project.apiVersion, kind: project.kind, id: project.id, title: project.title, projectRoot: project.projectRoot, phases: project.phases.map(({ attempts, ...phase }) => ({ ...phase, attempts: attempts.map(({ campaignPath: _campaignPath, configPath: _configPath, ...attempt }) => attempt) })) };
+  return { apiVersion: project.apiVersion, kind: project.kind, id: project.id, title: project.title, projectRoot: project.projectRoot, ...(project.history ? { history: project.history } : {}), phases: project.phases.map(({ attempts, ...phase }) => ({ ...phase, attempts: attempts.map(({ campaignPath: _campaignPath, configPath: _configPath, ...attempt }) => attempt) })) };
 }
 
 function activeAttempt(phase: LoadedProjectPhase): LoadedProjectPhaseAttempt {
@@ -65,6 +67,7 @@ function gateReasons(phase: LoadedProjectPhase, result: CampaignResult): { reaso
 export class ProjectRunner {
   readonly journal: ProjectJourneyJournal;
   readonly manifestFingerprint: string;
+  private historyImport?: Promise<void>;
 
   constructor(readonly project: LoadedGameFactoryProject, private readonly options: ProjectRunnerOptions) {
     const logicalJournal = relative(options.cwd, join(project.root, ".factory", "projects", project.id, "journey.jsonl"));
@@ -72,12 +75,29 @@ export class ProjectRunner {
     this.manifestFingerprint = projectManifestFingerprint(rawProject(project));
   }
 
+  private async ensureHistoryImported(): Promise<void> {
+    if (!this.project.historyPath) return;
+    this.historyImport ??= (async () => {
+      const seed = await new ProjectJourneyJournal(this.project.historyPath!).read();
+      for (const event of seed) {
+        const { version: _version, sequence: _sequence, timestamp: _timestamp, ...input } = event;
+        await this.journal.append(input);
+      }
+    })();
+    await this.historyImport;
+  }
+
+  async readJourney(): Promise<Awaited<ReturnType<ProjectJourneyJournal["read"]>>> {
+    await this.ensureHistoryImported();
+    return this.journal.read();
+  }
+
   async doctor(): Promise<Array<{ phaseId: string; attemptId: string; capability: string; ok: boolean; message: string }>> {
     const output: Array<{ phaseId: string; attemptId: string; capability: string; ok: boolean; message: string }> = [];
     for (const phase of [...this.project.phases].sort((a, b) => a.order - b.order)) {
       const attempt = activeAttempt(phase);
       const [campaign, config] = await Promise.all([loadCampaign(attempt.campaignPath), loadFactoryConfig(attempt.configPath)]);
-      const runner = new FactoryRunner({ cwd: this.options.cwd, ...(this.options.dataRoot ? { dataRoot: this.options.dataRoot } : {}), config, logger: this.options.logger, ...(this.options.signal ? { signal: this.options.signal } : {}) });
+      const runner = new FactoryRunner({ cwd: this.options.cwd, ...(this.options.dataRoot ? { dataRoot: this.options.dataRoot } : {}), ...(this.options.worktreeRoot ? { worktreeRoot: this.options.worktreeRoot } : {}), ...(this.options.onTraceEvent ? { onTraceEvent: this.options.onTraceEvent } : {}), config, logger: this.options.logger, ...(this.options.signal ? { signal: this.options.signal } : {}) });
       try { await runner.initialize(); for (const check of await runner.doctor(campaign)) output.push({ phaseId: phase.id, attemptId: attempt.id, ...check }); }
       finally { await runner.dispose(); }
     }
@@ -89,6 +109,7 @@ export class ProjectRunner {
     const abort = () => controller.abort(this.options.signal?.reason);
     if (this.options.signal?.aborted) abort();
     this.options.signal?.addEventListener("abort", abort, { once: true });
+    await this.ensureHistoryImported();
     const events = await this.journal.read();
     const latestStart = [...events].reverse().find((event) => event.type === "project-started");
     const terminal = latestStart && events.some((event) => event.projectRunId === latestStart.projectRunId && event.type === "project-finished");
@@ -132,7 +153,7 @@ export class ProjectRunner {
         let campaignResult: CampaignResult;
         if (this.options.executeCampaign) campaignResult = await this.options.executeCampaign({ campaign, config, signal: controller.signal });
         else {
-          const runner = new FactoryRunner({ cwd: this.options.cwd, ...(this.options.dataRoot ? { dataRoot: this.options.dataRoot } : {}), config, logger: this.options.logger, signal: controller.signal });
+          const runner = new FactoryRunner({ cwd: this.options.cwd, ...(this.options.dataRoot ? { dataRoot: this.options.dataRoot } : {}), ...(this.options.worktreeRoot ? { worktreeRoot: this.options.worktreeRoot } : {}), ...(this.options.onTraceEvent ? { onTraceEvent: this.options.onTraceEvent } : {}), config, logger: this.options.logger, signal: controller.signal });
           try { await runner.initialize(); campaignResult = await runner.run(campaign); }
           finally { await runner.dispose(); }
         }

@@ -82,7 +82,14 @@ export async function readFactoryProjectTrace(project: LoadedGameFactoryProject,
       attempts.set(attemptKey, { key: attemptKey, phaseId: phase.id, attemptId: attempt.id, status: attempt.status ?? "active", campaign, config, options, trace });
     }
   }
-  return { project, journey: await new ProjectJourneyJournal(journalPath(project, cwd, dataRoot)).read(), attempts };
+  const [seed, runtime] = await Promise.all([
+    project.historyPath ? new ProjectJourneyJournal(project.historyPath).read() : Promise.resolve([]),
+    new ProjectJourneyJournal(journalPath(project, cwd, dataRoot)).read(),
+  ]);
+  const byKey = new Map(seed.map((event) => [event.idempotencyKey, event]));
+  for (const event of runtime) byKey.set(event.idempotencyKey, event);
+  const journey = [...byKey.values()].sort((left, right) => left.sequence - right.sequence || left.timestamp.localeCompare(right.timestamp));
+  return { project, journey, attempts };
 }
 
 async function signature(path: string): Promise<string> {
@@ -91,7 +98,7 @@ async function signature(path: string): Promise<string> {
 }
 
 export async function factoryProjectTraceSignature(project: LoadedGameFactoryProject, cwd: string, dataRoot?: string): Promise<string> {
-  const values = [await signature(journalPath(project, cwd, dataRoot))];
+  const values = [await signature(journalPath(project, cwd, dataRoot)), ...(project.historyPath ? [await signature(project.historyPath)] : [])];
   for (const phase of project.phases) {
     for (const attempt of phase.attempts) {
       const [campaign, config] = await Promise.all([loadCampaign(attempt.campaignPath), loadFactoryConfig(attempt.configPath)]);

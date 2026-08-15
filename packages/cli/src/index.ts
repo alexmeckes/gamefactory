@@ -3,14 +3,15 @@ import { randomBytes } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { createInterface } from "node:readline/promises";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
-import { configuredFactoryDataRoot, ConsoleLogger, FactoryRunner, LocalCredentialStore, loadCampaign, loadFactoryConfig, type IntakeDriver } from "@gamefactory/core";
+import { configuredFactoryRuntimeSettings, ConsoleLogger, FactoryRunner, LocalCredentialStore, loadCampaign, loadFactoryConfig, type IntakeDriver } from "@gamefactory/core";
 import { loadProject, ProjectRunner } from "@gamefactory/project-sdk";
 import { SqliteProjectJourneyIndex } from "@gamefactory/project-sdk/sqlite";
 import { startFactoryViewer } from "@gamefactory/viewer";
 import { chooseIntakeOption } from "./intake.js";
+import { migrateStorage, refreshStorageIndex, storageDoctor, storageGc, storageStatus } from "./storage.js";
 
 function usage(): never {
-  console.error(`GameFactory\n\nUsage:\n  gamefactory credentials set <name>\n  gamefactory credentials list\n  gamefactory credentials remove <name>\n  gamefactory credentials path\n  gamefactory intake "<game idea>" [--provider game.design] [--output game.brief.json] [--force] [--config factory.config.json]\n  gamefactory run <campaign.json> [--config factory.config.json]\n  gamefactory project doctor <gamefactory.project.json>\n  gamefactory project run <gamefactory.project.json>\n  gamefactory project status <gamefactory.project.json>\n  gamefactory view <campaign.json> [--config factory.config.json] [--port 4317] [--host 127.0.0.1]\n  gamefactory bridge <campaign.json> [--config factory.config.json] [--port 4317] [--observatory https://gamefactory-observatory.ameckes.chatgpt.site]\n  gamefactory doctor <campaign.json> [--config factory.config.json]\n  gamefactory list [--config factory.config.json]\n  gamefactory explain <capability> [--config factory.config.json]`);
+  console.error(`GameFactory\n\nUsage:\n  gamefactory credentials set <name>\n  gamefactory credentials list\n  gamefactory credentials remove <name>\n  gamefactory credentials path\n  gamefactory storage doctor\n  gamefactory storage status\n  gamefactory storage migrate\n  gamefactory storage gc [--apply]\n  gamefactory intake "<game idea>" [--provider game.design] [--output game.brief.json] [--force] [--config factory.config.json]\n  gamefactory run <campaign.json> [--config factory.config.json]\n  gamefactory project doctor <gamefactory.project.json>\n  gamefactory project run <gamefactory.project.json>\n  gamefactory project status <gamefactory.project.json>\n  gamefactory view <campaign.json> [--config factory.config.json] [--port 4317] [--host 127.0.0.1]\n  gamefactory bridge <campaign.json> [--config factory.config.json] [--port 4317] [--observatory https://gamefactory-observatory.ameckes.chatgpt.site]\n  gamefactory doctor <campaign.json> [--config factory.config.json]\n  gamefactory list [--config factory.config.json]\n  gamefactory explain <capability> [--config factory.config.json]`);
   process.exit(2);
 }
 
@@ -97,21 +98,41 @@ async function main(): Promise<void> {
     return;
   }
   const cwd = process.cwd();
-  const dataRoot = configuredFactoryDataRoot();
+  const runtime = configuredFactoryRuntimeSettings();
+  const dataRoot = runtime.dataRoot;
   const logger = new ConsoleLogger(process.env.FACTORY_LOG_LEVEL === "debug");
   const controller = new AbortController();
   process.once("SIGINT", () => controller.abort(new Error("Interrupted")));
+  if (command === "storage") {
+    if (!dataRoot) throw new Error("Set GAMEFACTORY_DATA_ROOT before using storage commands");
+    if (!subject || !["doctor", "status", "migrate", "gc"].includes(subject)) usage();
+    const index = await SqliteProjectJourneyIndex.open(resolve(dataRoot, "factory.sqlite"));
+    try {
+      if (subject === "doctor") {
+        const checks = await storageDoctor(cwd, dataRoot, runtime.worktreeRoot, index);
+        console.log(JSON.stringify(checks, null, 2));
+        if (checks.some((check) => !check.ok)) process.exitCode = 1;
+      } else if (subject === "status") console.log(JSON.stringify(await storageStatus(dataRoot, index), null, 2));
+      else if (subject === "migrate") console.log(JSON.stringify(await migrateStorage(cwd, dataRoot, index), null, 2));
+      else {
+        const result = await storageGc(dataRoot, process.argv.includes("--apply"));
+        if (result.applied) index.checkpointAndVacuum();
+        console.log(JSON.stringify(result, null, 2));
+      }
+      return;
+    } finally { index.close(); }
+  }
   if (command === "project") {
     const action = subject;
     const projectPath = process.argv[4];
     if (!projectPath || !["doctor", "run", "status"].includes(action ?? "")) usage();
     const project = await loadProject(resolve(cwd, projectPath));
     const journeyIndex = dataRoot ? await SqliteProjectJourneyIndex.open(resolve(dataRoot, "factory.sqlite")) : undefined;
-    const projectRunner = new ProjectRunner(project, { cwd, ...(dataRoot ? { dataRoot } : {}), ...(journeyIndex ? { journeyIndex } : {}), logger, signal: controller.signal });
+    const projectRunner = new ProjectRunner(project, { cwd, ...runtime, ...(journeyIndex ? { journeyIndex } : {}), logger, signal: controller.signal });
     try {
-      await journeyIndex?.sync(await projectRunner.journal.read());
+      await journeyIndex?.sync(await projectRunner.readJourney());
       if (action === "status") {
-        const events = journeyIndex ? await journeyIndex.read(project.id) : await projectRunner.journal.read();
+        const events = journeyIndex ? await journeyIndex.read(project.id) : await projectRunner.readJourney();
         console.log(JSON.stringify({ project: { id: project.id, title: project.title }, storage: journeyIndex ? { kind: "sqlite", path: journeyIndex.path } : { kind: "jsonl", path: projectRunner.journal.path }, events }, null, 2));
         return;
       }
@@ -122,6 +143,7 @@ async function main(): Promise<void> {
         return;
       }
       const result = await projectRunner.run();
+      if (dataRoot && journeyIndex) await refreshStorageIndex(dataRoot, journeyIndex);
       console.log(JSON.stringify(result, null, 2));
       if (result.status !== "complete") process.exitCode = 1;
       return;
@@ -167,7 +189,7 @@ async function main(): Promise<void> {
     }
     return;
   }
-  const runner = new FactoryRunner({ cwd, ...(dataRoot ? { dataRoot } : {}), config, logger, signal: controller.signal });
+  const runner = new FactoryRunner({ cwd, ...runtime, config, logger, signal: controller.signal });
   await runner.initialize();
 
   try {
@@ -219,6 +241,11 @@ async function main(): Promise<void> {
       return;
     }
     const result = await runner.run(campaign);
+    if (dataRoot) {
+      const index = await SqliteProjectJourneyIndex.open(resolve(dataRoot, "factory.sqlite"));
+      try { await refreshStorageIndex(dataRoot, index); }
+      finally { index.close(); }
+    }
     console.log(JSON.stringify(result, null, 2));
     if (!["complete", "budget-exhausted"].includes(result.status)) process.exitCode = 1;
   } finally {

@@ -9,7 +9,6 @@
   "mutablePaths": ["project.godot", "main.tscn", "main.gd", "README.md", "src/**", "levels/**", "assets/**", "audio/**", "design/**", "DESIGN_SYSTEM.md", "design-system.json", "sam3.request.json"],
   "immutablePaths": ["AGENTS.md", "GAME.md", "STYLE.md", "visual-direction.json", "visual-reference/**", "campaign.*.json", "factory.*.json", "addons/gamefactory/**"],
   "parameters": {
-    "git": {"worktreeRoot":"D:/GameFactory/worktrees"},
     "tournament": {
       "workspace":"git.worktree",
       "agents":["agent.team"],

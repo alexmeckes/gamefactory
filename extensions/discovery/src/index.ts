@@ -167,7 +167,7 @@ export class DiscoveryWorkflow implements Workflow {
       try {
         await journalPhase(context, specification.experimentId, "reserved", { startedAt, slot: specification.slot });
         await context.emit({ type: "experiment:start", campaignId: context.campaign.id, experimentId: specification.experimentId, at: startedAt });
-        candidate = await workspace.createCandidate({ campaign: context.campaign, experimentId: specification.experimentId, signal: context.signal });
+        candidate = await workspace.createCandidate({ campaign: context.campaign, experimentId: specification.experimentId, signal: context.signal, ...(context.runtime ? { runtime: context.runtime } : {}) });
         candidate = {
           ...candidate,
           metadata: {

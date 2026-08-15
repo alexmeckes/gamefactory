@@ -93,7 +93,7 @@ export class AutoresearchWorkflow implements Workflow {
       let appliedRecord: ExperimentRecord | undefined;
 
       try {
-        candidate = await workspace.createCandidate({ campaign: context.campaign, experimentId, signal: context.signal });
+        candidate = await workspace.createCandidate({ campaign: context.campaign, experimentId, signal: context.signal, ...(context.runtime ? { runtime: context.runtime } : {}) });
         await journalPhase(context, experimentId, "candidate-created", { candidate });
         const agentResult = await preserveAgentResult(context, await agent.run({
           campaign: context.campaign,

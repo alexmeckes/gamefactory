@@ -104,6 +104,7 @@ export interface WorkspaceDriver {
     campaign: Campaign;
     experimentId: string;
     signal: AbortSignal;
+    runtime?: FactoryRuntimeContext;
   }): Promise<Candidate>;
   acceptCandidate(input: {
     campaign: Campaign;
@@ -115,6 +116,11 @@ export interface WorkspaceDriver {
     candidate: Candidate;
     signal: AbortSignal;
   }): Promise<void>;
+}
+
+export interface FactoryRuntimeContext {
+  dataRoot?: string;
+  worktreeRoot?: string;
 }
 
 export interface AgentRequest {
@@ -331,6 +337,7 @@ export type FactoryEvent =
 
 export interface WorkflowContext {
   campaign: Campaign;
+  runtime?: FactoryRuntimeContext;
   signal: AbortSignal;
   startedAt: string;
   get<T>(kind: CapabilityKind, id: string): T;

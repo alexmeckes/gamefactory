@@ -12,9 +12,12 @@ trace:
   skipped work, and artifact counts.
 
 That makes live observation and after-the-fact replay the same feature. During a
-run, the viewer polls file metadata and pushes a new snapshot only when the
-trace changes. After a run, the replay cursor can move through the exact same
-sequence without a running factory process.
+desktop-run campaign, each durably appended trace event schedules an immediate
+snapshot refresh; coalesced polling remains as a fallback for externally
+started processes and filesystem notifications that arrive late. After a run,
+the replay cursor can move through the exact same sequence without a running
+factory process. Refresh observers are deliberately best-effort: a renderer or
+IPC failure is reported once and cannot fail the factory run.
 
 ## Desktop Observatory (recommended locally)
 

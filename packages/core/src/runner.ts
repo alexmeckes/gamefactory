@@ -4,7 +4,8 @@ import { open, mkdir, readFile, stat, unlink } from "node:fs/promises";
 import { hostname } from "node:os";
 import { dirname, resolve } from "node:path";
 import { promisify } from "node:util";
-import type { Campaign, CampaignResult, EngineDriver, FactoryConfig, Logger, Workflow } from "./types.js";
+import type { Campaign, CampaignResult, EngineDriver, FactoryConfig, FactoryRuntimeContext, Logger, Workflow } from "./types.js";
+import type { FactoryTraceEvent } from "./trace.js";
 import { BudgetController } from "./budget.js";
 import { CapabilityRegistry } from "./registry.js";
 import { discoverExtension, ExtensionManager } from "./extension-manager.js";
@@ -19,6 +20,8 @@ const execFileAsync = promisify(execFile);
 export interface RunnerOptions {
   cwd: string;
   dataRoot?: string;
+  worktreeRoot?: string;
+  onTraceEvent?: (event: FactoryTraceEvent) => Promise<void> | void;
   config: FactoryConfig;
   logger: Logger;
   signal?: AbortSignal;
@@ -159,16 +162,27 @@ export class FactoryRunner {
     const journal = new WorkflowJournal(resolveFactoryStatePath(storage, this.options.config.journalLog, `.factory/journal/${campaign.id}.jsonl`, "journalLog"));
     const traceStore = new JsonlTraceStore(resolveFactoryStatePath(storage, this.options.config.traceLog, `.factory/traces/${campaign.id}.jsonl`, "traceLog"));
     let traceWarningReported = false;
+    let observerWarningReported = false;
     const trace: TraceSink = {
       runId,
       campaignId: campaign.id,
       emit: async (event) => {
+        let persisted: FactoryTraceEvent;
         try {
-          await traceStore.append({ runId, campaignId: campaign.id }, event);
+          persisted = await traceStore.append({ runId, campaignId: campaign.id }, event);
         } catch (error) {
           if (!traceWarningReported) {
             traceWarningReported = true;
             this.options.logger.warn("Execution trace is unavailable; the factory run will continue", { error: error instanceof Error ? error.message : String(error) });
+          }
+          return;
+        }
+        try {
+          await this.options.onTraceEvent?.(persisted);
+        } catch (error) {
+          if (!observerWarningReported) {
+            observerWarningReported = true;
+            this.options.logger.warn("A live trace observer failed; durable execution will continue", { error: error instanceof Error ? error.message : String(error) });
           }
         }
       }
@@ -255,8 +269,13 @@ export class FactoryRunner {
 
       let result: CampaignResult;
       try {
+        const runtime: FactoryRuntimeContext = {
+          ...(this.options.dataRoot ? { dataRoot: this.options.dataRoot } : {}),
+          ...(this.options.worktreeRoot ? { worktreeRoot: this.options.worktreeRoot } : {}),
+        };
         result = await workflow.run({
         campaign,
+        ...(Object.keys(runtime).length > 0 ? { runtime } : {}),
         signal: controller.signal,
         startedAt,
         get: <T>(kind: Parameters<CapabilityRegistry["get"]>[0], id: string) => this.registry.get<T>(kind, id),

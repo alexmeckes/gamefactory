@@ -95,7 +95,8 @@ function validateDag(phases: ProjectPhase[]): void {
 }
 
 export function projectManifestFingerprint(project: GameFactoryProject): string {
-  return createHash("sha256").update(JSON.stringify(project)).digest("hex");
+  const { history: _history, ...behavior } = project;
+  return createHash("sha256").update(JSON.stringify(behavior)).digest("hex");
 }
 
 export async function loadProject(path: string): Promise<LoadedGameFactoryProject> {
@@ -117,12 +118,14 @@ export async function loadProject(path: string): Promise<LoadedGameFactoryProjec
   if (new Set(phases.map((item) => item.order)).size !== phases.length) throw new Error("Project contains duplicate phase order values");
   validateDag(phases);
   const root = resolve(dirname(manifestPath), parsed.projectRoot);
+  if (parsed.history !== undefined) string(parsed.history, "Project history");
   return {
     apiVersion: "gamefactory.dev/v1",
     kind: "Project",
     id: parsed.id,
     title: parsed.title,
     projectRoot: parsed.projectRoot,
+    ...(typeof parsed.history === "string" ? { history: parsed.history, historyPath: inside(root, parsed.history, "Project history") } : {}),
     manifestPath,
     root,
     phases: phases.map((item) => ({

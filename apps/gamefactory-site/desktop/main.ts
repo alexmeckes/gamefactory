@@ -3,7 +3,7 @@ import { execFile } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { configuredFactoryDataRoot } from "@gamefactory/core";
+import { configuredFactoryRuntimeSettings } from "@gamefactory/core";
 import type { AnyReplayBundle } from "../lib/types";
 import type { DesktopState } from "./contracts";
 import { DesktopFactorySession, inferConfigPath } from "./session";
@@ -17,6 +17,7 @@ let rendererReport: { title: string; text: string } | undefined;
 let smokeFinished = false;
 
 protocol.registerSchemesAsPrivileged([{ scheme: "gamefactory-artifact", privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } }]);
+const runtimeSettings = configuredFactoryRuntimeSettings();
 
 function send(channel: string, value: unknown): void {
   if (window && !window.isDestroyed()) window.webContents.send(channel, value);
@@ -27,7 +28,8 @@ const session = new DesktopFactorySession(
   (snapshot) => send("factory:snapshot", snapshot),
   350,
   (snapshot) => send("factory:project-snapshot", snapshot),
-  configuredFactoryDataRoot(),
+  runtimeSettings.dataRoot,
+  runtimeSettings.worktreeRoot,
 );
 
 function trusted(event: IpcMainEvent | IpcMainInvokeEvent): void {

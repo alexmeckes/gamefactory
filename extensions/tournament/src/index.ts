@@ -334,7 +334,7 @@ async function executeCandidate(
   let evaluations: Evaluation[] = [];
   try {
     context.signal.throwIfAborted();
-    candidate = await workspace.createCandidate({ campaign: context.campaign, experimentId, signal: context.signal });
+    candidate = await workspace.createCandidate({ campaign: context.campaign, experimentId, signal: context.signal, ...(context.runtime ? { runtime: context.runtime } : {}) });
     await journalPhase(context, experimentId, "candidate-created", { candidate });
     context.signal.throwIfAborted();
     agentResult = await preserveAgentResult(context, await agent.run({

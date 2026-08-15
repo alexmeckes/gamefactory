@@ -44,8 +44,9 @@ every engine and generator into the desktop shell.
 
 ## Data modes
 
-- **Direct desktop:** no server, bridge key, browser permission, or CORS. Native
-  IPC pushes changed snapshots from the local journal into the graph.
+- **Direct desktop:** no server, bridge key, browser permission, or CORS. Every
+  durably appended in-process trace event schedules a native IPC snapshot push;
+  polling remains a coalesced fallback for runs started by another process.
 - **Private loopback bridge:** `gamefactory bridge` starts an authenticated,
   read-only listener on `127.0.0.1`. The signed-in user's browser connects to it
   directly after they paste its ephemeral key. No inbound tunnel or hosted

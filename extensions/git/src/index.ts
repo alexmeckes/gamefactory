@@ -78,13 +78,13 @@ function run(command: string, args: string[], cwd: string, signal: AbortSignal):
   });
 }
 
-function worktreeParent(repositoryRoot: string, campaign: Campaign): string {
+function worktreeParent(repositoryRoot: string, campaign: Campaign, runtimeWorktreeRoot?: string): string {
   const parameters = campaign.parameters as Record<string, unknown> | undefined;
   const git = parameters?.git && typeof parameters.git === "object" && !Array.isArray(parameters.git)
     ? parameters.git as Record<string, unknown>
     : undefined;
   const configured = typeof git?.worktreeRoot === "string" && git.worktreeRoot.trim() ? git.worktreeRoot : undefined;
-  const parent = configured ? resolve(configured) : resolve(repositoryRoot, "..", ".gamefactory-worktrees");
+  const parent = configured ? resolve(configured) : runtimeWorktreeRoot ? resolve(runtimeWorktreeRoot) : resolve(repositoryRoot, "..", ".gamefactory-worktrees");
   const insideRepository = relative(repositoryRoot, parent);
   if (!insideRepository || (!insideRepository.startsWith("..") && !isAbsolute(insideRepository))) {
     throw new Error("Git worktreeRoot must be outside the repository");
@@ -92,8 +92,8 @@ function worktreeParent(repositoryRoot: string, campaign: Campaign): string {
   return parent;
 }
 
-function worktreeRoot(repositoryRoot: string, campaign: Campaign, experimentId: string): { parent: string; root: string } {
-  const parent = worktreeParent(repositoryRoot, campaign);
+function worktreeRoot(repositoryRoot: string, campaign: Campaign, experimentId: string, runtimeWorktreeRoot?: string): { parent: string; root: string } {
+  const parent = worktreeParent(repositoryRoot, campaign, runtimeWorktreeRoot);
   const root = resolve(parent, `${basename(repositoryRoot)}-${campaign.id}-${experimentId}-${process.pid}-${randomUUID().slice(0, 8)}`);
   const traversal = relative(parent, root);
   if (traversal.startsWith("..") || traversal === "") throw new Error("Unsafe worktree path");
@@ -194,10 +194,10 @@ function managedWorktree(campaign: Campaign, candidate: Candidate): { repository
 export class GitWorktreeWorkspace implements WorkspaceDriver {
   readonly id = "git.worktree";
 
-  async createCandidate({ campaign, experimentId, signal }: { campaign: Campaign; experimentId: string; signal: AbortSignal }): Promise<Candidate> {
+  async createCandidate({ campaign, experimentId, signal, runtime }: Parameters<WorkspaceDriver["createCandidate"]>[0]): Promise<Candidate> {
     const repositoryRoot = (await run("git", ["rev-parse", "--show-toplevel"], campaign.projectRoot, signal)).stdout;
     const baseRevision = (await run("git", ["rev-parse", "HEAD"], campaign.projectRoot, signal)).stdout;
-    const managed = worktreeRoot(repositoryRoot, campaign, experimentId);
+    const managed = worktreeRoot(repositoryRoot, campaign, experimentId, runtime?.worktreeRoot);
     const worktree = managed.root;
     await mkdir(dirname(worktree), { recursive: true });
     await removeWorktreeTransactionally(repositoryRoot, worktree);
