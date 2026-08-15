@@ -24,7 +24,7 @@
     "check": "npm run build && npm test"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.13.0"
   },
   "devDependencies": {
     "@types/node": "^20.17.0",

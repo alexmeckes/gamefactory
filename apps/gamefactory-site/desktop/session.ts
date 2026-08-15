@@ -121,6 +121,7 @@ export class DesktopFactorySession {
     private readonly pollIntervalMs = 350,
     private readonly onProjectSnapshot: (snapshot: FactoryProjectSnapshot) => void = () => undefined,
     private readonly dataRoot?: string,
+    private readonly worktreeRoot?: string,
   ) {}
 
   getState(): DesktopState { return structuredClone(this.state); }
@@ -250,7 +251,7 @@ export class DesktopFactorySession {
     if (!this.campaign || !this.config || !this.options) throw new Error("Choose a campaign before checking readiness");
     this.setState({ ...this.state, readiness: { status: "checking", checks: this.state.readiness?.checks ?? [] } });
     const checks: Array<{ capability: string; ok: boolean; message: string }> = [];
-    const runner = new FactoryRunner({ cwd: this.options.cwd, ...(this.dataRoot ? { dataRoot: this.dataRoot } : {}), config: this.config, logger: new SessionLogger(() => undefined) });
+    const runner = new FactoryRunner({ cwd: this.options.cwd, ...(this.dataRoot ? { dataRoot: this.dataRoot } : {}), ...(this.worktreeRoot ? { worktreeRoot: this.worktreeRoot } : {}), config: this.config, logger: new SessionLogger(() => undefined) });
     try {
       await runner.initialize();
       checks.push(...await runner.doctor(this.campaign));
@@ -314,8 +315,9 @@ export class DesktopFactorySession {
       const suffix = details && Object.keys(details).length ? ` · ${JSON.stringify(details).slice(0, 500)}` : "";
       this.setState({ ...this.state, message: `[${level}] ${message}${suffix}` });
     });
-    if (this.project) this.projectRunner = new ProjectRunner(this.project, { cwd: this.options.cwd, ...(this.dataRoot ? { dataRoot: this.dataRoot } : {}), logger, signal: this.runController.signal });
-    else this.runner = new FactoryRunner({ cwd: this.options.cwd, ...(this.dataRoot ? { dataRoot: this.dataRoot } : {}), config: this.config, logger, signal: this.runController.signal });
+    const onTraceEvent = () => { void this.refresh(true); };
+    if (this.project) this.projectRunner = new ProjectRunner(this.project, { cwd: this.options.cwd, ...(this.dataRoot ? { dataRoot: this.dataRoot } : {}), ...(this.worktreeRoot ? { worktreeRoot: this.worktreeRoot } : {}), onTraceEvent, logger, signal: this.runController.signal });
+    else this.runner = new FactoryRunner({ cwd: this.options.cwd, ...(this.dataRoot ? { dataRoot: this.dataRoot } : {}), ...(this.worktreeRoot ? { worktreeRoot: this.worktreeRoot } : {}), onTraceEvent, config: this.config, logger, signal: this.runController.signal });
     this.setState({ ...this.state, status: "running", running: true, message: this.project ? `Starting project ${this.project.id}` : `Starting ${this.campaign.id}`, selection: this.selection, startedAt });
     this.runPromise = (async () => {
       try {

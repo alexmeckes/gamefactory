@@ -5,6 +5,11 @@ export interface FactoryStorageOptions {
   dataRoot?: string;
 }
 
+export interface FactoryRuntimeSettings {
+  dataRoot?: string;
+  worktreeRoot?: string;
+}
+
 /**
  * Resolves a portable, repository-relative state path. When a machine-local
  * data root is configured the same relative layout is rooted there instead,
@@ -40,4 +45,20 @@ export function resolveFactoryStatePath(
 export function configuredFactoryDataRoot(environment: NodeJS.ProcessEnv = process.env): string | undefined {
   const value = environment.GAMEFACTORY_DATA_ROOT?.trim();
   return value ? resolve(value) : undefined;
+}
+
+export function configuredFactoryWorktreeRoot(environment: NodeJS.ProcessEnv = process.env): string | undefined {
+  const configured = environment.GAMEFACTORY_WORKTREE_ROOT?.trim();
+  if (configured) return resolve(configured);
+  const dataRoot = configuredFactoryDataRoot(environment);
+  return dataRoot ? resolve(dataRoot, "worktrees") : undefined;
+}
+
+export function configuredFactoryRuntimeSettings(environment: NodeJS.ProcessEnv = process.env): FactoryRuntimeSettings {
+  const dataRoot = configuredFactoryDataRoot(environment);
+  const worktreeRoot = configuredFactoryWorktreeRoot(environment);
+  return {
+    ...(dataRoot ? { dataRoot } : {}),
+    ...(worktreeRoot ? { worktreeRoot } : {}),
+  };
 }

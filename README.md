@@ -84,13 +84,34 @@ same portable relative paths from checked-in campaign files:
 
 ```powershell
 [Environment]::SetEnvironmentVariable("GAMEFACTORY_DATA_ROOT", "D:\GameFactoryData", "User")
+[Environment]::SetEnvironmentVariable("GAMEFACTORY_WORKTREE_ROOT", "D:\GameFactory\worktrees", "User")
 ```
 
-Project journeys remain available as fsync-backed JSONL audit logs. When a
-local data root is configured, the CLI also maintains `factory.sqlite` in WAL
-mode for transactional event lookup. Images, video, logs, and other large
-artifacts remain content-addressed files; SQLite stores event metadata rather
-than large blobs. Git remains the source-code backup and synchronization layer.
+`GAMEFACTORY_WORKTREE_ROOT` is optional; it defaults to
+`<GAMEFACTORY_DATA_ROOT>/worktrees`. An explicit campaign-level Git worktree
+setting still takes precedence, but checked-in campaigns normally omit it so a
+fresh clone remains portable.
+
+Project journeys remain available as fsync-backed JSONL audit logs. The CLI
+maintains a versioned, incrementally refreshed `factory.sqlite` index in WAL
+mode for project events, workflow records, traces, and numeric metrics. Images, video, logs, and other
+large artifacts remain content-addressed files; SQLite stores searchable event
+metadata rather than large blobs. Git remains the source-code backup and
+synchronization layer.
+
+Inspect, migrate, and safely collect machine-local runtime state with:
+
+```sh
+npm run factory -- storage doctor
+npm run factory -- storage migrate
+npm run factory -- storage status
+npm run factory -- storage gc          # dry run
+npm run factory -- storage gc --apply  # only old cache/tmp files
+```
+
+`storage migrate` preserves repository-relative `.factory` layout and imports
+manifest-linked project history. Garbage collection never removes journals,
+results, traces, retained candidates, or content-addressed artifacts.
 
 Start a game from an ordinary description with five short multiple-choice decisions. Every question includes `Figure it out`, which leaves that decision open for design agents instead of applying a hidden default:
 

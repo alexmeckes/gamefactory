@@ -33,6 +33,7 @@ export interface GameFactoryProject {
   id: string;
   title: string;
   projectRoot: string;
+  history?: string;
   phases: ProjectPhase[];
 }
 
@@ -48,6 +49,7 @@ export interface LoadedProjectPhase extends Omit<ProjectPhase, "attempts"> {
 export interface LoadedGameFactoryProject extends Omit<GameFactoryProject, "phases"> {
   manifestPath: string;
   root: string;
+  historyPath?: string;
   phases: LoadedProjectPhase[];
 }
 

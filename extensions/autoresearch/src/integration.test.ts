@@ -27,10 +27,18 @@ test("autoresearch runs a resumable keep/discard campaign through lazy extension
     extensions: [resolve(extensionRoot, "../mock"), extensionRoot],
     resultLog: "results.jsonl"
   };
+  const logger = new MemoryLogger();
+  const observedTraceSequences: number[] = [];
+  let observerCalls = 0;
   const runner = new FactoryRunner({
     cwd: projectRoot,
     config: factoryConfig,
-    logger: new MemoryLogger()
+    logger,
+    onTraceEvent: (event) => {
+      observedTraceSequences.push(event.sequence);
+      observerCalls += 1;
+      if (observerCalls === 1) throw new Error("simulated viewer refresh failure");
+    }
   });
   try {
     await runner.initialize();
@@ -81,6 +89,9 @@ test("autoresearch runs a resumable keep/discard campaign through lazy extension
     ]);
     const resumed = await runner.run(campaign);
     assert.equal(resumed.experiments.length, 5);
+    assert.ok(observedTraceSequences.length > 1);
+    assert.ok(observedTraceSequences.every((sequence, index) => index === 0 || sequence > observedTraceSequences[index - 1]!));
+    assert.equal(logger.entries.filter((entry) => entry.message === "A live trace observer failed; durable execution will continue").length, 1);
   } finally {
     await runner.dispose();
     await rm(projectRoot, { recursive: true, force: true });

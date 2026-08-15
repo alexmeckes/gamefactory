@@ -89,6 +89,46 @@ test("Git workspace can isolate candidates in a configured external root", async
   }
 });
 
+test("runtime worktree settings are portable and explicit campaign settings take precedence", async () => {
+  const repository = await mkdtemp(resolve(tmpdir(), "gamefactory-git-runtime-repo-"));
+  const runtimeRoot = await mkdtemp(resolve(tmpdir(), "gamefactory-git-runtime-worktrees-"));
+  const explicitRoot = await mkdtemp(resolve(tmpdir(), "gamefactory-git-explicit-worktrees-"));
+  const projectRoot = resolve(repository, "game");
+  const signal = new AbortController().signal;
+  const workspace = new GitWorktreeWorkspace();
+  const campaign: Campaign = {
+    apiVersion: "gamefactory.dev/v1",
+    id: "runtime-worktree-contract",
+    objective: "change value",
+    projectRoot,
+    workflow: "autoresearch",
+    requires: [],
+    acceptance: { primaryMetric: "score", direction: "maximize" }
+  };
+  const candidates: Candidate[] = [];
+  try {
+    await mkdir(projectRoot);
+    await writeFile(resolve(projectRoot, "value.txt"), "old\n", "utf8");
+    await exec("git", ["init", "-q"], { cwd: repository });
+    await exec("git", ["add", "--all"], { cwd: repository });
+    await exec("git", ["-c", "user.name=Test", "-c", "user.email=test@localhost", "commit", "-qm", "initial"], { cwd: repository });
+
+    const runtimeCandidate = await workspace.createCandidate({ campaign, experimentId: "runtime", signal, runtime: { worktreeRoot: runtimeRoot } });
+    candidates.push(runtimeCandidate);
+    assert.equal(resolve(String(runtimeCandidate.metadata.managedParent)), resolve(runtimeRoot));
+
+    campaign.parameters = { git: { worktreeRoot: explicitRoot } };
+    const explicitCandidate = await workspace.createCandidate({ campaign, experimentId: "explicit", signal, runtime: { worktreeRoot: runtimeRoot } });
+    candidates.push(explicitCandidate);
+    assert.equal(resolve(String(explicitCandidate.metadata.managedParent)), resolve(explicitRoot));
+  } finally {
+    await Promise.all(candidates.map((candidate) => workspace.discardCandidate({ campaign, candidate, signal }).catch(() => undefined)));
+    await rm(repository, { recursive: true, force: true });
+    await rm(runtimeRoot, { recursive: true, force: true });
+    await rm(explicitRoot, { recursive: true, force: true });
+  }
+});
+
 test("Git workspace maps a subproject, enforces paths, and cherry-picks accepted work", async () => {
   const repository = await mkdtemp(resolve(tmpdir(), "gamefactory-git-"));
   const projectRoot = resolve(repository, "game");

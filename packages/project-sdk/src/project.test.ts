@@ -44,6 +44,20 @@ test("project journal is idempotent and rejects conflicting retries", async () =
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test("project runner bootstraps manifest-linked history exactly once", async () => {
+  const { root, manifestPath } = await fixture();
+  try {
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Record<string, unknown>;
+    manifest.history = "project-history.jsonl";
+    await writeFile(manifestPath, JSON.stringify(manifest), "utf8");
+    await writeFile(join(root, "project-history.jsonl"), `${JSON.stringify({ version: 1, sequence: 1, timestamp: "2026-01-01T00:00:00.000Z", projectId: "fixture-project", projectRunId: "historical", type: "project-started", idempotencyKey: "history:start", manifestFingerprint: "a".repeat(64), actor: { kind: "system" } })}\n`, "utf8");
+    const runner = new ProjectRunner(await loadProject(manifestPath), { cwd: root, logger: new MemoryLogger() });
+    assert.equal((await runner.readJourney()).length, 1);
+    assert.equal((await runner.readJourney()).length, 1);
+    assert.equal((await runner.journal.read())[0]?.idempotencyKey, "history:start");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("SQLite index mirrors idempotent project events for local querying", async () => {
   const root = await mkdtemp(join(tmpdir(), "gamefactory-project-sqlite-"));
   const index = await SqliteProjectJourneyIndex.open(join(root, "factory.sqlite"));
