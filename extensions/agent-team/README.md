@@ -105,6 +105,7 @@ Node fields:
 
 - `id` is required. The default `command` adapter also requires `command`; commands may use `{candidate}`, `{experiment}`, `{objective}`, `{stage}`, `{contributor}`, `{node}`, and `{attempt}` substitutions.
 - `adapter: "codex-app-server"` launches a real signed-in Codex thread and does not require `command`. It inherits the configured Codex model unless `model` is set. An explicit command can still override the App Server launcher for testing or a custom installation.
+- `threadRetention` controls Codex conversation persistence for App Server nodes. `ephemeral` is the default: one blank candidate root feeds in-memory worker forks, finished workers unsubscribe immediately, and the root plus shared App Server process are removed when the last parallel candidate finishes. `archive` persists each worker but moves it out of the active task list after completion. `debug` persists workers in the active task list while still unsubscribing them from live events. It may be set once on `agentTeam` and overridden per node.
 - `role` is one of `scout`, `planner`, `implementer`, `critic`, `judge`, or `worker`. It defaults to `worker`.
 - `permissions` is `read` or `write`. `readOnly` is accepted as an equivalent boolean. An implementer defaults to write; every other role defaults to read.
 - `dependsOn` names predecessor nodes.
@@ -129,7 +130,9 @@ calls become child subagent nodes in the factory trace. It uses a strict outer
 response envelope for stable `summary` and `outcome` fields while allowing
 arbitrary structured findings and context inside a JSON payload. Read-only and
 writer nodes receive corresponding Codex sandbox policies with unattended
-approvals disabled.
+approvals disabled. Lifecycle progress includes the App Server process id plus
+active and provider-loaded thread counts so the Observatory can distinguish
+currently executing workers from conversations awaiting provider eviction.
 
 ## Structured handoffs and artifacts
 

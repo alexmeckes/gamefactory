@@ -32,11 +32,13 @@ interface ContributorConfig {
   provider?: string;
   model?: string;
   reasoningEffort?: ReasoningEffort;
+  threadRetention: CodexThreadRetention;
   billingMode?: UsageBillingMode;
   timeoutSeconds: number;
 }
 
 type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh" | "max";
+type CodexThreadRetention = "ephemeral" | "archive" | "debug";
 
 interface LegacyAgentTeamConfig {
   kind: "legacy";
@@ -563,7 +565,7 @@ function reasoningEffort(value: unknown, location: string): ReasoningEffort | un
   return value as ReasoningEffort;
 }
 
-function contributor(value: unknown, defaultId: string, location: string, defaults: Pick<ContributorConfig, "provider" | "model" | "reasoningEffort" | "billingMode"> & Partial<Pick<ContributorConfig, "timeoutSeconds">> = {}): ContributorConfig {
+function contributor(value: unknown, defaultId: string, location: string, defaults: Pick<ContributorConfig, "provider" | "model" | "reasoningEffort" | "billingMode" | "threadRetention"> & Partial<Pick<ContributorConfig, "timeoutSeconds">> = { threadRetention: "ephemeral" }): ContributorConfig {
   if (isStringArray(value)) return { id: defaultId, adapter: "command", command: [...value], timeoutSeconds: defaults.timeoutSeconds ?? 15 * 60, ...defaults };
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${location} must be a command string array or an object with id and command`);
@@ -587,6 +589,10 @@ function contributor(value: unknown, defaultId: string, location: string, defaul
   const provider = identityString(record.provider, `${location}.provider`) ?? defaults.provider;
   const model = identityString(record.model, `${location}.model`) ?? defaults.model;
   const effort = reasoningEffort(record.reasoningEffort, `${location}.reasoningEffort`) ?? defaults.reasoningEffort;
+  const threadRetention = record.threadRetention ?? defaults.threadRetention;
+  if (threadRetention !== "ephemeral" && threadRetention !== "archive" && threadRetention !== "debug") {
+    throw new Error(`${location}.threadRetention must be ephemeral, archive, or debug`);
+  }
   const rawBillingMode = record.billingMode ?? defaults.billingMode;
   if (rawBillingMode !== undefined && rawBillingMode !== "subscription" && rawBillingMode !== "credits" && rawBillingMode !== "metered" && rawBillingMode !== "unknown") {
     throw new Error(`${location}.billingMode must be subscription, credits, metered, or unknown`);
@@ -603,12 +609,13 @@ function contributor(value: unknown, defaultId: string, location: string, defaul
     ...(provider ? { provider } : adapter === "codex-app-server" ? { provider: "openai-codex-app-server" } : adapter === "agent-driver" ? { provider: "gamefactory-extension" } : {}),
     ...(model ? { model } : {}),
     ...(effort ? { reasoningEffort: effort } : {}),
+    threadRetention,
     timeoutSeconds,
     ...(rawBillingMode ? { billingMode: rawBillingMode } : adapter === "codex-app-server" ? { billingMode: "subscription" } : {})
   };
 }
 
-function contributorList(value: unknown, stage: "scout" | "critic", defaults: Pick<ContributorConfig, "provider" | "model" | "reasoningEffort" | "billingMode"> & Partial<Pick<ContributorConfig, "timeoutSeconds">> = {}): ContributorConfig[] {
+function contributorList(value: unknown, stage: "scout" | "critic", defaults: Pick<ContributorConfig, "provider" | "model" | "reasoningEffort" | "billingMode" | "threadRetention"> & Partial<Pick<ContributorConfig, "timeoutSeconds">> = { threadRetention: "ephemeral" }): ContributorConfig[] {
   if (!Array.isArray(value) || value.length === 0) throw new Error(`parameters.agentTeam.${stage}s must be a non-empty array`);
   if (value.length > 64) throw new Error(`parameters.agentTeam.${stage}s cannot contain more than 64 contributors`);
   const contributors = value.map((item, index) => contributor(item, `${stage}-${index + 1}`, `parameters.agentTeam.${stage}s[${index}]`, defaults));
@@ -697,7 +704,8 @@ function advisorConfig(value: unknown, location: string, primary: ContributorCon
     ...(primary.provider ? { provider: primary.provider } : {}),
     ...(primary.model ? { model: primary.model } : {}),
     ...(primary.reasoningEffort ? { reasoningEffort: primary.reasoningEffort } : {}),
-    ...(primary.billingMode ? { billingMode: primary.billingMode } : {})
+    ...(primary.billingMode ? { billingMode: primary.billingMode } : {}),
+    threadRetention: primary.threadRetention
   });
   if (configured.id === primary.id) throw new Error(`${location}.id must differ from the primary contributor id`);
   if (configured.model === primary.model && configured.reasoningEffort === primary.reasoningEffort) {
@@ -730,7 +738,7 @@ function repairEdge(value: unknown, location: string): RepairEdge | undefined {
   };
 }
 
-function graphNode(value: unknown, index: number, defaults: Pick<ContributorConfig, "provider" | "model" | "reasoningEffort" | "billingMode"> & Partial<Pick<ContributorConfig, "timeoutSeconds">> = {}): GraphNodeConfig {
+function graphNode(value: unknown, index: number, defaults: Pick<ContributorConfig, "provider" | "model" | "reasoningEffort" | "billingMode" | "threadRetention"> & Partial<Pick<ContributorConfig, "timeoutSeconds">> = { threadRetention: "ephemeral" }): GraphNodeConfig {
   const location = `parameters.agentTeam.graph.nodes[${index}]`;
   const base = contributor(value, `node-${index + 1}`, location, defaults);
   const record = value as Record<string, unknown>;
@@ -839,6 +847,10 @@ function readConfig(request: Pick<AgentRequest, "campaign">): AgentTeamConfig {
   const provider = identityString(record.provider, "parameters.agentTeam.provider");
   const model = identityString(record.model, "parameters.agentTeam.model");
   const effort = reasoningEffort(record.reasoningEffort, "parameters.agentTeam.reasoningEffort");
+  const threadRetention = record.threadRetention ?? "ephemeral";
+  if (threadRetention !== "ephemeral" && threadRetention !== "archive" && threadRetention !== "debug") {
+    throw new Error("parameters.agentTeam.threadRetention must be ephemeral, archive, or debug");
+  }
   const rawBillingMode = record.billingMode;
   if (rawBillingMode !== undefined && rawBillingMode !== "subscription" && rawBillingMode !== "credits" && rawBillingMode !== "metered" && rawBillingMode !== "unknown") {
     throw new Error("parameters.agentTeam.billingMode must be subscription, credits, metered, or unknown");
@@ -847,10 +859,11 @@ function readConfig(request: Pick<AgentRequest, "campaign">): AgentTeamConfig {
   if (rawTimeoutSeconds !== undefined && (typeof rawTimeoutSeconds !== "number" || !Number.isFinite(rawTimeoutSeconds) || rawTimeoutSeconds <= 0 || rawTimeoutSeconds > 86_400)) {
     throw new Error("parameters.agentTeam.timeoutSeconds must be a positive number no greater than 86400");
   }
-  const defaults: Pick<ContributorConfig, "provider" | "model" | "reasoningEffort" | "billingMode"> & Partial<Pick<ContributorConfig, "timeoutSeconds">> = {
+  const defaults: Pick<ContributorConfig, "provider" | "model" | "reasoningEffort" | "billingMode" | "threadRetention"> & Partial<Pick<ContributorConfig, "timeoutSeconds">> = {
     ...(provider ? { provider } : {}),
     ...(model ? { model } : {}),
     ...(effort ? { reasoningEffort: effort } : {}),
+    threadRetention,
     ...(rawBillingMode ? { billingMode: rawBillingMode as UsageBillingMode } : {}),
     ...(typeof rawTimeoutSeconds === "number" ? { timeoutSeconds: rawTimeoutSeconds } : {})
   };
@@ -1269,6 +1282,7 @@ async function invokeContributor(
         readOnly,
         ...(config.model ? { model: config.model } : {}),
         ...(config.reasoningEffort ? { reasoningEffort: config.reasoningEffort } : {}),
+        retention: config.threadRetention,
         timeoutMs: config.timeoutSeconds * 1000,
         signal: request.signal,
         environment: codexHostEnvironment(),
@@ -1363,8 +1377,9 @@ async function invokeContributor(
           ...(appServer.requestedModel ? { requestedModel: appServer.requestedModel } : {}),
           ...(appServer.actualModel ? { actualModel: appServer.actualModel } : {}),
           ...(appServer.requestedReasoningEffort ? { requestedReasoningEffort: appServer.requestedReasoningEffort } : {}),
-          ...(appServer.reasoningEffort ? { reasoningEffort: appServer.reasoningEffort } : {})
-        }
+          ...(appServer.reasoningEffort ? { reasoningEffort: appServer.reasoningEffort } : {}),
+          threadLifecycle: appServer.lifecycle
+        } as NonNullable<EffectivePromptManifest["providerContext"]>
       };
       await writeFile(promptManifestPath, `${JSON.stringify(promptManifest, null, 2)}\n`, "utf8");
     } catch (error) {
@@ -2077,11 +2092,12 @@ export class AgentTeam implements AgentDriver {
   constructor(private readonly resolveAgent?: (id: string) => AgentDriver) {}
 
   async run(request: AgentRequest): Promise<AgentResult> {
-    const nodeId = teamTraceNode(request);
-    await emitAgentTrace(request, { type: "node:created", nodeId, experimentId: request.experimentId, parentNodeId: `experiment:${request.experimentId}`, label: "Agent team", role: "agent-team" });
-    await emitAgentTrace(request, { type: "edge:created", nodeId: `edge:experiment:${request.experimentId}:${nodeId}`, experimentId: request.experimentId, sourceNodeId: `experiment:${request.experimentId}`, targetNodeId: nodeId, role: "agent" });
-    if (this.resolveAgent) agentDriverResolvers.set(request, this.resolveAgent);
+    const releaseAppServerSession = await codexAppServers.beginSession();
     try {
+      const nodeId = teamTraceNode(request);
+      await emitAgentTrace(request, { type: "node:created", nodeId, experimentId: request.experimentId, parentNodeId: `experiment:${request.experimentId}`, label: "Agent team", role: "agent-team" });
+      await emitAgentTrace(request, { type: "edge:created", nodeId: `edge:experiment:${request.experimentId}:${nodeId}`, experimentId: request.experimentId, sourceNodeId: `experiment:${request.experimentId}`, targetNodeId: nodeId, role: "agent" });
+      if (this.resolveAgent) agentDriverResolvers.set(request, this.resolveAgent);
       return await serializeCandidate(request.candidate.root, async () => {
         await emitAgentTrace(request, { type: "node:started", nodeId, experimentId: request.experimentId, label: "Agent team", role: "agent-team" });
         try {
@@ -2108,6 +2124,7 @@ export class AgentTeam implements AgentDriver {
       });
     } finally {
       agentDriverResolvers.delete(request);
+      await releaseAppServerSession();
     }
   }
 }

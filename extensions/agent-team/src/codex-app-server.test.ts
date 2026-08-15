@@ -8,6 +8,7 @@ import { CodexAppServerPool } from "./codex-app-server.js";
 const fakeServer = `
 import { createInterface } from "node:readline";
 let thread = 0;
+let root = 0;
 const lines = createInterface({ input: process.stdin, crlfDelay: Infinity });
 const send = (value) => process.stdout.write(JSON.stringify(value) + "\\n");
 lines.on("line", (line) => {
@@ -19,9 +20,32 @@ lines.on("line", (line) => {
   }
   if (message.method === "thread/start") {
     if (message.params.sandbox !== "read-only") return send({ id: message.id, error: { message: "wrong legacy sandbox value" } });
+    if (message.params.model === undefined) {
+      root += 1;
+      send({ id: message.id, result: { thread: { id: "root-" + root, modelProvider: "openai" }, modelProvider: "openai", instructionSources: [message.params.cwd + "/AGENTS.md"] } });
+      return;
+    }
     if (message.params.model !== "gpt-5.6-luna" || message.params.reasoningEffort !== undefined) return send({ id: message.id, error: { message: "wrong thread routing fields" } });
     thread += 1;
     send({ id: message.id, result: { thread: { id: "thread-" + thread, modelProvider: "openai" }, model: message.params.model, modelProvider: "openai", reasoningEffort: message.params.reasoningEffort, instructionSources: [message.params.cwd + "/AGENTS.md"] } });
+    return;
+  }
+  if (message.method === "thread/fork") {
+    if (message.params.ephemeral !== true || !message.params.threadId.startsWith("root-")) return send({ id: message.id, error: { message: "wrong ephemeral fork fields" } });
+    thread += 1;
+    send({ id: message.id, result: { thread: { id: "thread-" + thread, modelProvider: "openai", ephemeral: true }, modelProvider: "openai" } });
+    return;
+  }
+  if (message.method === "thread/unsubscribe") {
+    send({ id: message.id, result: { status: "unsubscribed" } });
+    return;
+  }
+  if (message.method === "thread/archive" || message.method === "thread/delete") {
+    send({ id: message.id, result: {} });
+    return;
+  }
+  if (message.method === "thread/loaded/list") {
+    send({ id: message.id, result: { data: ["root-1"] } });
     return;
   }
   if (message.method === "turn/start") {
@@ -76,6 +100,12 @@ test("Codex App Server pool streams a turn and records instruction, lineage, and
     assert.equal(result.usage?.model, "gpt-5.6-luna");
     assert.equal(result.usage?.reasoningEffort, "high");
     assert.equal(result.usage?.billingMode, "subscription");
+    assert.equal(result.lifecycle.retention, "ephemeral");
+    assert.equal(result.lifecycle.ephemeral, true);
+    assert.equal(result.lifecycle.unsubscribed, true);
+    assert.equal(result.lifecycle.archived, false);
+    assert.equal(result.lifecycle.loadedThreadCount, 1);
+    assert.ok(result.lifecycle.processId);
     assert.ok(events.includes("item/started"));
     assert.ok(events.includes("thread/tokenUsage/updated"));
     assert.ok(events.includes("turn/completed"));
@@ -93,6 +123,21 @@ test("Codex App Server pool streams a turn and records instruction, lineage, and
     assert.equal(rerouted.actualModel, "gpt-5.6-terra");
     assert.equal(rerouted.usage?.model, "gpt-5.6-terra");
     assert.equal(rerouted.usage?.reasoningEffort, "high");
+    const archived = await pool.run({
+      launcher: [process.execPath, serverPath],
+      cwd: root,
+      prompt: "Perform an archived task",
+      readOnly: true,
+      model: "gpt-5.6-luna",
+      reasoningEffort: "high",
+      retention: "archive",
+      signal: new AbortController().signal
+    });
+    assert.equal(archived.lifecycle.retention, "archive");
+    assert.equal(archived.lifecycle.ephemeral, false);
+    assert.equal(archived.lifecycle.unsubscribed, true);
+    assert.equal(archived.lifecycle.archived, true);
+    assert.equal(archived.lifecycle.loadedThreadCount, 1);
   } finally {
     await pool.dispose();
     await rm(root, { recursive: true, force: true });

@@ -42,6 +42,15 @@ export interface EffectivePromptManifest {
     actualModel?: string;
     requestedReasoningEffort?: string;
     reasoningEffort?: string;
+    threadLifecycle?: {
+      retention: "ephemeral" | "archive" | "debug";
+      ephemeral: boolean;
+      unsubscribed: boolean;
+      archived: boolean;
+      processId?: number;
+      loadedThreadCount?: number;
+      cleanupError?: string;
+    };
   };
   limitations: string[];
 }

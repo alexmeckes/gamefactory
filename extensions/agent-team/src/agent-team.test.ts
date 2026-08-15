@@ -150,12 +150,17 @@ lines.on("line", (line) => {
   if (message.method === "initialize") return send({ id: message.id, result: { userAgent: "fixture" } });
   if (message.method === "thread/start") {
     if (message.params.sandbox !== "read-only") return send({ id: message.id, error: { message: "wrong legacy sandbox value" } });
+    if (message.params.model === undefined) return send({ id: message.id, result: { thread: { id: "thread-root", modelProvider: "openai" }, modelProvider: "openai", instructionSources: [message.params.cwd + "/AGENTS.md"] } });
     if (message.params.model !== "gpt-5.6-luna" || message.params.reasoningEffort !== undefined) return send({ id: message.id, error: { message: "wrong thread routing fields" } });
     return send({
     id: message.id,
     result: { thread: { id: "thread-real-adapter", modelProvider: "openai" }, model: message.params.model, modelProvider: "openai", reasoningEffort: message.params.reasoningEffort, instructionSources: [message.params.cwd + "/AGENTS.md"] }
     });
   }
+  if (message.method === "thread/fork") return send({ id: message.id, result: { thread: { id: "thread-real-adapter", modelProvider: "openai", ephemeral: true }, modelProvider: "openai" } });
+  if (message.method === "thread/unsubscribe") return send({ id: message.id, result: { status: "unsubscribed" } });
+  if (message.method === "thread/delete" || message.method === "thread/archive") return send({ id: message.id, result: {} });
+  if (message.method === "thread/loaded/list") return send({ id: message.id, result: { data: ["thread-root"] } });
   if (message.method !== "turn/start") return;
   if (message.params.model !== "gpt-5.6-luna" || message.params.effort !== "high" || message.params.reasoningEffort !== undefined) return send({ id: message.id, error: { message: "turn lost per-node routing" } });
   const threadId = message.params.threadId;
@@ -171,7 +176,6 @@ lines.on("line", (line) => {
   send({ method: "item/completed", params: { threadId, turnId, item: { id: "msg-1", type: "agentMessage", text: JSON.stringify({ summary: "App Server worker finished", outcome: "pass", payload: JSON.stringify({ context: { source: "app-server-fixture" } }) }) } } });
   send({ method: "thread/tokenUsage/updated", params: { threadId, turnId, tokenUsage: { total: { inputTokens: 80, outputTokens: 20, totalTokens: 100 } } } });
   send({ method: "turn/completed", params: { threadId, turn: { id: turnId, status: "completed" } } });
-  setTimeout(() => process.exit(0), 10);
 });
 `;
 
@@ -356,6 +360,21 @@ test("agent team validates configurable per-node timeout bounds before launching
       history: [],
       signal: new AbortController().signal
     }), /timeoutSeconds must be a positive number/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("agent team rejects unsupported Codex thread retention before launching adapters", async () => {
+  const root = await repository();
+  try {
+    await assert.rejects(() => new AgentTeam().run({
+      campaign: graphCampaign(root, [graphCommand("alpha", { adapter: "codex-app-server", command: [process.execPath, "app-server-fixture.mjs"], threadRetention: "forever" })]),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-invalid-thread-retention",
+      history: [],
+      signal: new AbortController().signal
+    }), /threadRetention must be ephemeral, archive, or debug/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
