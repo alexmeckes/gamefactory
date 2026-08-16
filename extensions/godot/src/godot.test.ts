@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
 import type { Campaign } from "@gamefactory/core";
-import { automationArgs, godotProcessSucceeded, GodotVisualEvaluator } from "./index.js";
+import { automationArgs, godotProcessSucceeded, GodotVisualEvaluator, readScenarioVerdict, resolveScenarioVerdict } from "./index.js";
 
 test("Godot automation disables the interactive native crash handler", () => {
   assert.deepEqual(
@@ -17,6 +17,40 @@ test("Godot automation disables the interactive native crash handler", () => {
 test("Godot automation rejects exit-zero runs that contain engine errors", () => {
   assert.equal(godotProcessSucceeded({ exitCode: 0, stdout: "SCRIPT ERROR: null texture", stderr: "", timedOut: false }), false);
   assert.equal(godotProcessSucceeded({ exitCode: 0, stdout: "Godot Engine", stderr: "", timedOut: false }), true);
+});
+
+test("scenario fail verdicts outrank the bridge's nonzero exit code", () => {
+  const failedExit = { exitCode: 1, stdout: "", stderr: "", timedOut: false };
+  assert.equal(resolveScenarioVerdict(failedExit, { status: "fail" }), "fail");
+  assert.equal(resolveScenarioVerdict(failedExit, { status: "crash" }), "crash");
+  assert.equal(resolveScenarioVerdict({ exitCode: 0, stdout: "", stderr: "", timedOut: false }, { status: "pass" }), "pass");
+  assert.equal(resolveScenarioVerdict({ exitCode: 0, stdout: "", stderr: "", timedOut: false }, {}), "pass");
+});
+
+test("scenario verdicts are not trusted from unhealthy or timed-out runs", () => {
+  assert.equal(resolveScenarioVerdict({ exitCode: 1, stdout: "", stderr: "", timedOut: false }, { status: "pass" }), undefined);
+  assert.equal(resolveScenarioVerdict({ exitCode: null, stdout: "", stderr: "", timedOut: true }, { status: "fail" }), undefined);
+  assert.equal(resolveScenarioVerdict({ exitCode: 1, stdout: "", stderr: "", timedOut: false }, undefined), undefined);
+  assert.equal(resolveScenarioVerdict({ exitCode: 0, stdout: "SCRIPT ERROR: boom", stderr: "", timedOut: false }, { status: "pass" }), undefined);
+});
+
+test("scenario verdict reader rejects missing, malformed, and unknown-status results", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "gamefactory-godot-verdict-"));
+  try {
+    assert.equal(await readScenarioVerdict(resolve(root, "missing.json")), undefined);
+    await writeFile(resolve(root, "broken.json"), "{not json", "utf8");
+    assert.equal(await readScenarioVerdict(resolve(root, "broken.json")), undefined);
+    await writeFile(resolve(root, "list.json"), "[1,2]\n", "utf8");
+    assert.equal(await readScenarioVerdict(resolve(root, "list.json")), undefined);
+    await writeFile(resolve(root, "unknown.json"), "{\"status\":\"maybe\"}\n", "utf8");
+    assert.equal(await readScenarioVerdict(resolve(root, "unknown.json")), undefined);
+    await writeFile(resolve(root, "fail.json"), "{\"status\":\"fail\",\"violations\":[{\"code\":\"rule\",\"message\":\"broken\",\"severity\":\"error\"}]}\n", "utf8");
+    const verdict = await readScenarioVerdict(resolve(root, "fail.json"));
+    assert.equal(verdict?.status, "fail");
+    assert.equal(verdict?.violations?.length, 1);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 function png(width: number, height: number, marker: number): Buffer {

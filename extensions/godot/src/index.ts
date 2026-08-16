@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 import type { ArtifactReference, Campaign, Candidate, DoctorResult, EngineDriver, Evaluation, Evaluator, ExecutionResult, ScenarioReference, ScenarioResult, ScenarioRunner } from "@gamefactory/core";
 import { combineDisposables, defineExtension } from "@gamefactory/extension-sdk";
@@ -49,6 +49,34 @@ const GODOT_ERROR = /(?:SCRIPT ERROR:|PARSE ERROR:|\bERROR:|Cannot call method|I
 
 export function godotProcessSucceeded(result: ProcessResult): boolean {
   return result.exitCode === 0 && !result.timedOut && !GODOT_ERROR.test(`${result.stdout}\n${result.stderr}`);
+}
+
+const SCENARIO_STATUSES = new Set<ScenarioResult["status"]>(["pass", "fail", "crash"]);
+
+export async function readScenarioVerdict(path: string): Promise<Partial<ScenarioResult> | undefined> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(await readFile(path, "utf8"));
+  } catch {
+    return undefined;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return undefined;
+  const raw = parsed as Partial<ScenarioResult>;
+  if (raw.status !== undefined && !SCENARIO_STATUSES.has(raw.status)) return undefined;
+  return raw;
+}
+
+/**
+ * The bridge exits nonzero when a completed scenario collected violations, so a
+ * written verdict outranks the exit code: a deterministic "fail" (or the
+ * runner's own "crash" report) must not be reclassified as a process crash.
+ * A "pass" is only trusted when the process itself was healthy, and a timed-out
+ * run never gets a verdict.
+ */
+export function resolveScenarioVerdict(processResult: ProcessResult, raw: Partial<ScenarioResult> | undefined): ScenarioResult["status"] | undefined {
+  if (!raw || processResult.timedOut) return undefined;
+  if (godotProcessSucceeded(processResult)) return raw.status ?? "pass";
+  return raw.status === "fail" || raw.status === "crash" ? raw.status : undefined;
 }
 
 function config(campaign: Campaign): GodotConfig {
@@ -225,6 +253,9 @@ export class GodotScenarioRunner implements ScenarioRunner {
     await mkdir(output, { recursive: true });
     const requestPath = resolve(output, "request.json");
     await writeFile(requestPath, `${JSON.stringify(input.scenario, null, 2)}\n`, "utf8");
+    const resultPath = resolve(output, "result.json");
+    // A retry reuses this directory; a stale verdict must not be read as this run's.
+    await rm(resultPath, { force: true });
     const args = [
       "--disable-crash-handler",
       ...(settings.rendered ? [] : ["--headless"]),
@@ -239,36 +270,35 @@ export class GodotScenarioRunner implements ScenarioRunner {
       return { status: "crash", metrics: {}, artifacts: [], violations: [{ code: "godot.launch", message: error instanceof Error ? error.message : String(error), severity: "error" }] };
     }
     const artifacts = await writeProcessLogs(output, "godot-scenario", processResult);
-    if (!godotProcessSucceeded(processResult)) {
-      return {
-        status: "crash",
-        metrics: {},
-        artifacts,
-        violations: [{ code: "godot.process", message: `Godot reported an engine or script error despite exit code ${processResult.exitCode}.`, severity: "error" }],
-        metadata: { timedOut: processResult.timedOut }
-      };
-    }
-    const resultPath = resolve(output, "result.json");
-    try {
-      const raw = JSON.parse(await readFile(resultPath, "utf8")) as Partial<ScenarioResult>;
+    const raw = await readScenarioVerdict(resultPath);
+    const status = resolveScenarioVerdict(processResult, raw);
+    if (raw && status) {
       artifacts.push({ kind: "test-report", path: resultPath, mediaType: "application/json", label: "Godot scenario result" });
       for (const artifact of raw.artifacts ?? []) artifacts.push(artifact);
       return {
-        status: raw.status ?? (processResult.exitCode === 0 ? "pass" : "crash"),
+        status,
         metrics: raw.metrics ?? {},
         artifacts,
         violations: raw.violations ?? [],
         ...(raw.metadata ? { metadata: raw.metadata } : {})
       };
-    } catch {
+    }
+    if (!godotProcessSucceeded(processResult)) {
       return {
         status: "crash",
         metrics: {},
         artifacts,
-        violations: [{ code: "godot.result.missing", message: `Godot exited ${processResult.exitCode} without a valid result.json`, severity: "error" }],
+        violations: [{ code: "godot.process", message: `Godot exited ${processResult.exitCode} with an engine or script error and no usable scenario verdict.`, severity: "error" }],
         metadata: { timedOut: processResult.timedOut }
       };
     }
+    return {
+      status: "crash",
+      metrics: {},
+      artifacts,
+      violations: [{ code: "godot.result.missing", message: `Godot exited ${processResult.exitCode} without a valid result.json`, severity: "error" }],
+      metadata: { timedOut: processResult.timedOut }
+    };
   }
 }
 

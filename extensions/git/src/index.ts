@@ -216,7 +216,9 @@ export class GitWorktreeWorkspace implements WorkspaceDriver {
       await removeWorktreeTransactionally(repositoryRoot, worktree);
       return { changed: false };
     }
-    await run("git", ["add", "--all", "--", ".", ":(exclude)**/.factory/**"], worktree, signal);
+    // Default pathspec matching requires a literal "/.factory/" for "**/.factory/**",
+    // so a top-level .factory (candidate root == worktree root) needs its own exclude.
+    await run("git", ["add", "--all", "--", ".", ":(exclude).factory/**", ":(exclude)**/.factory/**"], worktree, signal);
     await run("git", ["-c", "user.name=GameFactory", "-c", "user.email=gamefactory@localhost", "commit", "-m", `gamefactory: accept ${campaign.id}/${candidate.id}`], worktree, signal);
     const revision = (await run("git", ["rev-parse", "HEAD"], worktree, signal)).stdout;
     const acceptedRevision = await withRepositoryAcceptanceLock(repositoryRoot, async () => {

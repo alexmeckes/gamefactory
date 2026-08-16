@@ -129,6 +129,47 @@ test("runtime worktree settings are portable and explicit campaign settings take
   }
 });
 
+test("accepting a candidate never commits .factory evidence, even at the repository root", async () => {
+  const repository = await mkdtemp(resolve(tmpdir(), "gamefactory-git-factory-exclude-"));
+  const signal = new AbortController().signal;
+  const workspace = new GitWorktreeWorkspace();
+  const campaign: Campaign = {
+    apiVersion: "gamefactory.dev/v1",
+    id: "factory-exclude-contract",
+    objective: "change value",
+    projectRoot: repository,
+    workflow: "autoresearch",
+    requires: [],
+    mutablePaths: ["value.txt"],
+    acceptance: { primaryMetric: "score", direction: "maximize" }
+  };
+  let candidate: Candidate | undefined;
+  try {
+    await writeFile(resolve(repository, "value.txt"), "old\n", "utf8");
+    await exec("git", ["init", "-q"], { cwd: repository });
+    await exec("git", ["add", "--all"], { cwd: repository });
+    await exec("git", ["-c", "user.name=Test", "-c", "user.email=test@localhost", "commit", "-qm", "initial"], { cwd: repository });
+
+    candidate = await workspace.createCandidate({ campaign, experimentId: "evidence", signal });
+    await writeFile(resolve(candidate.root, "value.txt"), "new\n", "utf8");
+    await mkdir(resolve(candidate.root, ".factory", "agent"), { recursive: true });
+    await writeFile(resolve(candidate.root, ".factory", "agent", "request.json"), "{\"prompt\":\"secret\"}\n", "utf8");
+    await mkdir(resolve(candidate.root, "sub", ".factory"), { recursive: true });
+    await writeFile(resolve(candidate.root, "sub", ".factory", "run.log"), "nested evidence\n", "utf8");
+    await workspace.acceptCandidate({ campaign, candidate, signal });
+    candidate = undefined;
+
+    const committed = (await exec("git", ["ls-tree", "-r", "--name-only", "HEAD"], { cwd: repository })).stdout;
+    const committedPaths = committed.split(/\r?\n/).filter(Boolean);
+    assert.ok(committedPaths.includes("value.txt"));
+    assert.equal(committedPaths.filter((path) => path === ".factory" || path.startsWith(".factory/") || path.includes("/.factory/")).length, 0);
+    assert.equal((await readFile(resolve(repository, "value.txt"), "utf8")).trim(), "new");
+  } finally {
+    if (candidate) await workspace.discardCandidate({ campaign, candidate, signal }).catch(() => undefined);
+    await rm(repository, { recursive: true, force: true });
+  }
+});
+
 test("Git workspace maps a subproject, enforces paths, and cherry-picks accepted work", async () => {
   const repository = await mkdtemp(resolve(tmpdir(), "gamefactory-git-"));
   const projectRoot = resolve(repository, "game");
