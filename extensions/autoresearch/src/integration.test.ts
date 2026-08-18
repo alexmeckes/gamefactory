@@ -142,7 +142,7 @@ test("autoresearch can create the first measurable candidate from an inconclusiv
     projectRoot,
     workflow: "autoresearch",
     requires: ["workspace:mock.workspace", "agent:mock.agent", "evaluator:mock.score"],
-    parameters: { workspace: "mock.workspace", agent: "mock.agent", evaluators: ["mock.score"], mockMissingBaselineMetric: true },
+    parameters: { workspace: "mock.workspace", agent: "mock.agent", evaluators: ["mock.score"], mockMissingBaselineMetric: true, autoresearch: { stopAfterAccepted: true } },
     acceptance: { primaryMetric: "score", direction: "maximize", hardGates: ["mock.score"] },
     budget: { maximumExperiments: 1 }
   };
@@ -154,10 +154,13 @@ test("autoresearch can create the first measurable candidate from an inconclusiv
   try {
     await runner.initialize();
     const result = await runner.run(campaign);
-    assert.equal(result.status, "budget-exhausted");
+    assert.equal(result.status, "complete");
     assert.deepEqual(result.experiments.map((record) => record.status), ["baseline", "keep"]);
     assert.equal(result.experiments[0]?.evaluations[0]?.status, "inconclusive");
     assert.match(JSON.stringify(result.experiments[1]?.metadata?.decision ?? {}), /first measured baseline/);
+    const resumed = await runner.run(campaign);
+    assert.equal(resumed.status, "complete");
+    assert.deepEqual(resumed.experiments.map((record) => record.status), ["baseline", "keep"]);
   } finally {
     await runner.dispose();
     await rm(projectRoot, { recursive: true, force: true });

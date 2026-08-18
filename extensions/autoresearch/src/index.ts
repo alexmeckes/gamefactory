@@ -18,16 +18,21 @@ interface LoopParameters {
   workspace: string;
   agent: string;
   evaluators: string[];
+  stopAfterAccepted: boolean;
 }
 
 function parameters(context: WorkflowContext): LoopParameters {
   const value = context.campaign.parameters ?? {};
+  const rawSettings = value.autoresearch;
+  if (rawSettings !== undefined && (!rawSettings || typeof rawSettings !== "object" || Array.isArray(rawSettings))) throw new Error("parameters.autoresearch must be an object");
+  const settings = rawSettings as Record<string, unknown> | undefined;
+  if (settings?.stopAfterAccepted !== undefined && typeof settings.stopAfterAccepted !== "boolean") throw new Error("parameters.autoresearch.stopAfterAccepted must be a boolean");
   const workspace = typeof value.workspace === "string" ? value.workspace : "mock.workspace";
   const agent = typeof value.agent === "string" ? value.agent : "mock.agent";
   const evaluators = Array.isArray(value.evaluators) && value.evaluators.every((item) => typeof item === "string")
     ? value.evaluators
     : ["mock.score"];
-  return { workspace, agent, evaluators };
+  return { workspace, agent, evaluators, stopAfterAccepted: settings?.stopAfterAccepted === true };
 }
 
 export class AutoresearchWorkflow implements Workflow {
@@ -79,6 +84,10 @@ export class AutoresearchWorkflow implements Workflow {
     }
 
     if (baselineError) return campaignResult(context, experiments, "blocked", `Baseline evaluation crashed: ${baselineError}`);
+    if (config.stopAfterAccepted) {
+      const accepted = [...experiments].reverse().find((record) => record.status === "keep");
+      if (accepted) return campaignResult(context, experiments, "complete", `Accepted ${accepted.experimentId}; completion policy stops after the first durable accepted revision.`);
+    }
 
     while (!context.signal.aborted) {
       const allowance = context.budget.canStart();
@@ -159,6 +168,7 @@ export class AutoresearchWorkflow implements Workflow {
         await journalPhase(context, experimentId, "recorded", { status: record.status });
         await journalPhase(context, experimentId, "cleaned");
         await context.emit({ type: "experiment:finish", record, at: record.finishedAt });
+        if (accepted && config.stopAfterAccepted) return campaignResult(context, experiments, "complete", `Accepted ${experimentId}; completion policy stops after the first durable accepted revision.`);
       } catch (error) {
         if (appliedRecord) throw error;
         const failedAgent = failureAgentResult(error);

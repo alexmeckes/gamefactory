@@ -3,65 +3,32 @@
   "kind": "GameSpec",
   "projectId": "alchemy-delivery-boys-v2",
   "revision": 1,
-  "status": "frozen",
-  "concept": "alchemy delivery boys, you mix potions and bring them to villagers\n",
-  "thesis": "The player feels like an alchemist-courier by committing to a brew whose useful strength and travel risk must be managed on foot; the villager's reaction reveals how mixing and delivery together shaped what arrived, and that outcome changes the next choice.",
+  "status": "draft",
+  "concept": "alchemy delivery boys, you mix potions and bring them to villagers",
+  "thesis": "Brewing, carrying, and delivery form one continuous spatial problem in which the potion visibly changes through the player's actions and journey.",
   "claims": [
     {
       "id": "loop.core",
       "category": "loop",
-      "statement": "In the opening session, the player reads a villager's need and available cues, chooses a potion mix and how to carry it through a compact directly controlled trip, then sees the potion that actually arrives cause a legible villager reaction and a state-dependent next choice; at least two understood plans trade desired effect against delivery risk, so neither is always best.",
-      "status": "required",
+      "statement": "Within the opening minutes, the player can make a potion, directly move through a compact world, influence what reaches a villager, understand the reaction, and immediately face another meaningful choice.",
+      "status": "open",
       "falsifiers": [
-        "Before committing, the player cannot identify how at least two available mix-and-delivery plans could produce materially different outcomes.",
-        "One plan is the obvious best answer across the presented need and trip conditions.",
-        "Brewing and delivery behave as separate activities: direct movement or world interaction cannot affect the potion that arrives or the villager's response.",
-        "The arrived potion state or villager reaction is not immediate and legible enough for the player to attribute the result to understood choices.",
-        "Completing the delivery leaves no changed state that informs a meaningful next choice without relying on progression, collection, timers, or narrative promises."
+        "The opening is primarily menus, prose, waiting, or passive playback.",
+        "Direct movement and world interaction do not change the delivered potion or villager response.",
+        "The result cannot be attributed to choices the player understood before acting."
       ]
-    }
-  ],
-  "decisions": [
-    {
-      "id": "decision.slice-hypothesis",
-      "status": "accepted",
-      "question": "What single interpretation makes mixing potions and bringing them to villagers one consequential repeated decision?",
-      "resolution": "For the first slice, composition creates a tradeoff between desired effect and delivery risk, while the player's conduct during a directly controlled trip helps determine the potion state that actually arrives. Exact ingredients, traits, hazards, controls, formulas, and layouts remain implementation choices.",
-      "affectedClaims": ["loop.core"]
-    },
-    {
-      "id": "decision.slice-boundary",
-      "status": "accepted",
-      "question": "What is the smallest player-complete proof of the thesis?",
-      "resolution": "One need-to-reaction delivery is sufficient when it contains an informed non-dominated choice, embodied travel with causal potion feedback, and a visible state-dependent follow-up choice. Additional villagers, recipes, days, economies, progression, narrative, and production presentation do not gate this proof.",
-      "affectedClaims": ["loop.core"]
-    },
-    {
-      "id": "decision.ensemble-control",
-      "status": "deferred",
-      "question": "Does 'boys' require multiple simultaneously present or controllable couriers?",
-      "resolution": "The concept establishes the delivery-boys identity but not party size, switching, artificial-intelligence companions, or cooperative play. The first slice may use the smallest courier representation that honestly tests loop.core; ensemble structure remains open until evidence or user direction makes it consequential."
     }
   ],
   "slices": [
     {
       "id": "first-delivery",
-      "playerOutcome": "Starting from a clear villager need, mix a potion, carry it through a compact directly controlled trip, see its relevant state respond to play, deliver it, understand the recipient's reaction, and recognize how the result changes the next choice.",
-      "primaryRisk": "The causal chain collapses into an obvious recipe followed by decorative travel, so the player never manages one decision across brewing and delivery.",
+      "playerOutcome": "Complete one embodied brew-and-deliver loop and understand why the villager reacted as they did.",
+      "primaryRisk": "The idea becomes a static crafting interface with decorative travel.",
       "claimIds": ["loop.core"]
     }
   ],
-  "assumptions": [
-    "Readable need, ingredient, potion-state, and route cues can support a tradeoff without a tutorial-heavy recipe system.",
-    "The slice can include bounded uncertainty that the player manages rather than opaque randomness that erases attribution.",
-    "One completed delivery followed by a visible state-dependent choice is enough to test repeat pull without implementing long-term progression.",
-    "A minimal courier representation can test the loop without deciding the eventual meaning of the plural 'boys'."
-  ],
-  "openQuestions": [
-    "After the core loop is proven, should the delivery-boys identity become a single-character fiction, a switchable team, companion coordination, or cooperative play, and how would that alter the repeated decision?"
-  ],
   "change": {
     "kind": "initial",
-    "rationale": "Initial convergence freezes revision 1 from the seed draft. It selects one bounded brew-versus-delivery-risk hypothesis for first-delivery while leaving ensemble control and future systems unresolved; there is no earlier frozen revision to supersede."
+    "rationale": "Initial open thesis for bounded spec convergence; the spec owner may refine the creative solution while preserving the concept and stable core claim."
   }
 }

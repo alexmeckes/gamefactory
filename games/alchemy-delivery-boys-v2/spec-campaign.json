@@ -11,6 +11,7 @@
     "workspace": "git.worktree",
     "agent": "agent.team",
     "evaluators": ["game.spec"],
+    "autoresearch": { "stopAfterAccepted": true },
     "gameSpec": {
       "path": "game-spec.json",
       "conceptPath": "concept.md",
