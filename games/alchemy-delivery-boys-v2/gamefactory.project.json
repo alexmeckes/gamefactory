@@ -1,0 +1,41 @@
+{
+  "apiVersion": "gamefactory.dev/v2",
+  "kind": "Project",
+  "id": "alchemy-delivery-boys-v2",
+  "title": "Alchemy Delivery Boys",
+  "projectRoot": ".",
+  "preproduction": {
+    "concept": "concept.md",
+    "spec": "game-spec.json",
+    "maximumConvergencePasses": 3,
+    "attempts": [{ "id": "spec-v1", "campaign": "spec-campaign.json", "config": "factory.json" }]
+  },
+  "slices": [
+    {
+      "id": "first-delivery",
+      "title": "One embodied brew-and-deliver loop",
+      "order": 10,
+      "consumesClaims": ["loop.core"],
+      "playerOutcome": "Complete one short potion delivery by brewing, moving through a compact world, and seeing the recipient react to the potion that actually arrived.",
+      "primaryRisk": "The experience collapses into menu selection, text panels, and passive travel instead of an embodied, readable game.",
+      "nonGoals": [
+        "A large village or content campaign",
+        "Economy, crafting progression, or meta progression",
+        "Multiple polished delivery days",
+        "Production assets before the playable loop is proven"
+      ],
+      "mutablePaths": ["game/**", "design/**", "evidence/**", "design-system.json", "sam3.request.json", "sam3.video.request.json", "video.request.json", "pixel-motion.request.json"],
+      "evidence": {
+        "scenarios": ["first-session", "returning-player"],
+        "requireInteractionTrace": true,
+        "requireEngineCapture": true,
+        "requireMotionEvidence": true,
+        "targetApprovalNode": "scene-target-gate",
+        "requireRuntimeAssets": ["interface", "characters", "feedback"]
+      },
+      "attemptPolicy": { "executionRetries": 2, "creativeRepairs": 3, "specAmendments": 1, "advisorEscalations": 2 },
+      "gate": { "requireAcceptedRevision": true },
+      "attempts": [{ "id": "slice-v1", "campaign": "campaign.json", "config": "factory.json" }]
+    }
+  ]
+}

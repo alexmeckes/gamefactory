@@ -1,0 +1,34 @@
+{
+  "apiVersion": "gamefactory.game-spec/v1",
+  "kind": "GameSpec",
+  "projectId": "alchemy-delivery-boys-v2",
+  "revision": 1,
+  "status": "draft",
+  "concept": "alchemy delivery boys, you mix potions and bring them to villagers",
+  "thesis": "Brewing, carrying, and delivery form one continuous spatial problem in which the potion visibly changes through the player's actions and journey.",
+  "claims": [
+    {
+      "id": "loop.core",
+      "category": "loop",
+      "statement": "Within the opening minutes, the player can make a potion, directly move through a compact world, influence what reaches a villager, understand the reaction, and immediately face another meaningful choice.",
+      "status": "open",
+      "falsifiers": [
+        "The opening is primarily menus, prose, waiting, or passive playback.",
+        "Direct movement and world interaction do not change the delivered potion or villager response.",
+        "The result cannot be attributed to choices the player understood before acting."
+      ]
+    }
+  ],
+  "slices": [
+    {
+      "id": "first-delivery",
+      "playerOutcome": "Complete one embodied brew-and-deliver loop and understand why the villager reacted as they did.",
+      "primaryRisk": "The idea becomes a static crafting interface with decorative travel.",
+      "claimIds": ["loop.core"]
+    }
+  ],
+  "change": {
+    "kind": "initial",
+    "rationale": "Initial open thesis for bounded spec convergence; the spec owner may refine the creative solution while preserving the concept and stable core claim."
+  }
+}
