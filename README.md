@@ -125,8 +125,7 @@ whole project. Existing v1 phase manifests remain supported as legacy projects.
 
 Slice `mutablePaths` are mandatory and narrow the underlying campaign; the
 project manifest, verbatim concept, and frozen spec are injected as immutable.
-Evidence gates accept only SHA-256 references to artifacts preserved by the
-accepted experiment. Proxy booleans and metrics do not satisfy interaction,
+Evidence gates accept only SHA-256 references to artifacts preserved from the accepted experiment through registered evaluators or explicitly trusted factory-native agent drivers. Artifact paths are canonicalized beneath project, worktree, factory-data, or bounded failure-evidence roots; candidate-declared kinds alone never establish authority. Proxy booleans and metrics do not satisfy interaction,
 engine-capture, target, motion, or runtime-consumer evidence. The runner binds
 evidence to the frozen spec and agent writer generations, archives every
 accepted frozen spec, and verifies exact supersedes lineage.
@@ -175,6 +174,8 @@ npm run factory -- run examples/godot/campaign.json --config examples/godot/fact
 To exercise the entire Godot pipeline without touching the current repository,
 set `GODOT_BINARY` and run `npm run smoke:godot`. The harness creates and
 removes a temporary Git repository around the Godot fixture.
+
+Human-gated project phases stop after producing a journaled, evidence-bound promotion intent. Record the decision with `gamefactory project approve <gamefactory.project.json> --phase <phase-id> --approver <identity>`, then resume with `gamefactory project run`. Approval prompt text and direct agent-team continuation scripts are not valid promotion authority.
 
 Run `npm run smoke:godot:multi-agent` to exercise three competing worktrees.
 Each candidate uses parallel scouts, a planner, one implementer, and parallel

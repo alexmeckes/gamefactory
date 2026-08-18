@@ -11,7 +11,7 @@ import { chooseIntakeOption } from "./intake.js";
 import { migrateStorage, refreshStorageIndex, storageDoctor, storageGc, storageStatus } from "./storage.js";
 
 function usage(): never {
-  console.error(`GameFactory\n\nUsage:\n  gamefactory credentials set <name>\n  gamefactory credentials list\n  gamefactory credentials remove <name>\n  gamefactory credentials path\n  gamefactory storage doctor\n  gamefactory storage status\n  gamefactory storage migrate\n  gamefactory storage gc [--apply]\n  gamefactory intake "<game idea>" [--provider game.design] [--output game.brief.json] [--force] [--config factory.config.json]\n  gamefactory spec validate <GAME_SPEC.json> [--project-id <id>]\n  gamefactory run <campaign.json> [--config factory.config.json]\n  gamefactory project doctor <gamefactory.project.json>\n  gamefactory project run <gamefactory.project.json>\n  gamefactory project status <gamefactory.project.json>\n  gamefactory view <campaign.json> [--config factory.config.json] [--port 4317] [--host 127.0.0.1]\n  gamefactory bridge <campaign.json> [--config factory.config.json] [--port 4317] [--observatory https://gamefactory-observatory.ameckes.chatgpt.site]\n  gamefactory doctor <campaign.json> [--config factory.config.json]\n  gamefactory list [--config factory.config.json]\n  gamefactory explain <capability> [--config factory.config.json]`);
+  console.error(`GameFactory\n\nUsage:\n  gamefactory credentials set <name>\n  gamefactory credentials list\n  gamefactory credentials remove <name>\n  gamefactory credentials path\n  gamefactory storage doctor\n  gamefactory storage status\n  gamefactory storage migrate\n  gamefactory storage gc [--apply]\n  gamefactory intake "<game idea>" [--provider game.design] [--output game.brief.json] [--force] [--config factory.config.json]\n  gamefactory spec validate <GAME_SPEC.json> [--project-id <id>]\n  gamefactory run <campaign.json> [--config factory.config.json]\n  gamefactory project doctor <gamefactory.project.json>\n  gamefactory project run <gamefactory.project.json>\n  gamefactory project approve <gamefactory.project.json> --phase <phase-id> --approver <identity>\n  gamefactory project status <gamefactory.project.json>\n  gamefactory view <campaign.json> [--config factory.config.json] [--port 4317] [--host 127.0.0.1]\n  gamefactory bridge <campaign.json> [--config factory.config.json] [--port 4317] [--observatory https://gamefactory-observatory.ameckes.chatgpt.site]\n  gamefactory doctor <campaign.json> [--config factory.config.json]\n  gamefactory list [--config factory.config.json]\n  gamefactory explain <capability> [--config factory.config.json]`);
   process.exit(2);
 }
 
@@ -133,7 +133,7 @@ async function main(): Promise<void> {
   if (command === "project") {
     const action = subject;
     const projectPath = process.argv[4];
-    if (!projectPath || !["doctor", "run", "status"].includes(action ?? "")) usage();
+    if (!projectPath || !["doctor", "run", "status", "approve"].includes(action ?? "")) usage();
     const project = await loadProject(resolve(cwd, projectPath));
     const journeyIndex = dataRoot ? await SqliteProjectJourneyIndex.open(resolve(dataRoot, "factory.sqlite")) : undefined;
     const projectRunner = new ProjectRunner(project, { cwd, ...runtime, ...(journeyIndex ? { journeyIndex } : {}), logger, signal: controller.signal });
@@ -148,6 +148,15 @@ async function main(): Promise<void> {
         const checks = await projectRunner.doctor();
         console.log(JSON.stringify(checks, null, 2));
         if (checks.some((check) => !check.ok)) process.exitCode = 1;
+        return;
+      }
+      if (action === "approve") {
+        const phaseId = option("--phase", "");
+        const approver = option("--approver", "");
+        if (!phaseId || !approver) usage();
+        const event = await projectRunner.approve(phaseId, approver);
+        if (dataRoot && journeyIndex) await refreshStorageIndex(dataRoot, journeyIndex);
+        console.log(JSON.stringify(event, null, 2));
         return;
       }
       const result = await projectRunner.run();

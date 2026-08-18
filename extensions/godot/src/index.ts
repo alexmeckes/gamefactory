@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, realpath, writeFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 import type { AgentDriver, AgentResult, ArtifactReference, Campaign, Candidate, DoctorResult, EngineDriver, Evaluation, Evaluator, ExecutionResult, ScenarioReference, ScenarioResult, ScenarioRunner } from "@gamefactory/core";
 import { combineDisposables, defineExtension } from "@gamefactory/extension-sdk";
@@ -42,7 +42,7 @@ const ARTIFACT_KINDS = new Set<ArtifactReference["kind"]>([
   "image", "video", "audio", "replay", "telemetry", "profile", "test-report", "log", "build", "crash-dump", "other"
 ]);
 
-export function normalizeScenarioArtifacts(value: unknown): { artifacts: ArtifactReference[]; violations: ScenarioResult["violations"] } {
+export async function normalizeScenarioArtifacts(value: unknown, allowedRoot?: string): Promise<{ artifacts: ArtifactReference[]; violations: ScenarioResult["violations"] }> {
   if (value === undefined) return { artifacts: [], violations: [] };
   if (!Array.isArray(value)) return {
     artifacts: [],
@@ -58,9 +58,29 @@ export function normalizeScenarioArtifacts(value: unknown): { artifacts: Artifac
     const record = item as Record<string, unknown>;
     const declaredKind = typeof record.kind === "string" ? record.kind : "other";
     const supported = ARTIFACT_KINDS.has(declaredKind as ArtifactReference["kind"]);
+    let artifactPath = record.path as string;
+    if (allowedRoot) {
+      try {
+        const requested = isAbsolute(artifactPath) ? resolve(artifactPath) : resolve(allowedRoot, artifactPath);
+        const [canonicalRoot, canonicalArtifact] = await Promise.all([realpath(allowedRoot), realpath(requested)]);
+        const traversal = relative(canonicalRoot, canonicalArtifact);
+        if (traversal.startsWith("..") || isAbsolute(traversal)) throw new Error("outside scenario output");
+        const bytes = await readFile(canonicalArtifact);
+        if (declaredKind === "image" && (bytes.length < 8 || !bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])))) throw new Error("image artifact is not a PNG");
+        if (declaredKind === "video") {
+          const isMp4 = bytes.length >= 12 && bytes.subarray(4, 8).toString("ascii") === "ftyp";
+          const isWebm = bytes.length >= 4 && bytes.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]));
+          if (!isMp4 && !isWebm) throw new Error("video artifact is neither MP4 nor WebM");
+        }
+        artifactPath = canonicalArtifact;
+      } catch {
+        violations.push({ code: `godot.artifact.${index}.containment`, message: "Scenario artifact must resolve to a regular output beneath the factory-owned scenario directory.", severity: "error" });
+        continue;
+      }
+    }
     const reference: ArtifactReference = {
       kind: supported ? declaredKind as ArtifactReference["kind"] : "other",
-      path: record.path as string
+      path: artifactPath
     };
     if (typeof record.mediaType === "string") reference.mediaType = record.mediaType;
     if (typeof record.label === "string") reference.label = record.label;
@@ -308,25 +328,21 @@ export class GodotScenarioRunner implements ScenarioRunner {
       return { status: "crash", metrics: {}, artifacts: [], violations: [{ code: "godot.launch", message: error instanceof Error ? error.message : String(error), severity: "error" }] };
     }
     const artifacts = await writeProcessLogs(output, "godot-scenario", processResult);
-    if (!godotProcessSucceeded(processResult)) {
-      return {
-        status: "crash",
-        metrics: {},
-        artifacts,
-        violations: [{ code: "godot.process", message: `Godot reported an engine or script error despite exit code ${processResult.exitCode}.`, severity: "error" }],
-        metadata: { timedOut: processResult.timedOut }
-      };
-    }
+    const processSucceeded = godotProcessSucceeded(processResult);
     const resultPath = resolve(output, "result.json");
     try {
       const raw = JSON.parse(await readFile(resultPath, "utf8")) as Partial<ScenarioResult>;
       artifacts.push({ kind: "test-report", path: resultPath, mediaType: "application/json", label: "Godot scenario result" });
-      const normalized = normalizeScenarioArtifacts(raw.artifacts);
+      const normalized = await normalizeScenarioArtifacts(raw.artifacts, output);
       artifacts.push(...normalized.artifacts);
-      const resultViolations = [...(raw.violations ?? []), ...normalized.violations];
+      const resultViolations = [
+        ...(!processSucceeded ? [{ code: "godot.process", message: `Godot reported an engine or script error with exit code ${processResult.exitCode}.`, severity: "error" as const }] : []),
+        ...(raw.violations ?? []),
+        ...normalized.violations
+      ];
       const invalidArtifacts = normalized.violations.some((violation) => violation.severity === "error");
       return {
-        status: invalidArtifacts ? "fail" : raw.status ?? (processResult.exitCode === 0 ? "pass" : "crash"),
+        status: !processSucceeded ? "crash" : invalidArtifacts ? "fail" : raw.status ?? "pass",
         metrics: raw.metrics ?? {},
         artifacts,
         violations: resultViolations,

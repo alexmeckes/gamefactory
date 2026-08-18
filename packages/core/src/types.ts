@@ -71,6 +71,8 @@ export interface AcceptanceConfig {
   primaryMetric: string;
   direction: "minimize" | "maximize";
   minimumDelta?: number;
+  /** Whether meeting the threshold exactly is sufficient. Defaults to strict improvement. */
+  comparison?: "strict" | "at-least";
   hardGates?: string[];
   allowRegressions?: boolean;
 }

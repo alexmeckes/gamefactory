@@ -11,6 +11,7 @@ interface Config {
   requireFrozen: boolean;
   requiredClaims: string[];
   requiredSlices: string[];
+  maximumConvergencePasses?: number;
 }
 
 function strings(value: unknown, label: string): string[] {
@@ -27,8 +28,9 @@ function config(request: EvaluationRequest): Config {
   if (typeof record.conceptPath !== "string" || record.conceptPath.length === 0) throw new Error("parameters.gameSpec.conceptPath must be a non-empty candidate-relative path");
   if (record.projectId !== undefined && (typeof record.projectId !== "string" || record.projectId.length === 0)) throw new Error("parameters.gameSpec.projectId must be a non-empty string");
   if (record.requireFrozen !== undefined && typeof record.requireFrozen !== "boolean") throw new Error("parameters.gameSpec.requireFrozen must be a boolean");
-  for (const key of ["maximumRevision", "maximumConvergencePasses"] as const) if (record[key] !== undefined && (!Number.isSafeInteger(record[key]) || (record[key] as number) < 1 || (record[key] as number) > 100)) throw new Error(`parameters.gameSpec.${key} must be from 1 to 100`);
-  return { path: record.path, conceptPath: record.conceptPath, ...(typeof record.projectId === "string" ? { projectId: record.projectId } : {}), requireFrozen: record.requireFrozen !== false, requiredClaims: strings(record.requiredClaims, "parameters.gameSpec.requiredClaims"), requiredSlices: strings(record.requiredSlices, "parameters.gameSpec.requiredSlices") };
+  if (record.maximumRevision !== undefined) throw new Error("parameters.gameSpec.maximumRevision is unsupported; convergence is bounded per episode with maximumConvergencePasses");
+  if (record.maximumConvergencePasses !== undefined && (!Number.isSafeInteger(record.maximumConvergencePasses) || (record.maximumConvergencePasses as number) < 1 || (record.maximumConvergencePasses as number) > 100)) throw new Error("parameters.gameSpec.maximumConvergencePasses must be from 1 to 100");
+  return { path: record.path, conceptPath: record.conceptPath, ...(typeof record.projectId === "string" ? { projectId: record.projectId } : {}), requireFrozen: record.requireFrozen !== false, requiredClaims: strings(record.requiredClaims, "parameters.gameSpec.requiredClaims"), requiredSlices: strings(record.requiredSlices, "parameters.gameSpec.requiredSlices"), ...(typeof record.maximumConvergencePasses === "number" ? { maximumConvergencePasses: record.maximumConvergencePasses } : {}) };
 }
 
 function candidatePath(root: string, path: string, label: string): string {
@@ -55,6 +57,7 @@ export class GameSpecEvaluator implements Evaluator {
     const violations: Violation[] = [];
     try {
       const [spec, concept] = await Promise.all([loadGameSpec(specPath, settings.projectId), readFile(conceptPath, "utf8")]);
+      if (settings.maximumConvergencePasses !== undefined && (request.campaign.budget?.maximumExperiments === undefined || request.campaign.budget.maximumExperiments > settings.maximumConvergencePasses)) violations.push({ code: "game-spec.unbounded-convergence", message: `Campaign maximumExperiments must be configured at or below maximumConvergencePasses ${settings.maximumConvergencePasses}.`, severity: "error" });
       if (normalizedText(spec.concept) !== normalizedText(concept)) violations.push({ code: "game-spec.concept-changed", message: "GameSpec must preserve the supplied concept verbatim.", severity: "error", location: settings.path });
       if (settings.requireFrozen && spec.status !== "frozen") violations.push({ code: "game-spec.not-frozen", message: `GameSpec revision ${spec.revision} is not frozen.`, severity: "error", location: settings.path });
       const claims = new Map(spec.claims.map((claim) => [claim.id, claim]));

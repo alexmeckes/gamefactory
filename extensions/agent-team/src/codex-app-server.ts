@@ -203,32 +203,13 @@ function expandStructuredEnvelope(output: string): string {
   try {
     payload = parseStructuredPayload(envelope.payload);
   } catch (error) {
-    return JSON.stringify({
-      findings: envelope.payload,
-      summary: envelope.summary,
-      outcome: envelope.outcome,
-      _gamefactory: {
-        structuredPayloadRecovery: {
-          kind: "invalid-inner-json",
-          payloadCharacters: envelope.payload.length,
-          parseError: error instanceof Error ? error.message : String(error)
-        }
-      }
-    });
+    throw new Error(`Codex App Server returned an invalid structured payload: ${error instanceof Error ? error.message : String(error)}`);
   }
+  if (payload.trailingCharacters > 0) throw new Error("Codex App Server structured payload contains trailing non-JSON text");
   return JSON.stringify({
     ...payload.value,
     summary: envelope.summary,
     outcome: envelope.outcome,
-    ...(payload.trailingCharacters > 0 ? {
-      _gamefactory: {
-        ...(object(payload.value._gamefactory) ?? {}),
-        structuredPayloadRecovery: {
-          kind: "leading-json-with-trailing-text",
-          trailingCharacters: payload.trailingCharacters
-        }
-      }
-    } : {})
   });
 }
 

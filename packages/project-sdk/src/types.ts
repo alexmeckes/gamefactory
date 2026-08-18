@@ -9,6 +9,7 @@ export interface ProjectPhaseGate {
   requireAcceptedRevision?: boolean;
   requireMetrics?: Record<string, ProjectMetricGate>;
   requireHumanApproval?: boolean;
+  allowBudgetExhaustedAfterAcceptance?: boolean;
 }
 
 export interface ProjectPhaseAttempt {
@@ -41,6 +42,8 @@ export interface ProjectEvidenceGate {
   requireEngineCapture?: boolean;
   requireMotionEvidence?: boolean;
   requireRuntimeAssets?: string[];
+  /** Agent graph node whose in-memory, read-only verdict must approve the target hash. */
+  targetApprovalNode?: string;
 }
 
 export interface ProjectSpecStage {

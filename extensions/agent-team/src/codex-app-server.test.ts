@@ -125,7 +125,7 @@ test("Codex App Server pool streams a turn and records instruction, lineage, and
     assert.equal(rerouted.actualModel, "gpt-5.6-terra");
     assert.equal(rerouted.usage?.model, "gpt-5.6-terra");
     assert.equal(rerouted.usage?.reasoningEffort, "high");
-    const recovered = await pool.run({
+    await assert.rejects(() => pool.run({
       launcher: [process.execPath, serverPath],
       cwd: root,
       prompt: "Perform a trailing payload task",
@@ -133,12 +133,8 @@ test("Codex App Server pool streams a turn and records instruction, lineage, and
       model: "gpt-5.6-luna",
       reasoningEffort: "high",
       signal: new AbortController().signal
-    });
-    const recoveredOutput = JSON.parse(recovered.output);
-    assert.deepEqual(recoveredOutput.context, { source: "fixture" });
-    assert.equal(recoveredOutput._gamefactory.structuredPayloadRecovery.kind, "leading-json-with-trailing-text");
-    assert.equal(recoveredOutput._gamefactory.structuredPayloadRecovery.trailingCharacters, "Additional reviewer note.".length);
-    const malformed = await pool.run({
+    }), /trailing non-JSON text/);
+    await assert.rejects(() => pool.run({
       launcher: [process.execPath, serverPath],
       cwd: root,
       prompt: "Perform a malformed payload task",
@@ -146,12 +142,7 @@ test("Codex App Server pool streams a turn and records instruction, lineage, and
       model: "gpt-5.6-luna",
       reasoningEffort: "high",
       signal: new AbortController().signal
-    });
-    const malformedOutput = JSON.parse(malformed.output);
-    assert.equal(malformedOutput.outcome, "pass");
-    assert.equal(malformedOutput.summary, "real adapter result");
-    assert.equal(malformedOutput.findings, '{"context":{"source":"fixture"}');
-    assert.equal(malformedOutput._gamefactory.structuredPayloadRecovery.kind, "invalid-inner-json");
+    }), /invalid structured payload/);
     const archived = await pool.run({
       launcher: [process.execPath, serverPath],
       cwd: root,

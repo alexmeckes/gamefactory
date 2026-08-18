@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { open, mkdir, readFile, stat, unlink } from "node:fs/promises";
-import { hostname } from "node:os";
+import { hostname, tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { promisify } from "node:util";
 import type { Campaign, CampaignResult, EngineDriver, FactoryConfig, FactoryRuntimeContext, Logger, Workflow } from "./types.js";
@@ -213,9 +213,20 @@ export class FactoryRunner {
         tracedExtensions.set(extension.name, signature);
       }
     };
+    const gitSettings = campaign.parameters?.git;
+    const campaignWorktreeRoot = gitSettings && typeof gitSettings === "object" && !Array.isArray(gitSettings) && typeof (gitSettings as Record<string, unknown>).worktreeRoot === "string"
+      ? resolve((gitSettings as Record<string, unknown>).worktreeRoot as string)
+      : this.options.worktreeRoot ? resolve(this.options.worktreeRoot) : resolve(campaign.projectRoot, "..", ".gamefactory-worktrees");
     const artifactStore = new ContentAddressedArtifactStore(
       resolveFactoryStatePath(storage, this.options.config.artifactDirectory, ".factory/artifacts", "artifactDirectory"),
-      this.options.logger
+      this.options.logger,
+      { allowedRoots: [...new Set([
+        campaign.projectRoot,
+        campaignWorktreeRoot,
+        resolve(tmpdir(), "gamefactory-agent-evidence"),
+        ...(this.options.dataRoot ? [this.options.dataRoot] : []),
+        ...(this.options.worktreeRoot ? [this.options.worktreeRoot] : [])
+      ].map((path) => resolve(path)))] }
     );
 
     let releaseLease: (() => Promise<void>) | undefined;

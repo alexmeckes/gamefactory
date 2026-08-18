@@ -180,6 +180,8 @@ export interface ContributorProvenance {
   promptManifestPath: string;
   providerThreadId?: string;
   providerTurnId?: string;
+  adapter: ContributorConfig["adapter"];
+  driver?: string;
 }
 
 interface ContributorRun {
@@ -306,10 +308,14 @@ const CONTROL_OUTCOME_ALIASES = new Map<string, string>([
   ["requires_revision", "revise"],
   ["needs_revision", "revise"],
   ["changes_required", "revise"],
+  ["needs_work", "revise"],
+  ["needswork", "revise"],
+  ["rejected", "reject"],
   ["passed", "pass"],
   ["approved", "pass"]
 ]);
 const REJECTING_CONTROL_OUTCOMES = new Set(["revise", "reject", "fail", "failed", "blocked", "crash", "error"]);
+const POSITIVE_CONTROL_OUTCOMES = new Set(["pass", "complete", "ready"]);
 
 function canonicalControlOutcome(outcome: string): string {
   const key = outcome.toLowerCase().replaceAll("-", "_").replaceAll(".", "_");
@@ -1592,6 +1598,8 @@ async function invokeContributor(
     attempt: options.attempt,
     reason: options.reason,
     command,
+    adapter: config.adapter,
+    ...(config.driver ? { driver: config.driver } : {}),
     startedAt,
     finishedAt: new Date(finished).toISOString(),
     durationMs: finished - started,
@@ -1631,26 +1639,32 @@ async function invokeContributor(
   return run;
 }
 
-function isFactoryPath(path: string): boolean {
-  return path.replaceAll("\\", "/").split("/").includes(".factory");
+function isManagedAgentRuntimePath(path: string, experimentId: string): boolean {
+  const normalized = path.replaceAll("\\", "/").replace(/^\.\//, "");
+  const marker = `.factory/agent-team/${experimentId}/`;
+  return normalized.startsWith(marker) || normalized.includes(`/${marker}`);
 }
 
-function meaningfulStatus(output: string): string {
+function ignoredSnapshotPath(path: string, experimentId: string, allowedPatterns: string[]): boolean {
+  return isManagedAgentRuntimePath(path, experimentId) || allowedPatterns.some((pattern) => matchesPath(path, pattern));
+}
+
+function meaningfulStatus(output: string, experimentId: string, allowedPatterns: string[]): string {
   return output
     .split(/\r?\n/)
     .filter(Boolean)
     .filter((line) => {
       const path = line.slice(3).split(" -> ").at(-1)?.replaceAll("\\", "/") ?? "";
-      return !isFactoryPath(path);
+      return !ignoredSnapshotPath(path, experimentId, allowedPatterns);
     })
     .sort()
     .join("\n");
 }
 
-function meaningfulStatusPaths(output: string): string[] {
+function meaningfulStatusPaths(output: string, experimentId: string, allowedPatterns: string[]): string[] {
   return output.split(/\r?\n/).filter(Boolean).flatMap((line): string[] => {
     const path = line.slice(3).split(" -> ").at(-1)?.replaceAll("\\", "/") ?? "";
-    return path && !isFactoryPath(path) ? [path] : [];
+    return path && !ignoredSnapshotPath(path, experimentId, allowedPatterns) ? [path] : [];
   });
 }
 
@@ -1693,7 +1707,7 @@ async function meaningfulFileState(request: AgentRequest): Promise<Map<string, s
     "-c", "status.relativePaths=true",
     "status", "--porcelain=v1", "--untracked-files=all"
   ], "repair scope");
-  const paths = [...new Set(meaningfulStatusPaths(rawStatus)
+  const paths = [...new Set(meaningfulStatusPaths(rawStatus, request.experimentId, [])
     .filter((path) => prefix.length === 0 || path === prefix.slice(0, -1) || path.startsWith(prefix))
     .map((path) => prefix.length > 0 && path.startsWith(prefix) ? path.slice(prefix.length) : path)
     .filter(Boolean))].sort();
@@ -1705,7 +1719,7 @@ function changedSince(before: Map<string, string>, after: Map<string, string>): 
   return [...paths].filter((path) => before.get(path) !== after.get(path)).sort();
 }
 
-async function gitSnapshot(request: AgentRequest): Promise<string> {
+async function gitSnapshot(request: AgentRequest, allowedPatterns: string[] = []): Promise<string> {
   // Git for Windows may refresh and replace a worktree index while answering
   // status. Keep snapshot reads ordered within a candidate. Separate worktrees
   // still run independently.
@@ -1714,11 +1728,13 @@ async function gitSnapshot(request: AgentRequest): Promise<string> {
     "-c", "status.relativePaths=true",
     "status", "--porcelain=v1", "--untracked-files=all"
   ], "status");
-  const trackedDiff = await gitOutput(request, ["diff", "--no-ext-diff", "--binary", "HEAD", "--", ".", ":(exclude)**/.factory/**"], "diff");
+  const managedPathspec = `:(exclude)**/.factory/agent-team/${request.experimentId}/**`;
+  const allowedPathspecs = allowedPatterns.map((pattern) => `:(exclude)${pattern}`);
+  const trackedDiff = await gitOutput(request, ["diff", "--no-ext-diff", "--binary", "HEAD", "--", ".", managedPathspec, ...allowedPathspecs], "diff");
   const rawUntracked = await gitOutput(request, ["ls-files", "--others", "--exclude-standard", "-z"], "untracked files");
-  const untrackedPaths = rawUntracked.split("\0").filter((path) => path && !isFactoryPath(path)).sort();
+  const untrackedPaths = rawUntracked.split("\0").filter((path) => path && !ignoredSnapshotPath(path, request.experimentId, allowedPatterns)).sort();
   const untracked = await Promise.all(untrackedPaths.map(async (path) => `${path}:${await fingerprint(resolve(request.candidate.root, path))}`));
-  return JSON.stringify({ status: meaningfulStatus(rawStatus), trackedDiff, untracked });
+  return JSON.stringify({ status: meaningfulStatus(rawStatus, request.experimentId, allowedPatterns), trackedDiff, untracked });
 }
 
 function assertRunsSucceeded(stage: TeamStage, runs: ContributorRun[]): void {
@@ -1808,6 +1824,8 @@ function contribution(run: ContributorRun): AgentContribution {
       outcome: run.provenance.outcome,
       ...(run.provenance.reportedOutcome ? { reportedOutcome: run.provenance.reportedOutcome } : {}),
       command: run.provenance.command,
+      adapter: run.provenance.adapter,
+      ...(run.provenance.driver ? { driver: run.provenance.driver } : {}),
       durationMs: run.provenance.durationMs,
       exitCode: run.provenance.exitCode,
       requestPath: run.provenance.requestPath,
@@ -1902,8 +1920,11 @@ function dependencyWriterIds(node: GraphNodeConfig, nodes: Map<string, GraphNode
 
 function validateAuthorityOutput(config: GraphAgentTeamConfig, node: GraphNodeConfig, run: ContributorRun): void {
   if (!config.enforceClaimedBlockers || run.provenance.status !== "complete") return;
-  const rejecting = REJECTING_CONTROL_OUTCOMES.has(run.provenance.outcome.toLowerCase());
-  if (!rejecting || (node.authority !== "propose" && node.authority !== "approve")) return;
+  if (node.authority !== "propose" && node.authority !== "approve") return;
+  const controlOutcome = run.provenance.outcome.toLowerCase();
+  const rejecting = REJECTING_CONTROL_OUTCOMES.has(controlOutcome);
+  if (!rejecting && !POSITIVE_CONTROL_OUTCOMES.has(controlOutcome)) throw new AgentTeamExecutionError(`${node.id} returned unknown control outcome ${run.provenance.outcome}`, [run]);
+  if (!rejecting) return;
   const findings = run.structured?.findings;
   if (!Array.isArray(findings)) throw new AgentTeamExecutionError(`${node.id} returned ${run.provenance.outcome} without structured findings`, [run]);
   const blockers = findings.filter((finding) => finding && typeof finding === "object" && !Array.isArray(finding) && (finding as Record<string, unknown>).findingClass === "blocker") as Array<Record<string, unknown>>;
@@ -2095,16 +2116,25 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
     if (batch.length === 0) return;
     const readers = batch.every((state) => state.config.readOnly);
     if (!readers && batch.length !== 1) throw new Error("agent.team internal error: writer batch must contain exactly one node");
-    const before = readers ? await gitSnapshot(request) : undefined;
+    const trustedDrivers = readers ? batch.filter((state) => state.config.adapter === "agent-driver") : [];
+    const guarded = readers ? batch.filter((state) => state.config.adapter !== "agent-driver") : batch;
+    const before = guarded.length > 0 && readers ? await gitSnapshot(request) : undefined;
     try {
-      await mapParallel(batch, readers ? config.maximumParallel : 1, (state) => runActivation(state, reason, extras.get(state.config.id) ?? []));
+      for (const state of trustedDrivers) {
+        const allowedEvidence = [`.factory/runs/${request.experimentId}*/**`, `**/.factory/runs/${request.experimentId}*/**`];
+        const driverBefore = await gitSnapshot(request, allowedEvidence);
+        await runActivation(state, reason, extras.get(state.config.id) ?? []);
+        const driverAfter = await gitSnapshot(request, allowedEvidence);
+        if (driverBefore !== driverAfter) throw new AgentTeamExecutionError(`factory-native read-only driver ${state.config.driver} modified files outside its evidence root`, state.runs);
+      }
+      await mapParallel(guarded, readers ? config.maximumParallel : 1, (state) => runActivation(state, reason, extras.get(state.config.id) ?? []));
     } catch (error) {
       const runs = [...states.values()].flatMap((state) => state.runs);
       if (error instanceof AgentTeamExecutionError) throw new AgentTeamExecutionError(error.message, runs);
       if (runs.length > 0) throw new AgentTeamExecutionError(error instanceof Error ? error.message : String(error), runs);
       throw error;
     }
-    if (readers) {
+    if (before !== undefined) {
       const after = await gitSnapshot(request);
       if (before !== after) {
         throw new AgentTeamExecutionError(

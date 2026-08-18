@@ -135,6 +135,28 @@ test("pixel-motion evaluator fails closed when a compiled atlas is modified", as
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test("pixel-motion evaluator recomputes quality instead of trusting candidate diagnostics", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "gamefactory-pixel-motion-diagnostics-"));
+  try {
+    await fixture(root);
+    const activeCampaign = campaign(root);
+    const candidate = { id: "candidate", root, metadata: {} };
+    const signal = new AbortController().signal;
+    await new PixelMotionCompilerAgent().run({ campaign: activeCampaign, candidate, experimentId: "exp-diagnostics", history: [], signal });
+    const manifestPath = resolve(root, "assets", "pixel", "hero-idle", "pixel-motion.json");
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Record<string, any>;
+    manifest.diagnostics.loopSeamError = 0.999;
+    manifest.diagnostics.outputAnchorDrift = 0.999;
+    manifest.diagnostics.outputColors = 1;
+    await writeFile(manifestPath, JSON.stringify(manifest), "utf8");
+    const evaluation = await new PixelMotionQualityEvaluator().evaluate({ campaign: activeCampaign, candidate, experimentId: "exp-diagnostics", priorEvaluations: [], signal });
+    assert.equal(evaluation.status, "fail");
+    assert.ok(evaluation.violations.some((violation) => violation.code === "pixel-motion.diagnostics.untrusted"));
+    assert.equal(evaluation.metrics.loop_seam_error, 0);
+    assert.equal(evaluation.metrics.anchor_drift, 0);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("pixel-motion permits a genuinely empty baseline before a motion brief exists", async () => {
   const root = await mkdtemp(resolve(tmpdir(), "gamefactory-pixel-motion-baseline-"));
   try {

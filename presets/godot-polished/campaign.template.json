@@ -143,6 +143,8 @@
             "reasoningEffort": "xhigh",
             "timeoutSeconds": 3600,
             "instructions": "Review every proposed full-scene target at the shipping camera before component production begins. Verify actual gameplay, interaction hierarchy, required states, text zones, relative scale, navigation, and engine feasibility. Audit the declared peer regions across every state; reject accidental overlaps, clipped copy, competing layers, or decorative frames that obscure controls or actors. Audit typography as an information system and reject tiny or overused pixel type when it weakens hierarchy or sustained reading. Review the motion plan for controlled life: ambient continuity, interaction response, gameplay consequence, and state transition should be appropriate and mutually coherent, without requiring constant motion. Reject concept art, nonsensical controls, frozen tableaux, decorative clutter, inconsistent scale, or a target that cannot be decomposed. Return pass only with one approved target id and hash, approved state variants, experience contract, and component map; otherwise return revise with prioritized scene-level changes.",
+            "requiredOutputFields": ["findings.selectedTargetSha256"],
+            "requiredOutputFieldsOn": ["pass"],
             "dependsOn": ["scene-target-builder", "gameplay-gate"],
             "repair": { "target": "scene-target-builder", "outcomes": ["revise"], "maximumAttempts": 3, "allowedPaths": ["design/scene-targets/**"] }
           },
@@ -297,7 +299,6 @@
       "requireNoPlaceholders": true
     },
     "godot": {
-      "binary": "C:/Users/alexm/OneDrive/Documents/New project/oldschool-mmo-godot/tools/godot/Godot_v4.7.1-stable_win64_console.exe",
       "importCheck": true,
       "rendered": true,
       "timeoutSeconds": 300,
@@ -336,8 +337,6 @@
     },
     "sam3": {
       "requestPath": "sam3.request.json",
-      "command": ["D:/GameFactory/runtimes/sam3/venv/Scripts/python.exe", "{worker}"],
-      "doctorCommand": ["D:/GameFactory/runtimes/sam3/venv/Scripts/python.exe", "{worker}", "--doctor"],
       "modelSource": "facebook/sam3",
       "backend": "transformers",
       "device": "cuda",
@@ -360,6 +359,7 @@
     "primaryMetric": "polish_ready",
     "direction": "maximize",
     "minimumDelta": 0,
+    "comparison": "at-least",
     "hardGates": ["design.system", "godot.scenario", "godot.visual"]
   },
   "budget": {

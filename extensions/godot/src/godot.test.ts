@@ -25,8 +25,8 @@ test("Godot automation rejects exit-zero runs that contain engine errors", () =>
   }), true);
 });
 
-test("Godot scenario artifacts normalize candidate-defined kinds before crossing adapter boundaries", () => {
-  const normalized = normalizeScenarioArtifacts([{
+test("Godot scenario artifacts normalize candidate-defined kinds before crossing adapter boundaries", async () => {
+  const normalized = await normalizeScenarioArtifacts([{
     kind: "gameplay-evidence",
     path: "evidence/gameplay.json",
     mediaType: "application/json",
@@ -40,6 +40,19 @@ test("Godot scenario artifacts normalize candidate-defined kinds before crossing
     metadata: { declaredKind: "gameplay-evidence" }
   }]);
   assert.equal(normalized.violations[0]?.severity, "warning");
+});
+
+test("Godot scenario artifacts cannot escape the factory-owned output directory", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "gamefactory-godot-artifact-root-"));
+  try {
+    const output = resolve(root, "scenario");
+    await mkdir(output);
+    const outside = resolve(root, "host-secret.txt");
+    await writeFile(outside, "secret", "utf8");
+    const normalized = await normalizeScenarioArtifacts([{ kind: "test-report", path: outside }], output);
+    assert.equal(normalized.artifacts.length, 0);
+    assert.equal(normalized.violations[0]?.code, "godot.artifact.0.containment");
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test("Godot evidence agent refreshes deterministic engine evidence for read-only reviewers", async () => {
