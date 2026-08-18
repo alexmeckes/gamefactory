@@ -35,7 +35,10 @@
       },
       "attemptPolicy": { "executionRetries": 2, "creativeRepairs": 3, "specAmendments": 1, "advisorEscalations": 2 },
       "gate": { "requireAcceptedRevision": true },
-      "attempts": [{ "id": "slice-v1", "campaign": "campaign.json", "config": "factory.json" }]
+      "attempts": [
+        { "id": "slice-v1", "campaign": "campaign.json", "config": "factory.json", "status": "superseded" },
+        { "id": "slice-v2", "campaign": "campaign.json", "config": "factory.json", "status": "active" }
+      ]
     }
   ]
 }
