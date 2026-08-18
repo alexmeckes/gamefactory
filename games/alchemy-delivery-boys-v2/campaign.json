@@ -1,6 +1,6 @@
 {
   "apiVersion": "gamefactory.dev/v1",
-  "id": "alchemy-delivery-boys-v2-slice",
+  "id": "alchemy-delivery-boys-v2-slice-v3",
   "objective": "Execute the authoritative projectSlice contract against the frozen GameSpec: prove and repair one player-complete Godot graybox, approve coherent whole-scene targets, then integrate one visually production-ready encounter with state-linked motion and artifact-backed evidence. Use a separate tournament campaign only for a named unresolved fork. Do not present graybox, concept, generated source, extracted source, or engine-ready assets as production.",
   "projectRoot": ".",
   "workflow": "autoresearch",
