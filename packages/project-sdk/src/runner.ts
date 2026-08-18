@@ -157,7 +157,9 @@ function gateReasons(phase: LoadedProjectPhase, result: CampaignResult): { reaso
       if (bounds.maximum !== undefined && value > bounds.maximum) reasons.push(`${metric} ${value} is above ${bounds.maximum}.`);
     }
   }
-  if (result.status !== "complete" && result.status !== "budget-exhausted") reasons.push(`Campaign finished with ${result.status}.`);
+  if (result.status === "budget-exhausted") {
+    if (!phase.gate?.allowBudgetExhaustedAfterAcceptance || !accepted?.revision) reasons.push("Campaign exhausted its budget without an explicit phase policy allowing an already accepted revision to advance.");
+  } else if (result.status !== "complete") reasons.push(`Campaign finished with ${result.status}.`);
   return { reasons, ...(accepted?.revision ? { acceptedRevision: accepted.revision } : {}) };
 }
 
@@ -212,6 +214,16 @@ function recordArtifacts(result: CampaignResult) {
   return experimentArtifacts(keptRecord(result));
 }
 
+function trustedFactoryArtifacts(result: CampaignResult) {
+  const record = keptRecord(result);
+  return [
+    ...(record?.evaluations ?? []).flatMap((evaluation) => evaluation.artifacts.map((artifact) => ({ artifact, producer: `evaluator:${evaluation.evaluator}` }))),
+    ...(record?.agent?.contributors ?? []).flatMap((contributor) => contributor.metadata?.adapter === "agent-driver" && typeof contributor.metadata.driver === "string"
+      ? contributor.artifacts.map((artifact) => ({ artifact, producer: `agent-driver:${String(contributor.metadata!.driver)}` }))
+      : [])
+  ];
+}
+
 function evidenceReference(value: unknown): string | undefined {
   if (typeof value === "string" && /^[a-f0-9]{64}$/.test(value)) return value;
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
@@ -223,12 +235,12 @@ function evidenceReasons(phase: LoadedProjectPhase, result: CampaignResult, froz
   if (phase.workKind !== "vertical-slice" || !phase.evidence) return [];
   const metadata = projectMetadata(keptRecord(result), "projectEvidence");
   const evidence = metadata && typeof metadata === "object" && !Array.isArray(metadata) ? metadata as Record<string, unknown> : {};
-  const artifacts = recordArtifacts(result);
-  const artifactByHash = new Map(artifacts.filter((artifact) => artifact.sha256).map((artifact) => [artifact.sha256!, artifact]));
-  const hasReference = (value: unknown, kinds?: Set<string>): boolean => {
+  const artifacts = trustedFactoryArtifacts(result);
+  const artifactByHash = new Map(artifacts.filter((entry) => entry.artifact.sha256).map((entry) => [entry.artifact.sha256!, entry]));
+  const hasReference = (value: unknown, kinds?: Set<string>, producers?: Set<string>): boolean => {
     const sha256 = evidenceReference(value);
-    const artifact = sha256 ? artifactByHash.get(sha256) : undefined;
-    return Boolean(artifact && (!kinds || kinds.has(artifact.kind)));
+    const entry = sha256 ? artifactByHash.get(sha256) : undefined;
+    return Boolean(entry && (!kinds || kinds.has(entry.artifact.kind)) && (!producers || producers.has(entry.producer)));
   };
   const reasons: string[] = [];
   if (!frozenSpec || evidence.specRevision !== frozenSpec.spec.revision || evidence.specFingerprint !== frozenSpec.fingerprint) reasons.push("Slice evidence is not bound to the current frozen GameSpec revision and fingerprint.");
@@ -236,16 +248,27 @@ function evidenceReasons(phase: LoadedProjectPhase, result: CampaignResult, froz
   if (Array.isArray(evidence.scenarios)) for (const item of evidence.scenarios) {
     if (item && typeof item === "object" && !Array.isArray(item) && typeof (item as Record<string, unknown>).id === "string") scenarioEvidence.set((item as Record<string, unknown>).id as string, item);
   }
-  for (const scenario of phase.evidence.scenarios ?? []) if (!hasReference(scenarioEvidence.get(scenario), new Set(["replay", "telemetry", "test-report", "log"]))) reasons.push(`Required slice scenario ${scenario} is not linked to a preserved scenario artifact.`);
-  if (phase.evidence.requireInteractionTrace && !hasReference(evidence.interactionTrace, new Set(["replay", "telemetry"]))) reasons.push("Slice requires a preserved real interaction trace artifact.");
-  if (phase.evidence.requireEngineCapture && !hasReference(evidence.engineCapture, new Set(["image", "video"]))) reasons.push("Slice requires a preserved current engine capture artifact.");
-  if (phase.evidence.requireEngineCapture && !hasReference(evidence.targetSha256, new Set(["image"]))) reasons.push("Slice engine evidence is not bound to a preserved approved target image hash.");
-  if (phase.evidence.requireMotionEvidence && !hasReference(evidence.motionEvidence, new Set(["video", "replay"]))) reasons.push("Slice requires preserved current runtime motion evidence.");
+  const scenarioEvaluators = new Set(["evaluator:godot.scenario", "agent-driver:godot.evidence"]);
+  const captureEvaluators = new Set(["evaluator:godot.scenario", "evaluator:godot.visual", "agent-driver:godot.evidence"]);
+  for (const scenario of phase.evidence.scenarios ?? []) if (!hasReference(scenarioEvidence.get(scenario), new Set(["replay", "telemetry", "test-report", "log"]), scenarioEvaluators)) reasons.push(`Required slice scenario ${scenario} is not linked to a trusted engine scenario artifact.`);
+  if (phase.evidence.requireInteractionTrace && !hasReference(evidence.interactionTrace, new Set(["replay", "telemetry"]), scenarioEvaluators)) reasons.push("Slice requires a trusted real interaction trace artifact.");
+  if (phase.evidence.requireEngineCapture && !hasReference(evidence.engineCapture, new Set(["image", "video"]), captureEvaluators)) reasons.push("Slice requires a trusted current engine capture artifact.");
+  if (phase.evidence.requireEngineCapture && !hasReference(evidence.targetSha256, new Set(["image"]), new Set(["evaluator:design.system"]))) reasons.push("Slice engine evidence is not bound to a design-system-verified target image hash.");
+  if (phase.evidence.targetApprovalNode) {
+    const targetHash = evidenceReference(evidence.targetSha256);
+    const approval = keptRecord(result)?.agent?.contributors.find((contributor) => contributor.metadata?.nodeId === phase.evidence!.targetApprovalNode && contributor.status === "complete" && contributor.metadata?.outcome === "pass");
+    const structured = approval?.metadata?.structured;
+    const findings = structured && typeof structured === "object" && !Array.isArray(structured) ? (structured as Record<string, unknown>).findings : undefined;
+    const approvedHash = findings && typeof findings === "object" && !Array.isArray(findings) ? (findings as Record<string, unknown>).selectedTargetSha256 : undefined;
+    if (!approval || typeof approvedHash !== "string" || approvedHash !== targetHash) reasons.push(`Scene target hash is not bound to the in-memory pass verdict from ${phase.evidence.targetApprovalNode}.`);
+  }
+  if (phase.evidence.requireMotionEvidence && !hasReference(evidence.motionEvidence, new Set(["video", "replay"]), captureEvaluators)) reasons.push("Slice requires trusted current runtime motion evidence.");
   const runtimeEvidence = new Map<string, unknown>();
   if (Array.isArray(evidence.runtimeAssets)) for (const item of evidence.runtimeAssets) {
     if (item && typeof item === "object" && !Array.isArray(item) && typeof (item as Record<string, unknown>).id === "string" && typeof (item as Record<string, unknown>).consumer === "string") runtimeEvidence.set((item as Record<string, unknown>).id as string, item);
   }
-  for (const asset of phase.evidence.requireRuntimeAssets ?? []) if (!hasReference(runtimeEvidence.get(asset))) reasons.push(`Required runtime asset family ${asset} is not linked to a preserved artifact and runtime consumer.`);
+  const assetEvaluators = new Set(["evaluator:design.system", "evaluator:pixel-motion.quality", "agent-driver:godot.evidence", "agent-driver:pixel-motion.compile", "agent-driver:sam3.segment", "agent-driver:sam3.track"]);
+  for (const asset of phase.evidence.requireRuntimeAssets ?? []) if (!hasReference(runtimeEvidence.get(asset), undefined, assetEvaluators)) reasons.push(`Required runtime asset family ${asset} is not linked to a trusted evaluator artifact and runtime consumer.`);
   const recordAgent = keptRecord(result)?.metadata?.agent;
   const actualWriterGenerations = recordAgent && typeof recordAgent === "object" && !Array.isArray(recordAgent) ? (recordAgent as Record<string, unknown>).writerGenerations : undefined;
   if (actualWriterGenerations && JSON.stringify(evidence.writerGenerations) !== JSON.stringify(actualWriterGenerations)) reasons.push("Slice evidence writer generations do not match the accepted agent execution.");
@@ -266,6 +289,16 @@ function specAmendmentRequest(phase: LoadedProjectPhase, result: CampaignResult)
   const preserved = new Set(experimentArtifacts(dispositionRecord).map((artifact) => artifact.sha256).filter((item): item is string => Boolean(item)));
   if (!evidenceArtifactSha256.length || evidenceArtifactSha256.some((sha256) => !preserved.has(sha256))) throw new Error("A spec amendment must cite preserved evidence artifacts from this slice run");
   return { kind: "spec-amendment", rationale: value.rationale, claimIds: [...new Set(claimIds)], evidenceArtifactSha256: [...new Set(evidenceArtifactSha256)] };
+}
+
+function pendingAmendmentFromJournal(events: ProjectJourneyEvent[], projectRunId: string): { phaseId: string; request: ProjectSpecAmendmentRequest } | undefined {
+  const invalidated = [...events].reverse().find((event) => event.projectRunId === projectRunId && event.type === "slice-invalidated" && event.phaseId);
+  if (!invalidated?.phaseId) return undefined;
+  if (events.some((event) => event.projectRunId === projectRunId && event.type === "spec-frozen" && event.sequence > invalidated.sequence)) return undefined;
+  const data = invalidated.data && typeof invalidated.data === "object" && !Array.isArray(invalidated.data) ? invalidated.data as Record<string, unknown> : undefined;
+  const amendment = data?.amendment;
+  if (!amendment || typeof amendment !== "object" || Array.isArray(amendment) || (amendment as Record<string, unknown>).kind !== "spec-amendment") throw new Error(`Journal event ${invalidated.sequence} contains an invalid pending GameSpec amendment.`);
+  return { phaseId: invalidated.phaseId, request: amendment as unknown as ProjectSpecAmendmentRequest };
 }
 
 function eventType(phase: LoadedProjectPhase, state: "started" | "complete" | "blocked"): ProjectJourneyEvent["type"] {
@@ -394,6 +427,52 @@ export class ProjectRunner {
     return this.journal.read();
   }
 
+  async approve(phaseId: string, approver: string): Promise<ProjectJourneyEvent> {
+    await this.ensureHistoryImported();
+    if (!approver.trim()) throw new Error("Human approval requires a non-empty approver identity.");
+    const phase = this.project.phases.find((item) => item.id === phaseId);
+    if (!phase) throw new Error(`Unknown project phase ${phaseId}.`);
+    if (!phase.gate?.requireHumanApproval) throw new Error(`Project phase ${phaseId} does not require human approval.`);
+    const initial = await this.journal.read();
+    const latestStart = [...initial].reverse().find((event) => event.type === "project-started");
+    if (!latestStart) throw new Error("Project has not been run; there is no promotion to approve.");
+    if (latestStart.manifestFingerprint !== this.manifestFingerprint) throw new Error("Project manifest changed after the pending promotion was produced; rerun the project before approving.");
+    const logicalLease = join(".factory", "projects", this.project.id, "run.lock");
+    const leasePath = resolveFactoryStatePath({ cwd: this.project.root, ...(this.options.dataRoot ? { dataRoot: this.options.dataRoot } : {}) }, logicalLease, logicalLease, "project lease");
+    const release = await acquireProjectLease(leasePath, `${latestStart.projectRunId}:approval`);
+    try {
+      const events = await this.journal.read();
+      const runEvents = events.filter((event) => event.projectRunId === latestStart.projectRunId);
+      if (runEvents.some((event) => event.type === "project-finished")) throw new Error("Project run is already complete.");
+      const intent = [...runEvents].reverse().find((event) => event.type === "promotion-intent" && event.phaseId === phaseId);
+      if (!intent?.unitFingerprint || !intent.phaseAttemptId || !intent.resultingRevision) throw new Error(`Phase ${phaseId} has no complete, evidence-bound promotion awaiting approval.`);
+      if (intent.manifestFingerprint !== this.manifestFingerprint) throw new Error("Promotion intent targets a different project manifest fingerprint.");
+      const laterTerminal = runEvents.find((event) => event.sequence > intent.sequence && event.phaseId === phaseId && (event.type === "promotion-applied" || event.type === "slice-completed" || event.type === "phase-completed"));
+      if (laterTerminal) throw new Error(`Phase ${phaseId} is already approved or complete.`);
+      return this.journal.append({
+        projectId: this.project.id,
+        projectRunId: latestStart.projectRunId,
+        type: "promotion-applied",
+        idempotencyKey: `${latestStart.projectRunId}:${phaseId}:${intent.unitFingerprint}:approved`,
+        manifestFingerprint: this.manifestFingerprint,
+        phaseId,
+        phaseAttemptId: intent.phaseAttemptId,
+        ...(intent.workKind ? { workKind: intent.workKind } : {}),
+        unitFingerprint: intent.unitFingerprint,
+        ...(intent.specRevision !== undefined ? { specRevision: intent.specRevision } : {}),
+        ...(intent.specFingerprint ? { specFingerprint: intent.specFingerprint } : {}),
+        ...(intent.consumedClaims ? { consumedClaims: intent.consumedClaims } : {}),
+        ...(intent.campaignId ? { campaignId: intent.campaignId } : {}),
+        ...(intent.runId ? { runId: intent.runId } : {}),
+        actor: { kind: "user", id: approver.trim() },
+        ...(intent.sourceRevision ? { sourceRevision: intent.sourceRevision } : {}),
+        resultingRevision: intent.resultingRevision,
+        ...(intent.artifacts ? { artifacts: intent.artifacts } : {}),
+        data: journalData({ promotionIntentSequence: intent.sequence, approvedEvidenceSha256: (intent.artifacts ?? []).map((artifact) => artifact.sha256).filter(Boolean) })
+      });
+    } finally { await release(); }
+  }
+
   async doctor(): Promise<Array<{ phaseId: string; attemptId: string; capability: string; ok: boolean; message: string }>> {
     const output: Array<{ phaseId: string; attemptId: string; capability: string; ok: boolean; message: string }> = [];
     for (const phase of [...this.project.phases].sort((a, b) => a.order - b.order)) {
@@ -433,18 +512,26 @@ export class ProjectRunner {
     const phases: ProjectRunResult["phases"] = [];
     try {
       if (latestStart?.projectRunId !== projectRunId) await this.journal.append({ projectId: this.project.id, projectRunId, type: "project-started", idempotencyKey: `${projectRunId}:started`, manifestFingerprint: this.manifestFingerprint, actor: { kind: "factory" }, ...(baseRevision ? { sourceRevision: baseRevision } : {}), data: { title: this.project.title } });
-      const currentEvents = await this.journal.read();
+      let currentEvents = await this.journal.read();
       const completionTypes = new Set<ProjectJourneyEvent["type"]>(["phase-completed", "spec-frozen", "slice-completed", "promotion-applied"]);
       const completedEvents = currentEvents.filter((event) => event.projectRunId === projectRunId && completionTypes.has(event.type));
       const completed = new Set(completedEvents.map((event) => event.phaseId).filter((id): id is string => Boolean(id)));
       const acceptedByPhase = new Map<string, string | undefined>();
       for (const event of completedEvents) if (event.phaseId) acceptedByPhase.set(event.phaseId, event.resultingRevision);
       let frozenSpec: { spec: GameSpec; fingerprint: string } | undefined;
-      let pendingAmendment: ProjectSpecAmendmentRequest | undefined;
+      const pending = pendingAmendmentFromJournal(currentEvents, projectRunId);
+      let pendingAmendment: ProjectSpecAmendmentRequest | undefined = pending?.request;
       const amendmentCounts = new Map<string, number>();
       for (const event of currentEvents) if (event.projectRunId === projectRunId && event.type === "slice-invalidated" && event.phaseId) amendmentCounts.set(event.phaseId, (amendmentCounts.get(event.phaseId) ?? 0) + 1);
       const orderedPhases = [...this.project.phases].sort((left, right) => left.order - right.order);
+      if (pending) {
+        completed.delete(this.project.preproduction?.id ?? "spec-convergence");
+        completed.delete(pending.phaseId);
+        acceptedByPhase.delete(this.project.preproduction?.id ?? "spec-convergence");
+        acceptedByPhase.delete(pending.phaseId);
+      }
       for (let phaseIndex = 0; phaseIndex < orderedPhases.length;) {
+        currentEvents = await this.journal.read();
         const phase = orderedPhases[phaseIndex]!;
         const missing = (phase.dependsOn ?? []).filter((id) => !completed.has(id));
         if (missing.length > 0) {
@@ -547,6 +634,11 @@ export class ProjectRunner {
             continue;
           }
           if (amendment && amendmentCount >= amendmentLimit) gate.reasons.push(`Slice requested a GameSpec amendment after its limit of ${amendmentLimit} was exhausted.`);
+          const approvalOnly = phase.gate?.requireHumanApproval === true && gate.reasons.length === 1 && gate.reasons[0]?.startsWith("Phase requires human approval");
+          if (approvalOnly && gate.acceptedRevision) {
+            const approvalArtifacts = trustedFactoryArtifacts(campaignResult).map((entry) => entry.artifact);
+            await this.journal.append({ projectId: this.project.id, projectRunId, type: "promotion-intent", idempotencyKey: `${phaseKey}:promotion-intent`, manifestFingerprint: this.manifestFingerprint, phaseId: phase.id, phaseAttemptId: attempt.id, workKind: phaseKind, unitFingerprint: unit.fingerprint, ...(frozenSpec ? { specRevision: frozenSpec.spec.revision, specFingerprint: frozenSpec.fingerprint } : {}), ...(phase.consumesClaims ? { consumedClaims: phase.consumesClaims } : {}), campaignId: campaign.id, runId, actor: { kind: "factory" }, resultingRevision: gate.acceptedRevision, artifacts: approvalArtifacts, data: journalData({ evidenceSha256: approvalArtifacts.map((artifact) => artifact.sha256).filter(Boolean) }) });
+          }
           phases.push({ phaseId: phase.id, attemptId: attempt.id, status: "blocked", campaignResult, reasons: gate.reasons, ...(gate.acceptedRevision ? { acceptedRevision: gate.acceptedRevision } : {}), workKind: phaseKind, unitFingerprint: unit.fingerprint });
           await this.journal.append({ projectId: this.project.id, projectRunId, type: eventType(phase, "blocked"), idempotencyKey: `${phaseKey}:blocked`, manifestFingerprint: this.manifestFingerprint, phaseId: phase.id, phaseAttemptId: attempt.id, workKind: phaseKind, unitFingerprint: unit.fingerprint, ...(phase.consumesClaims ? { consumedClaims: phase.consumesClaims } : {}), campaignId: campaign.id, runId, actor: { kind: "factory" }, ...(gate.acceptedRevision ? { resultingRevision: gate.acceptedRevision } : {}), data: { reasons: gate.reasons, campaignStatus: campaignResult.status } });
           await this.journal.append({ projectId: this.project.id, projectRunId, type: "project-blocked", idempotencyKey: `${phaseKey}:project-blocked`, manifestFingerprint: this.manifestFingerprint, phaseId: phase.id, phaseAttemptId: attempt.id, campaignId: campaign.id, runId, actor: { kind: "factory" }, data: { reasons: gate.reasons } });

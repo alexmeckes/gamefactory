@@ -13,10 +13,11 @@ const exec = promisify(execFile);
 const fixtureSource = `
 import assert from "node:assert/strict";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 const request = JSON.parse(await readFile(process.env.GAMEFACTORY_REQUEST, "utf8"));
 assert.equal(process.env.GAMEFACTORY_STAGE, request.stage);
 assert.equal(process.env.GAMEFACTORY_CONTRIBUTOR, request.contributorId);
-const timingRoot = ".factory/timing";
+const timingRoot = dirname(process.env.GAMEFACTORY_REQUEST);
 await mkdir(timingRoot, { recursive: true });
 const started = Date.now();
 if (request.stage === "scout") {
@@ -35,20 +36,22 @@ if (request.stage === "scout") {
   assert.equal(await readFile("value.txt", "utf8"), "implemented\\n");
   assert.ok(request.inputs.some((input) => input.stage === "implementer"));
   if (request.contributorId === "rogue-critic") await writeFile("value.txt", "critic mutation\\n", "utf8");
+  if (request.contributorId === "rogue-factory-critic") { await mkdir(".factory/verdicts", { recursive: true }); await writeFile(".factory/verdicts/approved.json", "{}", "utf8"); }
   await new Promise((resolve) => setTimeout(resolve, 120));
   console.log("review from " + request.contributorId);
 }
 const finished = Date.now();
-await writeFile(timingRoot + "/" + request.stage + "-" + request.contributorId + ".json", JSON.stringify({ started, finished }), "utf8");
+await writeFile(resolve(timingRoot, "timing.json"), JSON.stringify({ started, finished }), "utf8");
 `;
 
 const graphFixtureSource = `
 import assert from "node:assert/strict";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 const request = JSON.parse(await readFile(process.env.GAMEFACTORY_REQUEST, "utf8"));
 assert.equal(process.env.GAMEFACTORY_NODE, request.nodeId);
 assert.equal(Number(process.env.GAMEFACTORY_ATTEMPT), request.attempt);
-const timingRoot = ".factory/graph-timing";
+const timingRoot = dirname(process.env.GAMEFACTORY_REQUEST);
 await mkdir(timingRoot, { recursive: true });
 const started = Date.now();
 if (["alpha", "beta"].includes(request.nodeId)) {
@@ -74,16 +77,25 @@ if (["alpha", "beta"].includes(request.nodeId)) {
   assert.equal(discovery.structured.context.hypothesis, "raise-value");
   const repairing = request.reason.kind === "repair";
   if (repairing) {
-    const review = request.inputs.find((input) => ["reviewer", "alias-reviewer", "requested-alias-reviewer", "visual-reviewer"].includes(input.nodeId));
-    assert.ok(["revise", "revision_required", "revision_requested"].includes(review.structured.outcome));
+    const review = request.inputs.find((input) => ["reviewer", "alias-reviewer", "requested-alias-reviewer", "needs-work-reviewer", "rejected-reviewer", "visual-reviewer"].includes(input.nodeId));
+    assert.ok(["revise", "revision_required", "revision_requested", "needs-work", "rejected"].includes(review.structured.outcome));
   }
   await writeFile("value.txt", repairing ? "repaired\\n" : "implemented\\n", "utf8");
   console.log(JSON.stringify({ summary: repairing ? "repair complete" : "implementation complete", outcome: "complete" }));
-  } else if (["reviewer", "alias-reviewer", "requested-alias-reviewer"].includes(request.nodeId)) {
+  } else if (["reviewer", "alias-reviewer", "requested-alias-reviewer", "needs-work-reviewer", "rejected-reviewer"].includes(request.nodeId)) {
   const value = await readFile("value.txt", "utf8");
+    const reportedOutcome = request.nodeId === "alias-reviewer"
+      ? "revision_required"
+      : request.nodeId === "requested-alias-reviewer"
+        ? "revision_requested"
+        : request.nodeId === "needs-work-reviewer"
+          ? "needs-work"
+          : request.nodeId === "rejected-reviewer"
+            ? "rejected"
+            : "revise";
     console.log(JSON.stringify(value === "repaired\\n"
       ? { summary: "review passed", outcome: "pass" }
-      : { summary: "needs repair", outcome: request.nodeId === "alias-reviewer" ? "revision_required" : request.nodeId === "requested-alias-reviewer" ? "revision_requested" : "revise", findings: [{ issue: "value is not repaired" }] }));
+      : { summary: "needs repair", outcome: reportedOutcome, findings: [{ issue: "value is not repaired" }] }));
 } else if (request.nodeId === "frozen-contract") {
   const value = await readFile("value.txt", "utf8");
   console.log(JSON.stringify(value === "implemented\\n"
@@ -143,7 +155,7 @@ if (["alpha", "beta"].includes(request.nodeId)) {
   throw new Error("unknown graph fixture node " + request.nodeId);
 }
 const finished = Date.now();
-await writeFile(timingRoot + "/" + request.nodeId + "-" + request.attempt + ".json", JSON.stringify({ started, finished }), "utf8");
+await writeFile(resolve(timingRoot, "timing.json"), JSON.stringify({ started, finished }), "utf8");
 `;
 
 const appServerFixtureSource = `
@@ -247,8 +259,8 @@ async function repository(): Promise<string> {
   return root;
 }
 
-async function timing(root: string, name: string): Promise<{ started: number; finished: number }> {
-  return JSON.parse(await readFile(resolve(root, ".factory", "timing", name), "utf8")) as { started: number; finished: number };
+async function timing(root: string, ...parts: string[]): Promise<{ started: number; finished: number }> {
+  return JSON.parse(await readFile(resolve(root, ".factory", "agent-team", ...parts, "timing.json"), "utf8")) as { started: number; finished: number };
 }
 
 test("agent team runs parallel read-only stages around a single writer and returns provenance", async () => {
@@ -278,11 +290,11 @@ test("agent team runs parallel read-only stages around a single writer and retur
     assert.equal(metadata.pipeline, "agent.team");
     assert.equal(metadata.stages.scouts.length + metadata.stages.critics.length, 4);
 
-    const systems = await timing(root, "scout-systems.json");
-    const gameplay = await timing(root, "scout-gameplay.json");
+    const systems = await timing(root, "exp-1", "scout", "systems");
+    const gameplay = await timing(root, "exp-1", "scout", "gameplay");
     assert.ok(Math.max(systems.started, gameplay.started) < Math.min(systems.finished, gameplay.finished), "scouts should overlap");
-    const safety = await timing(root, "critic-safety.json");
-    const quality = await timing(root, "critic-quality.json");
+    const safety = await timing(root, "exp-1", "critic", "safety");
+    const quality = await timing(root, "exp-1", "critic", "quality");
     assert.ok(Math.max(safety.started, quality.started) < Math.min(safety.finished, quality.finished), "critics should overlap");
 
     const plannerRequest = JSON.parse(await readFile(resolve(root, ".factory", "agent-team", "exp-1", "planner", "lead", "request.json"), "utf8")) as { inputs: Array<{ output: string }>; effectivePrompt: { layers: Array<{ kind: string }> } };
@@ -324,6 +336,19 @@ test("agent team detects a critic changing a file that was already dirty", async
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test("agent team rejects a read-only critic that forges factory verdicts", async () => {
+  const root = await repository();
+  try {
+    await assert.rejects(() => new AgentTeam().run({
+      campaign: campaign(root, { critics: [command("rogue-factory-critic")] }),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-rogue-factory",
+      history: [],
+      signal: new AbortController().signal
+    }), /read-only critic stage modified meaningful candidate files/);
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test("agent team validates contributor identities before launching commands", async () => {
@@ -416,7 +441,7 @@ test("agent team fails closed before launch when a required bound skill is unava
       history: [],
       signal: new AbortController().signal
     }), /Required skill missing-gamefactory-skill is unavailable/);
-    await assert.rejects(() => readFile(resolve(root, ".factory/graph-timing/alpha-1.json"), "utf8"));
+    await assert.rejects(() => readFile(resolve(root, ".factory/agent-team/exp-missing-skill/graph/alpha/attempt-1/timing.json"), "utf8"));
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -437,9 +462,9 @@ test("agent graph runs independent readers in parallel and honors dependency ord
       signal: new AbortController().signal
     });
     assert.match(result.summary, /joined structured findings/);
-    const alpha = await timing(root, "../graph-timing/alpha-1.json");
-    const beta = await timing(root, "../graph-timing/beta-1.json");
-    const join = await timing(root, "../graph-timing/join-1.json");
+    const alpha = await timing(root, "exp-graph-parallel", "graph", "alpha", "attempt-1");
+    const beta = await timing(root, "exp-graph-parallel", "graph", "beta", "attempt-1");
+    const join = await timing(root, "exp-graph-parallel", "graph", "join", "attempt-1");
     assert.ok(Math.max(alpha.started, beta.started) < Math.min(alpha.finished, beta.finished), "independent readers should overlap");
     assert.ok(join.started >= Math.max(alpha.finished, beta.finished), "dependent node should start after both predecessors");
     assert.equal(result.contributors?.length, 3);
@@ -626,7 +651,7 @@ test("agent graph refreshes derived evidence before reviewing a repaired writer"
         graphCommand("builder", { role: "implementer", permissions: "write", dependsOn: ["discover"] }),
         graphCommand("capture", {
           role: "worker",
-          permissions: "read",
+          permissions: "write",
           dependsOn: ["builder"]
         }),
         graphCommand("visual-reviewer", {
@@ -763,6 +788,40 @@ test("agent graph canonicalizes a reported revision_requested outcome for repair
   }
 });
 
+test("agent graph fails closed on needs-work and rejected critic vocabulary", async (suite) => {
+  for (const testCase of [
+    { nodeId: "needs-work-reviewer", reported: "needs-work", canonical: "revise" },
+    { nodeId: "rejected-reviewer", reported: "rejected", canonical: "reject" }
+  ]) {
+    await suite.test(testCase.reported, async () => {
+      const root = await repository();
+      try {
+        const result = await new AgentTeam().run({
+          campaign: graphCampaign(root, [
+            graphCommand("discover", { role: "scout", permissions: "read" }),
+            graphCommand("builder", { role: "implementer", permissions: "write", dependsOn: ["discover"] }),
+            graphCommand(testCase.nodeId, {
+              role: "critic", permissions: "read", dependsOn: ["builder"],
+              repair: { target: "builder", outcomes: [testCase.canonical], maximumAttempts: 1, allowedPaths: ["value.txt"] }
+            })
+          ], { maximumRepairAttempts: 1, maximumTotalAttempts: 8 }),
+          candidate: { id: "candidate", root, metadata: {} },
+          experimentId: `exp-${testCase.nodeId}`,
+          history: [],
+          signal: new AbortController().signal
+        });
+
+        assert.equal(await readFile(resolve(root, "value.txt"), "utf8"), "repaired\n");
+        const firstReview = result.contributors?.find((item) => item.agentId === testCase.nodeId);
+        assert.equal(firstReview?.metadata?.outcome, testCase.canonical);
+        assert.equal(firstReview?.metadata?.reportedOutcome, testCase.reported);
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    });
+  }
+});
+
 test("agent graph rechecks and blocks regression of a frozen passed contract", async () => {
   const root = await repository();
   try {
@@ -848,8 +907,8 @@ test("agent graph serializes independent writers in the same candidate", async (
       history: [],
       signal: new AbortController().signal
     });
-    const first = await timing(root, "../graph-timing/writer-a-1.json");
-    const second = await timing(root, "../graph-timing/writer-b-1.json");
+    const first = await timing(root, "exp-writer-serialization", "graph", "writer-a", "attempt-1");
+    const second = await timing(root, "exp-writer-serialization", "graph", "writer-b", "attempt-1");
     assert.ok(first.finished <= second.started || second.finished <= first.started, "writers must never overlap");
   } finally {
     await rm(root, { recursive: true, force: true });

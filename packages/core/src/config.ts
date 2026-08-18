@@ -89,11 +89,15 @@ export async function loadCampaign(path: string): Promise<Campaign> {
   if (value.acceptance.direction !== "minimize" && value.acceptance.direction !== "maximize") {
     throw new Error("Campaign acceptance.direction must be minimize or maximize");
   }
+  if (value.acceptance.comparison !== undefined && value.acceptance.comparison !== "strict" && value.acceptance.comparison !== "at-least") {
+    throw new Error("Campaign acceptance.comparison must be strict or at-least");
+  }
 
   const acceptance = {
     primaryMetric: value.acceptance.primaryMetric,
     direction: value.acceptance.direction,
     ...(typeof value.acceptance.minimumDelta === "number" ? { minimumDelta: value.acceptance.minimumDelta } : {}),
+    ...(typeof value.acceptance.comparison === "string" ? { comparison: value.acceptance.comparison as "strict" | "at-least" } : {}),
     ...(Array.isArray(value.acceptance.hardGates) ? { hardGates: value.acceptance.hardGates as string[] } : {}),
     ...(typeof value.acceptance.allowRegressions === "boolean" ? { allowRegressions: value.acceptance.allowRegressions } : {})
   } satisfies Campaign["acceptance"];

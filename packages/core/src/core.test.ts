@@ -46,6 +46,11 @@ test("acceptance honors direction and minimum delta", () => {
     { primaryMetric: "score", direction: "maximize", minimumDelta: 0 },
     [evaluation(1)],
     [evaluation(1)]
+  ).accepted, false);
+  assert.equal(decideAcceptance(
+    { primaryMetric: "score", direction: "maximize", minimumDelta: 0, comparison: "at-least" },
+    [{ evaluator: "fixture", version: "1", status: "pass", metrics: { score: 1 }, violations: [], artifacts: [] }],
+    [{ evaluator: "fixture", version: "1", status: "pass", metrics: { score: 1 }, violations: [], artifacts: [] }]
   ).accepted, true);
 });
 

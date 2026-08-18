@@ -57,6 +57,6 @@
       }
     }
   },
-  "acceptance": { "primaryMetric": "spec_valid", "direction": "maximize", "minimumDelta": 0, "hardGates": ["game.spec"] },
+  "acceptance": { "primaryMetric": "spec_valid", "direction": "maximize", "minimumDelta": 0, "comparison": "at-least", "hardGates": ["game.spec"] },
   "budget": { "maximumExperiments": 3, "maximumConsecutiveCrashes": 2, "wallTimeMinutes": 90 }
 }

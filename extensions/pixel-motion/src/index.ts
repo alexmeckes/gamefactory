@@ -396,6 +396,64 @@ async function compileJob(root: string, job: PixelMotionJob): Promise<CompiledJo
   return { id: job.id, animationName: job.animationName, outputDirectory: job.outputDirectory.replaceAll("\\", "/"), atlasPath: candidateRelative(root, atlasPath), godotResourcePath: candidateRelative(root, godotPath), manifestPath: candidateRelative(root, manifestPath), framePaths, atlasSha256: manifest.hashes.atlas, godotResourceSha256: manifest.hashes.godotResource, diagnostics };
 }
 
+async function recomputeJobDiagnostics(root: string, job: PixelMotionJob, manifest: Record<string, unknown>): Promise<JobDiagnostics> {
+  const sourceDirectory = await canonicalContained(root, contained(root, job.sourceDirectory, `${job.id} sourceDirectory`), `${job.id} sourceDirectory`);
+  const pattern = wildcard(job.frameGlob);
+  const names = (await readdir(sourceDirectory, { withFileTypes: true }))
+    .filter((entry) => entry.isFile() && pattern.test(entry.name))
+    .map((entry) => entry.name)
+    .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
+  const strided = names.filter((_, index) => index % job.sourceStride === 0);
+  const decoded = await Promise.all(strided.map(async (name) => {
+    const image = decodePng(await readFile(await canonicalContained(root, resolve(sourceDirectory, name), `${job.id} source frame`)));
+    return { image, box: bounds(image, job.alphaThreshold) };
+  }));
+  const usable = decoded.filter((entry): entry is { image: RgbaImage; box: Bounds } => entry.box !== undefined);
+  if (usable.length < 2) throw new Error(`${job.id} no longer has enough usable source frames`);
+  const selected = selectedIndices(usable.length, job.targetFrames).map((index) => usable[index]!);
+  const palette = await resolvePalette(root, job.palette, job.id);
+  const normalized = selected.map((entry) => normalizeFrame(entry.image, entry.box, job, palette.colors));
+  const expectedFrames = normalized.map((entry) => entry.image);
+  const files = object(manifest.files, `${job.id} files`);
+  if (!Array.isArray(files.frames) || files.frames.length !== expectedFrames.length || files.frames.some((path) => typeof path !== "string")) throw new Error(`${job.id} frame list does not match the compiled source selection`);
+  const actualFrames = await Promise.all((files.frames as string[]).map(async (path, index) => {
+    const canonical = await canonicalContained(root, contained(root, path, `${job.id} frame ${index}`), `${job.id} frame ${index}`);
+    return decodePng(await readFile(canonical));
+  }));
+  for (let index = 0; index < expectedFrames.length; index += 1) {
+    const expected = expectedFrames[index]!, actual = actualFrames[index]!;
+    if (expected.width !== actual.width || expected.height !== actual.height || !expected.pixels.equals(actual.pixels)) throw new Error(`${job.id} frame ${index} does not match deterministic compilation from its source pixels`);
+  }
+  const atlasPath = await canonicalContained(root, contained(root, text(files.atlas, `${job.id} atlas path`), `${job.id} atlas path`), `${job.id} atlas`);
+  const atlasImage = decodePng(await readFile(atlasPath));
+  const columns = job.columns ?? Math.ceil(Math.sqrt(actualFrames.length));
+  const expectedAtlas = atlas(actualFrames, columns);
+  if (atlasImage.width !== expectedAtlas.width || atlasImage.height !== expectedAtlas.height || !atlasImage.pixels.equals(expectedAtlas.pixels)) throw new Error(`${job.id} atlas pixels do not match its declared frames`);
+  const sourceSize = selected[0]!.image;
+  const sourcePoints = selected.map((entry) => anchorPoint(entry.box, job.anchor));
+  const outputBounds = actualFrames.map((frame) => bounds(frame, 0));
+  if (outputBounds.some((box) => box === undefined)) throw new Error(`${job.id} contains a transparent compiled frame`);
+  const outputPoints = outputBounds.map((box) => anchorPoint(box!, job.anchor));
+  const temporal = actualFrames.slice(1).map((frame, index) => pixelDifference(actualFrames[index]!, frame));
+  return {
+    sourceFrameCount: names.length,
+    transparentFrameCount: decoded.length - usable.length,
+    selectedFrameCount: selected.length,
+    outputFrameCount: actualFrames.length,
+    frameSize: [job.frame.width, job.frame.height],
+    atlasSize: [atlasImage.width, atlasImage.height],
+    paletteColors: palette.colors.length,
+    outputColors: uniqueColors(actualFrames),
+    meanSourceScale: normalized.reduce((sum, entry) => sum + entry.scale, 0) / normalized.length,
+    sourceAnchorDrift: meanDrift(sourcePoints, Math.hypot(sourceSize.width, sourceSize.height)),
+    outputAnchorDrift: meanDrift(outputPoints, Math.hypot(job.frame.width, job.frame.height)),
+    temporalPixelChange: temporal.length ? temporal.reduce((sum, value) => sum + value, 0) / temporal.length : 0,
+    loopSeamError: job.loop ? pixelDifference(actualFrames[0]!, actualFrames.at(-1)!) : null,
+    clippedPixels: normalized.reduce((sum, entry) => sum + entry.clipped, 0),
+    estimatedGpuBytes: atlasImage.width * atlasImage.height * 4
+  };
+}
+
 export class PixelMotionExecutionError extends Error {
   constructor(message: string, readonly artifacts: ArtifactReference[], readonly provenance: Record<string, unknown> = {}) { super(message); this.name = "PixelMotionExecutionError"; }
 }
@@ -493,8 +551,9 @@ export class PixelMotionQualityEvaluator implements Evaluator {
         violations.push({ code: "pixel-motion.output.missing", message: `${job.id} has no compiled pixel-motion manifest`, severity: "error", location: candidateRelative(root, manifestPath) });
         continue;
       }
-      const diagnostics = object(manifest.diagnostics, `${job.id} diagnostics`);
+      const declaredDiagnostics = object(manifest.diagnostics, `${job.id} diagnostics`);
       const files = object(manifest.files, `${job.id} files`), hashes = object(manifest.hashes, `${job.id} hashes`);
+      let diagnostics: Record<string, unknown> = declaredDiagnostics;
       try {
         const atlasPath = await canonicalContained(root, contained(root, text(files.atlas, `${job.id} atlas path`), `${job.id} atlas path`), `${job.id} atlas`);
         const godotPath = await canonicalContained(root, contained(root, text(files.godotResource, `${job.id} Godot resource path`), `${job.id} Godot resource path`), `${job.id} Godot resource`);
@@ -502,6 +561,9 @@ export class PixelMotionQualityEvaluator implements Evaluator {
         artifacts.push(artifact(manifestPath, "other", `${job.id} pixel-motion manifest`, "application/json"), artifact(atlasPath, "image", `${job.id} pixel atlas`, "image/png"), artifact(godotPath, "other", `${job.id} Godot SpriteFrames`, "text/plain"));
         if (sha256(atlasBytes) !== hashes.atlas) violations.push({ code: "pixel-motion.hash.atlas", message: `${job.id} atlas hash does not match its manifest`, severity: "error" });
         if (sha256(godotBytes) !== hashes.godotResource) violations.push({ code: "pixel-motion.hash.godot", message: `${job.id} Godot resource hash does not match its manifest`, severity: "error" });
+        const recomputed = await recomputeJobDiagnostics(root, job, manifest);
+        diagnostics = recomputed as unknown as Record<string, unknown>;
+        if (JSON.stringify(declaredDiagnostics) !== JSON.stringify(recomputed)) violations.push({ code: "pixel-motion.diagnostics.untrusted", message: `${job.id} manifest diagnostics do not match metrics recomputed from source and output pixels`, severity: "error" });
       } catch (error) { violations.push({ code: "pixel-motion.output.invalid", message: error instanceof Error ? error.message : String(error), severity: "error" }); }
       const loop = diagnostics.loopSeamError === null ? 0 : metric(diagnostics.loopSeamError, 1);
       const drift = metric(diagnostics.outputAnchorDrift, 1);

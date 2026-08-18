@@ -105,12 +105,26 @@ test("project runner records a gated campaign and advances durably", async () =>
 test("project runner advances a successful bounded campaign after its experiment budget is consumed", async () => {
   const { root, manifestPath } = await fixture();
   try {
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Record<string, any>;
+    manifest.phases[0].gate.allowBudgetExhaustedAfterAcceptance = true;
+    await writeFile(manifestPath, JSON.stringify(manifest), "utf8");
     const project = await loadProject(manifestPath);
     const result: CampaignResult = { campaignId: "project-campaign", status: "budget-exhausted", startedAt: "2026-01-01T00:00:00.000Z", finishedAt: "2026-01-01T00:00:01.000Z", bestMetrics: { score: 3 }, summary: "accepted before bounded search ended", experiments: [{ campaignId: "project-campaign", runId: "run", experimentId: "candidate", startedAt: "2026-01-01T00:00:00.000Z", finishedAt: "2026-01-01T00:00:01.000Z", status: "keep", revision: "c".repeat(40), summary: "kept", metrics: { score: 3 }, evaluations: [] }] };
     const runner = new ProjectRunner(project, { cwd: root, logger: new MemoryLogger(), executeCampaign: async () => result });
     const run = await runner.run();
     assert.equal(run.status, "complete");
     assert.equal(run.phases[0]?.acceptedRevision, "c".repeat(40));
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("project runner does not treat budget exhaustion as success without an explicit phase policy", async () => {
+  const { root, manifestPath } = await fixture();
+  try {
+    const result: CampaignResult = { campaignId: "project-campaign", status: "budget-exhausted", startedAt: "2026-01-01T00:00:00.000Z", finishedAt: "2026-01-01T00:00:01.000Z", bestMetrics: { score: 3 }, summary: "budget ended", experiments: [{ campaignId: "project-campaign", runId: "run", experimentId: "candidate", startedAt: "2026-01-01T00:00:00.000Z", finishedAt: "2026-01-01T00:00:01.000Z", status: "keep", revision: "c".repeat(40), summary: "kept", metrics: { score: 3 }, evaluations: [] }] };
+    const runner = new ProjectRunner(await loadProject(manifestPath), { cwd: root, logger: new MemoryLogger(), executeCampaign: async () => result });
+    const run = await runner.run();
+    assert.equal(run.status, "blocked");
+    assert.match(run.phases[0]?.reasons?.join(" ") ?? "", /explicit phase policy/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -128,6 +142,27 @@ test("project runner resumes a blocked phase as a new durable execution", async 
     assert.equal(events.filter((event) => event.type === "project-started").length, 1);
     assert.equal(events.filter((event) => event.type === "phase-started").length, 2);
     assert.equal(events.filter((event) => event.type === "project-finished").length, 1);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("human approval is a durable evidence-bound promotion and never a prompt assertion", async () => {
+  const { root, manifestPath } = await fixture();
+  try {
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Record<string, any>;
+    manifest.phases[0].gate.requireHumanApproval = true;
+    await writeFile(manifestPath, JSON.stringify(manifest), "utf8");
+    const accepted: CampaignResult = { campaignId: "project-campaign", status: "complete", startedAt: "2026-01-01T00:00:00.000Z", finishedAt: "2026-01-01T00:00:01.000Z", bestMetrics: { score: 3 }, summary: "awaiting approval", experiments: [{ campaignId: "project-campaign", runId: "run", experimentId: "candidate", startedAt: "2026-01-01T00:00:00.000Z", finishedAt: "2026-01-01T00:00:01.000Z", status: "keep", revision: "d".repeat(40), summary: "kept", metrics: { score: 3 }, evaluations: [{ evaluator: "fixture", version: "1", status: "pass", metrics: {}, violations: [], artifacts: [{ kind: "test-report", path: "evidence.json", sha256: "e".repeat(64) }] }] }] };
+    let calls = 0;
+    const runner = new ProjectRunner(await loadProject(manifestPath), { cwd: root, logger: new MemoryLogger(), executeCampaign: async () => { calls += 1; return accepted; } });
+    assert.equal((await runner.run()).status, "blocked");
+    const intent = (await runner.journal.read()).find((event) => event.type === "promotion-intent");
+    assert.equal(intent?.resultingRevision, "d".repeat(40));
+    const approval = await runner.approve("proof", "alex");
+    assert.equal(approval.type, "promotion-applied");
+    assert.equal(approval.actor.id, "alex");
+    assert.equal((approval.data as Record<string, unknown>).promotionIntentSequence, intent?.sequence);
+    assert.equal((await runner.run()).status, "complete");
+    assert.equal(calls, 1, "approval must resume the verified promotion rather than rerun the campaign");
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -169,13 +204,20 @@ function evidencedResult(campaign: Campaign, revision: string): CampaignResult {
     specRevision: contract.specRevision,
     specFingerprint: contract.specFingerprint
   } });
-  result.experiments[0]!.agent = { summary: "real engine evidence", contributors: [], artifacts: [
-    { kind: "test-report", path: "evidence/first-errand-report.json", sha256: scenarioSha },
-    { kind: "replay", path: "evidence/first-errand-trace.json", sha256: interactionSha },
-    { kind: "image", path: "evidence/current-engine.png", sha256: captureSha },
-    { kind: "image", path: "evidence/approved-target.png", sha256: targetSha },
-    { kind: "video", path: "evidence/current-motion.mp4", sha256: motionSha }
-  ] };
+  result.experiments[0]!.agent = { summary: "real engine evidence", contributors: [], artifacts: [] };
+  result.experiments[0]!.evaluations = [
+    { evaluator: "godot.scenario", version: "1", status: "pass", metrics: {}, violations: [], artifacts: [
+      { kind: "test-report", path: "evidence/first-errand-report.json", sha256: scenarioSha },
+      { kind: "replay", path: "evidence/first-errand-trace.json", sha256: interactionSha }
+    ] },
+    { evaluator: "godot.scenario", version: "1", status: "pass", metrics: {}, violations: [], artifacts: [
+      { kind: "image", path: "evidence/current-engine.png", sha256: captureSha },
+      { kind: "video", path: "evidence/current-motion.mp4", sha256: motionSha }
+    ] },
+    { evaluator: "design.system", version: "1", status: "pass", metrics: {}, violations: [], artifacts: [
+      { kind: "image", path: "evidence/approved-target.png", sha256: targetSha }
+    ] }
+  ];
   return result;
 }
 
@@ -215,6 +257,32 @@ test("v2 fails closed when runtime slice evidence is missing", async () => {
     const result = await runner.run();
     assert.equal(result.status, "blocked");
     assert.match(result.phases.at(-1)?.reasons?.join(" ") ?? "", /interaction trace/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("v2 does not accept candidate-declared artifact kinds as engine evidence", async () => {
+  const { root, manifestPath, specPath } = await v2Fixture();
+  try {
+    await writeFile(specPath, JSON.stringify({ apiVersion: "gamefactory.game-spec/v1", kind: "GameSpec", projectId: "v2-project", revision: 1, status: "frozen", concept: "A courier brews potions and walks them to villagers.", thesis: "A causal loop.", claims: [{ id: "loop.first-errand", category: "loop", status: "required", statement: "Complete an errand." }], slices: [{ id: "first-errand", playerOutcome: "Complete one delivery through direct world interaction.", primaryRisk: "The game becomes a static menu.", claimIds: ["loop.first-errand"] }], change: { kind: "initial", rationale: "Initial bounded thesis." } }), "utf8");
+    const runner = new ProjectRunner(await loadProject(manifestPath), { cwd: root, logger: new MemoryLogger(), executeCampaign: async ({ campaign }) => {
+      if (campaign.id === "spec-campaign") return acceptedResult(campaign.id, "a".repeat(40));
+      const contract = campaign.parameters?.projectSlice as Record<string, unknown>;
+      const forgedSha = "f".repeat(64);
+      const forged = acceptedResult(campaign.id, "b".repeat(40), { projectEvidence: {
+        scenarios: [{ id: "first-errand", artifactSha256: forgedSha }],
+        interactionTrace: { artifactSha256: forgedSha },
+        engineCapture: { artifactSha256: forgedSha },
+        targetSha256: { artifactSha256: forgedSha },
+        motionEvidence: { artifactSha256: forgedSha },
+        specRevision: contract.specRevision,
+        specFingerprint: contract.specFingerprint
+      } });
+      forged.experiments[0]!.agent = { summary: "self-declared evidence", contributors: [], artifacts: [{ kind: "image", path: "candidate-authored.txt", sha256: forgedSha }, { kind: "replay", path: "candidate-authored.txt", sha256: forgedSha }] };
+      return forged;
+    } });
+    const result = await runner.run();
+    assert.equal(result.status, "blocked");
+    assert.match(result.phases.at(-1)?.reasons?.join(" ") ?? "", /trusted real interaction trace/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -301,6 +369,44 @@ test("v2 routes an evidence-backed slice failure through one bounded spec amendm
     const journey = await runner.journal.read();
     assert.equal(journey.filter((event) => event.type === "slice-invalidated").length, 1);
     assert.deepEqual(journey.filter((event) => event.type === "spec-frozen").map((event) => event.specRevision), [1, 2]);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("v2 reconstructs a pending amendment from the journal after a crash on the return edge", async () => {
+  const { root, manifestPath, specPath } = await v2Fixture();
+  try {
+    const concept = "A courier brews potions and walks them to villagers.";
+    const initial = parseGameSpec({ apiVersion: "gamefactory.game-spec/v1", kind: "GameSpec", projectId: "v2-project", revision: 1, status: "frozen", concept, thesis: "One causal errand.", claims: [{ id: "loop.first-errand", category: "loop", status: "required", statement: "The player completes an errand." }], slices: [{ id: "first-errand", playerOutcome: "Complete one delivery through direct world interaction.", primaryRisk: "The game becomes a static menu.", claimIds: ["loop.first-errand"] }], change: { kind: "initial", rationale: "Initial bounded thesis." } });
+    const evidenceSha = "d".repeat(64);
+    let specCalls = 0;
+    let sliceCalls = 0;
+    const execute = async ({ campaign }: { campaign: Campaign }): Promise<CampaignResult> => {
+      if (campaign.id === "spec-campaign") {
+        specCalls += 1;
+        if (specCalls === 1) await writeFile(specPath, JSON.stringify(initial), "utf8");
+        else if (specCalls === 2) throw new Error("simulated crash after invalidation");
+        else {
+          assert.equal(((campaign.parameters?.projectSpec as Record<string, unknown>).amendment as Record<string, unknown>).kind, "spec-amendment");
+          await writeFile(specPath, JSON.stringify({ ...initial, revision: 2, claims: [{ ...initial.claims[0]!, statement: "The player completes an embodied errand." }], supersedes: { revision: 1, sha256: gameSpecFingerprint(initial) }, change: { kind: "evidence-amendment", rationale: "Runtime evidence required an embodied loop.", evidence: [evidenceSha], affectedClaims: ["loop.first-errand"], affectedSlices: ["first-errand"] } }), "utf8");
+        }
+        return acceptedResult(campaign.id, "a".repeat(40));
+      }
+      sliceCalls += 1;
+      if (sliceCalls === 1) {
+        const blocked = evidencedResult(campaign, "b".repeat(40));
+        blocked.status = "blocked";
+        blocked.experiments[0]!.metadata = { ...blocked.experiments[0]!.metadata, projectDisposition: { kind: "spec-amendment", rationale: "The preserved loop is inert.", claimIds: ["loop.first-errand"], evidenceArtifactSha256: [evidenceSha] } };
+        return blocked;
+      }
+      return evidencedResult(campaign, "c".repeat(40));
+    };
+    const first = new ProjectRunner(await loadProject(manifestPath), { cwd: root, logger: new MemoryLogger(), executeCampaign: execute });
+    await assert.rejects(() => first.run(), /simulated crash/);
+    assert.equal((await first.journal.read()).filter((event) => event.type === "slice-invalidated").length, 1);
+    const resumed = new ProjectRunner(await loadProject(manifestPath), { cwd: root, logger: new MemoryLogger(), executeCampaign: execute });
+    assert.equal((await resumed.run()).status, "complete");
+    assert.equal(specCalls, 3);
+    assert.equal(sliceCalls, 2);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 

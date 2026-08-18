@@ -25,6 +25,7 @@
         "requireInteractionTrace": true,
         "requireEngineCapture": true,
         "requireMotionEvidence": true,
+        "targetApprovalNode": "scene-target-gate",
         "requireRuntimeAssets": ["interface", "characters", "feedback"]
       },
       "attemptPolicy": { "executionRetries": 2, "creativeRepairs": 3, "specAmendments": 1, "advisorEscalations": 2 },

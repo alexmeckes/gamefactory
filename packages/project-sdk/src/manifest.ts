@@ -71,6 +71,7 @@ function gate(value: unknown, label: string): ProjectPhaseGate | undefined {
   return {
     ...(typeof value.requireAcceptedRevision === "boolean" ? { requireAcceptedRevision: value.requireAcceptedRevision } : {}),
     ...(typeof value.requireHumanApproval === "boolean" ? { requireHumanApproval: value.requireHumanApproval } : {}),
+    ...(typeof value.allowBudgetExhaustedAfterAcceptance === "boolean" ? { allowBudgetExhaustedAfterAcceptance: value.allowBudgetExhaustedAfterAcceptance } : {}),
     ...(requireMetrics ? { requireMetrics: requireMetrics as Record<string, { minimum?: number; maximum?: number }> } : {})
   };
 }
@@ -94,9 +95,10 @@ function evidence(value: unknown, label: string): ProjectEvidenceGate | undefine
   if (value === undefined) return undefined;
   object(value, label);
   for (const key of ["requireInteractionTrace", "requireEngineCapture", "requireMotionEvidence"] as const) if (value[key] !== undefined && typeof value[key] !== "boolean") throw new Error(`${label}.${key} must be a boolean`);
+  if (value.targetApprovalNode !== undefined && (typeof value.targetApprovalNode !== "string" || !value.targetApprovalNode)) throw new Error(`${label}.targetApprovalNode must be a non-empty graph node id`);
   const scenarios = stringList(value.scenarios, `${label}.scenarios`);
   const requireRuntimeAssets = stringList(value.requireRuntimeAssets, `${label}.requireRuntimeAssets`);
-  return { ...(scenarios.length ? { scenarios } : {}), ...(typeof value.requireInteractionTrace === "boolean" ? { requireInteractionTrace: value.requireInteractionTrace } : {}), ...(typeof value.requireEngineCapture === "boolean" ? { requireEngineCapture: value.requireEngineCapture } : {}), ...(typeof value.requireMotionEvidence === "boolean" ? { requireMotionEvidence: value.requireMotionEvidence } : {}), ...(requireRuntimeAssets.length ? { requireRuntimeAssets } : {}) };
+  return { ...(scenarios.length ? { scenarios } : {}), ...(typeof value.requireInteractionTrace === "boolean" ? { requireInteractionTrace: value.requireInteractionTrace } : {}), ...(typeof value.requireEngineCapture === "boolean" ? { requireEngineCapture: value.requireEngineCapture } : {}), ...(typeof value.requireMotionEvidence === "boolean" ? { requireMotionEvidence: value.requireMotionEvidence } : {}), ...(requireRuntimeAssets.length ? { requireRuntimeAssets } : {}), ...(typeof value.targetApprovalNode === "string" ? { targetApprovalNode: value.targetApprovalNode } : {}) };
 }
 
 function attemptPolicy(value: unknown, label: string): ProjectAttemptPolicy | undefined {

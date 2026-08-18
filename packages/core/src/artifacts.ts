@@ -97,6 +97,7 @@ export class ContentAddressedArtifactStore {
         try {
           canonicalRoots.push(await realpath(resolve(allowedRoot)));
         } catch (error) {
+          if (errorCode(error) === "ENOENT") continue;
           throw this.failure(
             "invalid-source",
             artifact,
