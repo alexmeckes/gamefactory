@@ -1,0 +1,76 @@
+{
+  "apiVersion": "gamefactory.sam3/v1",
+  "model": "sam3",
+  "modelSource": "facebook/sam3",
+  "backend": "transformers",
+  "device": "cuda",
+  "precision": "bfloat16",
+  "jobs": [
+    {
+      "id": "red-warden",
+      "sourcePath": "design/character-source.png",
+      "prompt": "red wax candle knight holding a round gold shield",
+      "outputDirectory": "assets/source/red-warden",
+      "threshold": 0.3,
+      "maxInstances": 1,
+      "cropPaddingPixels": 4,
+      "maskExpandPixels": 1,
+      "maskFeatherPixels": 0
+    },
+    {
+      "id": "blue-seer",
+      "sourcePath": "design/character-source.png",
+      "prompt": "blue wax candle mage holding a burning matchstick wand",
+      "outputDirectory": "assets/source/blue-seer",
+      "threshold": 0.3,
+      "maxInstances": 1,
+      "cropPaddingPixels": 4,
+      "maskExpandPixels": 1,
+      "maskFeatherPixels": 0
+    },
+    {
+      "id": "gold-chime",
+      "sourcePath": "design/character-source.png",
+      "prompt": "gold wax candle healer holding a small bell",
+      "outputDirectory": "assets/source/gold-chime",
+      "threshold": 0.3,
+      "maxInstances": 1,
+      "cropPaddingPixels": 4,
+      "maskExpandPixels": 1,
+      "maskFeatherPixels": 0
+    },
+    {
+      "id": "soot-moth",
+      "sourcePath": "design/character-source.png",
+      "prompt": "round black soot moth with cream eye patterns",
+      "outputDirectory": "assets/source/soot-moth",
+      "threshold": 0.3,
+      "maxInstances": 1,
+      "cropPaddingPixels": 4,
+      "maskExpandPixels": 1,
+      "maskFeatherPixels": 0
+    },
+    {
+      "id": "needle-moth",
+      "sourcePath": "design/character-source.png",
+      "prompt": "narrow violet moth with four pointed wings",
+      "outputDirectory": "assets/source/needle-moth",
+      "threshold": 0.3,
+      "maxInstances": 1,
+      "cropPaddingPixels": 4,
+      "maskExpandPixels": 1,
+      "maskFeatherPixels": 0
+    },
+    {
+      "id": "ash-moth",
+      "sourcePath": "design/character-source.png",
+      "prompt": "large gray ash moth with skull face and cream patterned wings",
+      "outputDirectory": "assets/source/ash-moth",
+      "threshold": 0.3,
+      "maxInstances": 1,
+      "cropPaddingPixels": 4,
+      "maskExpandPixels": 1,
+      "maskFeatherPixels": 0
+    }
+  ]
+}

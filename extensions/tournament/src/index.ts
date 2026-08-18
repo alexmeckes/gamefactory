@@ -401,12 +401,17 @@ export class TournamentWorkflow implements Workflow {
     replayBudget(context, experiments);
 
     let baseline = latestAcceptedEvaluations(experiments);
+    const resumedBaselineRecord = [...experiments].reverse().find((record) => (record.status === "keep" || record.status === "baseline") && record.evaluations.length > 0);
+    let baselineError = resumedBaselineRecord?.status === "baseline" && typeof asObject(resumedBaselineRecord.metadata?.tournament).baselineError === "string"
+      ? asObject(resumedBaselineRecord.metadata?.tournament).baselineError as string
+      : undefined;
     if (!baseline) {
       const startedAt = new Date().toISOString();
       await journalPhase(context, "baseline", "reserved", { startedAt });
       await context.emit({ type: "experiment:start", campaignId: context.campaign.id, experimentId: "baseline", at: startedAt });
       const baselineRun = await evaluateWaterfall(context, config.evaluators, null, "baseline");
       baseline = baselineRun.evaluations;
+      baselineError = baselineRun.error;
       await journalPhase(context, "baseline", "evaluated", { evaluations: baseline });
       const record: ExperimentRecord = {
         campaignId: context.campaign.id,
@@ -417,7 +422,7 @@ export class TournamentWorkflow implements Workflow {
         summary: baselineRun.error ? `Baseline evaluation crashed: ${baselineRun.error}` : "Measured the starting revision once.",
         metrics: flattenMetrics(baseline),
         evaluations: baseline,
-        metadata: { tournament: { baseline: true, evaluatorOrder: config.evaluators.map((item) => item.id) } }
+        metadata: { tournament: { baseline: true, evaluatorOrder: config.evaluators.map((item) => item.id), ...(baselineRun.error ? { baselineError: baselineRun.error } : {}) } }
       };
       experiments.push(record);
       await context.appendRecord(record);
@@ -427,8 +432,9 @@ export class TournamentWorkflow implements Workflow {
     }
 
     const baselineMetrics = flattenMetrics(baseline);
-    if (baseline.some((evaluation) => evaluation.status === "fail") || baselineMetrics[context.campaign.acceptance.primaryMetric] === undefined) {
-      return campaignResult(context, experiments, "blocked", `Baseline did not pass or produce ${context.campaign.acceptance.primaryMetric}.`);
+    if (baselineError) return campaignResult(context, experiments, "blocked", `Baseline evaluation crashed: ${baselineError}`);
+    if (baselineMetrics[context.campaign.acceptance.primaryMetric] === undefined) {
+      return campaignResult(context, experiments, "blocked", `Baseline did not produce ${context.campaign.acceptance.primaryMetric}.`);
     }
     let activeBaseline: Evaluation[] = baseline;
 

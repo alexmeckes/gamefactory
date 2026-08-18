@@ -1,0 +1,669 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "id": "alchemy-delivery-boys-production-v1",
+  "objective": "Take the accepted Alchemy Delivery Boys gameplay proof to one compact, production-ready Godot workday without reopening the product concept. Preserve the proven causal chain from human request to mixture, unfinished potion, route chemistry, delivery result, and remembered follow-up. Concentrate visual exploration in complete 480x270 gameplay-screen targets for mixing, route commitment, doorstep consequence, and evening follow-up; approve one coherent direction before deriving any UI or art assets. Build an authored cheerful pixel-art village, a disciplined hybrid typography system, legible potion-state grammar, expressive characters, and causal runtime animation. Keep content tiny and finish the interaction. Do not substitute recipe-card following, an unrelated travel minigame, generic procedural panels, concept-art backdrops, or isolated assets generated without target lineage.",
+  "projectRoot": ".",
+  "workflow": "autoresearch",
+  "requires": [
+    "workspace:git.worktree",
+    "agent:agent.team",
+    "agent:godot.evidence",
+    "evaluator:design.system",
+    "evaluator:godot.scenario",
+    "evaluator:godot.visual"
+  ],
+  "optional": [
+    "agent:video.google-omni",
+    "agent:sam3.segment",
+    "agent:sam3.track",
+    "agent:pixel-motion.compile"
+  ],
+  "mutablePaths": [
+    "**"
+  ],
+  "immutablePaths": [
+    ".git/**",
+    ".factory/**",
+    "campaign*.json",
+    "factory*.json",
+    "gamefactory.project.json",
+    "GAME.md",
+    "STYLE.md",
+    "CORE_GAME.md"
+  ],
+  "parameters": {
+    "workspace": "git.worktree",
+    "agent": "agent.team",
+    "evaluators": [
+      "design.system",
+      "godot.scenario",
+      "godot.visual"
+    ],
+    "agentTeam": {
+      "provider": "openai-codex-app-server",
+      "billingMode": "subscription",
+      "threadRetention": "ephemeral",
+      "maximumParallel": 2,
+      "historyLimit": 3,
+      "graph": {
+        "maximumTotalAttempts": 56,
+        "maximumRepairAttempts": 16,
+        "context": [
+          {
+            "path": "GAME.md",
+            "kind": "other",
+            "mediaType": "text/markdown",
+            "label": "Game boundary"
+          },
+          {
+            "path": "STYLE.md",
+            "kind": "other",
+            "mediaType": "text/markdown",
+            "label": "Immutable visual direction"
+          },
+          {
+            "path": "CORE_GAME.md",
+            "kind": "other",
+            "mediaType": "text/markdown",
+            "label": "Approved core-game thesis"
+          }
+        ],
+        "nodes": [
+          {
+            "id": "mechanics-scout",
+            "skills": ["frame-core-game"],
+            "adapter": "codex-app-server",
+            "role": "scout",
+            "permissions": "read",
+            "model": "gpt-5.6-luna",
+            "reasoningEffort": "high",
+            "instructions": "Verify the accepted gameplay still proves the fixed request-to-mixture-to-road-to-consequence thesis with the two named deterministic scenarios. Preserve GAME.md and avoid reopening the game. Return pass when the causal interaction and non-goals remain bounded; use needs_advisor only for a material capability gap.",
+            "advisor": {
+              "model": "gpt-5.6-sol",
+              "reasoningEffort": "high",
+              "outcomes": [
+                "needs_advisor"
+              ],
+              "onFailure": true,
+              "maximumAttempts": 1
+            }
+          },
+          {
+            "id": "visual-director",
+            "skills": ["direct-game-screens"],
+            "adapter": "codex-app-server",
+            "role": "planner",
+            "permissions": "read",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "high",
+            "instructions": "Only after gameplay passes, define a feasible engine-native visual system for one representative workday. Preserve the 480x270 cheerful pixel-art village and deliberate hybrid typography: expressive pixel lettering only for short identity accents, with a calmer highly readable face for villager requests, ingredient properties, explanations, and outcome copy. Define peer layout regions and safe zones for request, workbench, potion state, courier and route choice, and consequence so no surfaces compete or overlap accidentally. Plan a living scene with apothecary and village ambience, tactile pickup/stir/pour feedback, readable route transformations, expressive delivery reactions, and coherent transitions into evening follow-up. Specify palette, potion-state grammar, materials, sprites, UI families, motion continuity, anti-patterns, and required engine evidence. ImageGen remains approved whole-screen reference or traceable source only.",
+            "dependsOn": [
+              "gameplay-gate",
+              "first-session-experience-gate"
+            ],
+            "advisor": {
+              "model": "gpt-5.6-sol",
+              "reasoningEffort": "xhigh",
+              "outcomes": [
+                "needs_advisor"
+              ],
+              "onFailure": true,
+              "maximumAttempts": 1
+            }
+          },
+          {
+            "id": "graybox-builder",
+            "skills": ["prove-godot-gameplay"],
+            "adapter": "codex-app-server",
+            "role": "implementer",
+            "permissions": "write",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "medium",
+            "timeoutSeconds": 2400,
+            "instructions": "Preserve or repair only the smallest honest Godot gameplay proof. The clean-start-day scenario must exercise real request reading, at least two meaningful mixture decisions, potion inspection, courier and route commitment, a visible environmental transformation, and attributable delivery feedback. The consequence-follow-up scenario must prove a remembered outcome and counterfactual consequence. Report trace-grounded first_delivery_complete, meaningful_mix_choices, route_transformation_observed, causal_outcome_observed, villager_consequence_persisted, and scenarios_passed metrics. Do not bypass the opening, hard-code counts, or manufacture polish here.",
+            "dependsOn": [
+              "mechanics-scout"
+            ]
+          },
+          {
+            "id": "gameplay-evidence",
+            "adapter": "agent-driver",
+            "driver": "godot.evidence",
+            "role": "worker",
+            "permissions": "read",
+            "timeoutSeconds": 600,
+            "instructions": "Refresh the configured Godot import and deterministic scenario evidence after the graybox and after every repair. Write only factory evidence; do not make creative changes.",
+            "dependsOn": [
+              "graybox-builder"
+            ],
+            "refreshAfterRepair": true
+          },
+          {
+            "id": "first-session-experience-gate",
+            "skills": ["prove-godot-gameplay"],
+            "adapter": "codex-app-server",
+            "role": "critic",
+            "permissions": "read",
+            "model": "gpt-5.6-luna",
+            "reasoningEffort": "high",
+            "instructions": "Review clean-start-day as a fresh player, separately from mechanical correctness and visual polish. Inspect the trace rather than trusting counts. Return pass only if the player understands a villager's human problem, makes at least two meaningful ingredient or handling choices, recognizes that the potion is unfinished, selects a road or courier for a predicted transformation, sees an attributable result, and wants another job. Reject recipe-card following, passive playback, decorative clicks, unexplained randomness, or brewing and delivery that do not affect one another.",
+            "dependsOn": [
+              "graybox-builder",
+              "gameplay-evidence"
+            ],
+            "repair": {
+              "target": "graybox-builder",
+              "outcomes": ["revise"],
+              "maximumAttempts": 3,
+              "allowedPaths": ["**"]
+            },
+            "advisor": {
+              "model": "gpt-5.6-sol",
+              "reasoningEffort": "high",
+              "outcomes": ["needs_advisor"],
+              "onFailure": true,
+              "maximumAttempts": 1
+            }
+          },
+          {
+            "id": "gameplay-gate",
+            "skills": ["prove-godot-gameplay"],
+            "adapter": "codex-app-server",
+            "role": "critic",
+            "permissions": "read",
+            "model": "gpt-5.6-luna",
+            "reasoningEffort": "high",
+            "instructions": "Inspect the fresh upstream Godot evidence; do not launch the engine yourself. Return pass only when clean-start-day and consequence-follow-up pass independently from real state. Require ingredient properties, mixing, route chemistry, delivery result, remembered consequence, and at least one counterfactual to form one causal chain. Keep this gate on mechanical correctness; do not judge visual polish.",
+            "dependsOn": [
+              "graybox-builder",
+              "gameplay-evidence",
+              "first-session-experience-gate"
+            ],
+            "repair": {
+              "target": "graybox-builder",
+              "outcomes": [
+                "revise"
+              ],
+              "maximumAttempts": 3,
+              "allowedPaths": [
+                "**"
+              ]
+            },
+            "advisor": {
+              "model": "gpt-5.6-sol",
+              "reasoningEffort": "high",
+              "outcomes": [
+                "needs_advisor"
+              ],
+              "onFailure": true,
+              "maximumAttempts": 1
+            }
+          },
+          {
+            "id": "scene-target-builder",
+            "skills": ["direct-game-screens"],
+            "adapter": "codex-app-server",
+            "role": "implementer",
+            "permissions": "write",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "timeoutSeconds": 3600,
+            "instructions": "Create complete gameplay-screen targets only after the causal graybox passes. Use the proven shipping-camera interaction and visual-director handoff to generate at least two coherent directions, then state variants for request-and-mixing, route commitment, delivery transformation and reaction, and evening follow-up. These must read as usable 480x270 game screens with clear affordances, not cinematic concept art. Map peer regions and safe zones for the villager request, workbench, ingredient tools, potion readout, courier/route choice, and consequence; reject accidental collisions, clipped copy, competing rails, or a composition that only works in one state. Use expressive pixel display treatment sparingly and legible hybrid type for requests and explanations. Define motion beats for ambient life, ingredient manipulation, route chemistry, doorstep consequence, and state transitions. Write a valid gamefactory.scene-target/v1 manifest with experience contract, hashes, exact prompts, selected target, nativeGeometry, and component map. Leave production absent and approval pending. Generate no isolated assets before scene approval.",
+            "dependsOn": [
+              "gameplay-gate",
+              "visual-director"
+            ]
+          },
+          {
+            "id": "scene-target-gate",
+            "skills": ["direct-game-screens", "audit-game-build"],
+            "adapter": "codex-app-server",
+            "role": "critic",
+            "permissions": "read",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "timeoutSeconds": 3600,
+            "instructions": "Review every complete target at the 480x270 shipping camera before component production. Verify the request, ingredient and mixture affordances, predicted road effect, courier/route commitment, delivery reaction, causal explanation, and next request across all variants. Audit peer regions for accidental overlap, clipping, competing layers, decorative obstruction, or scaling that only works in one screenshot. Reject ubiquitous tiny pixel text, flattened hierarchy, illegible properties, concept art, frozen tableaux, nonsensical controls, ambiguous potion state, inconsistent internal scale, or components that cannot recombine. Audit the motion plan for ambient continuity, tactile mixing, visible road chemistry, reaction, and transitions. Pass only with an explicit target id/hash, approved variants, experience contract, and component map.",
+            "dependsOn": [
+              "scene-target-builder",
+              "gameplay-gate"
+            ],
+            "repair": {
+              "target": "scene-target-builder",
+              "outcomes": [
+                "revise"
+              ],
+              "maximumAttempts": 3,
+              "allowedPaths": [
+                "design/scene-targets/**"
+              ]
+            }
+          },
+          {
+            "id": "scene-target-approval-recorder",
+            "adapter": "codex-app-server",
+            "role": "implementer",
+            "permissions": "write",
+            "model": "gpt-5.6-luna",
+            "reasoningEffort": "high",
+            "instructions": "Record the passed scene-target-gate decision without changing its creative work. Read the gate's selected target id, selected primary-view hash, and findings. Update only the approval object in design/scene-targets/scene-target.json: status approved, reviewer scene-target-gate, selectedTargetSha256 equal to the gate-approved primary-view hash, findings copied from the review, and approvedAt as the current ISO timestamp. Validate the file as gamefactory.scene-target/v1. Do not alter candidates, prompts, geometry, component maps, hashes, or any asset; fail if the gate output and manifest disagree.",
+            "dependsOn": [
+              "scene-target-gate"
+            ]
+          },
+          {
+            "id": "asset-lane-planner",
+            "skills": ["produce-pixel-game-assets"],
+            "adapter": "codex-app-server",
+            "role": "implementer",
+            "permissions": "write",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "high",
+            "instructions": "Choose the smallest production method that faithfully realizes the approved scene target. Return exactly one outcome from direct, segment, motion_study, pixel_motion, or segment_pixel_motion. Direct is valid for deliberately authored code-native structure and hand-built pixel assets. Use SAM 3 only when approved whole-screen imagery genuinely benefits from decomposition. Do not select a paid video provider in this campaign; no new external spend is authorized. Write design/asset-lanes/decision.json with rationale, selected outcome, required components, source scene ids and hashes, and expected outputs. Pin approved scene images as references, use contained output directories, and do not generate or integrate assets in this node.",
+            "dependsOn": [
+              "scene-target-approval-recorder",
+              "visual-director"
+            ]
+          },
+          {
+            "id": "sam3-component-extraction",
+            "adapter": "agent-driver",
+            "driver": "sam3.segment",
+            "role": "worker",
+            "permissions": "write",
+            "timeoutSeconds": 1800,
+            "dependsOn": [
+              "asset-lane-planner"
+            ],
+            "when": {
+              "node": "asset-lane-planner",
+              "outcomes": [
+                "segment",
+                "segment_pixel_motion"
+              ]
+            }
+          },
+          {
+            "id": "omni-motion-study",
+            "adapter": "agent-driver",
+            "driver": "video.google-omni",
+            "role": "worker",
+            "permissions": "write",
+            "timeoutSeconds": 3600,
+            "dependsOn": [
+              "asset-lane-planner"
+            ],
+            "when": {
+              "node": "asset-lane-planner",
+              "outcomes": [
+                "motion_study",
+                "pixel_motion",
+                "segment_pixel_motion"
+              ]
+            }
+          },
+          {
+            "id": "sam3-motion-tracking",
+            "adapter": "agent-driver",
+            "driver": "sam3.track",
+            "role": "worker",
+            "permissions": "write",
+            "timeoutSeconds": 1800,
+            "dependsOn": [
+              "asset-lane-planner",
+              "omni-motion-study"
+            ],
+            "when": {
+              "node": "asset-lane-planner",
+              "outcomes": [
+                "pixel_motion",
+                "segment_pixel_motion"
+              ]
+            }
+          },
+          {
+            "id": "pixel-motion-compiler",
+            "adapter": "agent-driver",
+            "driver": "pixel-motion.compile",
+            "role": "worker",
+            "permissions": "write",
+            "timeoutSeconds": 1200,
+            "dependsOn": [
+              "asset-lane-planner",
+              "sam3-motion-tracking"
+            ],
+            "when": {
+              "node": "asset-lane-planner",
+              "outcomes": [
+                "pixel_motion",
+                "segment_pixel_motion"
+              ]
+            }
+          },
+          {
+            "id": "production-slice-builder",
+            "skills": ["produce-pixel-game-assets"],
+            "adapter": "codex-app-server",
+            "role": "implementer",
+            "permissions": "write",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "timeoutSeconds": 7200,
+            "instructions": "Turn the proven first workday into a coherent production slice derived from the approved scene target, experience contract, and variants. Preserve peer-region ownership; clipping, competing layers, and UI pieces that only fit one state are blockers. Implement the approved hybrid type system, reserving pixel display treatment for short accents while keeping requests, ingredient properties, explanations, and outcomes comfortable to read. Build authored component families rather than repeated procedural boxes, brackets, or default controls. Retain target lineage, crops, hashes, native sizes, scaling, and recomposition evidence for every component. Implement controlled life across apothecary and village ambience, pickup/drop/stir/pour feedback, visible sunlight/chill/shake/heat or other route transformations, courier travel, doorstep reaction, and transition into a remembered follow-up. Preserve character identity and spatial anchors. Produce real engine stills and motion evidence, and record layout-integrity, typography-system, interface-system, component-fidelity, motion-choreography, and scene-life gates. Keep all three villagers, six ingredients, three meaningful routes, and the causal chain playable. Report visual-prototype if any required surface remains provisional.",
+            "dependsOn": [
+              "gameplay-gate",
+              "visual-director",
+              "scene-target-approval-recorder",
+              "asset-lane-planner",
+              "sam3-component-extraction",
+              "omni-motion-study",
+              "sam3-motion-tracking",
+              "pixel-motion-compiler"
+            ],
+            "when": [
+              {
+                "node": "sam3-component-extraction",
+                "outcomes": [
+                  "segmented",
+                  "no_instances",
+                  "skipped"
+                ]
+              },
+              {
+                "node": "omni-motion-study",
+                "outcomes": [
+                  "complete",
+                  "skipped"
+                ]
+              },
+              {
+                "node": "sam3-motion-tracking",
+                "outcomes": [
+                  "complete",
+                  "skipped"
+                ]
+              },
+              {
+                "node": "pixel-motion-compiler",
+                "outcomes": [
+                  "complete",
+                  "skipped"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "evidence-auditor",
+            "skills": ["audit-game-build"],
+            "adapter": "codex-app-server",
+            "role": "critic",
+            "permissions": "read",
+            "model": "gpt-5.6-luna",
+            "reasoningEffort": "high",
+            "instructions": "Inspect the current engine stills and motion recording, design-system hashes, polish manifest, runtime asset imports, interface-kit inventory and states, pixel-grid compliance, and deterministic scenario. Verify that motion evidence comes from the running engine and covers action causality rather than a reconstructed promo. Return pass only when evidence is current and internally consistent; otherwise return revise with exact stale, missing, or overstated claims.",
+            "dependsOn": [
+              "production-slice-builder"
+            ],
+            "refreshAfterRepair": true,
+            "advisor": {
+              "model": "gpt-5.6-sol",
+              "reasoningEffort": "high",
+              "outcomes": [
+                "needs_advisor"
+              ],
+              "onFailure": true,
+              "maximumAttempts": 1
+            }
+          },
+          {
+            "id": "component-fidelity-gate",
+            "skills": ["produce-pixel-game-assets", "audit-game-build"],
+            "adapter": "codex-app-server",
+            "role": "critic",
+            "permissions": "read",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "timeoutSeconds": 3600,
+            "instructions": "Compare every production component and the current Godot capture against the approved whole-scene target and its state variants. Verify target-hash lineage, source view and crop, silhouette, material, palette, border density, typography relationship, ornament scale, native and render dimensions, and state consistency. Composite isolated components back into their approved target regions where useful. Reject unconditioned individual generations, assets derived from another target, style drift, approximate matches that change hierarchy, or a locally attractive component that weakens the complete screen. Return pass only when the assembled runtime recovers the approved scene language while remaining clear and engine-native; otherwise return revise with exact component and integration mismatches.",
+            "dependsOn": [
+              "production-slice-builder",
+              "evidence-auditor",
+              "scene-target-gate"
+            ],
+            "repair": {
+              "target": "production-slice-builder",
+              "outcomes": [
+                "revise"
+              ],
+              "maximumAttempts": 3,
+              "allowedPaths": [
+                "**"
+              ]
+            }
+          },
+          {
+            "id": "art-director-gate",
+            "skills": ["audit-game-build"],
+            "adapter": "codex-app-server",
+            "role": "critic",
+            "permissions": "read",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "timeoutSeconds": 3600,
+            "instructions": "Judge current 480x270 Godot stills and motion as one game experience. Review the complete viewport across mixing, route, delivery, and follow-up for accidental overlap, clipped copy, competing layers, weak focal hierarchy, arbitrary scaling, or decorative obstruction. Treat UI as authored production art and reject generic procedural boxes, repeated brackets, engine defaults, or generated components that do not recombine coherently. Reject overused tiny pixel lettering; requests, properties, and causal explanations must be comfortable to read. Review controlled life: ambient continuity, tactile input response, visibly changing potion state, travel, reaction and resolution, and coherent transitions. Reject frozen paper dolls and unrelated looping particles. Score all required dimensions from current engine evidence and never call the game fun without human evidence.",
+            "dependsOn": [
+              "production-slice-builder",
+              "evidence-auditor",
+              "component-fidelity-gate"
+            ],
+            "repair": {
+              "target": "production-slice-builder",
+              "outcomes": [
+                "revise"
+              ],
+              "maximumAttempts": 3,
+              "allowedPaths": [
+                "**"
+              ],
+              "preserve": [
+                "evidence-auditor"
+              ]
+            }
+          },
+          {
+            "id": "production-judge",
+            "skills": ["audit-game-build"],
+            "adapter": "codex-app-server",
+            "role": "judge",
+            "permissions": "read",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "instructions": "Make the final production-slice decision from the approved whole-screen target, scene review, current engine capture, component-fidelity findings, gameplay evidence, art-direction findings, asset maturity, and polish manifest. Return pass only if every required surface is production, every gate is evidenced, every runtime component is traceable to the selected target, and no blocker or placeholder remains. Return revise rather than accepting a halfway state. Preserve the fixed identity: an unfinished player-made potion is completed by the road and remembered by the villager.",
+            "dependsOn": [
+              "production-slice-builder",
+              "evidence-auditor",
+              "component-fidelity-gate",
+              "art-director-gate"
+            ],
+            "repair": {
+              "target": "production-slice-builder",
+              "outcomes": [
+                "revise"
+              ],
+              "maximumAttempts": 1,
+              "allowedPaths": [
+                "**"
+              ],
+              "preserve": [
+                "evidence-auditor"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "designSystem": {
+      "path": "design-system.json",
+      "sceneTargetPath": "design/scene-targets/scene-target.json",
+      "minimumMaturity": "production-slice",
+      "requiredTokenGroups": [
+        "color",
+        "typography",
+        "layout",
+        "motion"
+      ],
+      "requiredAdapters": [
+        "godot-production-slice",
+        "production-readiness"
+      ],
+      "requiredReferenceAuthorities": [
+        "production-target"
+      ],
+      "requiredPolishGates": [
+        "scene-target",
+        "engine-capture",
+        "gameplay-readability",
+        "art-direction",
+        "layout-integrity",
+        "typography-system",
+        "interface-system",
+        "component-fidelity",
+        "motion-choreography",
+        "scene-life",
+        "interaction-states",
+        "technical-style"
+      ],
+      "requireSceneTarget": true,
+      "requireSceneTargetComponentLineage": true,
+      "requireSceneTargetExperienceContract": true,
+      "requiredSceneTargetMotionKinds": [
+        "ambient",
+        "interaction",
+        "gameplay",
+        "transition"
+      ],
+      "requireProductionReadiness": true,
+      "requireNoPlaceholders": true,
+      "minimumReferences": 1,
+      "requireImagegenReference": true
+    },
+    "godot": {
+      "binary": "C:/Users/alexm/OneDrive/Documents/New project/oldschool-mmo-godot/tools/godot/Godot_v4.7.1-stable_win64_console.exe",
+      "importCheck": true,
+      "rendered": true,
+      "timeoutSeconds": 300,
+    "scenarios": [
+      {
+        "id": "clean-start-day",
+        "provider": "godot.factory/v1",
+        "version": "1",
+        "path": "res://main.tscn",
+        "parameters": {
+          "mode": "clean-start-day",
+          "seed": 2411,
+          "ticks": 900,
+          "physics_hz": 60,
+          "duration_seconds": 15
+        }
+      },
+      {
+        "id": "consequence-follow-up",
+        "provider": "godot.factory/v1",
+        "version": "1",
+        "path": "res://main.tscn",
+        "parameters": {
+          "mode": "consequence-follow-up",
+          "seed": 7739,
+          "ticks": 900,
+          "physics_hz": 60,
+          "duration_seconds": 15
+        }
+      }
+    ],
+      "visualReview": {
+        "reviewNode": "art-director-gate",
+        "minimumScore": 78,
+        "minimumDimensionScore": 58,
+        "minimumWidth": 960,
+        "minimumHeight": 540,
+      "requiredDimensions": [
+        "focal_hierarchy",
+        "gameplay_legibility",
+        "layout_integrity",
+        "typography_coherence",
+        "interface_coherence",
+        "authored_specificity",
+        "target_fidelity",
+        "motion_feedback",
+        "scene_life"
+      ],
+        "requiredViews": [
+          {
+            "id": "mixing",
+            "path": "evidence/captures/mixing.png"
+          },
+          {
+            "id": "route",
+            "path": "evidence/captures/route.png"
+          },
+          {
+            "id": "consequence",
+            "path": "evidence/captures/consequence.png"
+          }
+        ],
+        "requiredSequences": [
+          {
+            "id": "gameplay-motion",
+            "paths": [
+              "evidence/motion/frame-000.png",
+              "evidence/motion/frame-001.png",
+              "evidence/motion/frame-002.png",
+              "evidence/motion/frame-003.png",
+              "evidence/motion/frame-004.png",
+              "evidence/motion/frame-005.png",
+              "evidence/motion/frame-006.png"
+            ],
+            "minimumFrames": 7
+          }
+        ]
+      }
+    },
+    "sam3": {
+      "requestPath": "sam3.request.json",
+      "command": [
+        "D:/GameFactory/runtimes/sam3/venv/Scripts/python.exe",
+        "{worker}"
+      ],
+      "doctorCommand": [
+        "D:/GameFactory/runtimes/sam3/venv/Scripts/python.exe",
+        "{worker}",
+        "--doctor"
+      ],
+      "modelSource": "facebook/sam3",
+      "backend": "transformers",
+      "device": "cuda",
+      "precision": "bfloat16",
+      "timeoutSeconds": 900
+    },
+    "pixelMotion": {
+      "requestPath": "pixel-motion.request.json",
+      "maximumLoopSeamError": 0.08,
+      "minimumTemporalChange": 0.001
+    }
+  },
+  "acceptance": {
+    "primaryMetric": "polish_ready",
+    "direction": "maximize",
+    "minimumDelta": 0,
+    "hardGates": [
+      "design.system",
+      "godot.scenario",
+      "godot.visual"
+    ]
+  },
+  "budget": {
+    "maximumExperiments": 1,
+    "maximumConsecutiveCrashes": 2,
+    "wallTimeMinutes": 480
+  }
+}

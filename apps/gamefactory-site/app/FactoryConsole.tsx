@@ -273,6 +273,7 @@ function PromptManifestPanel({ manifest }: { manifest: EffectivePromptManifest }
         <div><dt>Resolved model</dt><dd>{manifest.providerContext?.actualModel ?? "unreported"}</dd></div>
         <div><dt>Requested effort</dt><dd>{manifest.providerContext?.requestedReasoningEffort ?? manifest.reasoningEffort ?? "provider default"}</dd></div>
         <div><dt>Resolved effort</dt><dd>{manifest.providerContext?.reasoningEffort ?? "unreported"}</dd></div>
+        <div><dt>Skills</dt><dd>{manifest.skills?.length ? manifest.skills.map((skill) => skill.name).join(", ") : "none bound"}</dd></div>
         <div><dt>Access</dt><dd>{manifest.context.readOnly ? "read only" : "workspace write"}</dd></div>
       </dl>
       {manifest.providerContext?.threadId ? <div className="lineage provider-lineage"><span className="section-kicker">Codex lineage</span><code>{manifest.providerContext.threadId}</code><span className="lineage-arrow">↓</span><code>{manifest.providerContext.turnId ?? "turn pending"}</code></div> : null}
@@ -293,13 +294,20 @@ function artifactUrl(id: string) {
   return `gamefactory-artifact://artifact/${encodeURIComponent(id)}`;
 }
 
-function DesignSystemView({ value }: { value: Record<string, unknown> }) {
+function DesignSystemView({ value, readiness }: { value: Record<string, unknown>; readiness?: Record<string, unknown> }) {
   const identity = value.identity && typeof value.identity === "object" && !Array.isArray(value.identity) ? value.identity as Record<string, unknown> : {};
   const tokens = value.tokens && typeof value.tokens === "object" && !Array.isArray(value.tokens) ? value.tokens as Record<string, unknown> : {};
   const records = (raw: unknown) => Array.isArray(raw) ? raw.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item)) : [];
   const principles = records(value.principles);
   const references = records(value.references);
   const implementations = records(value.implementations);
+  const surfaces = records(readiness?.surfaces);
+  const assets = records(readiness?.assets);
+  const gates = records(readiness?.gates);
+  const unresolved = records(readiness?.unresolved);
+  const pendingRuntimeAssets = assets.filter((item) => item.runtime === true && item.maturity !== "production");
+  const unfinishedSurfaces = surfaces.filter((item) => item.required === true && item.status !== "production");
+  const blockers = unresolved.filter((item) => item.severity === "blocker");
   return <section className="design-system-view">
     <span className="section-kicker">Design system</span>
     <h3>{String(value.title ?? value.id ?? "Candidate system")}</h3>
@@ -308,12 +316,25 @@ function DesignSystemView({ value }: { value: Record<string, unknown> }) {
     {principles.length ? <ol>{principles.map((item, index) => <li key={String(item.id ?? index)}><strong>{String(item.statement ?? item.id ?? `Principle ${index + 1}`)}</strong><small>{String(item.rationale ?? "")}</small></li>)}</ol> : null}
     {references.length ? <div className="design-reference-prompts">{references.map((item, index) => <details key={`${String(item.path)}-${index}`}><summary>{String(item.role ?? item.path ?? `Reference ${index + 1}`)} · {String(item.source ?? "unknown")}</summary>{item.prompt ? <pre>{String(item.prompt)}</pre> : null}<code>{String(item.sha256 ?? "hash unreported")}</code></details>)}</div> : null}
     <p className="design-adapters">Adapters: {implementations.map((item) => String(item.adapter ?? item.id ?? "unknown")).join(" · ") || "none"}</p>
+    {readiness ? <section className={`polish-readiness ${blockers.length || unfinishedSurfaces.length || pendingRuntimeAssets.length ? "not-ready" : "ready"}`}>
+      <div><span className="section-kicker">Production claim</span><strong>{String(readiness.stage ?? "unreported")}</strong></div>
+      <dl>
+        <div><dt>Required surfaces</dt><dd>{surfaces.filter((item) => item.required === true && item.status === "production").length} / {surfaces.filter((item) => item.required === true).length} production</dd></div>
+        <div><dt>Runtime assets</dt><dd>{pendingRuntimeAssets.length ? `${pendingRuntimeAssets.length} pending` : "production"}</dd></div>
+        <div><dt>Polish gates</dt><dd>{gates.filter((item) => item.status === "pass").length} / {gates.length} passed</dd></div>
+        <div><dt>Blockers</dt><dd>{blockers.length}</dd></div>
+      </dl>
+      {unfinishedSurfaces.length ? <p>Unfinished surfaces: {unfinishedSurfaces.map((item) => `${String(item.label ?? item.id)} (${String(item.status)})`).join(" · ")}</p> : null}
+      {pendingRuntimeAssets.length ? <p>Runtime assets pending: {pendingRuntimeAssets.map((item) => `${String(item.label ?? item.id)} (${String(item.maturity)})`).join(" · ")}</p> : null}
+      {blockers.length ? <p>Blocking: {blockers.map((item) => String(item.description ?? item.id)).join(" · ")}</p> : null}
+    </section> : <p className="polish-readiness-missing">No polish-readiness manifest was preserved. Production status is unverified.</p>}
   </section>;
 }
 
 function DesktopEvidence({ artifacts }: { artifacts: EvidenceArtifact[] }) {
   const [textArtifact, setTextArtifact] = useState<{ id: string; label: string; text: string }>();
   const [designSystem, setDesignSystem] = useState<Record<string, unknown>>();
+  const [polishReadiness, setPolishReadiness] = useState<Record<string, unknown>>();
   const [error, setError] = useState<string>();
   const available = artifacts.filter((item) => item.available);
 
@@ -334,13 +355,19 @@ function DesktopEvidence({ artifacts }: { artifacts: EvidenceArtifact[] }) {
   const identity = artifacts.map((item) => item.id).join(":");
   useEffect(() => {
     const profile = available.find((item) => item.mediaType === "application/json" && item.label.toLowerCase().startsWith("design system "));
-    if (!profile) return;
+    const readinessProfile = available.find((item) => item.mediaType === "application/json" && item.label.toLowerCase().startsWith("polish readiness "));
+    if (!profile && !readinessProfile) return;
     let active = true;
-    void window.gamefactoryDesktop!.getArtifactText(profile.id).then((result) => {
+    if (profile) void window.gamefactoryDesktop!.getArtifactText(profile.id).then((result) => {
       if (!active) return;
       const parsed: unknown = JSON.parse(result.text);
       setTextArtifact({ id: result.id, label: result.label, text: result.text });
       if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) setDesignSystem(parsed as Record<string, unknown>);
+    }).catch((nextError: unknown) => { if (active) setError(nextError instanceof Error ? nextError.message : String(nextError)); });
+    if (readinessProfile) void window.gamefactoryDesktop!.getArtifactText(readinessProfile.id).then((result) => {
+      if (!active) return;
+      const parsed: unknown = JSON.parse(result.text);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) setPolishReadiness(parsed as Record<string, unknown>);
     }).catch((nextError: unknown) => { if (active) setError(nextError instanceof Error ? nextError.message : String(nextError)); });
     return () => { active = false; };
     // Content-addressed ids are the stable dependency for this evidence set.
@@ -350,7 +377,7 @@ function DesktopEvidence({ artifacts }: { artifacts: EvidenceArtifact[] }) {
   if (!artifacts.length) return null;
   return <section className="desktop-evidence">
     <span className="section-kicker section-space">Preserved evidence · {artifacts.length}</span>
-    {designSystem ? <DesignSystemView value={designSystem} /> : null}
+    {designSystem ? <DesignSystemView value={designSystem} readiness={polishReadiness} /> : null}
     <div className="evidence-gallery">{available.filter((item) => item.mediaType?.startsWith("image/")).map((item) => <button className="evidence-image" key={item.id} onClick={() => void window.gamefactoryDesktop!.openArtifact(item.id)} type="button"><img src={artifactUrl(item.id)} alt={item.label} /><span>{item.label}</span></button>)}</div>
     <div className="evidence-media">{available.filter((item) => item.mediaType?.startsWith("video/")).map((item) => <figure key={item.id}><video controls muted preload="metadata" src={artifactUrl(item.id)} /><figcaption>{item.label}</figcaption></figure>)}</div>
     <div className="evidence-list">{artifacts.map((item) => {
@@ -777,7 +804,7 @@ export default function FactoryConsole({ desktop = false }: { desktop?: boolean 
 
       {desktop && projectSnapshot && (source === "desktop" || source === "replay") ? <section className="project-journey" aria-label="Project journey">
         <div className="project-journey-heading"><div><span className="section-kicker">Project journey</span><h2>{projectSnapshot.project.title}</h2></div><span className={`project-status status-${projectSnapshot.project.status}`}>{projectSnapshot.project.status}</span></div>
-        <div className="phase-strip">{projectSnapshot.phases.map((phase) => <div className={`phase-card phase-${phase.status}`} key={phase.id}><span>{String(phase.order).padStart(2, "0")}</span><strong>{phase.title}</strong><small>{phase.status}{phase.acceptedRevision ? ` · ${phase.acceptedRevision.slice(0, 8)}` : ""}</small><div>{phase.attempts.map((attempt) => <button className={projectSnapshot.selection.phaseId === phase.id && projectSnapshot.selection.attemptId === attempt.id ? "active" : ""} key={attempt.id} onClick={() => void selectProjectRun(phase.id, attempt.id)} type="button">{attempt.id} · {attempt.status}</button>)}</div></div>)}</div>
+        <div className="phase-strip">{projectSnapshot.phases.map((phase) => <div className={`phase-card phase-${phase.status}`} key={phase.id}><span>{phase.kind === "spec-convergence" ? "SPEC" : phase.kind === "vertical-slice" ? `SLICE ${String(phase.order).padStart(2, "0")}` : String(phase.order).padStart(2, "0")}</span><strong>{phase.title}</strong>{phase.playerOutcome ? <p>{phase.playerOutcome}</p> : null}<small>{phase.status}{phase.reused ? ` · reused${phase.reusedFromProjectRunId ? ` from ${phase.reusedFromProjectRunId.slice(-8)}` : ""}` : ""}{phase.specRevision ? ` · spec r${phase.specRevision}` : ""}{phase.acceptedRevision ? ` · ${phase.acceptedRevision.slice(0, 8)}` : ""}{phase.invalidations ? ` · ${phase.invalidations} invalidation${phase.invalidations === 1 ? "" : "s"}` : ""}</small>{phase.specChange ? <small>{phase.specChange.kind}: {phase.specChange.rationale}</small> : null}{phase.supersedes ? <small>supersedes r{phase.supersedes.revision} · {phase.supersedes.sha256.slice(0, 8)}</small> : null}{phase.consumesClaims?.length ? <small>{phase.consumesClaims.length} contract claim{phase.consumesClaims.length === 1 ? "" : "s"}</small> : null}<div>{phase.attempts.map((attempt) => <button className={projectSnapshot.selection.phaseId === phase.id && projectSnapshot.selection.attemptId === attempt.id ? "active" : ""} key={attempt.id} onClick={() => void selectProjectRun(phase.id, attempt.id)} type="button">{attempt.id} · {attempt.status}</button>)}</div></div>)}</div>
       </section> : null}
 
       <section className="hero" id="top">

@@ -8,8 +8,8 @@ flowchart LR
   B --> C["MP4 motion study"]
   C --> D["sam3.track"]
   D --> E["Persistent masks + RGBA frames"]
-  E --> F["animation.compile"]
-  F --> G["Atlas + diagnostics"]
+  E --> F["pixel-motion.compile or animation.compile"]
+  F --> G["Pixel frames + atlas + Godot resource + diagnostics"]
   G --> H["Godot import and real-engine evaluation"]
   H --> I{"Keep, repair, or discard"}
 ```
@@ -84,7 +84,14 @@ the token onto C: or into the project.
 
 ## Animation compilation
 
-`animation.compile` reads `animation.request.json`:
+For pixel-art production, prefer `pixel-motion.compile`. It adds deterministic
+frame selection, area downsampling, palette locking, stable pivots, strict
+clipping checks, editable normalized frames, a Godot `SpriteFrames` resource,
+and `pixel-motion.quality` gates. Its request contract is documented in the
+[Pixel Motion extension](../extensions/pixel-motion/README.md).
+
+The provider-neutral `animation.compile` remains useful for non-pixel atlases
+and reads `animation.request.json`:
 
 ```json
 {
@@ -117,7 +124,8 @@ Use `adapter: "agent-driver"` graph nodes for all three capabilities. A visual/m
 }
 ```
 
-Equivalent nodes use drivers `video.google-omni` and `animation.compile`. The
+Equivalent nodes use drivers `video.google-omni`, `pixel-motion.compile`, or
+the generic `animation.compile`. The
 campaign must list those capabilities in `requires`; the
 `godot-video-animation` preset contains the matching lazy extensions.
 

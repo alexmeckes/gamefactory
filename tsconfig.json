@@ -19,8 +19,10 @@
     { "path": "./extensions/asset-foundry" },
     { "path": "./extensions/sam3" },
     { "path": "./extensions/video-foundry" },
+    { "path": "./extensions/pixel-motion" },
     { "path": "./extensions/design-intake" },
     { "path": "./extensions/design-lab" },
+    { "path": "./extensions/game-spec" },
     { "path": "./extensions/discovery" },
     { "path": "./packages/cli" }
   ]

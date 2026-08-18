@@ -1,0 +1,4 @@
+interface:
+  display_name: "Plan Playable Slice"
+  short_description: "Define a claim-linked player-complete vertical slice"
+  default_prompt: "Use $plan-playable-slice to turn the current GameSpec claims into the next bounded playable slice."

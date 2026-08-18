@@ -1,0 +1,87 @@
+{
+  "apiVersion": "gamefactory.sam3/v1",
+  "model": "sam3",
+  "modelSource": "facebook/sam3",
+  "backend": "transformers",
+  "device": "cuda",
+  "precision": "bfloat16",
+  "jobs": [
+    {
+      "id": "bastion-cap",
+      "sourcePath": "design/sprite-atlas-source.png",
+      "prompt": "red capped mushroom warrior holding a round wooden shield",
+      "outputDirectory": "assets/generated/bastion-cap",
+      "threshold": 0.35,
+      "maxInstances": 1,
+      "cropPaddingPixels": 6,
+      "maskExpandPixels": 1,
+      "maskFeatherPixels": 0
+    },
+    {
+      "id": "dewbell",
+      "sourcePath": "design/sprite-atlas-source.png",
+      "prompt": "blue bell flower healer holding a crooked staff",
+      "outputDirectory": "assets/generated/dewbell",
+      "threshold": 0.35,
+      "maxInstances": 1,
+      "cropPaddingPixels": 6,
+      "maskExpandPixels": 1,
+      "maskFeatherPixels": 0
+    },
+    {
+      "id": "briar-spitter",
+      "sourcePath": "design/sprite-atlas-source.png",
+      "prompt": "pink thorny flower creature with green curling vines",
+      "outputDirectory": "assets/generated/briar-spitter",
+      "threshold": 0.35,
+      "maxInstances": 1,
+      "cropPaddingPixels": 6,
+      "maskExpandPixels": 1,
+      "maskFeatherPixels": 0
+    },
+    {
+      "id": "springheart",
+      "sourcePath": "design/sprite-atlas-source.png",
+      "prompt": "glowing blue crystal seed surrounded by gold green leaves",
+      "outputDirectory": "assets/generated/springheart",
+      "threshold": 0.35,
+      "maxInstances": 1,
+      "cropPaddingPixels": 6,
+      "maskExpandPixels": 1,
+      "maskFeatherPixels": 0
+    },
+    {
+      "id": "blightling-round",
+      "sourcePath": "design/sprite-atlas-source.png",
+      "prompt": "round crawling black purple blight monster with glowing pink eyes",
+      "outputDirectory": "assets/generated/blightling-round",
+      "threshold": 0.3,
+      "maxInstances": 1,
+      "cropPaddingPixels": 6,
+      "maskExpandPixels": 1,
+      "maskFeatherPixels": 0
+    },
+    {
+      "id": "blightling-antler",
+      "sourcePath": "design/sprite-atlas-source.png",
+      "prompt": "antlered black purple blight monster with animal skull face",
+      "outputDirectory": "assets/generated/blightling-antler",
+      "threshold": 0.3,
+      "maxInstances": 1,
+      "cropPaddingPixels": 6,
+      "maskExpandPixels": 1,
+      "maskFeatherPixels": 0
+    },
+    {
+      "id": "blightling-caster",
+      "sourcePath": "design/sprite-atlas-source.png",
+      "prompt": "tall black purple blight caster with skull face and pink flame staff",
+      "outputDirectory": "assets/generated/blightling-caster",
+      "threshold": 0.3,
+      "maxInstances": 1,
+      "cropPaddingPixels": 6,
+      "maskExpandPixels": 1,
+      "maskFeatherPixels": 0
+    }
+  ]
+}

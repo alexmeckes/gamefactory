@@ -1,0 +1,148 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "id": "the-long-company-gameplay-proof-v1",
+  "objective": "Define and prove The Long Company's active first session before spending on production visuals. Preserve the fixed product concept: named mercenaries, formation and build decisions, risky offline marching, causal veteran history, permanent death, and memorial legacy. Resolve one coherent playable thesis upfront, then implement and repair one honest graybox. A new player must make understandable consequential choices, see immediate attributable battle feedback, make a recovery-versus-greed decision, and have a clear reason for another round before offline routes unlock. Keep visuals explicitly prototype and do not generate production assets. Branch into a tournament only in a later campaign when a specific unresolved design question has multiple cheap, falsifiable hypotheses.",
+  "projectRoot": ".",
+  "workflow": "autoresearch",
+  "requires": [
+    "workspace:git.worktree",
+    "agent:agent.team",
+    "agent:godot.evidence",
+    "evaluator:godot.scenario"
+  ],
+  "mutablePaths": ["**"],
+  "immutablePaths": [
+    ".git/**",
+    ".factory/**",
+    "campaign*.json",
+    "factory*.json",
+    "gamefactory.project.json",
+    "GAME.md",
+    "STYLE.md"
+  ],
+  "parameters": {
+    "workspace": "git.worktree",
+    "agent": "agent.team",
+    "evaluators": ["godot.scenario"],
+    "agentTeam": {
+      "provider": "openai-codex-app-server",
+      "billingMode": "subscription",
+      "threadRetention": "ephemeral",
+      "maximumParallel": 3,
+      "historyLimit": 2,
+      "graph": {
+        "maximumTotalAttempts": 18,
+        "maximumRepairAttempts": 6,
+        "context": [
+          { "path": "GAME.md", "kind": "other", "mediaType": "text/markdown", "label": "Fixed game concept" },
+          { "path": "STYLE.md", "kind": "other", "mediaType": "text/markdown", "label": "Visual boundary; prototype only in this phase" }
+        ],
+        "nodes": [
+          {
+            "id": "core-game-director",
+            "skills": ["frame-core-game"],
+            "adapter": "codex-app-server",
+            "role": "planner",
+            "permissions": "read",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "instructions": "Define the invariant playable thesis before implementation. Preserve the offline risk-and-memory concept and specify the smallest coherent core game: the player's repeated decision, the information available before it, the uncertainty or tradeoff, the immediate causal feedback, the state carried into the next decision, and the connection from the active five-minute loop to the offline expedition. Include a clean-start state sequence, at least one concrete causal example, counterfactual outcomes, non-goals, and explicit falsifiers. Resolve the core design rather than generating a menu of candidates. Leave tuning, presentation, and incidental implementation details open.",
+            "advisor": { "model": "gpt-5.6-sol", "reasoningEffort": "high", "outcomes": ["needs_advisor"], "onFailure": true, "maximumAttempts": 1 }
+          },
+          {
+            "id": "graybox-builder",
+            "skills": ["prove-godot-gameplay"],
+            "adapter": "codex-app-server",
+            "role": "implementer",
+            "permissions": "write",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "medium",
+            "instructions": "Implement the director's invariant core game as one honest active-session graybox plus the two configured scenario modes. Preserve creative judgment in the implementation, but do not reopen the product thesis without reporting the contradiction. The first-session scenario must begin from a clean company, exercise real recruit or build, encounter-read, formation or order, battle, and camp decisions, and return trace-grounded first_session_complete, consequential_choices, active_rounds, and route_unlocked metrics. The returning-player scenario must preserve offline timing, causal chronicle, death, trait, and memorial contracts. Do not bypass the opening in factory_setup, hard-code interaction counts, polish the interface, call ImageGen, or create production assets.",
+            "dependsOn": ["core-game-director"]
+          },
+          {
+            "id": "gameplay-evidence",
+            "adapter": "agent-driver",
+            "driver": "godot.evidence",
+            "role": "worker",
+            "permissions": "read",
+            "timeoutSeconds": 600,
+            "instructions": "Run both configured Godot scenarios after the graybox and every repair. Write only factory evidence.",
+            "dependsOn": ["graybox-builder"],
+            "refreshAfterRepair": true
+          },
+          {
+            "id": "first-session-experience-gate",
+            "skills": ["prove-godot-gameplay"],
+            "adapter": "codex-app-server",
+            "role": "critic",
+            "permissions": "read",
+            "model": "gpt-5.6-luna",
+            "reasoningEffort": "high",
+            "instructions": "Act as a skeptical fresh player using the distinct first-session evidence. Require first-session.first_session_complete=1, trace-grounded consequential choices and active rounds, and route unlock only after the active loop. Explain the player's immediate problem, information, uncertainty, causal feedback, and motivation for another round. Reject passive playback, decorative setup, hard-coded counts, timer configuration, or choices that only rename the same outcome. Preserve exploration latitude and return the smallest gameplay-level revision.",
+            "dependsOn": ["graybox-builder", "gameplay-evidence"],
+            "repair": { "target": "graybox-builder", "outcomes": ["revise"], "maximumAttempts": 2, "allowedPaths": ["**"] },
+            "advisor": { "model": "gpt-5.6-sol", "reasoningEffort": "high", "outcomes": ["needs_advisor"], "onFailure": true, "maximumAttempts": 1 }
+          },
+          {
+            "id": "mechanical-contract-gate",
+            "skills": ["prove-godot-gameplay"],
+            "adapter": "codex-app-server",
+            "role": "critic",
+            "permissions": "read",
+            "model": "gpt-5.6-luna",
+            "reasoningEffort": "high",
+            "instructions": "Verify both named Godot scenarios pass independently. Check that the clean-start mode proves the active loop and that the returning-player mode preserves honest wall-clock progression, route contrast, event-derived traits or death, causal chronicle, and memorial legacy. Return revise for correctness gaps without judging visual polish.",
+            "dependsOn": ["graybox-builder", "gameplay-evidence", "first-session-experience-gate"],
+            "repair": { "target": "graybox-builder", "outcomes": ["revise"], "maximumAttempts": 2, "allowedPaths": ["**"] }
+          },
+          {
+            "id": "gameplay-judge",
+            "skills": ["prove-godot-gameplay"],
+            "adapter": "codex-app-server",
+            "role": "judge",
+            "permissions": "read",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "high",
+            "instructions": "Judge only whether this is a compelling bounded graybox worth promoting to visual production. Require separate passing scenario evidence, immediate agency, understandable causal feedback, meaningful build or formation consequence, and preservation of the offline veteran-memory hook. Do not reward presentation polish or call the game fun without human evidence. Return pass, revise, or reject with decisive evidence.",
+            "dependsOn": ["first-session-experience-gate", "mechanical-contract-gate"]
+          }
+        ]
+      }
+    },
+    "godot": {
+      "binary": "C:/Users/alexm/OneDrive/Documents/New project/oldschool-mmo-godot/tools/godot/Godot_v4.7.1-stable_win64_console.exe",
+      "importCheck": true,
+      "rendered": false,
+      "timeoutSeconds": 300,
+      "scenarios": [
+        {
+          "id": "first-session",
+          "provider": "godot.factory/v1",
+          "version": "1",
+          "path": "res://main.tscn",
+          "parameters": { "mode": "first-session", "seed": 314159, "ticks": 900, "physics_hz": 60, "duration_seconds": 15 }
+        },
+        {
+          "id": "returning-player",
+          "provider": "godot.factory/v1",
+          "version": "1",
+          "path": "res://main.tscn",
+          "parameters": { "mode": "returning-player", "seed": 271828, "route": "valley", "formation": "shieldwall", "ticks": 900, "physics_hz": 60, "duration_seconds": 15 }
+        }
+      ]
+    }
+  },
+  "budget": {
+    "maximumExperiments": 1,
+    "wallTimeMinutes": 180,
+    "maximumConsecutiveCrashes": 2,
+    "maximumConsecutiveNonImproving": 1
+  },
+  "acceptance": {
+    "primaryMetric": "first_session_complete",
+    "direction": "maximize",
+    "minimumDelta": 0,
+    "hardGates": ["godot.scenario"]
+  }
+}

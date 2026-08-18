@@ -1,0 +1,4 @@
+interface:
+  display_name: "Prove Godot Gameplay"
+  short_description: "Build honest deterministic gameplay evidence"
+  default_prompt: "Use $prove-godot-gameplay to prove this loop with clean-start and returning-player Godot evidence."

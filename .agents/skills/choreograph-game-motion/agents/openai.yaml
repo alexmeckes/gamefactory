@@ -1,0 +1,4 @@
+interface:
+  display_name: "Choreograph Game Motion"
+  short_description: "Design and verify meaningful runtime motion"
+  default_prompt: "Use $choreograph-game-motion to make this playable slice feel alive through state-linked motion and runtime evidence."

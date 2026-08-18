@@ -1,0 +1,18 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "extensions": [
+    "C:/Users/alexm/OneDrive/Documents/ChatGPT/gamefactory/extensions/autoresearch",
+    "C:/Users/alexm/OneDrive/Documents/ChatGPT/gamefactory/extensions/git",
+    "C:/Users/alexm/OneDrive/Documents/ChatGPT/gamefactory/extensions/agent-team",
+    "C:/Users/alexm/OneDrive/Documents/ChatGPT/gamefactory/extensions/design-lab",
+    "C:/Users/alexm/OneDrive/Documents/ChatGPT/gamefactory/extensions/asset-foundry",
+    "C:/Users/alexm/OneDrive/Documents/ChatGPT/gamefactory/extensions/video-foundry",
+    "C:/Users/alexm/OneDrive/Documents/ChatGPT/gamefactory/extensions/sam3",
+    "C:/Users/alexm/OneDrive/Documents/ChatGPT/gamefactory/extensions/pixel-motion",
+    "C:/Users/alexm/OneDrive/Documents/ChatGPT/gamefactory/extensions/godot"
+  ],
+  "resultLog": ".factory/results/visual-production.jsonl",
+  "journalLog": ".factory/journal/visual-production.jsonl",
+  "traceLog": ".factory/traces/visual-production.jsonl",
+  "artifactDirectory": ".factory/artifacts"
+}

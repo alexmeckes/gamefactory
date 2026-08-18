@@ -33,7 +33,7 @@ export interface Usage {
 
 export interface PromptLayer {
   id: string;
-  kind: "project" | "campaign" | "boundary" | "role" | "task" | "context" | "history";
+  kind: "project" | "campaign" | "boundary" | "role" | "skill" | "task" | "context" | "history";
   source: string;
   sha256: string;
   content: string;
@@ -51,6 +51,7 @@ export interface EffectivePromptManifest {
   reasoningEffort?: string;
   billingMode?: string;
   instructionSources: string[];
+  skills?: Array<{ name: string; source: string; sha256: string; required: boolean }>;
   layers: PromptLayer[];
   context: {
     objective: string;

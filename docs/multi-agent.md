@@ -29,8 +29,11 @@ upstream evidence, campaign history, the objective, and the candidate root.
 
 Each invocation also writes `prompt-manifest.json`. It records the effective
 instruction layers GameFactory controls: applicable project `AGENTS.md` files,
-the campaign objective and path boundaries, the versioned role charter, node
-task, context references, upstream handoffs, and bounded history. With App
+the campaign objective and path boundaries, bound repo skills with their
+SHA-256 identities, the versioned role charter, node task, context references,
+upstream handoffs, and bounded history. A node's `skills` array loads only the
+procedures needed for that contribution; unavailable required skills fail
+before any agent process launches. With App
 Server it additionally records provider-reported instruction sources and
 thread/turn lineage. Hidden provider system prompts are intentionally not
 claimed or reconstructed.
@@ -69,6 +72,12 @@ serialized within a candidate. The graph validates cycles, dependencies, paths,
 permissions, and attempt caps before launching commands. See
 `extensions/agent-team/README.md` for the complete schema.
 
+A triggered repair edge is a scheduling barrier. The writer is repaired and
+the already-completed evidence/reviewer chain is refreshed before any dependent
+node runs. If the bounded repair remains unresolved, the source gate fails and
+required downstream nodes are dependency-blocked instead of consuming rejected
+state.
+
 ## Tournament workflow
 
 `workflow:tournament` creates several independent candidates from one baseline:
@@ -83,6 +92,10 @@ Candidate work is concurrency-bounded. All candidates finish evaluation against
 the same baseline before selection. Ranking uses the configured primary metric,
 direction, minimum delta, hard failures, and experiment ID as a stable tie-break.
 Losers are discarded and exactly one passing improvement is accepted.
+An intentionally failing baseline is allowed when it still produces the primary
+metric; hard gates apply to candidates, so an improvement loop can start from a
+graybox or visibly unfinished build. Missing baseline metrics and evaluator
+crashes still block the campaign.
 
 The control plane remains serialized:
 

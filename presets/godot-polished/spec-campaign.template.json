@@ -1,0 +1,62 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "id": "replace-with-project-id-spec",
+  "objective": "Converge the supplied concept into one falsifiable, frozen GameSpec for the next player-complete slice. Preserve the concept verbatim. Keep future questions open instead of pretending they are resolved. On an evidence-amendment pass, change only claims and slice plans implicated by the cited evidence and record exact supersedes lineage.",
+  "projectRoot": ".",
+  "workflow": "autoresearch",
+  "requires": ["workspace:git.worktree", "agent:agent.team", "evaluator:game.spec"],
+  "mutablePaths": ["game-spec.json"],
+  "immutablePaths": ["concept.md", "gamefactory.project.json", ".git/**", ".factory/**"],
+  "parameters": {
+    "workspace": "git.worktree",
+    "agent": "agent.team",
+    "evaluators": ["game.spec"],
+    "gameSpec": {
+      "path": "game-spec.json",
+      "conceptPath": "concept.md",
+      "projectId": "replace-with-project-id",
+      "requireFrozen": true,
+      "requiredClaims": ["loop.core"],
+      "requiredSlices": ["first-playable"]
+    },
+    "agentTeam": {
+      "provider": "openai-codex-app-server",
+      "billingMode": "subscription",
+      "threadRetention": "ephemeral",
+      "maximumParallel": 2,
+      "graph": {
+        "maximumTotalAttempts": 5,
+        "nodes": [
+          {
+            "id": "spec-owner",
+            "skills": ["converge-game-spec", "frame-core-game"],
+            "adapter": "codex-app-server",
+            "role": "planner",
+            "permissions": "write",
+            "authority": "mutate-spec",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "instructions": "Read projectSpec, concept.md, and the current game-spec.json. Produce or amend the bounded GameSpec, preserve the concept verbatim, resolve only claims needed by the next slice, retain genuine future uncertainty as open, and write exact change and supersedes metadata.",
+            "maximumAttempts": 1
+          },
+          {
+            "id": "spec-critic",
+            "skills": ["converge-game-spec"],
+            "adapter": "codex-app-server",
+            "role": "critic",
+            "permissions": "read",
+            "authority": "approve",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "high",
+            "instructions": "Test whether the GameSpec is coherent, falsifiable, faithful to the concept, and bounded to a player-complete first slice. Block only on cited claims. Treat desirable extra scope as opportunity. Return pass or revise.",
+            "requiredOutputFields": ["outcome", "summary"],
+            "dependsOn": ["spec-owner"],
+            "repair": { "target": "spec-owner", "outcomes": ["revise"], "maximumAttempts": 2, "allowedPaths": ["game-spec.json"] }
+          }
+        ]
+      }
+    }
+  },
+  "acceptance": { "primaryMetric": "spec_valid", "direction": "maximize", "minimumDelta": 0, "hardGates": ["game.spec"] },
+  "budget": { "maximumExperiments": 3, "maximumConsecutiveCrashes": 2, "wallTimeMinutes": 90 }
+}

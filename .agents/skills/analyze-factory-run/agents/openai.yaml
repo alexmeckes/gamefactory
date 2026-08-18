@@ -1,0 +1,4 @@
+interface:
+  display_name: "Analyze Factory Run"
+  short_description: "Diagnose game and orchestration failures"
+  default_prompt: "Use $analyze-factory-run to separate product, agent, evaluator, and infrastructure failures in this run."

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { designIntentSha256, gameDesignSystemSha256, parseDesignIntent, parseDesignIntentReference, parseGameDesignSystem, parseHumanPlaytestReport, parseVisualDirection, resolveDesignPath, visualDirectionSha256 } from "./index.js";
+import { designIntentSha256, gameDesignSystemSha256, parseDesignIntent, parseDesignIntentReference, parseGameDesignSystem, parseHumanPlaytestReport, parsePolishReadiness, parseVisualDirection, polishReadinessSha256, resolveDesignPath, visualDirectionSha256 } from "./index.js";
 
 const fixture = {
   apiVersion: "gamefactory.design/v1",
@@ -122,4 +122,26 @@ test("visual direction separates concept inspiration from captured production ta
   assert.equal(direction.references[0]?.authority, "inspiration");
   assert.equal(visualDirectionSha256(direction), visualDirectionSha256(parseVisualDirection(JSON.parse(JSON.stringify(direction)))));
   assert.throws(() => parseVisualDirection({ ...fixtureDirection, references: [{ ...fixtureDirection.references[0], authority: "production-target" }] }), /must be captured/);
+});
+
+test("polish readiness distinguishes source assets from production runtime assets", () => {
+  const manifest = parsePolishReadiness({
+    apiVersion: "gamefactory.polish-readiness/v1",
+    stage: "production-slice",
+    representativeBuild: { engine: "godot-4", captureEvidence: ["captures/gameplay.png"] },
+    surfaces: [
+      { id: "battle", label: "Battle screen", required: true, status: "production", evidence: ["captures/gameplay.png"] },
+      { id: "settings", label: "Settings", required: false, status: "omitted", evidence: [] }
+    ],
+    assets: [
+      { id: "knight", label: "Knight", kind: "sprite-animation", runtime: true, maturity: "production", evidence: ["assets/knight.tres"] },
+      { id: "concept", label: "Concept", kind: "reference", runtime: false, maturity: "source", evidence: ["references/concept.png"] }
+    ],
+    gates: [{ id: "art-direction", label: "Art direction", status: "pass", evidence: ["captures/gameplay.png"], findings: [] }],
+    unresolved: [{ id: "settings-later", severity: "deferred", description: "Settings are outside the representative slice" }]
+  });
+  assert.equal(manifest.assets[0]?.maturity, "production");
+  assert.equal(polishReadinessSha256(manifest), polishReadinessSha256(parsePolishReadiness(JSON.parse(JSON.stringify(manifest)))));
+  assert.throws(() => parsePolishReadiness({ ...manifest, gates: [{ ...manifest.gates[0], status: "pass", evidence: [] }] }), /requires evidence/);
+  assert.throws(() => parsePolishReadiness({ ...manifest, assets: [{ ...manifest.assets[0], maturity: "halfway" }] }), /unsupported/);
 });

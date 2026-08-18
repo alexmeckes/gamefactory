@@ -1,0 +1,4 @@
+interface:
+  display_name: "Audit Game Build"
+  short_description: "Compare engine captures with design intent"
+  default_prompt: "Use $audit-game-build to inspect the actual build and produce an evidence-grounded repair brief."

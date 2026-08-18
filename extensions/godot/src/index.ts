@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
-import type { ArtifactReference, Campaign, Candidate, DoctorResult, EngineDriver, Evaluation, Evaluator, ExecutionResult, ScenarioReference, ScenarioResult, ScenarioRunner } from "@gamefactory/core";
+import type { AgentDriver, AgentResult, ArtifactReference, Campaign, Candidate, DoctorResult, EngineDriver, Evaluation, Evaluator, ExecutionResult, ScenarioReference, ScenarioResult, ScenarioRunner } from "@gamefactory/core";
 import { combineDisposables, defineExtension } from "@gamefactory/extension-sdk";
 
 interface GodotConfig {
@@ -10,7 +10,7 @@ interface GodotConfig {
   importCheck: boolean;
   timeoutSeconds: number;
   rendered: boolean;
-  scenario: ScenarioReference;
+  scenarios: Array<{ id: string; reference: ScenarioReference }>;
 }
 
 interface VisualViewConfig {
@@ -38,6 +38,42 @@ interface VisualReviewConfig {
 
 interface ProcessResult { exitCode: number | null; stdout: string; stderr: string; timedOut: boolean; }
 
+const ARTIFACT_KINDS = new Set<ArtifactReference["kind"]>([
+  "image", "video", "audio", "replay", "telemetry", "profile", "test-report", "log", "build", "crash-dump", "other"
+]);
+
+export function normalizeScenarioArtifacts(value: unknown): { artifacts: ArtifactReference[]; violations: ScenarioResult["violations"] } {
+  if (value === undefined) return { artifacts: [], violations: [] };
+  if (!Array.isArray(value)) return {
+    artifacts: [],
+    violations: [{ code: "godot.artifact.list", message: "Scenario artifacts must be an array.", severity: "error" }]
+  };
+  const artifacts: ArtifactReference[] = [];
+  const violations: ScenarioResult["violations"] = [];
+  for (const [index, item] of value.entries()) {
+    if (!item || typeof item !== "object" || Array.isArray(item) || typeof (item as Record<string, unknown>).path !== "string" || !(item as Record<string, unknown>).path) {
+      violations.push({ code: `godot.artifact.${index}.path`, message: "Scenario artifact must contain a non-empty path.", severity: "error" });
+      continue;
+    }
+    const record = item as Record<string, unknown>;
+    const declaredKind = typeof record.kind === "string" ? record.kind : "other";
+    const supported = ARTIFACT_KINDS.has(declaredKind as ArtifactReference["kind"]);
+    const reference: ArtifactReference = {
+      kind: supported ? declaredKind as ArtifactReference["kind"] : "other",
+      path: record.path as string
+    };
+    if (typeof record.mediaType === "string") reference.mediaType = record.mediaType;
+    if (typeof record.label === "string") reference.label = record.label;
+    if (record.metadata && typeof record.metadata === "object" && !Array.isArray(record.metadata)) reference.metadata = { ...(record.metadata as Record<string, unknown>) };
+    if (!supported) {
+      reference.metadata = { ...(reference.metadata ?? {}), declaredKind };
+      violations.push({ code: `godot.artifact.${index}.kind`, message: `Normalized unsupported scenario artifact kind ${declaredKind} to other.`, severity: "warning" });
+    }
+    artifacts.push(reference);
+  }
+  return { artifacts, violations };
+}
+
 // Factory runs are non-interactive and already preserve stderr and exit status.
 // On Windows, a forcibly cancelled Godot process can otherwise enter the native
 // crash handler and leave an Application Error dialog blocking later runs.
@@ -48,7 +84,23 @@ export function automationArgs(args: string[]): string[] {
 const GODOT_ERROR = /(?:SCRIPT ERROR:|PARSE ERROR:|\bERROR:|Cannot call method|Invalid call\.)/i;
 
 export function godotProcessSucceeded(result: ProcessResult): boolean {
-  return result.exitCode === 0 && !result.timedOut && !GODOT_ERROR.test(`${result.stdout}\n${result.stderr}`);
+  const output = `${result.stdout}\n${result.stderr}`
+    // A locked-down Windows worker cannot query the machine certificate store.
+    // Local imports and deterministic scenarios do not use TLS, so retain this
+    // exact host diagnostic in stderr without converting it into a game failure.
+    .replace(/ERROR: Failed to read the root certificate store\.\r?\n\s*at: get_system_ca_certificates \(platform\/windows\/os_windows\.cpp:\d+\)\r?\n?/g, "");
+  return result.exitCode === 0 && !result.timedOut && !GODOT_ERROR.test(output);
+}
+
+function scenarioReference(value: Record<string, unknown>): ScenarioReference {
+  return {
+    provider: typeof value.provider === "string" ? value.provider : "godot.factory/v1",
+    version: typeof value.version === "string" ? value.version : "1",
+    path: typeof value.path === "string" ? value.path : "res://main.tscn",
+    ...(value.parameters && typeof value.parameters === "object" && !Array.isArray(value.parameters)
+      ? { parameters: value.parameters as Record<string, unknown> }
+      : {})
+  };
 }
 
 function config(campaign: Campaign): GodotConfig {
@@ -57,19 +109,25 @@ function config(campaign: Campaign): GodotConfig {
   const scenarioRaw = value.scenario && typeof value.scenario === "object" && !Array.isArray(value.scenario)
     ? value.scenario as Record<string, unknown>
     : {};
+  let scenarios: GodotConfig["scenarios"];
+  if (value.scenarios !== undefined) {
+    if (!Array.isArray(value.scenarios) || value.scenarios.length === 0 || value.scenarios.length > 16) throw new Error("parameters.godot.scenarios must contain from 1 to 16 named scenarios");
+    scenarios = value.scenarios.map((rawScenario, index) => {
+      if (!rawScenario || typeof rawScenario !== "object" || Array.isArray(rawScenario)) throw new Error(`parameters.godot.scenarios[${index}] must be an object`);
+      const record = rawScenario as Record<string, unknown>;
+      if (typeof record.id !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(record.id)) throw new Error(`parameters.godot.scenarios[${index}].id is invalid`);
+      return { id: record.id, reference: scenarioReference(record) };
+    });
+    if (new Set(scenarios.map((item) => item.id)).size !== scenarios.length) throw new Error("parameters.godot.scenarios contains duplicate ids");
+  } else {
+    scenarios = [{ id: "primary", reference: scenarioReference(scenarioRaw) }];
+  }
   return {
     binary: typeof value.binary === "string" ? value.binary : process.env.GODOT_BINARY ?? "godot",
     importCheck: value.importCheck !== false,
     timeoutSeconds: typeof value.timeoutSeconds === "number" ? value.timeoutSeconds : 90,
     rendered: value.rendered === true,
-    scenario: {
-      provider: typeof scenarioRaw.provider === "string" ? scenarioRaw.provider : "godot.factory/v1",
-      version: typeof scenarioRaw.version === "string" ? scenarioRaw.version : "1",
-      path: typeof scenarioRaw.path === "string" ? scenarioRaw.path : "res://main.tscn",
-      ...(scenarioRaw.parameters && typeof scenarioRaw.parameters === "object" && !Array.isArray(scenarioRaw.parameters)
-        ? { parameters: scenarioRaw.parameters as Record<string, unknown> }
-        : {})
-    }
+    scenarios
   };
 }
 
@@ -155,14 +213,23 @@ async function latestReviewOutput(root: string, experimentId: string, node: stri
   return { path, value: parsed as Record<string, unknown> };
 }
 
-function execute(binary: string, args: string[], cwd: string, signal: AbortSignal, timeoutSeconds: number): Promise<ProcessResult> {
+async function godotHostEnvironment(root: string, experimentId: string): Promise<NodeJS.ProcessEnv> {
+  const host = resolve(root, ".factory", "runs", experimentId, "godot-host");
+  const appData = resolve(host, "appdata");
+  const localAppData = resolve(host, "localappdata");
+  const temporary = resolve(host, "temp");
+  await Promise.all([mkdir(appData, { recursive: true }), mkdir(localAppData, { recursive: true }), mkdir(temporary, { recursive: true })]);
+  return { APPDATA: appData, LOCALAPPDATA: localAppData, TEMP: temporary, TMP: temporary };
+}
+
+function execute(binary: string, args: string[], cwd: string, signal: AbortSignal, timeoutSeconds: number, environment?: NodeJS.ProcessEnv): Promise<ProcessResult> {
   return new Promise((resolveResult, reject) => {
     const controller = new AbortController();
     const relay = () => controller.abort(signal.reason);
     signal.addEventListener("abort", relay, { once: true });
     let timedOut = false;
     const timer = setTimeout(() => { timedOut = true; controller.abort(new Error("Godot timed out")); }, timeoutSeconds * 1000);
-    const child = spawn(binary, args, { cwd, signal: controller.signal, windowsHide: true });
+    const child = spawn(binary, args, { cwd, signal: controller.signal, windowsHide: true, env: { ...process.env, ...environment } });
     let stdout = "";
     let stderr = "";
     child.stdout.setEncoding("utf8").on("data", (chunk: string) => { stdout += chunk; });
@@ -207,9 +274,10 @@ export class GodotEngine implements EngineDriver {
 
   async build(context: Parameters<NonNullable<EngineDriver["build"]>>[0]): Promise<ExecutionResult> {
     const settings = config(context.campaign);
-    const run = await execute(settings.binary, automationArgs(["--headless", "--editor", "--quit", "--path", context.candidate.root]), context.candidate.root, context.signal, settings.timeoutSeconds);
     const output = resolve(context.candidate.root, ".factory", "runs", context.experimentId, "import");
     await mkdir(output, { recursive: true });
+    const environment = await godotHostEnvironment(context.candidate.root, context.experimentId);
+    const run = await execute(settings.binary, automationArgs(["--headless", "--editor", "--quit", "--path", context.candidate.root]), context.candidate.root, context.signal, settings.timeoutSeconds, environment);
     const artifacts = await writeProcessLogs(output, "godot-import", run);
     const ok = godotProcessSucceeded(run);
     return { ok, exitCode: run.exitCode, stdout: run.stdout, stderr: run.stderr, artifacts, metrics: { import_ok: ok ? 1 : 0 } };
@@ -234,7 +302,8 @@ export class GodotScenarioRunner implements ScenarioRunner {
     ];
     let processResult: ProcessResult;
     try {
-      processResult = await execute(settings.binary, args, input.candidate.root, input.signal, settings.timeoutSeconds);
+      const environment = await godotHostEnvironment(input.candidate.root, input.experimentId);
+      processResult = await execute(settings.binary, args, input.candidate.root, input.signal, settings.timeoutSeconds, environment);
     } catch (error) {
       return { status: "crash", metrics: {}, artifacts: [], violations: [{ code: "godot.launch", message: error instanceof Error ? error.message : String(error), severity: "error" }] };
     }
@@ -252,12 +321,15 @@ export class GodotScenarioRunner implements ScenarioRunner {
     try {
       const raw = JSON.parse(await readFile(resultPath, "utf8")) as Partial<ScenarioResult>;
       artifacts.push({ kind: "test-report", path: resultPath, mediaType: "application/json", label: "Godot scenario result" });
-      for (const artifact of raw.artifacts ?? []) artifacts.push(artifact);
+      const normalized = normalizeScenarioArtifacts(raw.artifacts);
+      artifacts.push(...normalized.artifacts);
+      const resultViolations = [...(raw.violations ?? []), ...normalized.violations];
+      const invalidArtifacts = normalized.violations.some((violation) => violation.severity === "error");
       return {
-        status: raw.status ?? (processResult.exitCode === 0 ? "pass" : "crash"),
+        status: invalidArtifacts ? "fail" : raw.status ?? (processResult.exitCode === 0 ? "pass" : "crash"),
         metrics: raw.metrics ?? {},
         artifacts,
-        violations: raw.violations ?? [],
+        violations: resultViolations,
         ...(raw.metadata ? { metadata: raw.metadata } : {})
       };
     } catch {
@@ -270,6 +342,55 @@ export class GodotScenarioRunner implements ScenarioRunner {
       };
     }
   }
+}
+
+interface ConfiguredScenarioEvidence {
+  status: "pass" | "fail" | "crash";
+  metrics: Record<string, number>;
+  violations: ScenarioResult["violations"];
+  artifacts: ArtifactReference[];
+  scenarios: Array<{ id: string; status: ScenarioResult["status"]; metrics: Record<string, number>; violations: ScenarioResult["violations"] }>;
+}
+
+async function runConfiguredScenarios(input: {
+  campaign: Campaign;
+  candidate: Candidate;
+  experimentId: string;
+  signal: AbortSignal;
+  settings: GodotConfig;
+  runner: ScenarioRunner;
+}): Promise<ConfiguredScenarioEvidence> {
+  const artifacts: ArtifactReference[] = [];
+  const violations: ScenarioResult["violations"] = [];
+  const metrics: Record<string, number> = {};
+  const scenarios: ConfiguredScenarioEvidence["scenarios"] = [];
+  let passed = 0;
+  let status: ConfiguredScenarioEvidence["status"] = "pass";
+  for (const [index, configured] of input.settings.scenarios.entries()) {
+    const result = await input.runner.run({
+      campaign: input.campaign,
+      projectRoot: input.candidate.root,
+      candidate: input.candidate,
+      experimentId: `${input.experimentId}-${configured.id}`,
+      scenario: configured.reference,
+      signal: input.signal
+    });
+    artifacts.push(...result.artifacts);
+    scenarios.push({ id: configured.id, status: result.status, metrics: result.metrics, violations: result.violations });
+    for (const [metric, value] of Object.entries(result.metrics)) {
+      if (input.settings.scenarios.length > 1) metrics[`${configured.id}.${metric}`] = value;
+      if (index === 0) metrics[metric] = value;
+    }
+    violations.push(...result.violations.map((violation) => ({ ...violation, code: `godot.scenario.${configured.id}.${violation.code}` })));
+    if (result.status === "pass") passed += 1;
+    else if (result.status === "crash") status = "crash";
+    else if (status !== "crash") status = "fail";
+  }
+  if (input.settings.scenarios.length > 1) {
+    metrics.scenarios_total = input.settings.scenarios.length;
+    metrics.scenarios_passed = passed;
+  }
+  return { status, metrics, violations, artifacts, scenarios };
 }
 
 export class GodotScenarioEvaluator implements Evaluator {
@@ -286,7 +407,7 @@ export class GodotScenarioEvaluator implements Evaluator {
       artifacts.push(...imported.artifacts);
       if (!imported.ok) return { evaluator: this.id, version: this.version, status: "fail", metrics: imported.metrics ?? { import_ok: 0 }, violations: [{ code: "godot.import", message: "Godot import or script validation failed.", severity: "error" }], artifacts, summary: "Stopped at the import gate." };
     }
-    const run = await this.scenarios.run({ campaign: input.campaign, projectRoot: candidate.root, candidate, experimentId: input.experimentId, scenario: settings.scenario, signal: input.signal });
+    const run = await runConfiguredScenarios({ campaign: input.campaign, candidate, experimentId: input.experimentId, signal: input.signal, settings, runner: this.scenarios });
     artifacts.push(...run.artifacts);
     return {
       evaluator: this.id,
@@ -296,7 +417,93 @@ export class GodotScenarioEvaluator implements Evaluator {
       violations: run.violations,
       artifacts,
       confidence: run.status === "crash" ? 0 : 1,
-      summary: run.status === "pass" ? "Godot scenario passed." : `Godot scenario ${run.status}.`
+      summary: run.status === "pass" ? `${run.scenarios.length} configured Godot scenario(s) passed.` : `Configured Godot scenarios ${run.status}.`
+    };
+  }
+}
+
+/**
+ * Refreshes engine evidence inside the candidate before a read-only semantic
+ * reviewer runs. Keeping this as an agent capability lets agent-team schedule
+ * it after every repair without granting the critic write access or asking a
+ * model to discover and launch the host engine itself.
+ */
+export class GodotEvidenceAgent implements AgentDriver {
+  readonly id = "godot.evidence";
+
+  constructor(
+    private readonly engine: EngineDriver,
+    private readonly scenarios: ScenarioRunner
+  ) {}
+
+  async run(request: Parameters<AgentDriver["run"]>[0]): Promise<AgentResult> {
+    const settings = config(request.campaign);
+    const output = resolve(request.candidate.root, ".factory", "runs", request.experimentId, "godot-evidence");
+    await mkdir(output, { recursive: true });
+    const manifestPath = resolve(output, "result.json");
+    const artifacts: ArtifactReference[] = [];
+    let status: "pass" | "fail" | "crash" = "crash";
+    let metrics: Record<string, number> = {};
+    let violations: ScenarioResult["violations"] = [];
+    let scenarioRuns: ConfiguredScenarioEvidence["scenarios"] = [];
+
+    try {
+      if (settings.importCheck) {
+        if (!this.engine.build) throw new Error("Configured Godot engine cannot perform an import check");
+        const imported = await this.engine.build({
+          campaign: request.campaign,
+          projectRoot: request.candidate.root,
+          candidate: request.candidate,
+          experimentId: request.experimentId,
+          signal: request.signal
+        });
+        artifacts.push(...imported.artifacts);
+        metrics = { ...(imported.metrics ?? {}), import_ok: imported.ok ? 1 : 0 };
+        if (!imported.ok) {
+          status = "fail";
+          violations = [{ code: "godot.import", message: "Godot import or script validation failed.", severity: "error" }];
+        }
+      }
+
+      if (!settings.importCheck || metrics.import_ok === 1) {
+        const scenario = await runConfiguredScenarios({
+          campaign: request.campaign,
+          candidate: request.candidate,
+          experimentId: request.experimentId,
+          signal: request.signal,
+          settings,
+          runner: this.scenarios
+        });
+        artifacts.push(...scenario.artifacts);
+        status = scenario.status;
+        metrics = { ...(settings.importCheck ? { import_ok: 1 } : {}), ...scenario.metrics };
+        violations = scenario.violations;
+        scenarioRuns = scenario.scenarios;
+      }
+    } catch (error) {
+      status = "crash";
+      violations = [{ code: "godot.evidence", message: error instanceof Error ? error.message : String(error), severity: "error" }];
+    }
+
+    const manifest = {
+      apiVersion: "gamefactory.godot-evidence/v1",
+      experimentId: request.experimentId,
+      candidateId: request.candidate.id,
+      generatedAt: new Date().toISOString(),
+      status,
+      metrics,
+      violations,
+      artifacts,
+      scenarios: scenarioRuns
+    };
+    await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+    artifacts.push({ kind: "test-report", path: manifestPath, mediaType: "application/json", label: "Fresh Godot evidence manifest" });
+    return {
+      summary: status === "pass"
+        ? "Fresh Godot import and deterministic scenario evidence passed."
+        : `Fresh Godot evidence ${status} with ${violations.length} violation(s).`,
+      artifacts,
+      metadata: { outcome: status === "pass" ? "pass" : "revise", status, metrics, violations, manifestPath }
     };
   }
 }
@@ -444,6 +651,7 @@ export default defineExtension((api) => {
   return combineDisposables(
     api.register("engine", "godot.engine", engine),
     api.register("scenario", "godot.scenario", scenarios),
+    api.register("agent", "godot.evidence", new GodotEvidenceAgent(engine, scenarios)),
     api.register("evaluator", "godot.scenario", new GodotScenarioEvaluator(engine, scenarios)),
     api.register("evaluator", "godot.visual", new GodotVisualEvaluator())
   );

@@ -1,0 +1,10 @@
+{
+  "name": "gamefactory.game-spec",
+  "version": "0.1.0",
+  "apiVersion": "1.0",
+  "entry": "dist/index.js",
+  "activation": ["evaluator:game.spec"],
+  "contributes": { "evaluator": ["game.spec"] },
+  "permissions": ["filesystem:candidate"],
+  "description": "Fail-closed validation for versioned GameFactory game specifications, frozen claims, concept preservation, and planned vertical slices."
+}

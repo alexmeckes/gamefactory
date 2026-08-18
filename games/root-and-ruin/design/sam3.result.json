@@ -1,0 +1,135 @@
+{
+  "provider": "huggingface-transformers",
+  "model": "sam3",
+  "checkpoint": "facebook/sam3",
+  "backend": "transformers",
+  "precision": "bfloat16",
+  "jobs": [
+    {
+      "id": "bastion-cap",
+      "prompt": "red capped mushroom warrior holding a round wooden shield",
+      "instances": [
+        {
+          "index": 1,
+          "score": 0.96484375,
+          "bbox": [
+            36,
+            118,
+            365,
+            497
+          ],
+          "maskPath": "assets\\generated\\bastion-cap\\bastion-cap-001.mask.png",
+          "cutoutPath": "assets\\generated\\bastion-cap\\bastion-cap-001.cutout.png"
+        }
+      ]
+    },
+    {
+      "id": "dewbell",
+      "prompt": "blue bell flower healer holding a crooked staff",
+      "instances": [
+        {
+          "index": 1,
+          "score": 0.80078125,
+          "bbox": [
+            436,
+            75,
+            717,
+            494
+          ],
+          "maskPath": "assets\\generated\\dewbell\\dewbell-001.mask.png",
+          "cutoutPath": "assets\\generated\\dewbell\\dewbell-001.cutout.png"
+        }
+      ]
+    },
+    {
+      "id": "briar-spitter",
+      "prompt": "pink thorny flower creature with green curling vines",
+      "instances": [
+        {
+          "index": 1,
+          "score": 0.75390625,
+          "bbox": [
+            782,
+            141,
+            1137,
+            495
+          ],
+          "maskPath": "assets\\generated\\briar-spitter\\briar-spitter-001.mask.png",
+          "cutoutPath": "assets\\generated\\briar-spitter\\briar-spitter-001.cutout.png"
+        }
+      ]
+    },
+    {
+      "id": "springheart",
+      "prompt": "glowing blue crystal seed surrounded by gold green leaves",
+      "instances": [
+        {
+          "index": 1,
+          "score": 0.484375,
+          "bbox": [
+            1253,
+            179,
+            1421,
+            405
+          ],
+          "maskPath": "assets\\generated\\springheart\\springheart-001.mask.png",
+          "cutoutPath": "assets\\generated\\springheart\\springheart-001.cutout.png"
+        }
+      ]
+    },
+    {
+      "id": "blightling-round",
+      "prompt": "round crawling black purple blight monster with glowing pink eyes",
+      "instances": [
+        {
+          "index": 1,
+          "score": 0.91796875,
+          "bbox": [
+            46,
+            665,
+            359,
+            921
+          ],
+          "maskPath": "assets\\generated\\blightling-round\\blightling-round-001.mask.png",
+          "cutoutPath": "assets\\generated\\blightling-round\\blightling-round-001.cutout.png"
+        }
+      ]
+    },
+    {
+      "id": "blightling-antler",
+      "prompt": "antlered black purple blight monster with animal skull face",
+      "instances": [
+        {
+          "index": 1,
+          "score": 0.9140625,
+          "bbox": [
+            404,
+            537,
+            759,
+            935
+          ],
+          "maskPath": "assets\\generated\\blightling-antler\\blightling-antler-001.mask.png",
+          "cutoutPath": "assets\\generated\\blightling-antler\\blightling-antler-001.cutout.png"
+        }
+      ]
+    },
+    {
+      "id": "blightling-caster",
+      "prompt": "tall black purple blight caster with skull face and pink flame staff",
+      "instances": [
+        {
+          "index": 1,
+          "score": 0.88671875,
+          "bbox": [
+            798,
+            535,
+            1137,
+            938
+          ],
+          "maskPath": "assets\\generated\\blightling-caster\\blightling-caster-001.mask.png",
+          "cutoutPath": "assets\\generated\\blightling-caster\\blightling-caster-001.cutout.png"
+        }
+      ]
+    }
+  ]
+}

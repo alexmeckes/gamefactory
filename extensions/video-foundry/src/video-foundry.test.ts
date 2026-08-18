@@ -38,10 +38,38 @@ test("Google Omni video agent uses a runtime-only credential and records sanitiz
     assert.equal(result.artifacts?.filter((item) => item.kind === "video").length, 2);
     assert.deepEqual(headers, [secret, secret]);
     assert.equal(bodies[1]?.previous_interaction_id, "interaction-1");
+    assert.deepEqual(bodies[0]?.response_format, { type: "video", delivery: "uri", aspect_ratio: "16:9" });
+    assert.deepEqual(bodies[0]?.generation_config, { video_config: { task: "text_to_video" } });
     const report = await readFile(resolve(root, ".factory", "video-foundry", "exp-video", "video-result.json"), "utf8");
     assert.doesNotMatch(report, new RegExp(secret));
     assert.match(report, /local-store/);
     for (const file of await readdir(resolve(root, "assets"))) assert.match(file, /\.mp4$/);
+  } finally {
+    await rm(root, { recursive: true, force: true }); await rm(credentialRoot, { recursive: true, force: true });
+  }
+});
+
+test("Google Omni reserves campaign jobs and estimated spend before network calls", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "gamefactory-video-budget-"));
+  const credentialRoot = await mkdtemp(resolve(tmpdir(), "gamefactory-video-budget-credentials-"));
+  const store = new LocalCredentialStore({ root: credentialRoot, cipher: new FixtureCipher() });
+  let calls = 0;
+  const mp4 = Buffer.concat([Buffer.alloc(4), Buffer.from("ftyp"), Buffer.alloc(8)]);
+  const fetchImpl: typeof fetch = async () => {
+    calls += 1;
+    return new Response(JSON.stringify({ id: `interaction-${calls}`, steps: [{ content: [{ type: "video", mime_type: "video/mp4", data: mp4.toString("base64") }] }] }), { status: 200, headers: { "content-type": "application/json" } });
+  };
+  const budgetCampaign = campaign(root);
+  budgetCampaign.parameters = { googleOmni: { requestPath: "video.request.json", credentialName: "google.gemini", maximumJobs: 1, estimatedSecondsPerJob: 10, estimatedCostPerSecondUsd: 0.1, maximumEstimatedCostUsd: 1 } };
+  try {
+    await store.set("google.gemini", "fixture-secret");
+    await writeFile(resolve(root, "video.request.json"), JSON.stringify({ apiVersion: "gamefactory.video/v1", jobs: [{ id: "first", prompt: "One short shot", outputPath: "assets/first.mp4", task: "text_to_video" }] }));
+    const agent = new GoogleOmniVideoAgent({ fetchImpl, credentialStore: store });
+    const first = await agent.run({ campaign: budgetCampaign, candidate: { id: "candidate-1", root, metadata: {} }, experimentId: "exp-1", history: [], signal: new AbortController().signal });
+    assert.equal((first.metadata?.spend as Record<string, unknown>).campaignReservedCostUsd, 1);
+    await writeFile(resolve(root, "video.request.json"), JSON.stringify({ apiVersion: "gamefactory.video/v1", jobs: [{ id: "second", prompt: "Another short shot", outputPath: "assets/second.mp4", task: "text_to_video" }] }));
+    await assert.rejects(() => agent.run({ campaign: budgetCampaign, candidate: { id: "candidate-2", root, metadata: {} }, experimentId: "exp-2", history: [], signal: new AbortController().signal }), /campaign job cap exceeded/);
+    assert.equal(calls, 1);
   } finally {
     await rm(root, { recursive: true, force: true }); await rm(credentialRoot, { recursive: true, force: true });
   }

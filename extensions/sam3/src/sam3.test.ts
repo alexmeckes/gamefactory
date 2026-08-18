@@ -25,7 +25,7 @@ if (process.env.GAMEFACTORY_SAM3_VIDEO_REQUEST) {
     const maskPath = resolve(job.outputDirectory, "000000.mask.png");
     const cutoutPath = resolve(job.outputDirectory, "000000.cutout.png");
     await writeFile(maskPath, png); await writeFile(cutoutPath, png);
-    jobs.push({ id: job.id, prompt: job.prompt, frames: [{ index: 0, objectIds: [7], scores: [0.93], maskPath, cutoutPath }] });
+    jobs.push({ id: job.id, prompt: job.prompt, frames: [{ index: 0, objectIds: job.prompt === "nothing" ? [] : [7], scores: job.prompt === "nothing" ? [] : [0.93], maskPath, cutoutPath }] });
   }
   await mkdir(dirname(process.env.GAMEFACTORY_SAM3_VIDEO_RESULT), { recursive: true });
   await writeFile(process.env.GAMEFACTORY_SAM3_VIDEO_RESULT, JSON.stringify({ provider: "fixture-video", model: "sam3-video-test", checkpoint: "fixture-video-sha", jobs }));
@@ -74,7 +74,14 @@ function campaign(root: string, requestPath = "sam3.request.json"): Campaign {
   };
 }
 
-async function workspace(prompt = "brass fixture"): Promise<string> {
+function campaignWithoutVideoCommand(root: string): Campaign {
+  const value = campaign(root);
+  const sam3 = { ...(value.parameters?.sam3 as Record<string, unknown>) };
+  delete sam3.videoCommand;
+  return { ...value, parameters: { ...value.parameters, sam3 } };
+}
+
+async function workspace(prompt = "brass fixture", videoPrompt = "the brass fixture"): Promise<string> {
   const root = await mkdtemp(resolve(tmpdir(), "gamefactory-sam3-"));
   await mkdir(resolve(root, "art"), { recursive: true });
   await writeFile(resolve(root, "art", "source.png"), PNG);
@@ -96,7 +103,7 @@ async function workspace(prompt = "brass fixture"): Promise<string> {
   }, null, 2)}\n`, "utf8");
   await writeFile(resolve(root, "sam3.video.request.json"), `${JSON.stringify({
     apiVersion: "gamefactory.sam3.video/v1",
-    jobs: [{ id: "moving-fixture", sourcePath: "art/motion.mp4", prompt: "the brass fixture", outputDirectory: "assets/generated/motion", maxFrames: 24 }]
+    jobs: [{ id: "moving-fixture", sourcePath: "art/motion.mp4", prompt: videoPrompt, outputDirectory: "assets/generated/motion", maxFrames: 24 }]
   }, null, 2)}\n`, "utf8");
   return root;
 }
@@ -138,6 +145,49 @@ test("SAM 3 video extension preserves persistent object identities on hashed fra
     assert.equal(result.artifacts?.filter((item) => item.kind === "image").length, 2);
     assert.equal((result.metadata as { persistentObjectIds?: boolean }).persistentObjectIds, true);
     assert.deepEqual(((result.metadata as { outputs?: Array<{ objectIds?: number[] }> }).outputs ?? [])[0]?.objectIds, [7]);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("SAM 3 video extension inherits the configured SAM 3 runtime when videoCommand is omitted", async () => {
+  const root = await workspace();
+  try {
+    const result = await new Sam3TrackAgent().run({ campaign: campaignWithoutVideoCommand(root), candidate: { id: "candidate", root, metadata: {} }, experimentId: "exp-video-inherited", history: [], signal: new AbortController().signal });
+    assert.match(result.summary, /1 video frame/);
+    assert.equal((result.metadata as { model?: string }).model, "sam3-video-test");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("SAM 3 video extension preserves valid diagnostic artifacts when its provider fails before writing a result", async () => {
+  const root = await workspace();
+  const value = campaign(root);
+  value.parameters = {
+    ...value.parameters,
+    sam3: {
+      ...(value.parameters?.sam3 as Record<string, unknown>),
+      videoCommand: [process.execPath, "-e", "process.stderr.write('tracking failed'); process.exit(17)"]
+    }
+  };
+  try {
+    let failure: unknown;
+    try {
+      await new Sam3TrackAgent().run({ campaign: value, candidate: { id: "candidate", root, metadata: {} }, experimentId: "exp-video-failure", history: [], signal: new AbortController().signal });
+    } catch (error) {
+      failure = error;
+    }
+    assert.ok(failure instanceof Sam3ExecutionError);
+    assert.match(failure.message, /tracking failed/);
+    assert.equal(failure.artifacts.length, 5);
+    for (const item of failure.artifacts) assert.equal((await readFile(item.path)).length >= 0, true);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("SAM 3 video extension fails closed when a concept grounds no objects", async () => {
+  const root = await workspace("brass fixture", "nothing");
+  try {
+    await assert.rejects(
+      () => new Sam3TrackAgent().run({ campaign: campaign(root), candidate: { id: "candidate", root, metadata: {} }, experimentId: "exp-empty-video", history: [], signal: new AbortController().signal }),
+      (error: unknown) => error instanceof Sam3ExecutionError && /grounded zero objects/.test(error.message) && error.artifacts.some((item) => item.kind === "image")
+    );
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 

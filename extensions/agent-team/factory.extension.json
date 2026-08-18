@@ -6,5 +6,5 @@
   "activation": ["agent:agent.team"],
   "contributes": { "agent": ["agent.team"] },
   "permissions": ["process:configured-command", "filesystem:candidate", "git:status"],
-  "description": "A bounded legacy team pipeline or declarative agent task graph with structured handoffs, repair edges, and serialized writers."
+  "description": "A bounded legacy team pipeline or declarative, authority-scoped agent graph with versioned writer generations, claim-linked review findings, structured handoffs, repair edges, and serialized writers."
 }

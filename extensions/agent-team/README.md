@@ -99,7 +99,14 @@ Use `agentTeam.graph` when the director needs a task-specific team instead of th
 }
 ```
 
-Nodes become runnable after every `dependsOn` node reaches a terminal state. Independent read-only nodes run in parallel up to `maximumParallel`. A writer is always run alone: it never overlaps another writer or a read-only snapshot in the same graph. Dependency cycles, unknown dependencies, invalid repair targets, and contradictory permissions are rejected before a command starts.
+Nodes become runnable after every `dependsOn` node reaches a terminal state. A
+triggered repair edge is handled before downstream scheduling: the writer and
+its completed evidence/reviewer chain rerun first, so rejected state cannot
+flow into dependent nodes. Independent read-only nodes run in parallel up to
+`maximumParallel`. A writer is always run alone: it never overlaps another
+writer or a read-only snapshot in the same graph. Dependency cycles, unknown
+dependencies, invalid repair targets, and contradictory permissions are
+rejected before a command starts.
 
 Node fields:
 
@@ -108,19 +115,23 @@ Node fields:
 - `threadRetention` controls Codex conversation persistence for App Server nodes. `ephemeral` is the default: one blank candidate root feeds in-memory worker forks, finished workers unsubscribe immediately, and the root plus shared App Server process are removed when the last parallel candidate finishes. `archive` persists each worker but moves it out of the active task list after completion. `debug` persists workers in the active task list while still unsubscribing them from live events. It may be set once on `agentTeam` and overridden per node.
 - `role` is one of `scout`, `planner`, `implementer`, `critic`, `judge`, or `worker`. It defaults to `worker`.
 - `permissions` is `read` or `write`. `readOnly` is accepted as an equivalent boolean. An implementer defaults to write; every other role defaults to read.
+- `authority` is `observe`, `propose`, `mutate-candidate`, `mutate-spec`, or `approve`. It defaults from the role and permission. Mutation authority requires write permission; all other authorities require read permission. A graph may have at most one spec owner.
 - `dependsOn` names predecessor nodes.
 - `when` conditionally runs a node after a direct predecessor produces one of the named outcomes. It can be one condition or an array, for example `{ "node": "review", "outcomes": ["revise"] }`.
 - `context` adds candidate-local artifact references to the request. Graph-level context is included by default; `inheritContext: false` lets a node opt out when large visual references are irrelevant to its job.
 - `instructions` replaces the role's default instruction text.
+- `skills` binds only the repo-scoped Codex skills required by this contributor, for example `["frame-core-game"]` or `[{ "name": "audit-game-build", "sha256": "...", "required": true }]`. Required skills are loaded from `.agents/skills`, frontmatter-checked, optionally hash-pinned, and fail before any contributor launches. Advisors inherit the primary node's bindings unless they declare their own.
 - `maximumAttempts` retries a failed command activation and defaults to 1.
 - `timeoutSeconds` sets a per-attempt safety backstop and defaults to 900. Long-running Sol/xhigh writers and visual reviewers can override it without forcing every scout to inherit the same runway. The value must be positive and no greater than 86400.
 - `required: false` permits a failed optional node without failing the whole graph. Dependents can use `when` with the `failed` outcome to run a fallback.
 - `repair` lets a read-only reviewer route `revise` (or configured outcomes) back to a directly preceding writer. The writer receives the review as an additional structured input, then derived evidence and reviewers rerun in dependency order. Optional `allowedPaths` fails closed if the repair mutates another surface. Optional `preserve` names direct read-only contracts whose accepted outcomes are included as frozen constraints and must survive re-evaluation.
-- `refreshAfterRepair: true` marks a read-only node whose evidence is derived directly from a writer, such as screenshots, builds, or telemetry. After that writer is repaired, these nodes rerun before reviewers so a critic never judges stale evidence.
+- `refreshAfterRepair: true` remains accepted as an explicit documentation hint. Refresh is now automatic: repairing a writer increments its generation and reruns every completed dependent writer, evidence node, reviewer, and judge in dependency order. Required nodes cannot complete against stale writer generations.
 - `adapter: "agent-driver"` plus `driver: "<agent capability>"` invokes another lazily activated GameFactory agent extension inside the graph. This is intended for bounded tools such as `sam3.segment`; it cannot recursively invoke `agent.team`, and its artifacts and metadata join the ordinary handoff/provenance stream.
 - `provider` and `model` identify the configured invocation backend. `billingMode` is `subscription`, `credits`, `metered`, or `unknown`. These may be set once on `agentTeam` and overridden per contributor. Configured identity is labeled as configured rather than presented as provider-verified telemetry.
 
-`maximumTotalAttempts` caps every subprocess invocation, including retries and reviews. `maximumRepairAttempts` caps total writer revision rounds across the graph. Each repair edge also has its own `maximumAttempts`. Unresolved repairs are reported in result metadata instead of creating an unbounded loop.
+`maximumTotalAttempts` caps every subprocess invocation, including retries and reviews. `maximumRepairAttempts` caps total writer revision rounds across the graph. Each repair edge also has its own `maximumAttempts`. An unresolved required repair fails the gate and dependency-blocks required downstream work instead of creating an unbounded loop.
+
+Graph-level `claimIds` declares the frozen contract claims visible to reviewers. When `enforceClaimedBlockers` is true—or any node declares authority explicitly—a rejecting `propose` or `approve` node must return structured blocker findings with existing `claimIds`. New scope is an `opportunity`, not a forced repair. Metadata reports `executionRetries`, creative `repairAttempts`, `advisorEscalations`, each writer generation, and the input generations reviewed by every node.
 
 `handoffCharacters` separately bounds upstream context (default 12000, capped by `maxOutputCharacters`), while `historyLimit` keeps only the newest experiment summaries (default 6; zero disables history). Structured results are passed without duplicating their raw stdout, and oversized structured payloads become a bounded summary with a pointer to the preserved full output.
 
@@ -163,7 +174,7 @@ A command contributor may return ordinary text, a JSON object, or log lines foll
 }
 ```
 
-The parsed object, bounded text fallback, outcome, and candidate-local artifact references are passed to dependent nodes. Artifact and context paths cannot escape the candidate root. A parsed `output.json` and `prompt-manifest.json` are preserved alongside the request, stdout, and stderr. The prompt manifest identifies applicable `AGENTS.md` files, the versioned role charter, task, boundaries, context, handoffs, history, adapter, and provider-reported thread/turn instruction sources. It does not claim access to hidden provider system prompts.
+The parsed object, bounded text fallback, outcome, and candidate-local artifact references are passed to dependent nodes. Artifact and context paths cannot escape the candidate root. A parsed `output.json` and `prompt-manifest.json` are preserved alongside the request, stdout, and stderr. The prompt manifest identifies applicable `AGENTS.md` files, bound skill names and SHA-256 identities, the versioned role charter, task, boundaries, context, handoffs, history, adapter, and provider-reported thread/turn instruction sources. Skill contents are explicit prompt layers, so replay does not depend on implicit provider discovery. It does not claim access to hidden provider system prompts.
 
 Every subprocess receives its structured request path in `GAMEFACTORY_REQUEST`. `GAMEFACTORY_CANDIDATE`, `GAMEFACTORY_STAGE`, `GAMEFACTORY_CONTRIBUTOR`, `GAMEFACTORY_NODE`, and `GAMEFACTORY_ATTEMPT` are also set. Graph attempts are stored separately below `.factory/agent-team/<experiment>/graph/<node>/attempt-<n>/`, so retries and repair provenance never overwrite the original evidence.
 

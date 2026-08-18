@@ -1,0 +1,4 @@
+interface:
+  display_name: "Frame Core Game"
+  short_description: "Commit to one falsifiable playable thesis"
+  default_prompt: "Use $frame-core-game to resolve this concept into one testable playable thesis."

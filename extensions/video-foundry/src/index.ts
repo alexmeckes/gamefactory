@@ -18,7 +18,7 @@ type VideoTask = "text_to_video" | "image_to_video" | "reference_to_video" | "ed
 
 interface VideoJob { id: string; prompt: string; outputPath: string; task: VideoTask; aspectRatio: "16:9" | "9:16"; references: Array<{ path: string; mediaType: "image/png" | "image/jpeg" | "video/mp4" }>; previousJobId?: string; }
 interface VideoRequest { apiVersion: typeof VIDEO_API_VERSION; jobs: VideoJob[]; }
-interface VideoSettings { requestPath: string; credentialName: string; apiKeyEnvironment: string; model: string; timeoutSeconds: number; pollIntervalMilliseconds: number; maxOutputBytes: number; }
+interface VideoSettings { requestPath: string; credentialName: string; apiKeyEnvironment: string; model: string; timeoutSeconds: number; pollIntervalMilliseconds: number; maxOutputBytes: number; maximumJobs: number; estimatedSecondsPerJob: number; estimatedCostPerSecondUsd: number; maximumEstimatedCostUsd: number; }
 interface AnimationJob { id: string; sourceDirectory: string; outputDirectory: string; frameGlob: string; frameStride: number; columns?: number; trimTransparent: boolean; loop: boolean; }
 interface AnimationRequest { apiVersion: typeof ANIMATION_API_VERSION; jobs: AnimationJob[]; }
 interface AnimationSettings { requestPath: string; command: string[]; timeoutSeconds: number; maxOutputCharacters: number; }
@@ -34,6 +34,11 @@ function text(value: unknown, label: string, maximum = 4096): string {
 function integer(value: unknown, fallback: number, minimum: number, maximum: number, label: string): number {
   const result = value ?? fallback;
   if (typeof result !== "number" || !Number.isSafeInteger(result) || result < minimum || result > maximum) throw new Error(`${label} must be an integer from ${minimum} to ${maximum}`);
+  return result;
+}
+function finite(value: unknown, fallback: number, minimum: number, maximum: number, label: string): number {
+  const result = value ?? fallback;
+  if (typeof result !== "number" || !Number.isFinite(result) || result < minimum || result > maximum) throw new Error(`${label} must be a number from ${minimum} to ${maximum}`);
   return result;
 }
 function bool(value: unknown, fallback: boolean, label: string): boolean {
@@ -75,7 +80,11 @@ function videoSettings(campaign: AgentRequest["campaign"]): VideoSettings {
     model: text(value.model ?? DEFAULT_MODEL, "parameters.googleOmni.model", 256),
     timeoutSeconds: integer(value.timeoutSeconds, 900, 10, 3600, "parameters.googleOmni.timeoutSeconds"),
     pollIntervalMilliseconds: integer(value.pollIntervalMilliseconds, 5000, 250, 60000, "parameters.googleOmni.pollIntervalMilliseconds"),
-    maxOutputBytes: integer(value.maxOutputBytes, 100_000_000, 1024, 500_000_000, "parameters.googleOmni.maxOutputBytes")
+    maxOutputBytes: integer(value.maxOutputBytes, 100_000_000, 1024, 500_000_000, "parameters.googleOmni.maxOutputBytes"),
+    maximumJobs: integer(value.maximumJobs, 4, 1, 64, "parameters.googleOmni.maximumJobs"),
+    estimatedSecondsPerJob: finite(value.estimatedSecondsPerJob, 10, 1, 60, "parameters.googleOmni.estimatedSecondsPerJob"),
+    estimatedCostPerSecondUsd: finite(value.estimatedCostPerSecondUsd, 0.10, 0.001, 10, "parameters.googleOmni.estimatedCostPerSecondUsd"),
+    maximumEstimatedCostUsd: finite(value.maximumEstimatedCostUsd, 25, 0.01, 10_000, "parameters.googleOmni.maximumEstimatedCostUsd")
   };
 }
 
@@ -157,12 +166,21 @@ export class VideoFoundryExecutionError extends Error {
 
 export class GoogleOmniVideoAgent implements AgentDriver {
   readonly id = "video.google-omni";
+  private readonly campaignReservations = new Map<string, { jobs: number; estimatedCostUsd: number }>();
   constructor(private readonly dependencies: { fetchImpl?: typeof fetch; credentialStore?: LocalCredentialStore } = {}) {}
   async run(request: AgentRequest): Promise<AgentResult> {
     const settings = videoSettings(request.campaign);
     const requestPath = contained(request.candidate.root, settings.requestPath, "Google Omni requestPath");
     await canonicalContained(request.candidate.root, requestPath, "Google Omni request");
     const specification = parseVideoRequest(JSON.parse(await readFile(requestPath, "utf8")) as unknown);
+    const priorReservation = this.campaignReservations.get(request.campaign.id) ?? { jobs: 0, estimatedCostUsd: 0 };
+    const estimatedCostUsd = specification.jobs.length * settings.estimatedSecondsPerJob * settings.estimatedCostPerSecondUsd;
+    const reserved = { jobs: priorReservation.jobs + specification.jobs.length, estimatedCostUsd: priorReservation.estimatedCostUsd + estimatedCostUsd };
+    if (reserved.jobs > settings.maximumJobs) throw new VideoFoundryExecutionError(`Google Omni campaign job cap exceeded: ${reserved.jobs} requested, maximum ${settings.maximumJobs}`, [artifact(requestPath, "other", "Video generation request", "application/json")], { configuredModel: settings.model, maximumJobs: settings.maximumJobs, priorReservedJobs: priorReservation.jobs });
+    if (reserved.estimatedCostUsd > settings.maximumEstimatedCostUsd + Number.EPSILON) throw new VideoFoundryExecutionError(`Google Omni estimated campaign cost cap exceeded: $${reserved.estimatedCostUsd.toFixed(2)} requested, maximum $${settings.maximumEstimatedCostUsd.toFixed(2)}`, [artifact(requestPath, "other", "Video generation request", "application/json")], { configuredModel: settings.model, maximumEstimatedCostUsd: settings.maximumEstimatedCostUsd, priorReservedCostUsd: priorReservation.estimatedCostUsd });
+    // Reserve before credential resolution or network I/O and retain failed reservations.
+    // Unknown provider outcomes must not permit a retry to spend the same allowance twice.
+    this.campaignReservations.set(request.campaign.id, reserved);
     const credential = await resolveCredential(settings.credentialName, settings.apiKeyEnvironment, this.dependencies.credentialStore);
     if (!credential) throw new VideoFoundryExecutionError(`Credential ${settings.credentialName} is unavailable; run gamefactory credentials set ${settings.credentialName} or set ${settings.apiKeyEnvironment}`, [artifact(requestPath, "other", "Video generation request", "application/json")], { model: settings.model, credentialName: settings.credentialName });
     const runDirectory = resolve(request.candidate.root, ".factory", "video-foundry", request.experimentId);
@@ -170,7 +188,8 @@ export class GoogleOmniVideoAgent implements AgentDriver {
     const reportPath = resolve(runDirectory, "video-result.json");
     const baseArtifacts = [artifact(requestPath, "other", "Video generation request", "application/json"), artifact(reportPath, "other", "Sanitized video result", "application/json")];
     const traceNode = `agent:${request.experimentId}:video.google-omni`;
-    await emit(request, { type: "node:created", nodeId: traceNode, experimentId: request.experimentId, parentNodeId: `experiment:${request.experimentId}`, label: "Google Omni video", role: "asset-generator", data: { configuredModel: settings.model, credentialSource: credential.source, jobs: specification.jobs.length } });
+    const spend = { estimatedCostUsd, campaignReservedCostUsd: reserved.estimatedCostUsd, campaignReservedJobs: reserved.jobs, maximumEstimatedCostUsd: settings.maximumEstimatedCostUsd, maximumJobs: settings.maximumJobs, estimatedSecondsPerJob: settings.estimatedSecondsPerJob, estimatedCostPerSecondUsd: settings.estimatedCostPerSecondUsd };
+    await emit(request, { type: "node:created", nodeId: traceNode, experimentId: request.experimentId, parentNodeId: `experiment:${request.experimentId}`, label: "Google Omni video", role: "asset-generator", data: { configuredModel: settings.model, credentialSource: credential.source, jobs: specification.jobs.length, ...spend } });
     await emit(request, { type: "node:started", nodeId: traceNode, experimentId: request.experimentId, label: "Google Omni video", role: "asset-generator" });
     const startedAt = new Date().toISOString();
     const outputs: Array<Record<string, unknown>> = [];
@@ -191,7 +210,7 @@ export class GoogleOmniVideoAgent implements AgentDriver {
         content.push({ type: "text", text: job.prompt });
         const previous = job.previousJobId ? interactions.get(job.previousJobId) : undefined;
         if (job.previousJobId && !previous) throw new Error(`video job ${job.id} could not resolve prior interaction ${job.previousJobId}`);
-        const body = { model: settings.model, input: content.length === 1 ? job.prompt : content, response_format: { type: "video", delivery: "uri" }, generation_config: { video_config: { task: job.task, aspect_ratio: job.aspectRatio } }, ...(previous ? { previous_interaction_id: previous } : {}) };
+        const body = { model: settings.model, input: content.length === 1 ? job.prompt : content, response_format: { type: "video", delivery: "uri", aspect_ratio: job.aspectRatio }, generation_config: { video_config: { task: job.task } }, ...(previous ? { previous_interaction_id: previous } : {}) };
         const response = await fetchWithDeadline(this.dependencies.fetchImpl ?? fetch, INTERACTIONS_ENDPOINT, { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": credential.value }, body: JSON.stringify(body) }, settings.timeoutSeconds, request.signal);
         const generated = await responseVideo(this.dependencies.fetchImpl ?? fetch, response, credential.value, settings, request.signal);
         if (generated.bytes.length > settings.maxOutputBytes) throw new Error(`video job ${job.id} exceeded maxOutputBytes`);
@@ -203,16 +222,16 @@ export class GoogleOmniVideoAgent implements AgentDriver {
         outputArtifacts.push({ ...artifact(outputPath, "video", `${job.id} generated video`, "video/mp4", { jobId: job.id, task: job.task, configuredModel: settings.model }), sha256: hash });
       }
     } catch (error) {
-      await writeFile(reportPath, `${JSON.stringify({ apiVersion: VIDEO_API_VERSION, status: "failed", configuredModel: settings.model, credentialSource: credential.source, outputs, error: error instanceof Error ? error.message : String(error) }, null, 2)}\n`, "utf8");
+      await writeFile(reportPath, `${JSON.stringify({ apiVersion: VIDEO_API_VERSION, status: "failed", configuredModel: settings.model, credentialSource: credential.source, spend, outputs, error: error instanceof Error ? error.message : String(error) }, null, 2)}\n`, "utf8");
       await emit(request, { type: "node:failed", nodeId: traceNode, experimentId: request.experimentId, label: "Google Omni video", role: "asset-generator", status: "failed", message: error instanceof Error ? error.message : String(error) });
-      throw new VideoFoundryExecutionError(`Google Omni video generation failed: ${error instanceof Error ? error.message : String(error)}`, [...baseArtifacts, ...outputArtifacts], { configuredModel: settings.model, credentialSource: credential.source, outputs });
+      throw new VideoFoundryExecutionError(`Google Omni video generation failed: ${error instanceof Error ? error.message : String(error)}`, [...baseArtifacts, ...outputArtifacts], { configuredModel: settings.model, credentialSource: credential.source, spend, outputs });
     }
     const finishedAt = new Date().toISOString();
-    await writeFile(reportPath, `${JSON.stringify({ apiVersion: VIDEO_API_VERSION, status: "complete", configuredModel: settings.model, credentialSource: credential.source, outputs }, null, 2)}\n`, "utf8");
+    await writeFile(reportPath, `${JSON.stringify({ apiVersion: VIDEO_API_VERSION, status: "complete", configuredModel: settings.model, credentialSource: credential.source, spend, outputs }, null, 2)}\n`, "utf8");
     const artifacts = [...baseArtifacts, ...outputArtifacts];
     await emit(request, { type: "artifact:produced", nodeId: traceNode, experimentId: request.experimentId, label: "Generated videos", role: "asset-generator", message: `${outputs.length} video(s)`, data: { configuredModel: settings.model, outputCount: outputs.length } });
     await emit(request, { type: "node:completed", nodeId: traceNode, experimentId: request.experimentId, label: "Google Omni video", role: "asset-generator", status: "complete", message: `${outputs.length} video(s) generated`, data: { configuredModel: settings.model, credentialSource: credential.source } });
-    const metadata = { provider: "google", configuredModel: settings.model, credentialSource: credential.source, billingMode: "metered", outputs }; const contributor: AgentContribution = { agentId: `google-omni:${settings.model}`, role: "worker", status: "complete", startedAt, finishedAt, summary: `Generated ${outputs.length} video(s)`, artifacts, metadata };
+    const metadata = { provider: "google", configuredModel: settings.model, credentialSource: credential.source, billingMode: "metered", spend, outputs }; const contributor: AgentContribution = { agentId: `google-omni:${settings.model}`, role: "worker", status: "complete", startedAt, finishedAt, summary: `Generated ${outputs.length} video(s)`, artifacts, metadata };
     return { summary: contributor.summary, artifacts, contributors: [contributor], metadata };
   }
 }

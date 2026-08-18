@@ -1,0 +1,30 @@
+{
+  "apiVersion": "gamefactory.game-spec/v1",
+  "kind": "GameSpec",
+  "projectId": "replace-with-project-id",
+  "revision": 1,
+  "status": "draft",
+  "concept": "Replace with the concept file contents verbatim.",
+  "thesis": "One falsifiable playable thesis.",
+  "claims": [
+    {
+      "id": "loop.core",
+      "category": "loop",
+      "statement": "Replace with the first claim the initial slice must prove.",
+      "status": "open",
+      "falsifiers": ["Replace with a concrete observation that would disprove it."]
+    }
+  ],
+  "slices": [
+    {
+      "id": "first-playable",
+      "playerOutcome": "Replace with what the player can complete end to end.",
+      "primaryRisk": "Replace with the one most important uncertainty.",
+      "claimIds": ["loop.core"]
+    }
+  ],
+  "change": {
+    "kind": "initial",
+    "rationale": "Initial bounded thesis for the first playable slice."
+  }
+}

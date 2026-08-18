@@ -1,4 +1,4 @@
-export type PromptLayerKind = "project" | "campaign" | "boundary" | "role" | "task" | "context" | "history";
+export type PromptLayerKind = "project" | "campaign" | "boundary" | "role" | "skill" | "task" | "context" | "history";
 
 export interface PromptLayer {
   id: string;
@@ -21,6 +21,12 @@ export interface EffectivePromptManifest {
   billingMode?: string;
   timeoutSeconds?: number;
   instructionSources: string[];
+  skills?: Array<{
+    name: string;
+    source: string;
+    sha256: string;
+    required: boolean;
+  }>;
   layers: PromptLayer[];
   context: {
     objective: string;

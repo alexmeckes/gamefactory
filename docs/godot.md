@@ -16,6 +16,29 @@ Set `parameters.godot.rendered` to `true` and provide `capture_ticks` only when
 visual evidence is useful. Logic, simulation, regression, and performance runs
 stay headless. Browser capture is unrelated to this path.
 
+Use `parameters.godot.scenarios` when different experience contracts must not
+be collapsed into one fixture. Each entry has an `id` plus the same provider,
+version, path, and parameters as the legacy singular `scenario`. The host runs
+them independently, writes each run under a distinct experiment directory,
+and exposes metrics as `<scenario-id>.<metric>` while retaining the first
+scenario's unprefixed metrics for ranking compatibility. This is useful for
+separating a clean-start agency test from a returning-player or persistence
+test; a fast-forwarded return fixture cannot then masquerade as evidence for
+the opening session.
+
+```json
+{
+  "parameters": {
+    "godot": {
+      "scenarios": [
+        { "id": "first-session", "provider": "godot.factory/v1", "version": "1", "path": "res://main.tscn", "parameters": { "mode": "first-session" } },
+        { "id": "returning-player", "provider": "godot.factory/v1", "version": "1", "path": "res://main.tscn", "parameters": { "mode": "returning-player" } }
+      ]
+    }
+  }
+}
+```
+
 ## Visual evidence gate
 
 `godot.visual` turns engine-native screenshots plus a semantic critic's

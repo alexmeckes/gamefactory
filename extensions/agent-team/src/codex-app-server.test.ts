@@ -8,7 +8,7 @@ import { CodexAppServerPool } from "./codex-app-server.js";
 const fakeServer = `
 import { createInterface } from "node:readline";
 let thread = 0;
-let root = 0;
+let forks = 0;
 const lines = createInterface({ input: process.stdin, crlfDelay: Infinity });
 const send = (value) => process.stdout.write(JSON.stringify(value) + "\\n");
 lines.on("line", (line) => {
@@ -20,20 +20,15 @@ lines.on("line", (line) => {
   }
   if (message.method === "thread/start") {
     if (message.params.sandbox !== "read-only") return send({ id: message.id, error: { message: "wrong legacy sandbox value" } });
-    if (message.params.model === undefined) {
-      root += 1;
-      send({ id: message.id, result: { thread: { id: "root-" + root, modelProvider: "openai" }, modelProvider: "openai", instructionSources: [message.params.cwd + "/AGENTS.md"] } });
-      return;
-    }
     if (message.params.model !== "gpt-5.6-luna" || message.params.reasoningEffort !== undefined) return send({ id: message.id, error: { message: "wrong thread routing fields" } });
+    if (thread < 2 && message.params.ephemeral !== true) return send({ id: message.id, error: { message: "ephemeral run was persisted" } });
     thread += 1;
     send({ id: message.id, result: { thread: { id: "thread-" + thread, modelProvider: "openai" }, model: message.params.model, modelProvider: "openai", reasoningEffort: message.params.reasoningEffort, instructionSources: [message.params.cwd + "/AGENTS.md"] } });
     return;
   }
   if (message.method === "thread/fork") {
-    if (message.params.ephemeral !== true || !message.params.threadId.startsWith("root-")) return send({ id: message.id, error: { message: "wrong ephemeral fork fields" } });
-    thread += 1;
-    send({ id: message.id, result: { thread: { id: "thread-" + thread, modelProvider: "openai", ephemeral: true }, modelProvider: "openai" } });
+    forks += 1;
+    send({ id: message.id, error: { message: "thread/fork must not be used for ephemeral runs" } });
     return;
   }
   if (message.method === "thread/unsubscribe") {
@@ -58,12 +53,17 @@ lines.on("line", (line) => {
     send({ id: message.id, result: { turn: { id: turnId, status: "inProgress", items: [] } } });
     send({ method: "thread/settings/updated", params: { threadId, threadSettings: { model: message.params.model, effort: message.params.effort } } });
     send({ method: "turn/started", params: { threadId, turn: { id: turnId, status: "inProgress", items: [] } } });
+    send({ method: "warning", params: { threadId, turnId, message: "provider nearing a retry" } });
+    send({ method: "error", params: { threadId, turnId, error: { message: "provider retry is delayed" } } });
     if (message.params.input?.[0]?.text?.includes("rerouted")) {
       send({ method: "model/rerouted", params: { threadId, turnId, fromModel: "gpt-5.6-luna", toModel: "gpt-5.6-terra", reason: "highRiskCyberActivity" } });
     }
     for (let index = 0; index < 200; index += 1) send({ method: "item/agentMessage/delta", params: { threadId, turnId, delta: "x" } });
     send({ method: "item/started", params: { threadId, turnId, item: { id: "cmd-1", type: "commandExecution", status: "inProgress" } } });
-    send({ method: "item/completed", params: { threadId, turnId, item: { id: "msg-1", type: "agentMessage", phase: "final_answer", text: JSON.stringify({ summary: "real adapter result", outcome: "pass", payload: JSON.stringify({ context: { source: "fixture" } }) }) } } });
+    const payload = message.params.input?.[0]?.text?.includes("malformed")
+      ? '{"context":{"source":"fixture"}'
+      : JSON.stringify({ context: { source: "fixture" } }) + (message.params.input?.[0]?.text?.includes("trailing") ? "\\nAdditional reviewer note." : "");
+    send({ method: "item/completed", params: { threadId, turnId, item: { id: "msg-1", type: "agentMessage", phase: "final_answer", text: JSON.stringify({ summary: "real adapter result", outcome: "pass", payload }) } } });
     send({ method: "thread/tokenUsage/updated", params: { threadId, turnId, tokenUsage: { total: { inputTokens: 120, cachedInputTokens: 20, outputTokens: 30, reasoningTokens: 10, totalTokens: 150 } } } });
     send({ method: "turn/completed", params: { threadId, turn: { id: turnId, status: "completed", items: [] } } });
   }
@@ -111,6 +111,8 @@ test("Codex App Server pool streams a turn and records instruction, lineage, and
     assert.ok(events.includes("turn/completed"));
     assert.ok(!events.includes("item/agentMessage/delta"));
     assert.ok(!result.eventLog.includes("item/agentMessage/delta"));
+    assert.ok(result.eventLog.includes('"message":"provider nearing a retry"'));
+    assert.ok(result.eventLog.includes('"message":"provider retry is delayed"'));
     const rerouted = await pool.run({
       launcher: [process.execPath, serverPath],
       cwd: root,
@@ -123,6 +125,33 @@ test("Codex App Server pool streams a turn and records instruction, lineage, and
     assert.equal(rerouted.actualModel, "gpt-5.6-terra");
     assert.equal(rerouted.usage?.model, "gpt-5.6-terra");
     assert.equal(rerouted.usage?.reasoningEffort, "high");
+    const recovered = await pool.run({
+      launcher: [process.execPath, serverPath],
+      cwd: root,
+      prompt: "Perform a trailing payload task",
+      readOnly: true,
+      model: "gpt-5.6-luna",
+      reasoningEffort: "high",
+      signal: new AbortController().signal
+    });
+    const recoveredOutput = JSON.parse(recovered.output);
+    assert.deepEqual(recoveredOutput.context, { source: "fixture" });
+    assert.equal(recoveredOutput._gamefactory.structuredPayloadRecovery.kind, "leading-json-with-trailing-text");
+    assert.equal(recoveredOutput._gamefactory.structuredPayloadRecovery.trailingCharacters, "Additional reviewer note.".length);
+    const malformed = await pool.run({
+      launcher: [process.execPath, serverPath],
+      cwd: root,
+      prompt: "Perform a malformed payload task",
+      readOnly: true,
+      model: "gpt-5.6-luna",
+      reasoningEffort: "high",
+      signal: new AbortController().signal
+    });
+    const malformedOutput = JSON.parse(malformed.output);
+    assert.equal(malformedOutput.outcome, "pass");
+    assert.equal(malformedOutput.summary, "real adapter result");
+    assert.equal(malformedOutput.findings, '{"context":{"source":"fixture"}');
+    assert.equal(malformedOutput._gamefactory.structuredPayloadRecovery.kind, "invalid-inner-json");
     const archived = await pool.run({
       launcher: [process.execPath, serverPath],
       cwd: root,

@@ -1,0 +1,104 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "id": "alchemy-delivery-boys-gameplay-proof-v6",
+  "objective": "Promote the already accepted Alchemy Delivery Boys gameplay proof by repairing only its engine-diagnostic evidence contract. Preserve the proven request-to-mixture-to-road-to-consequence interaction and deterministic metrics unchanged. Each scenario report must capture engine diagnostics, explicitly classify the exact Windows root-certificate-store diagnostic as a known non-game environmental warning, and convert every other unclassified engine ERROR into a scenario violation. Rerun both scenarios and require clean trace-grounded evidence. Do not redesign gameplay, create production assets, or optimize presentation in this campaign.",
+  "projectRoot": ".",
+  "workflow": "autoresearch",
+  "requires": ["workspace:git.worktree", "agent:agent.team", "agent:godot.evidence", "evaluator:godot.scenario"],
+  "mutablePaths": ["**"],
+  "immutablePaths": [".git/**", ".factory/**", "campaign*.json", "factory*.json", "gamefactory.project.json", "GAME.md", "STYLE.md", "CORE_GAME.md"],
+  "parameters": {
+    "workspace": "git.worktree",
+    "agent": "agent.team",
+    "evaluators": ["godot.scenario"],
+    "agentTeam": {
+      "provider": "openai-codex-app-server",
+      "billingMode": "subscription",
+      "threadRetention": "ephemeral",
+      "maximumParallel": 3,
+      "historyLimit": 2,
+      "graph": {
+        "maximumTotalAttempts": 18,
+        "maximumRepairAttempts": 6,
+        "context": [
+          { "path": "GAME.md", "kind": "other", "mediaType": "text/markdown", "label": "Fixed game concept and falsifiers" },
+          { "path": "STYLE.md", "kind": "other", "mediaType": "text/markdown", "label": "Prototype-only visual boundary" },
+          { "path": "CORE_GAME.md", "kind": "other", "mediaType": "text/markdown", "label": "Director-approved durable playable thesis" }
+        ],
+        "nodes": [
+          {
+            "id": "graybox-builder",
+            "skills": ["prove-godot-gameplay"],
+            "adapter": "codex-app-server",
+            "role": "implementer",
+            "permissions": "write",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "high",
+            "timeoutSeconds": 2400,
+            "instructions": "Preserve the accepted gameplay and deterministic scenario behavior. Make the smallest instrumentation-only repair required by the objective: include captured engine diagnostics in each scenario report, classify only the exact Windows root-certificate-store diagnostic as a known non-game environmental warning with an explicit reason, and fail the scenario on every other unclassified engine ERROR. Rerun both scenarios and keep the existing trace-grounded metrics. Do not rewrite the gameplay, alter balance, call ImageGen, or make production art."
+          },
+          {
+            "id": "gameplay-evidence",
+            "adapter": "agent-driver",
+            "driver": "godot.evidence",
+            "role": "worker",
+            "permissions": "read",
+            "timeoutSeconds": 600,
+            "instructions": "Run both configured Godot scenarios after the graybox and every repair. Write only factory evidence.",
+            "dependsOn": ["graybox-builder"],
+            "refreshAfterRepair": true
+          },
+          {
+            "id": "first-session-experience-gate",
+            "skills": ["prove-godot-gameplay"],
+            "adapter": "codex-app-server",
+            "role": "critic",
+            "permissions": "read",
+            "model": "gpt-5.6-luna",
+            "reasoningEffort": "high",
+            "instructions": "Act as a skeptical fresh player using the clean-start engine trace. Require an understandable need, real mixture choices, an unfinished potion state, a route transformation visible before and after commitment, causal delivery feedback, and an immediate reason for another job. Explain what the player inferred and how a counterfactual choice would differ. Reject recipe-card following, decorative clicking, passive playback, arbitrary randomness, unrelated brewing and delivery, hard-coded metrics, and route choices that only alter time or reward. Return the smallest gameplay-level revision while preserving implementation latitude.",
+            "dependsOn": ["graybox-builder", "gameplay-evidence"],
+            "repair": { "target": "graybox-builder", "outcomes": ["revise"], "maximumAttempts": 2, "allowedPaths": ["**"] },
+            "advisor": { "model": "gpt-5.6-sol", "reasoningEffort": "high", "outcomes": ["needs_advisor"], "onFailure": true, "maximumAttempts": 1 }
+          },
+          {
+            "id": "mechanical-contract-gate",
+            "skills": ["prove-godot-gameplay"],
+            "adapter": "codex-app-server",
+            "role": "critic",
+            "permissions": "read",
+            "model": "gpt-5.6-luna",
+            "reasoningEffort": "high",
+            "instructions": "Verify both named Godot scenarios pass independently and derive their metrics from real game state. Check that ingredient properties, mixing, route chemistry, delivery outcome, and remembered consequence form one causal chain. Require a counterfactual that changes the outcome. Do not judge visual polish.",
+            "dependsOn": ["graybox-builder", "gameplay-evidence", "first-session-experience-gate"],
+            "repair": { "target": "graybox-builder", "outcomes": ["revise"], "maximumAttempts": 2, "allowedPaths": ["**"] }
+          },
+          {
+            "id": "gameplay-judge",
+            "skills": ["prove-godot-gameplay"],
+            "adapter": "codex-app-server",
+            "role": "judge",
+            "permissions": "read",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "instructions": "Judge only whether this bounded graybox is worth promoting to whole-screen visual direction. Require separate passing scenario evidence, immediate agency, legible inference, a journey that actually completes the potion, attributable feedback, remembered consequences, and a compelling next decision. Do not reward presentation polish or call the game fun without human evidence. Return pass, revise, or reject decisively.",
+            "dependsOn": ["graybox-builder", "first-session-experience-gate", "mechanical-contract-gate"],
+            "repair": { "target": "graybox-builder", "outcomes": ["revise"], "maximumAttempts": 1, "allowedPaths": ["addons/gamefactory/**", "main.gd", "tests/**", "evidence/**"] }
+          }
+        ]
+      }
+    },
+    "godot": {
+      "binary": "C:/Users/alexm/OneDrive/Documents/New project/oldschool-mmo-godot/tools/godot/Godot_v4.7.1-stable_win64_console.exe",
+      "importCheck": true,
+      "rendered": false,
+      "timeoutSeconds": 300,
+      "scenarios": [
+        { "id": "clean-start-day", "provider": "godot.factory/v1", "version": "1", "path": "res://main.tscn", "parameters": { "mode": "clean-start-day", "seed": 2411, "ticks": 900, "physics_hz": 60, "duration_seconds": 15 } },
+        { "id": "consequence-follow-up", "provider": "godot.factory/v1", "version": "1", "path": "res://main.tscn", "parameters": { "mode": "consequence-follow-up", "seed": 7739, "ticks": 900, "physics_hz": 60, "duration_seconds": 15 } }
+      ]
+    }
+  },
+  "budget": { "maximumExperiments": 1, "wallTimeMinutes": 180, "maximumConsecutiveCrashes": 2, "maximumConsecutiveNonImproving": 1 },
+  "acceptance": { "primaryMetric": "first_delivery_complete", "direction": "maximize", "minimumDelta": 0, "hardGates": ["godot.scenario"] }
+}

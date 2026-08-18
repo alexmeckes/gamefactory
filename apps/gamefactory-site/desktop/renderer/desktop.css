@@ -67,6 +67,16 @@ input, pre, code { user-select: text; }
 .design-reference-prompts summary { cursor: pointer; color: var(--muted); font: 8px var(--font-geist-mono), monospace; }
 .design-reference-prompts code { display: block; overflow: hidden; margin-top: 6px; color: var(--dim); font: 7px var(--font-geist-mono), monospace; text-overflow: ellipsis; }
 .design-adapters { font-family: var(--font-geist-mono), monospace; }
+.polish-readiness { margin-top: 12px; padding: 10px; border: 1px solid var(--line); background: rgba(8,12,18,.48); }
+.polish-readiness.ready { border-color: rgba(90,213,157,.5); }
+.polish-readiness.not-ready { border-color: rgba(241,126,92,.62); }
+.polish-readiness > div:first-child { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.polish-readiness > div:first-child strong { color: var(--ink); font-size: 10px; text-transform: uppercase; }
+.polish-readiness dl { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; margin: 9px 0 0; }
+.polish-readiness dl div { padding: 6px; border: 1px solid var(--line); }
+.polish-readiness dt { color: var(--dim); font-size: 7px; text-transform: uppercase; letter-spacing: .08em; }
+.polish-readiness dd { margin: 3px 0 0; color: var(--ink); font-size: 9px; }
+.polish-readiness p, .polish-readiness-missing { color: var(--warning); font-size: 8px; line-height: 1.45; }
 
 @media (max-width: 1040px) {
   .desktop-panel { grid-template-columns: 1fr; }

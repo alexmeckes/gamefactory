@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
 import type { AgentDriver, Campaign, FactoryTraceEventInput } from "@gamefactory/core";
-import { AgentTeam, AgentTeamExecutionError } from "./index.js";
+import { AgentTeam, AgentTeamExecutionError, validateAgentTeamConfiguration } from "./index.js";
 
 const exec = promisify(execFile);
 
@@ -65,7 +65,7 @@ if (["alpha", "beta"].includes(request.nodeId)) {
   assert.ok(request.inputs.every((input) => input.structured.context.source === input.nodeId));
   assert.ok(request.inputs.every((input) => input.artifacts[0].path.endsWith("value.txt")));
   assert.ok(request.inputs.every((input) => input.output === ""), "structured handoffs should not duplicate raw stdout");
-  console.log(JSON.stringify({ summary: "joined structured findings", outcome: "pass" }));
+  console.log(JSON.stringify({ summary: "joined structured findings", outcome: "pass", projectEvidence: { scenarios: [], targetSha256: "a".repeat(64) } }));
 } else if (request.nodeId === "discover") {
   console.log("human-readable prelude");
   console.log(JSON.stringify({ summary: "found hypothesis", outcome: "ready", context: { hypothesis: "raise-value" } }));
@@ -108,6 +108,12 @@ if (["alpha", "beta"].includes(request.nodeId)) {
 } else if (request.nodeId === "conditional") {
   assert.equal(request.inputs[0].outcome, "pass");
   console.log(JSON.stringify({ summary: "conditional branch ran", outcome: "complete" }));
+} else if (request.nodeId === "downstream") {
+  assert.equal(await readFile("value.txt", "utf8"), "repaired\\n", "downstream must not run against work rejected by its gate");
+  const review = request.inputs.find((input) => input.nodeId === "reviewer");
+  assert.equal(review.structured.outcome, "pass");
+  await writeFile("downstream.txt", "consumed repaired work\\n", "utf8");
+  console.log(JSON.stringify({ summary: "downstream consumed repaired work", outcome: "complete" }));
 } else if (["advisor-scout", "advisor-failure"].includes(request.nodeId)) {
   if (request.contributorId === request.nodeId) {
     assert.equal(request.model, "gpt-5.6-luna");
@@ -365,6 +371,26 @@ test("agent team validates configurable per-node timeout bounds before launching
   }
 });
 
+test("agent graph rejects node authority that exceeds filesystem permission", () => {
+  assert.throws(() => validateAgentTeamConfiguration(graphCampaign(".", [
+    graphCommand("writer-a", { role: "implementer", permissions: "write", authority: "observe" })
+  ])), /authority observe conflicts with write permission/);
+});
+
+test("explicit reviewer authority requires blockers to cite contract claims", async () => {
+  const root = await repository();
+  try {
+    await assert.rejects(() => new AgentTeam().run({
+      campaign: graphCampaign(root, [
+        graphCommand("discover", { role: "scout", permissions: "read" }),
+        graphCommand("builder", { role: "implementer", permissions: "write", dependsOn: ["discover"] }),
+        graphCommand("reviewer", { role: "critic", permissions: "read", authority: "propose", dependsOn: ["builder"] })
+      ], { claimIds: ["loop.first-errand"] }),
+      candidate: { id: "candidate", root, metadata: {} }, experimentId: "exp-claimed-blocker", history: [], signal: new AbortController().signal
+    }), /without a blocker/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("agent team rejects unsupported Codex thread retention before launching adapters", async () => {
   const root = await repository();
   try {
@@ -375,6 +401,22 @@ test("agent team rejects unsupported Codex thread retention before launching ada
       history: [],
       signal: new AbortController().signal
     }), /threadRetention must be ephemeral, archive, or debug/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("agent team fails closed before launch when a required bound skill is unavailable", async () => {
+  const root = await repository();
+  try {
+    await assert.rejects(() => new AgentTeam().run({
+      campaign: graphCampaign(root, [graphCommand("alpha", { skills: ["missing-gamefactory-skill"] })]),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-missing-skill",
+      history: [],
+      signal: new AbortController().signal
+    }), /Required skill missing-gamefactory-skill is unavailable/);
+    await assert.rejects(() => readFile(resolve(root, ".factory/graph-timing/alpha-1.json"), "utf8"));
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -402,10 +444,12 @@ test("agent graph runs independent readers in parallel and honors dependency ord
     assert.ok(join.started >= Math.max(alpha.finished, beta.finished), "dependent node should start after both predecessors");
     assert.equal(result.contributors?.length, 3);
     assert.ok(result.contributors?.every((item) => item.artifacts.some((artifact) => artifact.label?.includes("structured output"))));
-    const metadata = result.metadata as { mode: string; totalAttempts: number; nodes: Record<string, { outcome: string }> };
+    const metadata = result.metadata as { mode: string; totalAttempts: number; projectEvidence: { targetSha256: string; writerGenerations: Record<string, number> }; nodes: Record<string, { outcome: string }> };
     assert.equal(metadata.mode, "graph");
     assert.equal(metadata.totalAttempts, 3);
     assert.equal(metadata.nodes.join?.outcome, "pass");
+    assert.equal(metadata.projectEvidence.targetSha256, "a".repeat(64));
+    assert.deepEqual(metadata.projectEvidence.writerGenerations, {});
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -521,6 +565,58 @@ test("agent graph passes structured context to a writer and repairs from critic 
   }
 });
 
+test("agent graph fails closed when a required judge requests revision without a repair edge", async () => {
+  const root = await repository();
+  try {
+    await assert.rejects(() => new AgentTeam().run({
+      campaign: graphCampaign(root, [
+        graphCommand("discover", { role: "scout", permissions: "read" }),
+        graphCommand("builder", { role: "implementer", permissions: "write", dependsOn: ["discover"] }),
+        graphCommand("reviewer", { role: "judge", permissions: "read", dependsOn: ["builder"] })
+      ]),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-required-revise",
+      history: [],
+      signal: new AbortController().signal
+    }), (error: unknown) => {
+      assert.ok(error instanceof AgentTeamExecutionError);
+      assert.match(error.message, /reviewer: needs repair/);
+      assert.ok(error.runs.some((run) => run.provenance.contributorId === "builder"));
+      return true;
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("agent graph repairs a rejected gate before scheduling downstream work", async () => {
+  const root = await repository();
+  try {
+    const result = await new AgentTeam().run({
+      campaign: graphCampaign(root, [
+        graphCommand("discover", { role: "scout", permissions: "read" }),
+        graphCommand("builder", { role: "implementer", permissions: "write", dependsOn: ["discover"] }),
+        graphCommand("reviewer", {
+          role: "critic",
+          permissions: "read",
+          dependsOn: ["builder"],
+          repair: { target: "builder", outcomes: ["revise"], maximumAttempts: 1, allowedPaths: ["value.txt"] }
+        }),
+        graphCommand("downstream", { role: "implementer", permissions: "write", dependsOn: ["reviewer"] })
+      ], { maximumRepairAttempts: 1, maximumTotalAttempts: 10 }),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-gate-barrier",
+      history: [],
+      signal: new AbortController().signal
+    });
+    assert.equal(await readFile(resolve(root, "downstream.txt"), "utf8"), "consumed repaired work\n");
+    const order = result.contributors?.map((item) => `${item.agentId}:${(item.metadata as { reason?: { kind?: string } }).reason?.kind}`) ?? [];
+    assert.ok(order.indexOf("reviewer:review") < order.indexOf("downstream:initial"));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("agent graph refreshes derived evidence before reviewing a repaired writer", async () => {
   const root = await repository();
   try {
@@ -531,8 +627,7 @@ test("agent graph refreshes derived evidence before reviewing a repaired writer"
         graphCommand("capture", {
           role: "worker",
           permissions: "read",
-          dependsOn: ["builder"],
-          refreshAfterRepair: true
+          dependsOn: ["builder"]
         }),
         graphCommand("visual-reviewer", {
           role: "critic",
@@ -546,10 +641,13 @@ test("agent graph refreshes derived evidence before reviewing a repaired writer"
       history: [],
       signal: new AbortController().signal
     });
-    const metadata = result.metadata as { nodes: Record<string, { attempts: number; outcome: string }> };
+    const metadata = result.metadata as { writerGenerations: Record<string, number>; nodes: Record<string, { attempts: number; outcome: string; inputGenerations: Record<string, number> }> };
     assert.equal(metadata.nodes.capture?.attempts, 2);
     assert.equal(metadata.nodes["visual-reviewer"]?.attempts, 2);
     assert.equal(metadata.nodes["visual-reviewer"]?.outcome, "pass");
+    assert.equal(metadata.writerGenerations.builder, 2);
+    assert.equal(metadata.nodes.capture?.inputGenerations.builder, 2);
+    assert.equal(metadata.nodes["visual-reviewer"]?.inputGenerations.builder, 2);
     assert.equal(await readFile(resolve(root, ".factory", "capture-2.txt"), "utf8"), "repaired\n");
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -776,6 +874,29 @@ test("agent graph fails when a required node is dependency-blocked", async () =>
   }
 });
 
+test("agent graph preserves successful upstream evidence when a downstream required node fails", async () => {
+  const root = await repository();
+  try {
+    await assert.rejects(() => new AgentTeam().run({
+      campaign: graphCampaign(root, [
+        graphCommand("alpha", { permissions: "read" }),
+        graphCommand("broken", { permissions: "read", dependsOn: ["alpha"], command: [process.execPath, "missing-agent.mjs"] })
+      ]),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-downstream-evidence",
+      history: [],
+      signal: new AbortController().signal
+    }), (error: unknown) => {
+      assert.ok(error instanceof AgentTeamExecutionError);
+      assert.ok(error.artifacts.some((artifact) => artifact.label?.includes("alpha stdout")));
+      assert.ok(error.provenance.contributors instanceof Array);
+      return true;
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("agent graph preserves completed attempt evidence when the total-attempt cap is reached", async () => {
   const root = await repository();
   try {
@@ -845,6 +966,17 @@ test("agent graph emits live topology, bounded progress, and attempt completion 
   }
 });
 
+test("polished Godot preset has a valid gated agent graph", async () => {
+  const campaign = JSON.parse(await readFile(resolve(process.cwd(), "presets/godot-polished/campaign.template.json"), "utf8")) as Campaign;
+  assert.doesNotThrow(() => validateAgentTeamConfiguration(campaign));
+  const specCampaign = JSON.parse(await readFile(resolve(process.cwd(), "presets/godot-polished/spec-campaign.template.json"), "utf8")) as Campaign;
+  assert.doesNotThrow(() => validateAgentTeamConfiguration(specCampaign));
+});
+
+test("agent graph validates structured output field contracts before launch", () => {
+  assert.throws(() => validateAgentTeamConfiguration(graphCampaign(".", [graphCommand("alpha", { role: "scout", permissions: "read", requiredOutputFields: ["bad field"] })])), /invalid field path/);
+});
+
 test("agent graph runs through the Codex App Server adapter and exposes native subagents", async () => {
   const root = await repository();
   const events: FactoryTraceEventInput[] = [];
@@ -857,6 +989,7 @@ test("agent graph runs through the Codex App Server adapter and exposes native s
         command: [process.execPath, resolve(root, "app-server-fixture.mjs")],
         model: "gpt-5.6-luna",
         reasoningEffort: "high",
+        skills: ["frame-core-game"],
         permissions: "read"
       }]),
       candidate: { id: "candidate", root, metadata: {} },
@@ -874,7 +1007,7 @@ test("agent graph runs through the Codex App Server adapter and exposes native s
     const contribution = result.contributors?.[0];
     assert.equal(contribution?.usage?.model, "gpt-5.6-luna");
     assert.equal(contribution?.usage?.reasoningEffort, "high");
-    const manifest = contribution?.metadata?.promptManifest as { adapter?: string; model?: string; reasoningEffort?: string; providerContext?: { threadId?: string; turnId?: string; requestedModel?: string; actualModel?: string; requestedReasoningEffort?: string; reasoningEffort?: string } };
+    const manifest = contribution?.metadata?.promptManifest as { adapter?: string; model?: string; reasoningEffort?: string; skills?: Array<{ name: string; sha256: string; required: boolean }>; layers?: Array<{ id: string; kind: string; content: string }>; providerContext?: { threadId?: string; turnId?: string; requestedModel?: string; actualModel?: string; requestedReasoningEffort?: string; reasoningEffort?: string } };
     assert.equal(manifest.adapter, "codex.app-server");
     assert.equal(manifest.model, "gpt-5.6-luna");
     assert.equal(manifest.reasoningEffort, "high");
@@ -884,6 +1017,11 @@ test("agent graph runs through the Codex App Server adapter and exposes native s
     assert.equal(manifest.providerContext?.actualModel, "gpt-5.6-luna");
     assert.equal(manifest.providerContext?.requestedReasoningEffort, "high");
     assert.equal(manifest.providerContext?.reasoningEffort, "high");
+    assert.equal(manifest.skills?.[0]?.name, "frame-core-game");
+    assert.equal(manifest.skills?.[0]?.required, true);
+    assert.match(manifest.skills?.[0]?.sha256 ?? "", /^[a-f0-9]{64}$/);
+    assert.equal(manifest.layers?.find((layer) => layer.id === "skill-frame-core-game")?.kind, "skill");
+    assert.match(manifest.layers?.find((layer) => layer.id === "skill-frame-core-game")?.content ?? "", /repeated consequential decision/);
     assert.deepEqual(
       (manifest.providerContext as { instructionSources?: string[] }).instructionSources?.map((value) => value.replaceAll("\\", "/")),
       [resolve(root, "AGENTS.md").replaceAll("\\", "/")]

@@ -1,0 +1,6 @@
+.godot/
+.factory/
+*.import
+*.uid
+*.log
+*.tmp

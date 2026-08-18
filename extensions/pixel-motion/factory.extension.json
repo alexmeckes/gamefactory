@@ -1,0 +1,13 @@
+{
+  "name": "gamefactory.pixel-motion",
+  "version": "0.1.0",
+  "apiVersion": "1.0",
+  "entry": "dist/index.js",
+  "activation": ["agent:pixel-motion.compile", "evaluator:pixel-motion.quality"],
+  "contributes": {
+    "agent": ["pixel-motion.compile"],
+    "evaluator": ["pixel-motion.quality"]
+  },
+  "permissions": ["filesystem:candidate"],
+  "description": "Deterministic video-cutout to pixel-animation compiler with palette, pivot, loop, and Godot quality gates."
+}

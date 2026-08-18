@@ -52,7 +52,7 @@ export function decideAcceptance(
   const delta = config.direction === "maximize" ? candidate - baseline : baseline - candidate;
   const minimum = config.minimumDelta ?? 0;
   const printableDelta = Number(delta.toPrecision(8));
-  return delta > minimum
-    ? { accepted: true, reason: `improved ${config.primaryMetric} by ${printableDelta}`, baselineValue: baseline, candidateValue: candidate }
-    : { accepted: false, reason: `did not improve ${config.primaryMetric} by more than ${minimum}`, baselineValue: baseline, candidateValue: candidate };
+  return delta >= minimum
+    ? { accepted: true, reason: `met the ${config.primaryMetric} minimum delta with ${printableDelta}`, baselineValue: baseline, candidateValue: candidate }
+    : { accepted: false, reason: `did not improve ${config.primaryMetric} by at least ${minimum}`, baselineValue: baseline, candidateValue: candidate };
 }

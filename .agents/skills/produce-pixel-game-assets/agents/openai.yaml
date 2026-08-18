@@ -1,0 +1,4 @@
+interface:
+  display_name: "Produce Pixel Game Assets"
+  short_description: "Derive coherent production pixel assets"
+  default_prompt: "Use $produce-pixel-game-assets to turn the approved screen system into matching production-ready pixel assets."

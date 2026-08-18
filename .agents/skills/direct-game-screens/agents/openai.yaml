@@ -1,0 +1,4 @@
+interface:
+  display_name: "Direct Game Screens"
+  short_description: "Design coherent complete gameplay screens"
+  default_prompt: "Use $direct-game-screens to create and review complete screen-state targets before asset production."
