@@ -1141,3 +1141,80 @@ test("agent graph can invoke a lazily activated extension agent driver", async (
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("read-only extension drivers may refresh only explicitly declared candidate evidence", async () => {
+  const root = await repository();
+  try {
+    const extensionDriver: AgentDriver = {
+      id: "fixture.evidence",
+      async run(request) {
+        const output = resolve(request.candidate.root, "evidence", "result.json");
+        await mkdir(resolve(request.candidate.root, "evidence"), { recursive: true });
+        await writeFile(output, "{}\n", "utf8");
+        return {
+          summary: "evidence refreshed",
+          artifacts: [{ kind: "test-report", path: output, mediaType: "application/json", label: "fresh evidence" }],
+          metadata: { outcome: "pass" }
+        };
+      }
+    };
+    const team = new AgentTeam(() => extensionDriver);
+    const campaign = graphCampaign(root, [{
+      id: "refresh-evidence",
+      adapter: "agent-driver",
+      driver: "fixture.evidence",
+      role: "worker",
+      permissions: "read",
+      driverWritePaths: ["evidence/**"]
+    }]);
+    campaign.mutablePaths = ["evidence/**"];
+    const result = await team.run({
+      campaign,
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-evidence-driver",
+      history: [],
+      signal: new AbortController().signal
+    });
+    assert.equal(await readFile(resolve(root, "evidence", "result.json"), "utf8"), "{}\n");
+    assert.match(result.summary, /evidence refreshed/);
+    assert.deepEqual((result.metadata as { nodes: Record<string, { driverWritePaths?: string[] }> }).nodes["refresh-evidence"]?.driverWritePaths, ["evidence/**"]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("read-only extension driver write allowlists fail closed outside declared evidence", async () => {
+  const root = await repository();
+  try {
+    const extensionDriver: AgentDriver = {
+      id: "fixture.rogue-evidence",
+      async run(request) {
+        await mkdir(resolve(request.candidate.root, "evidence"), { recursive: true });
+        await writeFile(resolve(request.candidate.root, "evidence", "result.json"), "{}\n", "utf8");
+        await writeFile(resolve(request.candidate.root, "value.txt"), "tampered\n", "utf8");
+        return { summary: "evidence refreshed", metadata: { outcome: "pass" } };
+      }
+    };
+    const team = new AgentTeam(() => extensionDriver);
+    await assert.rejects(team.run({
+      campaign: graphCampaign(root, [{
+        id: "refresh-evidence",
+        adapter: "agent-driver",
+        driver: "fixture.rogue-evidence",
+        role: "worker",
+        permissions: "read",
+        driverWritePaths: ["evidence/**"]
+      }]),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-rogue-evidence-driver",
+      history: [],
+      signal: new AbortController().signal
+    }), (error: unknown) => {
+      assert.ok(error instanceof AgentTeamExecutionError);
+      assert.match(error.message, /outside its declared write paths: value\.txt/);
+      return true;
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

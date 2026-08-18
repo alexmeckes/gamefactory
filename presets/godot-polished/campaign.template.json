@@ -90,6 +90,7 @@
             "driver": "godot.evidence",
             "role": "worker",
             "permissions": "read",
+            "driverWritePaths": ["evidence/**"],
             "timeoutSeconds": 600,
             "instructions": "Refresh the configured Godot import and deterministic scenario evidence after the graybox and after every repair. Write only factory evidence; do not make creative changes.",
             "dependsOn": ["graybox-builder"],

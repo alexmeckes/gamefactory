@@ -96,6 +96,7 @@ interface AdvisorConfig extends ContributorConfig {
 interface GraphNodeConfig extends ContributorConfig {
   role: AgentRole;
   readOnly: boolean;
+  driverWritePaths: string[];
   dependsOn: string[];
   when: GraphCondition[];
   instructions?: string;
@@ -539,7 +540,10 @@ async function effectivePromptManifest(input: {
   const boundary = JSON.stringify({
     mutablePaths: input.request.campaign.mutablePaths ?? [],
     immutablePaths: input.request.campaign.immutablePaths ?? [],
-    permissions: input.readOnly ? "read" : "write"
+    permissions: input.readOnly ? "read" : "write",
+    ...("driverWritePaths" in input.config && Array.isArray(input.config.driverWritePaths) && input.config.driverWritePaths.length > 0
+      ? { driverWritePaths: input.config.driverWritePaths }
+      : {})
   }, null, 2);
   const upstream = JSON.stringify(input.inputs.map((item) => ({
     contributorId: item.contributorId,
@@ -873,6 +877,7 @@ function graphNode(value: unknown, index: number, defaults: Pick<ContributorConf
     ...base,
     role,
     readOnly,
+    driverWritePaths: pathPatternList(record.driverWritePaths, `${location}.driverWritePaths`),
     dependsOn: stringList(record.dependsOn ?? record.dependencies, `${location}.dependsOn`),
     when: conditions(record.when, `${location}.when`),
     context: contextList(record.context, `${location}.context`),
@@ -932,6 +937,18 @@ function validateGraph(nodes: GraphNodeConfig[]): void {
     }
     for (const condition of node.when) {
       if (!node.dependsOn.includes(condition.node)) throw new Error(`graph node ${node.id} condition ${condition.node} must also appear in dependsOn`);
+    }
+    if (node.driverWritePaths.length > 0) {
+      if (node.adapter !== "agent-driver" || !node.readOnly) throw new Error(`graph node ${node.id} driverWritePaths requires a read-only agent-driver`);
+      const protectedPaths = [
+        ".git/config",
+        `nested/.git/config`,
+        `.factory/agent-team/exp/graph/${node.id}/output.json`,
+        `nested/.factory/agent-team/exp/graph/${node.id}/output.json`
+      ];
+      if (node.driverWritePaths.some((pattern) => protectedPaths.some((path) => matchesPath(path, pattern)))) {
+        throw new Error(`graph node ${node.id} driverWritePaths cannot include Git or agent-team control files`);
+      }
     }
     if (node.repair) {
       const target = byId.get(node.repair.target);
@@ -1325,6 +1342,9 @@ async function invokeContributor(
     ...(config.provider || config.model || config.reasoningEffort ? { identitySource: "configured" } : {}),
     readOnly,
     permissions: readOnly ? "read" : "write",
+    ...("driverWritePaths" in config && Array.isArray(config.driverWritePaths) && config.driverWritePaths.length > 0
+      ? { driverWritePaths: config.driverWritePaths }
+      : {}),
     reason: options.reason,
     roleCharter: roleCharter.content,
     instructions: options.instructions,
@@ -2121,11 +2141,21 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
     const before = guarded.length > 0 && readers ? await gitSnapshot(request) : undefined;
     try {
       for (const state of trustedDrivers) {
-        const allowedEvidence = [`.factory/runs/${request.experimentId}*/**`, `**/.factory/runs/${request.experimentId}*/**`];
-        const driverBefore = await gitSnapshot(request, allowedEvidence);
+        const allowedEvidence = [
+          `.factory/runs/${request.experimentId}*/**`,
+          `**/.factory/runs/${request.experimentId}*/**`,
+          ...state.config.driverWritePaths
+        ];
+        const driverBefore = await meaningfulFileState(request);
         await runActivation(state, reason, extras.get(state.config.id) ?? []);
-        const driverAfter = await gitSnapshot(request, allowedEvidence);
-        if (driverBefore !== driverAfter) throw new AgentTeamExecutionError(`factory-native read-only driver ${state.config.driver} modified files outside its evidence root`, state.runs);
+        const driverAfter = await meaningfulFileState(request);
+        const outside = changedSince(driverBefore, driverAfter).filter((path) => !allowedEvidence.some((pattern) => matchesPath(path, pattern)));
+        if (outside.length > 0) {
+          throw new AgentTeamExecutionError(
+            `factory-native read-only driver ${state.config.driver} modified files outside its declared write paths: ${outside.join(", ")}`,
+            state.runs
+          );
+        }
       }
       await mapParallel(guarded, readers ? config.maximumParallel : 1, (state) => runActivation(state, reason, extras.get(state.config.id) ?? []));
     } catch (error) {
@@ -2352,6 +2382,7 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
         return [node.id, {
           role: node.role,
           readOnly: node.readOnly,
+          ...(node.driverWritePaths.length > 0 ? { driverWritePaths: node.driverWritePaths } : {}),
           authority: node.authority,
           dependsOn: node.dependsOn,
           status: state.status,
