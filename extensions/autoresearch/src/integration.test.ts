@@ -131,3 +131,35 @@ test("autoresearch blocks and retains a candidate when evidence cannot be preser
     await rm(projectRoot, { recursive: true, force: true });
   }
 });
+
+test("autoresearch can create the first measurable candidate from an inconclusive baseline", async () => {
+  const projectRoot = await mkdtemp(resolve(tmpdir(), "gamefactory-creation-baseline-"));
+  const extensionRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  const campaign: Campaign = {
+    apiVersion: "gamefactory.dev/v1",
+    id: "creation-baseline",
+    objective: "create the first valid candidate",
+    projectRoot,
+    workflow: "autoresearch",
+    requires: ["workspace:mock.workspace", "agent:mock.agent", "evaluator:mock.score"],
+    parameters: { workspace: "mock.workspace", agent: "mock.agent", evaluators: ["mock.score"], mockMissingBaselineMetric: true },
+    acceptance: { primaryMetric: "score", direction: "maximize", hardGates: ["mock.score"] },
+    budget: { maximumExperiments: 1 }
+  };
+  const runner = new FactoryRunner({
+    cwd: projectRoot,
+    config: { apiVersion: "gamefactory.dev/v1", extensions: [resolve(extensionRoot, "../mock"), extensionRoot] },
+    logger: new MemoryLogger()
+  });
+  try {
+    await runner.initialize();
+    const result = await runner.run(campaign);
+    assert.equal(result.status, "budget-exhausted");
+    assert.deepEqual(result.experiments.map((record) => record.status), ["baseline", "keep"]);
+    assert.equal(result.experiments[0]?.evaluations[0]?.status, "inconclusive");
+    assert.match(JSON.stringify(result.experiments[1]?.metadata?.decision ?? {}), /first measured baseline/);
+  } finally {
+    await runner.dispose();
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});

@@ -42,16 +42,23 @@ export class AutoresearchWorkflow implements Workflow {
     if (recovery.blocked) return campaignResult(context, experiments, "blocked", recovery.blocked);
     replayBudget(context, experiments);
     let baseline = latestAcceptedEvaluations(experiments);
+    const resumedBaseline = [...experiments].reverse().find((record) => record.status === "baseline" && record.evaluations.length > 0);
+    const resumedMetadata = resumedBaseline?.metadata?.autoresearch;
+    let baselineError = resumedMetadata && typeof resumedMetadata === "object" && !Array.isArray(resumedMetadata) && typeof (resumedMetadata as Record<string, unknown>).baselineError === "string"
+      ? (resumedMetadata as Record<string, unknown>).baselineError as string
+      : undefined;
 
     if (!baseline) {
       const startedAt = new Date().toISOString();
       await journalPhase(context, "baseline", "reserved", { startedAt });
-      baseline = (await evaluateWaterfall(
+      const baselineRun = await evaluateWaterfall(
         context,
         config.evaluators.map((id, order) => ({ id, cost: order, order })),
         null,
         "baseline"
-      )).evaluations;
+      );
+      baseline = baselineRun.evaluations;
+      baselineError = baselineRun.error;
       await journalPhase(context, "baseline", "evaluated", { evaluations: baseline });
       const record: ExperimentRecord = {
         campaignId: context.campaign.id,
@@ -59,9 +66,10 @@ export class AutoresearchWorkflow implements Workflow {
         startedAt,
         finishedAt: new Date().toISOString(),
         status: "baseline",
-        summary: "Measured the starting revision.",
+        summary: baselineError ? `Baseline evaluation crashed: ${baselineError}` : "Measured the starting revision.",
         metrics: flattenMetrics(baseline),
-        evaluations: baseline
+        evaluations: baseline,
+        ...(baselineError ? { metadata: { autoresearch: { baselineError } } } : {})
       };
       experiments.push(record);
       await context.appendRecord(record);
@@ -70,10 +78,7 @@ export class AutoresearchWorkflow implements Workflow {
       await context.emit({ type: "experiment:finish", record, at: record.finishedAt });
     }
 
-    const baselineMetrics = flattenMetrics(baseline);
-    if (baseline.some((evaluation) => evaluation.status === "fail") || baselineMetrics[context.campaign.acceptance.primaryMetric] === undefined) {
-      return campaignResult(context, experiments, "blocked", `Baseline did not pass or produce ${context.campaign.acceptance.primaryMetric}.`);
-    }
+    if (baselineError) return campaignResult(context, experiments, "blocked", `Baseline evaluation crashed: ${baselineError}`);
 
     while (!context.signal.aborted) {
       const allowance = context.budget.canStart();

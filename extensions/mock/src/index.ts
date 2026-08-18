@@ -58,6 +58,9 @@ export class MockEvaluator implements Evaluator {
   readonly version = "1.0.0";
 
   async evaluate(input: Parameters<Evaluator["evaluate"]>[0]): Promise<Evaluation> {
+    if (!input.candidate && input.campaign.parameters?.mockMissingBaselineMetric === true) {
+      return { evaluator: this.id, version: this.version, status: "inconclusive", metrics: {}, violations: [{ code: "mock.no-candidate", message: "This creation campaign has no candidate at baseline.", severity: "warning" }], artifacts: [], confidence: 1, summary: "No candidate exists yet." };
+    }
     const score = input.candidate
       ? await readScore(resolve(input.candidate.root, PROPOSAL))
       : await readScore(resolve(input.campaign.projectRoot, BASELINE));
