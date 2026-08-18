@@ -56,11 +56,31 @@ Capabilities are addressed as `kind:id`, such as `evaluator:godot.scenario`.
 An extension may contribute several closely related capabilities, but unrelated
 features should be separate extensions.
 
-## Control loops
+## Project contracts and control loops
 
-The outer loop is human: choose or version the design intent, select a vertical
-slice, approve a creative direction, define the mutable surface, acceptance
-evidence, and budget. The inner loop is autonomous and bounded:
+`@gamefactory/project-sdk` owns the durable outer production graph. A v2 project
+first converges a `gamefactory.game-spec/v1` contract, then advances through
+claim-addressed vertical slices. The concept remains verbatim; the frozen spec
+records the playable thesis, falsifiers, decisions, and stable claim IDs. A
+freeze stabilizes claims consumed by the current slice rather than fixing the
+entire product forever. Runtime evidence or user direction may open a versioned
+amendment between slice attempts. Amendments record their trigger, evidence,
+affected claims and slices, and superseded fingerprint. Critics may propose
+amendments, but only the spec owner can mutate the contract. Blockers cite
+existing claims; new scope remains a non-blocking opportunity.
+Claims needed by the active slice must be resolved. Future claims may remain
+open so later evidence can shape them without blocking current implementation.
+
+Each vertical slice must close a player-visible chain from input through state
+change, feedback, consequence, and another decision. It declares its consumed
+claims, primary risk, non-goals, mutable surface, named scenarios, interaction
+trace, engine capture, and motion evidence. Accepted slices record a Git
+revision and per-slice fingerprint. An unrelated spec amendment does not
+invalidate a slice; changing a consumed claim or accepted dependency does.
+`maximumConvergencePasses` bounds one convergence episode; it is deliberately
+not a lifetime GameSpec revision ceiling.
+
+Inside one spec or slice campaign, the autonomous loop remains bounded:
 
 1. Measure the current baseline.
 2. Create an isolated candidate.
@@ -72,15 +92,24 @@ evidence, and budget. The inner loop is autonomous and bounded:
 This keeps ideation and taste outside the optimizer while making repeated
 implementation work scientific and reproducible.
 
-`workflow:discovery` sits before this optimization loop. It ranks divergent
-prototypes but defaults to recommendation-only, while `evaluator:playtest.agents`
-runs synthetic behavior cohorts and `evaluator:playtest.human` keeps actual player
-approval separate and explicit.
+The v1 two-phase project format remains a legacy compatibility path. New
+projects use bounded spec convergence followed by player-complete slices rather
+than departmental gameplay and visual phases. A tournament is not the default
+ideation mechanism. Use `workflow:discovery` or `workflow:tournament`
+only when a specific unresolved question has at least two genuinely different,
+cheap, falsifiable hypotheses and the available evidence can discriminate
+between them. Do not run whole-game or paid-asset candidates merely to create
+variety. `evaluator:playtest.agents` runs synthetic behavior cohorts and
+`evaluator:playtest.human` keeps actual player approval separate and explicit.
 
 Multi-agent execution uses the same contracts. `agent.team` coordinates roles
 inside one candidate, while `workflow:tournament` coordinates several isolated
 candidates. Parallel work never owns acceptance: a serialized control plane
 reserves budgets, journals outcomes, preserves evidence, and applies one winner.
+Agent graph writers carry generations. Any mutation automatically invalidates
+and reruns completed dependent writers, evidence collectors, critics, and judges;
+a required node cannot approve stale output. Execution retries, creative repair
+rounds, and advisor escalations are reported separately.
 
 Every run also writes an fsync-backed phase journal. An experiment advances
 through `reserved`, `candidate-created`, `agent-finished`, `evaluated`,

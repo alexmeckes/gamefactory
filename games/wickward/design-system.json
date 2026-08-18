@@ -1,0 +1,146 @@
+{
+  "apiVersion": "gamefactory.design-system/v1",
+  "id": "wickward-native-pixel",
+  "version": "1.0.0",
+  "title": "Wickward Native Pixel System",
+  "maturity": "production-slice",
+  "identity": {
+    "intent": "Make a single candle-formation decision feel immediately legible and authored through one native pixel grid, a strict palette, role-shaped characters, and restrained combat feedback.",
+    "toneWords": ["warm", "watchful", "tiny", "arcane", "decisive"],
+    "avoidWords": ["painterly", "generic fantasy", "smooth default UI", "mobile chrome", "particle fog", "concept art"]
+  },
+  "principles": [
+    {
+      "id": "one-grid",
+      "statement": "Every runtime surface resolves on the 480x270 native grid.",
+      "rationale": "A single pixel density prevents generated sprites, UI, type, and effects from looking assembled from unrelated systems.",
+      "priority": 1
+    },
+    {
+      "id": "role-before-lore",
+      "statement": "Formation role and unit behavior read before decorative fantasy detail.",
+      "rationale": "The game has one decision, so the visual hierarchy must make that decision effortless to parse.",
+      "priority": 2
+    },
+    {
+      "id": "source-is-not-runtime",
+      "statement": "Generated character and UI images remain source until extracted, normalized, palette-locked, imported, captured, and reviewed.",
+      "rationale": "This blocks polished source imagery from concealing an incoherent or unfinished game implementation.",
+      "priority": 3
+    },
+    {
+      "id": "few-strong-beats",
+      "statement": "Use short integer-aligned travel, impact, health, and result beats instead of continuous spectacle.",
+      "rationale": "Restrained motion keeps the formation causal chain visible throughout the eight-second battle.",
+      "priority": 4
+    }
+  ],
+  "tokens": {
+    "color": {
+      "ink": "#171622",
+      "deep": "#231f30",
+      "slate": "#343040",
+      "parchment": "#f4e6c1",
+      "muted": "#d0b589",
+      "focus": "#f7c94c",
+      "warden": "#d9573f",
+      "seer": "#4f8bd6",
+      "night": "#8755a8",
+      "healing": "#70a768",
+      "rule": "Sixteen shared runtime colors; hue always pairs with silhouette, position, text, health, or motion."
+    },
+    "typography": {
+      "family": "Silkscreen",
+      "license": "SIL Open Font License 1.1",
+      "sizesNativePx": { "title": 20, "heading": 14, "control": 8, "caption": 6 },
+      "rule": "All interface copy is uppercase, short, and rendered without subpixel positioning."
+    },
+    "layout": {
+      "nativeViewport": "480x270",
+      "presentationScale": 3,
+      "majorRegions": ["35px header", "177px battlefield", "48px action footer"],
+      "pointerTargetNativePx": 30,
+      "rule": "One primary action and one visible formation rail; no card inventory or secondary navigation."
+    },
+    "motion": {
+      "idle": "One- to three-pixel role-specific whole-frame breathing and moth drift",
+      "action": "Whole-pixel anticipation, squash, directional lunge, and recovery",
+      "projectile": "Curved five-pixel head with a four-step integer-aligned trail and delayed state impact",
+      "impact": "Brief hit-stop, bounded screen shake, recoil squash, role-colored burst, health change, and damage or healing callout",
+      "defeat": "Short rise, flatten, fade, and soot burst before removal",
+      "result": "Overshooting authored plaque reveal, progress flames, restrained rays, and replay pulse",
+      "rule": "Every motion beat communicates a real state change; no smooth subpixel drift, blur, or persistent emitter noise."
+    }
+  },
+  "patterns": [
+    {
+      "id": "formation-slot",
+      "intent": "Bind a guardian to a clear rear, center, or front role.",
+      "rules": ["Use the ward line as a directional rail.", "Place the role name and its single bonus directly below the unit.", "Selection changes the full slot arc and instruction copy."],
+      "avoid": ["Hidden tooltips", "Color-only selection", "Long stat cards"],
+      "examples": ["FRONT / GUARDS ALL remains visible behind the Red Warden during combat."]
+    },
+    {
+      "id": "combat-beat",
+      "intent": "Show who acted, what traveled, and what changed.",
+      "rules": ["Anticipate and lunge before launching an action.", "Resolve health only when the curved projectile reaches its target.", "Pair hit-stop and recoil with bounded particles and a health change.", "Make rear Seer chain, center Chime pulse, and front Warden block visibly distinct."],
+      "avoid": ["Full-screen bloom", "Unbounded numbers", "Particles without a target", "Idle bob presented as complete animation"],
+      "examples": ["Rear Seer compresses, lunges, sends a curved blue bolt, and arcs a second hit into the next living moth.", "Front Warden's ward catches an incoming violet bolt with a gold BLOCK callout and linked formation pulse."]
+    },
+    {
+      "id": "resolved-state",
+      "intent": "Close the short encounter without leaving the visual system.",
+      "rules": ["Dim the battlefield but retain formation context.", "Use a two-pixel gold or violet frame.", "Keep replay available in the persistent footer."],
+      "avoid": ["Separate results scene", "Confetti", "Hidden restart"],
+      "examples": ["THE NIGHT BREAKS summarizes combo and duration above SPACE TO TRY AGAIN."]
+    }
+  ],
+  "references": [
+    {
+      "path": "design/character-source.png",
+      "role": "Generated character source sheet retained for provenance; never loaded by the runtime.",
+      "purpose": "silhouette",
+      "authority": "inspiration",
+      "source": "imagegen",
+      "sha256": "a1097255981be71627fe13aedcb5dfae42a814e95e01063057f154fde4508aea",
+      "prompt": "Production source sheet for a low-resolution 2D pixel-art autobattler called WICKWARD: exactly six isolated full-body units in a 3 by 2 sheet—three candle guardians (red shield warden, blue match-wand seer, gold bell healer) and three night moths (round soot moth, narrow violet needle moth, large ash moth). Authentic crisp 16-bit pixel art, limited palette, readable silhouettes, consistent scale and baseline, no text, UI, scenery, shadows, watermark, painterly rendering, gradients, or overlapping cells."
+    },
+    {
+      "path": "design/ui-motifs-source.png",
+      "role": "Generated six-motif ornament atlas retained for provenance; structural UI is deterministic and this source is never loaded by the runtime.",
+      "purpose": "interaction",
+      "authority": "inspiration",
+      "source": "imagegen",
+      "sha256": "888652c5b32a7234c2b9d7b9f339e8a928d7daeb97f9c685836d246cfd380397",
+      "prompt": "Production source atlas of exactly six decorative pixel-art UI motifs for Wickward: candle-flame crest, crossed ward-line knot, night-moth sigil, wax-drip edge accent, square brass corner cap, and round brass rivet. One motif per equal cell in a 3 by 2 atlas on flat chroma green, all at the same apparent pixel density and scale, using the existing Wickward palette and crisp 16-bit pixel language. Ornaments only: no complete panels, buttons, frames, health bars, text, characters, scenery, giant ornaments, mismatched pixel densities, gradients, or watermark."
+    },
+    { "path": "evidence/captures/planning.png", "role": "Current running Godot planning view.", "purpose": "gameplay", "authority": "production-target", "source": "captured", "sha256": "4841e29f9a03e4ec51d4ebeb9408d85576395357a758f0df33bc1b985503a429" },
+    { "path": "evidence/captures/selected.png", "role": "Current running Godot selection view.", "purpose": "interaction", "authority": "production-target", "source": "captured", "sha256": "880783c181f14ac6ac1f7f9ed0cc916cd110964fe9a33e5e94b258c03ad1f1f7" },
+    { "path": "evidence/captures/battle.png", "role": "Current running Godot live combat view.", "purpose": "motion", "authority": "production-target", "source": "captured", "sha256": "6dac54fe35cdaa69b0fab11b4e6e0524efd55dfb46f26e1f4d9ba4b66b0f1c13" },
+    { "path": "evidence/captures/result.png", "role": "Current running Godot resolved result view.", "purpose": "interaction", "authority": "production-target", "source": "captured", "sha256": "4f7f446232b8da8451a3a5dca13d098488787baa407a0d0dcb31644e689d4343" },
+    { "path": "evidence/captures/wickward-motion.mp4", "role": "Current engine-recorded Wickward combat sequence from ignition through victory.", "purpose": "motion", "authority": "production-target", "source": "captured", "sha256": "5b8c0cf874c8f066c96192fca426baead85a8c953faf98c451936750c0a57686" }
+  ],
+  "implementations": [
+    { "id": "slice", "adapter": "godot-production-slice", "path": "design/production-slice.json", "sha256": "c950e3c1c90c26c7d7ed2b5675c80ccda199a939333873f746fe5945109780f8" },
+    { "id": "readiness", "adapter": "production-readiness", "path": "design/production-slice.json", "sha256": "c950e3c1c90c26c7d7ed2b5675c80ccda199a939333873f746fe5945109780f8" },
+    { "id": "runtime", "adapter": "godot-script", "path": "main.gd", "sha256": "380c51e7d0ba73d327495c706587e0d8b364bbc2c2409e03044495c463bc09ba" },
+    { "id": "red-warden", "adapter": "godot-runtime-sprite", "path": "assets/runtime/red-warden.png", "sha256": "14c1929dc57f3805556afc0cd29af6f537ff18ec6cf9b6bcf8f84b969df6cbd7" },
+    { "id": "blue-seer", "adapter": "godot-runtime-sprite", "path": "assets/runtime/blue-seer.png", "sha256": "076f8533076075ad4a98c68fb97a8ceff7f907e5cafada1113c5671ccc74c305" },
+    { "id": "gold-chime", "adapter": "godot-runtime-sprite", "path": "assets/runtime/gold-chime.png", "sha256": "0bc5a00b4813d4117d7d5ac66b3eafba7156a47c84999d331b26a36c1032d3c7" },
+    { "id": "soot-moth", "adapter": "godot-runtime-sprite", "path": "assets/runtime/soot-moth.png", "sha256": "e6a544bfd2e740f8d1329646e843bc1140ed3c22fc9ba55d6bf9ff0fda6f2405" },
+    { "id": "needle-moth", "adapter": "godot-runtime-sprite", "path": "assets/runtime/needle-moth.png", "sha256": "26211b85d4ee50d8e44a6e461db6323eeced05d4b2e30a0684d6f1794985e344" },
+    { "id": "ash-moth", "adapter": "godot-runtime-sprite", "path": "assets/runtime/ash-moth.png", "sha256": "d7d8b209d45a7ef28b7be34e5fbad84f57242c0bd2d264f77f484e8bcbf44245" },
+    { "id": "silkscreen", "adapter": "godot-font", "path": "assets/fonts/Silkscreen-Regular.ttf", "sha256": "c845473330b94c2079ce9af01c51ac8ba2d99c24f4d14c039843bbb8e642ebd8" },
+    { "id": "ui-flame-crest", "adapter": "godot-runtime-ui-motif", "path": "assets/runtime/ui-v2/flame-crest.png", "sha256": "bc8514bee68d18b5af99d0dfadf348cef4a522f0a5091ccc7a162a4a16340012" },
+    { "id": "ui-ward-knot", "adapter": "godot-runtime-ui-motif", "path": "assets/runtime/ui-v2/ward-knot.png", "sha256": "2de37c160083b020580d8d0a88d4b37b32a080bd5c8b2ef56d2044de65ba4e70" },
+    { "id": "ui-moth-sigil", "adapter": "godot-runtime-ui-motif", "path": "assets/runtime/ui-v2/moth-sigil.png", "sha256": "81437427308a8d919ecc38002426e1da1616efc698108eb2b61805308584fd20" },
+    { "id": "ui-wax-drip", "adapter": "godot-runtime-ui-motif", "path": "assets/runtime/ui-v2/wax-drip.png", "sha256": "fe586bb50dbf440eca895ba4023dbe488d7fecf841530139fc824087114e7975" },
+    { "id": "ui-corner-cap", "adapter": "godot-runtime-ui-motif", "path": "assets/runtime/ui-v2/corner-cap.png", "sha256": "09289cba69fed3feba2eed067db7fe93062c056b612393848eab41db946132ba" },
+    { "id": "ui-rivet", "adapter": "godot-runtime-ui-motif", "path": "assets/runtime/ui-v2/rivet.png", "sha256": "cc2e063fc7bafffa234058df8df1c6e977a2e41ab918b8e20778ebd6605eec2e" }
+  ],
+  "metadata": {
+    "sourcePipeline": ["Codex built-in ImageGen character sheet", "SAM3", "compile_sprites.py", "Codex built-in ImageGen ornament atlas", "compile_ui_motifs.py", "deterministic native-grid UI geometry", "Godot import", "whole-pixel motion choreography", "Godot fixed-step MovieWriter capture", "native-resolution H.264 evidence encode", "capture-driven repair"],
+    "scope": "One encounter production slice",
+    "humanFunEvidence": false
+  }
+}

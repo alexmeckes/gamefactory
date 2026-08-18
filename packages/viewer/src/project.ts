@@ -40,8 +40,15 @@ export interface FactoryProjectSnapshot {
     id: string;
     title: string;
     order: number;
+    kind: "legacy-phase" | "spec-convergence" | "vertical-slice";
     status: "pending" | "live" | "complete" | "blocked";
     acceptedRevision?: string;
+    unitFingerprint?: string;
+    specRevision?: number;
+    consumesClaims?: string[];
+    playerOutcome?: string;
+    primaryRisk?: string;
+    reused?: boolean;
     attempts: Array<{
       id: string;
       campaignId: string;
@@ -141,16 +148,24 @@ export function createFactoryProjectSnapshot(trace: FactoryProjectTrace, request
   const run = attemptSnapshots.get(selectedKey)!;
   const phases = trace.project.phases.map((phase) => {
     const events = journey.filter((event) => event.phaseId === phase.id);
-    const completed = [...events].reverse().find((event) => event.type === "phase-completed" || event.type === "promotion-applied");
-    const blocked = [...events].reverse().find((event) => event.type === "phase-blocked");
-    const started = [...events].reverse().find((event) => event.type === "phase-started");
+    const completed = [...events].reverse().find((event) => event.type === "phase-completed" || event.type === "spec-frozen" || event.type === "slice-completed" || event.type === "promotion-applied");
+    const blocked = [...events].reverse().find((event) => event.type === "phase-blocked" || event.type === "spec-blocked" || event.type === "slice-blocked");
+    const started = [...events].reverse().find((event) => event.type === "phase-started" || event.type === "spec-started" || event.type === "slice-started");
     const status = completed ? "complete" : blocked ? "blocked" : started ? "live" : "pending";
+    const completedData = completed?.data && typeof completed.data === "object" && !Array.isArray(completed.data) ? completed.data : undefined;
     return {
       id: phase.id,
       title: phase.title,
       order: phase.order,
+      kind: phase.workKind ?? "legacy-phase",
       status: status as "pending" | "live" | "complete" | "blocked",
       ...(completed?.resultingRevision ? { acceptedRevision: completed.resultingRevision } : {}),
+      ...(completed?.unitFingerprint ? { unitFingerprint: completed.unitFingerprint } : {}),
+      ...(completed?.specRevision !== undefined ? { specRevision: completed.specRevision } : {}),
+      ...(phase.consumesClaims ? { consumesClaims: phase.consumesClaims } : {}),
+      ...(phase.playerOutcome ? { playerOutcome: phase.playerOutcome } : {}),
+      ...(phase.primaryRisk ? { primaryRisk: phase.primaryRisk } : {}),
+      ...(completedData?.reused === true ? { reused: true } : {}),
       attempts: phase.attempts.map((attempt) => {
         const snapshot = attemptSnapshots.get(key(phase.id, attempt.id))!;
         return { id: attempt.id, campaignId: snapshot.campaign.id, status: attempt.status ?? "active", runs: snapshot.runs, selectedRunId: snapshot.runId };

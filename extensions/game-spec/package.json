@@ -1,0 +1,12 @@
+{
+  "name": "@gamefactory/extension-game-spec",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "dependencies": {
+    "@gamefactory/core": "0.1.0",
+    "@gamefactory/extension-sdk": "0.1.0",
+    "@gamefactory/project-sdk": "0.1.0"
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "apiVersion": "gamefactory.visual-direction/v1",
+  "id": "wickward-candle-line",
+  "intent": "A tiny candle-knight ward that feels authored at native pixel scale and makes one formation decision readable before and during combat.",
+  "renderingStrategy": {
+    "mode": "Godot 2D at 480x270, integer 3x presentation, palette-locked 64x64 character sprites, an authored raster UI kit, bundled pixel typography, and whole-pixel causal combat choreography.",
+    "feasibility": "Build and capture the entire representative encounter in Godot. Keep ImageGen output as source only; segment, normalize, palette-lock, import, and inspect every runtime asset before promotion."
+  },
+  "references": [
+    {
+      "path": "design/character-source.png",
+      "label": "Generated character source sheet; source only and never a runtime surface",
+      "purpose": "silhouette",
+      "authority": "inspiration",
+      "source": "imagegen",
+      "sha256": "a1097255981be71627fe13aedcb5dfae42a814e95e01063057f154fde4508aea",
+      "prompt": "Production source sheet for a low-resolution 2D pixel-art autobattler called WICKWARD: exactly six isolated full-body units in a 3 by 2 sheet—three candle guardians (red shield warden, blue match-wand seer, gold bell healer) and three night moths (round soot moth, narrow violet needle moth, large ash moth). Authentic crisp 16-bit pixel art, limited palette, readable silhouettes, consistent scale and baseline, no text, UI, scenery, shadows, watermark, painterly rendering, gradients, or overlapping cells."
+    },
+    {
+      "path": "design/ui-motifs-source.png",
+      "label": "Generated six-motif ornament atlas; source only and never loaded by the runtime",
+      "purpose": "interaction",
+      "authority": "inspiration",
+      "source": "imagegen",
+      "sha256": "888652c5b32a7234c2b9d7b9f339e8a928d7daeb97f9c685836d246cfd380397",
+      "prompt": "Production source atlas of exactly six decorative pixel-art UI motifs for Wickward: candle-flame crest, crossed ward-line knot, night-moth sigil, wax-drip edge accent, square brass corner cap, and round brass rivet. One motif per equal cell in a 3 by 2 atlas on flat chroma green, all at the same apparent pixel density and scale, using the existing Wickward palette and crisp 16-bit pixel language. Ornaments only: no complete panels, buttons, frames, health bars, text, characters, scenery, giant ornaments, mismatched pixel densities, gradients, or watermark."
+    },
+    {
+      "path": "evidence/captures/planning.png",
+      "label": "Current Godot planning view",
+      "purpose": "gameplay",
+      "authority": "production-target",
+      "source": "captured",
+      "sha256": "4841e29f9a03e4ec51d4ebeb9408d85576395357a758f0df33bc1b985503a429"
+    },
+    {
+      "path": "evidence/captures/selected.png",
+      "label": "Current Godot selected-guardian view",
+      "purpose": "interaction",
+      "authority": "production-target",
+      "source": "captured",
+      "sha256": "880783c181f14ac6ac1f7f9ed0cc916cd110964fe9a33e5e94b258c03ad1f1f7"
+    },
+    {
+      "path": "evidence/captures/battle.png",
+      "label": "Current Godot live combat view",
+      "purpose": "motion",
+      "authority": "production-target",
+      "source": "captured",
+      "sha256": "6dac54fe35cdaa69b0fab11b4e6e0524efd55dfb46f26e1f4d9ba4b66b0f1c13"
+    },
+    {
+      "path": "evidence/captures/result.png",
+      "label": "Current Godot resolved result view",
+      "purpose": "interaction",
+      "authority": "production-target",
+      "source": "captured",
+      "sha256": "4f7f446232b8da8451a3a5dca13d098488787baa407a0d0dcb31644e689d4343"
+    },
+    {
+      "path": "evidence/captures/wickward-motion.mp4",
+      "label": "Current Godot engine-recorded combat choreography",
+      "purpose": "motion",
+      "authority": "production-target",
+      "source": "captured",
+      "sha256": "5b8c0cf874c8f066c96192fca426baead85a8c953faf98c451936750c0a57686"
+    }
+  ],
+  "nonnegotiables": [
+    "Rear, center, and front effects remain readable before battle without a tutorial modal.",
+    "Generated and segmented source images never appear directly in the shipping view.",
+    "Structural UI uses one deterministic native-grid geometry contract; generated ornament motifs are compiled to final dimensions and placed 1:1 without texture stretching.",
+    "Every runtime character uses the same 64x64 pixel grid, 16-color palette, baseline, and nearest-neighbor import.",
+    "Combat exposes anticipation, role-specific action, travel, impact, reaction, defeat, and resolution through the real engine-recorded sequence.",
+    "Planning, selected, battle, win, and replay states share one visual system."
+  ],
+  "qualityDimensions": {
+    "formation_read": "The eye moves from slot role to guardian to front-facing threat without hunting.",
+    "pixel_coherence": "Sprites, type, borders, effects, and motion resolve on the same low-resolution grid.",
+    "authored_specificity": "Wax guardians, moth enemies, flame progress pips, and the ward-line vocabulary feel specific to Wickward.",
+    "combat_feedback": "Damage, healing, target travel, health, defeat, victory, and replay remain distinguishable during the short battle.",
+    "motion_choreography": "Each role has a distinct causal phrase, with whole-pixel anticipation, action, impact, reaction, and recovery rather than generic ambient movement."
+  },
+  "antiPatterns": [
+    "smooth default engine typography",
+    "raw generated character sheets in runtime",
+    "mixed pixel densities",
+    "generic fantasy card chrome",
+    "unbounded particle noise",
+    "concept art presented as gameplay evidence"
+  ],
+  "views": [
+    { "id": "planning", "purpose": "Explain the single formation decision and invite a swap." },
+    { "id": "selected", "purpose": "Confirm which guardian will move next." },
+    { "id": "battle", "purpose": "Show the formation's automatic causal behavior." },
+    { "id": "result", "purpose": "Resolve the encounter and expose immediate replay." }
+  ]
+}

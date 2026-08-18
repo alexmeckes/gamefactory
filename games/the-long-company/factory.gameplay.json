@@ -1,0 +1,13 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "extensions": [
+    "C:/Users/alexm/OneDrive/Documents/ChatGPT/gamefactory/extensions/autoresearch",
+    "C:/Users/alexm/OneDrive/Documents/ChatGPT/gamefactory/extensions/git",
+    "C:/Users/alexm/OneDrive/Documents/ChatGPT/gamefactory/extensions/agent-team",
+    "C:/Users/alexm/OneDrive/Documents/ChatGPT/gamefactory/extensions/godot"
+  ],
+  "resultLog": ".factory/results/gameplay-proof.jsonl",
+  "journalLog": ".factory/journal/gameplay-proof.jsonl",
+  "traceLog": ".factory/traces/gameplay-proof.jsonl",
+  "artifactDirectory": ".factory/artifacts"
+}

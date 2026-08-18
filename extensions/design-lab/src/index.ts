@@ -8,15 +8,23 @@ import {
   parseDesignIntent,
   parseDesignIntentReference,
   parseHumanPlaytestReport,
+  parsePolishReadiness,
+  parseSceneTarget,
   parseVisualDirection,
+  polishReadinessSha256,
   resolveDesignPath,
+  sceneTargetSha256,
+  assertSceneTargetReady,
   visualDirectionSha256,
   type DesignIntent,
   type DesignReferenceAuthority,
   type DesignSystemMaturity,
   type GameDesignSystem,
   type MetricAggregate,
-  type PlaytestMetric
+  type PolishReadinessManifest,
+  type PolishStage,
+  type PlaytestMetric,
+  type SceneTargetManifest
 } from "@gamefactory/design-sdk";
 import type {
   ArtifactReference,
@@ -43,7 +51,29 @@ interface LoadedDesignSystem {
   sha256: string;
   imagegenReferences: number;
   productionTargets: number;
+  readiness?: { path: string; manifest: PolishReadinessManifest; sha256: string };
   visualDirection?: { path: string; sha256: string; references: number };
+  sceneTarget?: { path: string; manifest: SceneTargetManifest; sha256: string; artifactPaths: string[]; producedComponents: number };
+}
+
+interface DesignSystemConfig {
+  path: string;
+  visualDirectionPath?: string;
+  sceneTargetPath?: string;
+  requiredTokenGroups: string[];
+  requiredAdapters: string[];
+  requiredReferenceAuthorities: DesignReferenceAuthority[];
+  requiredPolishGates: string[];
+  minimumReferences: number;
+  requireImagegenReference: boolean;
+  requireProductionReadiness: boolean;
+  requireNoPlaceholders: boolean;
+  requireSceneTarget: boolean;
+  requireSceneTargetComponentLineage: boolean;
+  requireSceneTargetExperienceContract: boolean;
+  requiredSceneTargetMotionKinds: Array<"ambient" | "interaction" | "gameplay" | "transition">;
+  readinessAdapter: string;
+  minimumMaturity: DesignSystemMaturity;
 }
 
 interface PlaytestRun {
@@ -70,10 +100,11 @@ function configuredStrings(value: unknown, location: string): string[] {
   return value;
 }
 
-function designSystemConfig(campaign: Parameters<Evaluator["evaluate"]>[0]["campaign"]): { path: string; visualDirectionPath?: string; requiredTokenGroups: string[]; requiredAdapters: string[]; requiredReferenceAuthorities: DesignReferenceAuthority[]; minimumReferences: number; requireImagegenReference: boolean; minimumMaturity: DesignSystemMaturity } {
+function designSystemConfig(campaign: Parameters<Evaluator["evaluate"]>[0]["campaign"]): DesignSystemConfig {
   const config = object(campaign.parameters?.designSystem);
   const requiredTokenGroups = configuredStrings(config.requiredTokenGroups, "parameters.designSystem.requiredTokenGroups");
   const requiredAdapters = configuredStrings(config.requiredAdapters, "parameters.designSystem.requiredAdapters");
+  const requiredPolishGates = configuredStrings(config.requiredPolishGates, "parameters.designSystem.requiredPolishGates");
   const rawAuthorities = configuredStrings(config.requiredReferenceAuthorities, "parameters.designSystem.requiredReferenceAuthorities");
   const requiredReferenceAuthorities = rawAuthorities.map((authority) => {
     if (authority !== "inspiration" && authority !== "production-target" && authority !== "baseline" && authority !== "evidence") throw new Error(`parameters.designSystem.requiredReferenceAuthorities contains unsupported authority ${authority}`);
@@ -82,18 +113,38 @@ function designSystemConfig(campaign: Parameters<Evaluator["evaluate"]>[0]["camp
   const minimumReferences = config.minimumReferences ?? 0;
   if (typeof minimumReferences !== "number" || !Number.isSafeInteger(minimumReferences) || minimumReferences < 0 || minimumReferences > 64) throw new Error("parameters.designSystem.minimumReferences must be an integer from 0 to 64");
   if (config.requireImagegenReference !== undefined && typeof config.requireImagegenReference !== "boolean") throw new Error("parameters.designSystem.requireImagegenReference must be boolean");
+  if (config.requireProductionReadiness !== undefined && typeof config.requireProductionReadiness !== "boolean") throw new Error("parameters.designSystem.requireProductionReadiness must be boolean");
+  if (config.requireNoPlaceholders !== undefined && typeof config.requireNoPlaceholders !== "boolean") throw new Error("parameters.designSystem.requireNoPlaceholders must be boolean");
+  if (config.requireSceneTarget !== undefined && typeof config.requireSceneTarget !== "boolean") throw new Error("parameters.designSystem.requireSceneTarget must be boolean");
+  if (config.requireSceneTargetComponentLineage !== undefined && typeof config.requireSceneTargetComponentLineage !== "boolean") throw new Error("parameters.designSystem.requireSceneTargetComponentLineage must be boolean");
+  if (config.requireSceneTargetExperienceContract !== undefined && typeof config.requireSceneTargetExperienceContract !== "boolean") throw new Error("parameters.designSystem.requireSceneTargetExperienceContract must be boolean");
+  const requiredSceneTargetMotionKinds = configuredStrings(config.requiredSceneTargetMotionKinds, "parameters.designSystem.requiredSceneTargetMotionKinds").map((kind) => {
+    if (kind !== "ambient" && kind !== "interaction" && kind !== "gameplay" && kind !== "transition") throw new Error(`parameters.designSystem.requiredSceneTargetMotionKinds contains unsupported kind ${kind}`);
+    return kind;
+  }) as Array<"ambient" | "interaction" | "gameplay" | "transition">;
+  if (config.readinessAdapter !== undefined && (typeof config.readinessAdapter !== "string" || config.readinessAdapter.length === 0)) throw new Error("parameters.designSystem.readinessAdapter must be a non-empty string");
   if (config.path !== undefined && (typeof config.path !== "string" || config.path.length === 0)) throw new Error("parameters.designSystem.path must be a non-empty string");
   if (config.visualDirectionPath !== undefined && (typeof config.visualDirectionPath !== "string" || config.visualDirectionPath.length === 0)) throw new Error("parameters.designSystem.visualDirectionPath must be a non-empty string");
+  if (config.sceneTargetPath !== undefined && (typeof config.sceneTargetPath !== "string" || config.sceneTargetPath.length === 0)) throw new Error("parameters.designSystem.sceneTargetPath must be a non-empty string");
   const minimumMaturity = config.minimumMaturity ?? "direction";
   if (minimumMaturity !== "direction" && minimumMaturity !== "production-slice" && minimumMaturity !== "production") throw new Error("parameters.designSystem.minimumMaturity must be direction, production-slice, or production");
   return {
     path: typeof config.path === "string" && config.path.length > 0 ? config.path : "design-system.json",
     ...(typeof config.visualDirectionPath === "string" ? { visualDirectionPath: config.visualDirectionPath } : {}),
+    ...(typeof config.sceneTargetPath === "string" ? { sceneTargetPath: config.sceneTargetPath } : {}),
     requiredTokenGroups,
     requiredAdapters,
+    requiredPolishGates,
     requiredReferenceAuthorities,
     minimumReferences,
     requireImagegenReference: config.requireImagegenReference === true,
+    requireProductionReadiness: config.requireProductionReadiness === true || minimumMaturity !== "direction",
+    requireNoPlaceholders: config.requireNoPlaceholders === true || minimumMaturity !== "direction",
+    requireSceneTarget: config.requireSceneTarget === true || config.requireSceneTargetComponentLineage === true || config.requireSceneTargetExperienceContract === true || requiredSceneTargetMotionKinds.length > 0,
+    requireSceneTargetComponentLineage: config.requireSceneTargetComponentLineage === true,
+    requireSceneTargetExperienceContract: config.requireSceneTargetExperienceContract === true,
+    requiredSceneTargetMotionKinds,
+    readinessAdapter: typeof config.readinessAdapter === "string" && config.readinessAdapter.length > 0 ? config.readinessAdapter : "production-readiness",
     minimumMaturity
   };
 }
@@ -126,6 +177,39 @@ async function loadDesignSystem(candidate: Candidate, campaign: Parameters<Evalu
     ...system.references.map((item, index) => verifiedDesignSystemFile(candidate.root, item.path, item.sha256, `design system reference ${index + 1}`)),
     ...system.implementations.map((item, index) => verifiedDesignSystemFile(candidate.root, item.path, item.sha256, `design system implementation ${index + 1}`))
   ]);
+  const evidencePaths = new Set([...system.references.map((item) => item.path), ...system.implementations.map((item) => item.path)]);
+  const readinessImplementation = system.implementations.find((item) => item.adapter === config.readinessAdapter);
+  if (config.requireProductionReadiness && !readinessImplementation) throw new Error(`Design system requires a ${config.readinessAdapter} implementation`);
+  let readiness: LoadedDesignSystem["readiness"];
+  if (readinessImplementation) {
+    const readinessPath = resolveDesignPath(candidate.root, readinessImplementation.path);
+    const manifest = parsePolishReadiness(JSON.parse(await readFile(readinessPath, "utf8")) as unknown);
+    const referencedEvidence = [
+      ...manifest.representativeBuild.captureEvidence,
+      ...manifest.surfaces.flatMap((item) => item.evidence),
+      ...manifest.assets.flatMap((item) => item.evidence),
+      ...manifest.gates.flatMap((item) => item.evidence)
+    ];
+    for (const evidence of referencedEvidence) if (!evidencePaths.has(evidence)) throw new Error(`Polish readiness cites unpinned evidence ${evidence}`);
+    const capturedTargets = new Set(system.references.filter((item) => item.source === "captured" && item.authority === "production-target").map((item) => item.path));
+    for (const capture of manifest.representativeBuild.captureEvidence) if (!capturedTargets.has(capture)) throw new Error(`Polish readiness capture ${capture} is not a captured production-target reference`);
+    const polishRank: Record<PolishStage, number> = { "visual-prototype": 0, "production-slice": 1, production: 2 };
+    const requiredStage: PolishStage = config.minimumMaturity === "production" ? "production" : config.minimumMaturity === "production-slice" ? "production-slice" : "visual-prototype";
+    if (polishRank[manifest.stage] < polishRank[requiredStage]) throw new Error(`Polish readiness stage ${manifest.stage} does not satisfy required ${requiredStage}`);
+    if (config.requireNoPlaceholders) {
+      const unfinishedSurfaces = manifest.surfaces.filter((item) => item.required && item.status !== "production");
+      if (unfinishedSurfaces.length > 0) throw new Error(`Required polish surfaces are not production-ready: ${unfinishedSurfaces.map((item) => `${item.id}=${item.status}`).join(", ")}`);
+      const pendingRuntimeAssets = manifest.assets.filter((item) => item.runtime && item.maturity !== "production");
+      if (pendingRuntimeAssets.length > 0) throw new Error(`Runtime assets are not production-ready: ${pendingRuntimeAssets.map((item) => `${item.id}=${item.maturity}`).join(", ")}`);
+    }
+    const blockers = manifest.unresolved.filter((item) => item.severity === "blocker");
+    if (blockers.length > 0) throw new Error(`Polish readiness has unresolved blockers: ${blockers.map((item) => item.id).join(", ")}`);
+    for (const gate of config.requiredPolishGates) {
+      const result = manifest.gates.find((item) => item.id === gate);
+      if (!result || result.status !== "pass") throw new Error(`Required polish gate ${gate} did not pass`);
+    }
+    readiness = { path: readinessPath, manifest, sha256: polishReadinessSha256(manifest) };
+  }
   let visualDirection: LoadedDesignSystem["visualDirection"];
   if (config.visualDirectionPath) {
     const directionPath = resolveDesignPath(candidate.root, config.visualDirectionPath);
@@ -133,16 +217,46 @@ async function loadDesignSystem(candidate: Candidate, campaign: Parameters<Evalu
     await Promise.all(direction.references.map((item, index) => verifiedDesignSystemFile(candidate.root, item.path, item.sha256, `visual direction reference ${index + 1}`)));
     visualDirection = { path: directionPath, sha256: visualDirectionSha256(direction), references: direction.references.length };
   }
-  return { path, system, sha256: gameDesignSystemSha256(system), imagegenReferences, productionTargets, ...(visualDirection ? { visualDirection } : {}) };
+  if (config.requireSceneTarget && !config.sceneTargetPath) throw new Error("Design system requires parameters.designSystem.sceneTargetPath");
+  let sceneTarget: LoadedDesignSystem["sceneTarget"];
+  if (config.sceneTargetPath) {
+    const sceneTargetPath = resolveDesignPath(candidate.root, config.sceneTargetPath);
+    const manifest = parseSceneTarget(JSON.parse(await readFile(sceneTargetPath, "utf8")) as unknown);
+    if (config.requireSceneTarget) assertSceneTargetReady(manifest, {
+      requireProducedComponents: config.requireSceneTargetComponentLineage,
+      requireExperienceContract: config.requireSceneTargetExperienceContract,
+      requiredMotionKinds: config.requiredSceneTargetMotionKinds
+    });
+    const selectedCandidate = manifest.candidates.find((item) => item.id === manifest.selectedCandidateId)!;
+    const selectedView = selectedCandidate.views.find((item) => item.id === selectedCandidate.primaryViewId)!;
+    if (!system.references.some((item) => item.path === selectedView.path && item.sha256 === selectedView.sha256)) throw new Error(`Selected scene target ${selectedView.path} is not pinned by the design system`);
+    const files = [
+      ...manifest.candidates.flatMap((candidate) => candidate.views.map((view) => ({ path: view.path, sha256: view.sha256, label: `scene target ${candidate.id}/${view.id}` }))),
+      ...manifest.components.flatMap((component) => component.production ? [
+        { path: component.production.sourcePath, sha256: component.production.sourceSha256, label: `scene target component ${component.id} source` },
+        { path: component.production.runtimePath, sha256: component.production.runtimeSha256, label: `scene target component ${component.id} runtime` },
+        ...component.production.matchEvidence.map((evidence, index) => ({ path: evidence.path, sha256: evidence.sha256, label: `scene target component ${component.id} evidence ${index + 1}` }))
+      ] : [])
+    ];
+    await Promise.all(files.map((file) => verifiedDesignSystemFile(candidate.root, file.path, file.sha256, file.label)));
+    sceneTarget = {
+      path: sceneTargetPath,
+      manifest,
+      sha256: sceneTargetSha256(manifest),
+      artifactPaths: [...new Set(files.map((file) => resolveDesignPath(candidate.root, file.path)))],
+      producedComponents: manifest.components.filter((component) => component.production !== undefined).length
+    };
+  }
+  return { path, system, sha256: gameDesignSystemSha256(system), imagegenReferences, productionTargets, ...(readiness ? { readiness } : {}), ...(visualDirection ? { visualDirection } : {}), ...(sceneTarget ? { sceneTarget } : {}) };
 }
 
 export class DesignSystemEvaluator implements Evaluator {
   readonly id = "design.system";
-  readonly version = "1.1.0";
+  readonly version = "1.3.0";
 
   async evaluate(input: Parameters<Evaluator["evaluate"]>[0]): Promise<Evaluation> {
     if (!input.candidate) {
-      return { evaluator: this.id, version: this.version, status: "pass", metrics: { design_system_integrity: 0, design_system_references: 0, design_system_imagegen_references: 0 }, violations: [], artifacts: [], confidence: 1, summary: "Baseline has no candidate-authored design system." };
+      return { evaluator: this.id, version: this.version, status: "pass", metrics: { design_system_integrity: 0, design_system_references: 0, design_system_imagegen_references: 0, scene_target_approved: 0, scene_target_components_produced: 0, polish_ready: 0 }, violations: [], artifacts: [], confidence: 1, summary: "Baseline has no candidate-authored production-ready design system." };
     }
     try {
       const loaded = await loadDesignSystem(input.candidate, input.campaign);
@@ -150,16 +264,18 @@ export class DesignSystemEvaluator implements Evaluator {
         evaluator: this.id,
         version: this.version,
         status: "pass",
-        metrics: { design_system_integrity: 1, design_system_maturity: loaded.system.maturity === "production" ? 2 : loaded.system.maturity === "production-slice" ? 1 : 0, design_system_principles: loaded.system.principles.length, design_system_token_groups: Object.keys(loaded.system.tokens).length, design_system_patterns: loaded.system.patterns.length, design_system_references: loaded.system.references.length, design_system_imagegen_references: loaded.imagegenReferences, design_system_production_targets: loaded.productionTargets, design_system_implementations: loaded.system.implementations.length, visual_direction_references: loaded.visualDirection?.references ?? 0 },
+        metrics: { design_system_integrity: 1, design_system_maturity: loaded.system.maturity === "production" ? 2 : loaded.system.maturity === "production-slice" ? 1 : 0, design_system_principles: loaded.system.principles.length, design_system_token_groups: Object.keys(loaded.system.tokens).length, design_system_patterns: loaded.system.patterns.length, design_system_references: loaded.system.references.length, design_system_imagegen_references: loaded.imagegenReferences, design_system_production_targets: loaded.productionTargets, design_system_implementations: loaded.system.implementations.length, visual_direction_references: loaded.visualDirection?.references ?? 0, scene_target_approved: loaded.sceneTarget?.manifest.approval.status === "approved" ? 1 : 0, scene_target_candidates: loaded.sceneTarget?.manifest.candidates.length ?? 0, scene_target_views: loaded.sceneTarget?.manifest.candidates.reduce((count, candidate) => count + candidate.views.length, 0) ?? 0, scene_target_components: loaded.sceneTarget?.manifest.components.length ?? 0, scene_target_components_produced: loaded.sceneTarget?.producedComponents ?? 0, polish_ready: loaded.readiness && loaded.readiness.manifest.stage !== "visual-prototype" ? 1 : 0, polish_surfaces_production: loaded.readiness?.manifest.surfaces.filter((item) => item.status === "production").length ?? 0, polish_surfaces_unfinished: loaded.readiness?.manifest.surfaces.filter((item) => item.required && item.status !== "production").length ?? 0, polish_runtime_assets_pending: loaded.readiness?.manifest.assets.filter((item) => item.runtime && item.maturity !== "production").length ?? 0, polish_gates_passed: loaded.readiness?.manifest.gates.filter((item) => item.status === "pass").length ?? 0, polish_blockers: loaded.readiness?.manifest.unresolved.filter((item) => item.severity === "blocker").length ?? 0 },
         violations: [],
         artifacts: [
           artifact(loaded.path, "profile", `Design system ${loaded.system.id}@${loaded.system.version}`, "application/json"),
+          ...(loaded.readiness ? [artifact(loaded.readiness.path, "profile", `Polish readiness ${loaded.readiness.manifest.stage}`, "application/json")] : []),
           ...(loaded.visualDirection ? [artifact(loaded.visualDirection.path, "profile", `Visual direction ${loaded.visualDirection.sha256.slice(0, 12)}`, "application/json")] : []),
+          ...(loaded.sceneTarget ? [artifact(loaded.sceneTarget.path, "profile", `Scene target ${loaded.sceneTarget.manifest.id}@${loaded.sceneTarget.manifest.version}`, "application/json"), ...loaded.sceneTarget.artifactPaths.map((path) => artifact(path, path.toLowerCase().endsWith(".png") ? "image" : "other", "Scene target lineage evidence", path.toLowerCase().endsWith(".png") ? "image/png" : "application/octet-stream"))] : []),
           ...loaded.system.references.map((item) => artifact(resolveDesignPath(input.candidate!.root, item.path), item.path.toLowerCase().endsWith(".png") ? "image" : "other", item.role, item.path.toLowerCase().endsWith(".png") ? "image/png" : "application/octet-stream")),
           ...loaded.system.implementations.map((item) => artifact(resolveDesignPath(input.candidate!.root, item.path), "other", `Design system adapter: ${item.adapter}`, item.path.toLowerCase().endsWith(".md") ? "text/markdown" : "text/plain"))
         ],
         confidence: 1,
-        summary: `Verified ${loaded.system.id}@${loaded.system.version} (${loaded.sha256.slice(0, 12)}) with ${loaded.imagegenReferences} ImageGen reference(s).`
+        summary: `Verified ${loaded.system.id}@${loaded.system.version} (${loaded.sha256.slice(0, 12)})${loaded.readiness ? ` at ${loaded.readiness.manifest.stage} polish readiness` : ""}.`
       };
     } catch (error) {
       return { evaluator: this.id, version: this.version, status: "fail", metrics: { design_system_integrity: 0 }, violations: [{ code: "design.system.invalid", message: error instanceof Error ? error.message : String(error), severity: "error" }], artifacts: [], confidence: 1, summary: "Design system verification failed." };

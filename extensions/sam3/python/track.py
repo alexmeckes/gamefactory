@@ -15,6 +15,14 @@ def main() -> None:
     dtype = {"float32": torch.float32, "float16": torch.float16, "bfloat16": torch.bfloat16}[request.get("precision", "bfloat16")]
     source = request.get("modelSource", "facebook/sam3")
     processor = Sam3VideoProcessor.from_pretrained(source)
+    tokenizer_limit = int(processor.tokenizer.model_max_length)
+    for job in request["jobs"]:
+        token_count = len(processor.tokenizer(job["prompt"], add_special_tokens=True)["input_ids"])
+        if token_count > tokenizer_limit:
+            raise ValueError(
+                f"{job['id']}: text concept uses {token_count} tokens but {source} accepts at most "
+                f"{tokenizer_limit}; use one short positive object description"
+            )
     model = Sam3VideoModel.from_pretrained(source, torch_dtype=dtype, low_cpu_mem_usage=True).to(device).eval()
     results = []
     for job in request["jobs"]:

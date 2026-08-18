@@ -1,0 +1,52 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "kind": "Project",
+  "id": "the-long-company",
+  "title": "The Long Company",
+  "projectRoot": ".",
+  "history": ".factory/project-history.jsonl",
+  "phases": [
+    {
+      "id": "gameplay-proof",
+      "title": "Core game and clean-start proof",
+      "order": 10,
+      "gate": {
+        "requireAcceptedRevision": true,
+        "requireMetrics": {
+          "first_session_complete": { "minimum": 1 },
+          "scenarios_passed": { "minimum": 2 }
+        }
+      },
+      "attempts": [
+        {
+          "id": "gameplay-v1",
+          "campaign": "campaign.gameplay.json",
+          "config": "factory.gameplay.json",
+          "status": "active"
+        }
+      ]
+    },
+    {
+      "id": "visual-production",
+      "title": "Scene-first visual production",
+      "order": 20,
+      "dependsOn": ["gameplay-proof"],
+      "gate": {
+        "requireAcceptedRevision": true,
+        "requireMetrics": {
+          "polish_ready": { "minimum": 1 },
+          "visual_quality": { "minimum": 76 },
+          "scenarios_passed": { "minimum": 2 }
+        }
+      },
+      "attempts": [
+        {
+          "id": "production-v1",
+          "campaign": "campaign.json",
+          "config": "factory.production.json",
+          "status": "active"
+        }
+      ]
+    }
+  ]
+}

@@ -1,6 +1,4 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { realpath } from "node:fs/promises";
-import { resolve } from "node:path";
 import { createInterface } from "node:readline";
 import type { InvocationUsage } from "@gamefactory/core";
 
@@ -50,11 +48,6 @@ export interface CodexAppServerRunResult {
   requestedReasoningEffort?: string;
   reasoningEffort?: string;
   lifecycle: CodexThreadLifecycle;
-}
-
-interface RootThread {
-  threadId: string;
-  instructionSources: string[];
 }
 
 interface PendingRequest {
@@ -125,19 +118,77 @@ function eventError(params: JsonObject): string | undefined {
 
 function safeEventLine(method: string, params: JsonObject): string {
   const item = object(params.item);
+  const message = string(params.message) ?? eventError(params);
   const summary = {
     method,
     ...(eventThreadId(params) ? { threadId: eventThreadId(params) } : {}),
     ...(eventTurnId(params) ? { turnId: eventTurnId(params) } : {}),
     ...(string(item?.type) ? { itemType: string(item?.type) } : {}),
     ...(string(item?.status) ? { status: string(item?.status) } : {}),
-    ...(string(object(params.turn)?.status) ? { turnStatus: string(object(params.turn)?.status) } : {})
+    ...(string(object(params.turn)?.status) ? { turnStatus: string(object(params.turn)?.status) } : {}),
+    ...(message ? { message } : {})
   };
   return JSON.stringify(summary);
 }
 
 function isHighFrequencyDelta(method: string): boolean {
   return /delta$/i.test(method);
+}
+
+interface ParsedPayload {
+  value: JsonObject;
+  trailingCharacters: number;
+}
+
+function parseStructuredPayload(input: string): ParsedPayload {
+  try {
+    const parsed = object(JSON.parse(input) as unknown);
+    if (!parsed) throw new Error("structured payload must be a JSON object");
+    return { value: parsed, trailingCharacters: 0 };
+  } catch (directError) {
+    let candidate = input.trim();
+    if (candidate.startsWith("```")) {
+      const newline = candidate.indexOf("\n");
+      const language = newline < 0 ? candidate : candidate.slice(0, newline).trim();
+      if (!/^```(?:json)?$/i.test(language) || newline < 0) throw directError;
+      candidate = candidate.slice(newline + 1).trimStart();
+    }
+    if (!candidate.startsWith("{")) throw directError;
+
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    let end = -1;
+    for (let index = 0; index < candidate.length; index += 1) {
+      const character = candidate[index]!;
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (character === "\\") escaped = true;
+        else if (character === '"') inString = false;
+        continue;
+      }
+      if (character === '"') inString = true;
+      else if (character === "{") depth += 1;
+      else if (character === "}") {
+        depth -= 1;
+        if (depth === 0) {
+          end = index + 1;
+          break;
+        }
+        if (depth < 0) throw directError;
+      }
+    }
+    if (end < 0 || inString || depth !== 0) throw directError;
+
+    const parsed = object(JSON.parse(candidate.slice(0, end)) as unknown);
+    if (!parsed) throw new Error("structured payload must be a JSON object");
+    let trailing = candidate.slice(end).trim();
+    if (trailing.startsWith("```")) trailing = trailing.slice(3).trim();
+    if (/(?:^|\r?\n)\s*[\[{]/.test(trailing)) {
+      throw new Error("structured payload contains multiple JSON values");
+    }
+    return { value: parsed, trailingCharacters: trailing.length };
+  }
 }
 
 function expandStructuredEnvelope(output: string): string {
@@ -148,14 +199,37 @@ function expandStructuredEnvelope(output: string): string {
     return output;
   }
   if (typeof envelope.payload !== "string") return output;
-  let payload: JsonObject;
+  let payload: ParsedPayload;
   try {
-    const parsed = JSON.parse(envelope.payload) as unknown;
-    payload = object(parsed) ?? {};
+    payload = parseStructuredPayload(envelope.payload);
   } catch (error) {
-    throw new Error(`Codex App Server returned an invalid structured payload: ${error instanceof Error ? error.message : String(error)}`);
+    return JSON.stringify({
+      findings: envelope.payload,
+      summary: envelope.summary,
+      outcome: envelope.outcome,
+      _gamefactory: {
+        structuredPayloadRecovery: {
+          kind: "invalid-inner-json",
+          payloadCharacters: envelope.payload.length,
+          parseError: error instanceof Error ? error.message : String(error)
+        }
+      }
+    });
   }
-  return JSON.stringify({ ...payload, summary: envelope.summary, outcome: envelope.outcome });
+  return JSON.stringify({
+    ...payload.value,
+    summary: envelope.summary,
+    outcome: envelope.outcome,
+    ...(payload.trailingCharacters > 0 ? {
+      _gamefactory: {
+        ...(object(payload.value._gamefactory) ?? {}),
+        structuredPayloadRecovery: {
+          kind: "leading-json-with-trailing-text",
+          trailingCharacters: payload.trailingCharacters
+        }
+      }
+    } : {})
+  });
 }
 
 class CodexAppServerConnection {
@@ -165,8 +239,6 @@ class CodexAppServerConnection {
   private child: ChildProcessWithoutNullStreams | undefined;
   private startPromise: Promise<void> | undefined;
   private stderr = "";
-  private readonly ephemeralRoots = new Map<string, Promise<RootThread>>();
-
   constructor(
     private readonly launcher: string[],
     private readonly environment?: NodeJS.ProcessEnv
@@ -300,36 +372,10 @@ class CodexAppServerConnection {
     });
   }
 
-  private async candidateKey(cwd: string): Promise<string> {
-    const canonical = await realpath(resolve(cwd)).catch(() => resolve(cwd));
-    return process.platform === "win32" ? canonical.toLowerCase() : canonical;
-  }
-
   private instructionSources(result: JsonObject): string[] {
     return Array.isArray(result.instructionSources)
       ? result.instructionSources.filter((value): value is string => typeof value === "string")
       : [];
-  }
-
-  private async ephemeralRoot(cwd: string): Promise<RootThread> {
-    const key = await this.candidateKey(cwd);
-    let root = this.ephemeralRoots.get(key);
-    if (!root) {
-      root = (async () => {
-        const result = object(await this.request("thread/start", {
-          cwd,
-          approvalPolicy: "never",
-          sandbox: "read-only",
-          serviceName: "gamefactory"
-        })) ?? {};
-        const threadId = string(object(result.thread)?.id);
-        if (!threadId) throw new Error("Codex App Server ephemeral root did not return a thread id");
-        return { threadId, instructionSources: this.instructionSources(result) };
-      })();
-      this.ephemeralRoots.set(key, root);
-      root.catch(() => this.ephemeralRoots.delete(key));
-    }
-    return root;
   }
 
   private async createRunThread(request: CodexAppServerRunRequest, retention: CodexThreadRetention): Promise<{
@@ -339,26 +385,18 @@ class CodexAppServerConnection {
     instructionSources: string[];
     ephemeral: boolean;
   }> {
-    if (retention === "ephemeral") {
-      const root = await this.ephemeralRoot(request.cwd);
-      const result = object(await this.request("thread/fork", { threadId: root.threadId, ephemeral: true })) ?? {};
-      const thread = object(result.thread) ?? {};
-      const threadId = string(thread.id);
-      if (!threadId) throw new Error("Codex App Server ephemeral thread/fork did not return a thread id");
-      const sources = this.instructionSources(result);
-      return { result, thread, threadId, instructionSources: sources.length ? sources : root.instructionSources, ephemeral: true };
-    }
     const result = object(await this.request("thread/start", {
       cwd: request.cwd,
       approvalPolicy: "never",
       sandbox: request.readOnly ? "read-only" : "workspace-write",
       serviceName: "gamefactory",
+      ...(retention === "ephemeral" ? { ephemeral: true } : {}),
       ...(request.model ? { model: request.model } : {})
     })) ?? {};
     const thread = object(result.thread) ?? {};
     const threadId = string(thread.id);
     if (!threadId) throw new Error("Codex App Server thread/start did not return a thread id");
-    return { result, thread, threadId, instructionSources: this.instructionSources(result), ephemeral: false };
+    return { result, thread, threadId, instructionSources: this.instructionSources(result), ephemeral: retention === "ephemeral" };
   }
 
   async run(request: CodexAppServerRunRequest): Promise<CodexAppServerRunResult> {
@@ -495,7 +533,6 @@ class CodexAppServerConnection {
     this.pending.clear();
     for (const listener of this.listeners.values()) listener.reject(error);
     this.listeners.clear();
-    this.ephemeralRoots.clear();
     this.startPromise = undefined;
     this.child = undefined;
   }
@@ -505,17 +542,7 @@ class CodexAppServerConnection {
     if (!child || child.exitCode !== null) {
       this.child = undefined;
       this.startPromise = undefined;
-      this.ephemeralRoots.clear();
       return;
-    }
-    const roots = await Promise.allSettled([...this.ephemeralRoots.values()]);
-    this.ephemeralRoots.clear();
-    for (const root of roots) {
-      if (root.status !== "fulfilled") continue;
-      await this.request("thread/unsubscribe", { threadId: root.value.threadId }, 5_000).catch(() => undefined);
-      await this.request("thread/delete", { threadId: root.value.threadId }, 5_000).catch(async () => {
-        await this.request("thread/archive", { threadId: root.value.threadId }, 5_000).catch(() => undefined);
-      });
     }
     this.child = undefined;
     this.startPromise = undefined;

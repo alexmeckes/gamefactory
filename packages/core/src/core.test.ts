@@ -37,6 +37,16 @@ test("acceptance honors direction and minimum delta", () => {
     [evaluation(0.5)],
     [evaluation(0.505)]
   ).accepted, false);
+  assert.equal(decideAcceptance(
+    { primaryMetric: "score", direction: "maximize", minimumDelta: 0.01 },
+    [evaluation(0.5)],
+    [evaluation(0.51)]
+  ).accepted, true);
+  assert.equal(decideAcceptance(
+    { primaryMetric: "score", direction: "maximize", minimumDelta: 0 },
+    [evaluation(1)],
+    [evaluation(1)]
+  ).accepted, true);
 });
 
 test("acceptance enforces declared hard and human evaluator gates", () => {

@@ -1,0 +1,34 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "name": "godot-polished",
+  "extensions": [
+    "../../extensions/autoresearch",
+    "../../extensions/git",
+    "../../extensions/agent-team",
+    "../../extensions/design-lab",
+    "../../extensions/asset-foundry",
+    "../../extensions/video-foundry",
+    "../../extensions/sam3",
+    "../../extensions/pixel-motion",
+    "../../extensions/godot"
+  ],
+  "capabilities": [
+    "workflow:autoresearch",
+    "workspace:git.worktree",
+    "agent:agent.team",
+    "agent:godot.evidence",
+    "evaluator:design.system",
+    "agent:asset.command",
+    "evaluator:asset.technical",
+    "evaluator:asset.style",
+    "agent:video.google-omni",
+    "agent:animation.compile",
+    "agent:sam3.segment",
+    "agent:sam3.track",
+    "agent:pixel-motion.compile",
+    "evaluator:pixel-motion.quality",
+    "engine:godot.engine",
+    "evaluator:godot.scenario",
+    "evaluator:godot.visual"
+  ]
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scaffold GameFactory Project"
+  short_description: "Create a spec-led vertical-slice project"
+  default_prompt: "Use $scaffold-gamefactory-project to turn this game concept into a spec-led GameFactory project with player-complete vertical slices."

@@ -1,0 +1,142 @@
+{
+  "apiVersion": "gamefactory.polish-readiness/v1",
+  "stage": "production-slice",
+  "representativeBuild": {
+    "engine": "Godot 4.7.1 gl_compatibility at 480x270 native / 3x integer presentation",
+    "captureEvidence": [
+      "evidence/captures/planning.png",
+      "evidence/captures/selected.png",
+      "evidence/captures/battle.png",
+      "evidence/captures/result.png",
+      "evidence/captures/wickward-motion.mp4"
+    ]
+  },
+  "surfaces": [
+    {
+      "id": "planning",
+      "label": "Formation planning and role comprehension",
+      "required": true,
+      "status": "production",
+      "evidence": ["evidence/captures/planning.png"]
+    },
+    {
+      "id": "selection",
+      "label": "Guardian selected interaction state",
+      "required": true,
+      "status": "production",
+      "evidence": ["evidence/captures/selected.png"]
+    },
+    {
+      "id": "combat",
+      "label": "Live automatic combat and causal feedback",
+      "required": true,
+      "status": "production",
+      "evidence": ["evidence/captures/battle.png", "evidence/captures/wickward-motion.mp4"]
+    },
+    {
+      "id": "result",
+      "label": "Resolved victory and replay state",
+      "required": true,
+      "status": "production",
+      "evidence": ["evidence/captures/result.png"]
+    },
+    {
+      "id": "interface-chrome",
+      "label": "Reusable authored controls, status, selection, and result chrome",
+      "required": true,
+      "status": "production",
+      "evidence": ["evidence/captures/planning.png", "evidence/captures/selected.png", "evidence/captures/battle.png", "evidence/captures/result.png"]
+    }
+  ],
+  "assets": [
+    { "id": "red-warden", "label": "Red Warden runtime sprite", "kind": "sprite", "runtime": true, "maturity": "production", "evidence": ["assets/runtime/red-warden.png"] },
+    { "id": "blue-seer", "label": "Blue Seer runtime sprite", "kind": "sprite", "runtime": true, "maturity": "production", "evidence": ["assets/runtime/blue-seer.png"] },
+    { "id": "gold-chime", "label": "Gold Chime runtime sprite", "kind": "sprite", "runtime": true, "maturity": "production", "evidence": ["assets/runtime/gold-chime.png"] },
+    { "id": "soot-moth", "label": "Soot Moth runtime sprite", "kind": "sprite", "runtime": true, "maturity": "production", "evidence": ["assets/runtime/soot-moth.png"] },
+    { "id": "needle-moth", "label": "Needle Moth runtime sprite", "kind": "sprite", "runtime": true, "maturity": "production", "evidence": ["assets/runtime/needle-moth.png"] },
+    { "id": "ash-moth", "label": "Ash Moth runtime sprite", "kind": "sprite", "runtime": true, "maturity": "production", "evidence": ["assets/runtime/ash-moth.png"] },
+    { "id": "silkscreen-font", "label": "Silkscreen interface font", "kind": "font", "runtime": true, "maturity": "production", "evidence": ["assets/fonts/Silkscreen-Regular.ttf"] },
+    {
+      "id": "wickward-ui-kit",
+      "label": "Fixed-scale generated motif kit for the deterministic native-grid UI system",
+      "kind": "ui-kit",
+      "runtime": true,
+      "maturity": "production",
+      "evidence": [
+        "assets/runtime/ui-v2/flame-crest.png",
+        "assets/runtime/ui-v2/ward-knot.png",
+        "assets/runtime/ui-v2/moth-sigil.png",
+        "assets/runtime/ui-v2/wax-drip.png",
+        "assets/runtime/ui-v2/corner-cap.png",
+        "assets/runtime/ui-v2/rivet.png"
+      ]
+    }
+  ],
+  "gates": [
+    {
+      "id": "engine-capture",
+      "label": "Current shipping-camera engine capture",
+      "status": "pass",
+      "evidence": ["evidence/captures/planning.png", "evidence/captures/battle.png", "evidence/captures/result.png", "evidence/captures/wickward-motion.mp4"],
+      "findings": ["All stills and the fixed-step motion sequence were recaptured from the current Godot implementation."]
+    },
+    {
+      "id": "gameplay-readability",
+      "label": "One-swap formation read",
+      "status": "pass",
+      "evidence": ["evidence/captures/planning.png", "evidence/captures/battle.png"],
+      "findings": ["Rear, center, and front roles are named next to the units and remain visible during combat.", "The deterministic contract resolves the intended single swap through the real combat loop."]
+    },
+    {
+      "id": "art-direction",
+      "label": "Unified production art direction",
+      "status": "pass",
+      "evidence": ["evidence/captures/planning.png", "evidence/captures/battle.png", "evidence/captures/result.png"],
+      "findings": ["Runtime characters, fixed-scale generated motifs, deterministic UI geometry, type, particles, and palette share one deliberate low-resolution language.", "Generated source sheets are never loaded by the runtime.", "Board, result, button, slot, meter, and progress geometry share one 2-pixel border, 4-pixel inset, native scale, and spacing contract; generated motifs provide ornament without controlling layout."]
+    },
+    {
+      "id": "interaction-states",
+      "label": "Planning, selected, combat, and replay states",
+      "status": "pass",
+      "evidence": ["evidence/captures/planning.png", "evidence/captures/selected.png", "evidence/captures/battle.png", "evidence/captures/result.png"],
+      "findings": ["The primary interaction states have distinct focus, copy, control, and feedback treatments."]
+    },
+    {
+      "id": "motion-choreography",
+      "label": "Gameplay-causal combat motion",
+      "status": "pass",
+      "evidence": ["evidence/captures/wickward-motion.mp4", "evidence/captures/battle.png", "evidence/captures/result.png"],
+      "findings": ["The engine-recorded sequence shows ignition, whole-pixel anticipation and lunges, curved travel, delayed impacts, hit-stop, recoil, formation links, Warden blocks, Seer chain arcs, Chime pulses, animated enemy defeats, and the staged result reveal.", "Motion resolves the same health and outcome state exercised by the deterministic runtime contract; it is not an external promo reconstruction."]
+    },
+    {
+      "id": "interface-system",
+      "label": "Authored reusable interface vocabulary",
+      "status": "pass",
+      "evidence": ["assets/runtime/ui-v2/flame-crest.png", "assets/runtime/ui-v2/ward-knot.png", "assets/runtime/ui-v2/moth-sigil.png", "assets/runtime/ui-v2/wax-drip.png", "assets/runtime/ui-v2/corner-cap.png", "assets/runtime/ui-v2/rivet.png", "evidence/captures/planning.png", "evidence/captures/selected.png", "evidence/captures/result.png"],
+      "findings": ["Six isolated ImageGen motifs were aspect-preserved, palette-locked, and compiled directly into their final native dimensions; runtime placement is always 1:1.", "All structural UI is assembled from one deterministic geometry contract rather than independently generated panels with unrelated scale.", "The current Godot captures prove normal, selected, combat-status, and resolved interface states."]
+    },
+    {
+      "id": "technical-style",
+      "label": "Pixel grid and asset maturity",
+      "status": "pass",
+      "evidence": ["assets/runtime/red-warden.png", "assets/runtime/blue-seer.png", "assets/runtime/gold-chime.png", "assets/runtime/soot-moth.png", "assets/runtime/needle-moth.png", "assets/runtime/ash-moth.png", "assets/runtime/ui-v2/flame-crest.png", "assets/runtime/ui-v2/ward-knot.png", "assets/runtime/ui-v2/moth-sigil.png", "assets/runtime/ui-v2/wax-drip.png", "assets/runtime/ui-v2/corner-cap.png", "assets/runtime/ui-v2/rivet.png", "assets/fonts/Silkscreen-Regular.ttf"],
+      "findings": ["All six characters and six UI motifs are palette-locked PNGs rendered nearest-neighbor at integer scale.", "The motif compiler uses pinned equal-grid cells, hard alpha, aspect-preserved fitting, exact final dimensions, and the same 16-color palette as the character compiler.", "Godot detected the bundled face as a pixel font and disabled subpixel positioning and hinting."]
+    }
+  ],
+  "unresolved": [],
+  "metadata": {
+    "scope": "One encounter production slice, not a full content-complete game.",
+    "sourcePipeline": ["Codex built-in ImageGen character sheet", "SAM3 segmentation", "deterministic 16-color sprite compiler", "Codex built-in ImageGen ornament atlas", "aspect-preserved fixed-scale motif compiler", "deterministic native-grid UI geometry", "whole-pixel Godot motion choreography", "Godot still and fixed-step video capture", "capture-driven repair"],
+    "uiGeometry": {
+      "nativeViewport": "480x270",
+      "baseUnitPx": 4,
+      "structuralBorderPx": 2,
+      "innerBorderInsetPx": 4,
+      "controlHeightPx": 26,
+      "formationFootprintPx": 64,
+      "healthBarHeightPx": 7,
+      "texturePolicy": "Compiled motifs render 1:1 at final native dimensions; structural geometry is deterministic; no runtime texture stretching."
+    },
+    "humanFunEvidence": false
+  }
+}

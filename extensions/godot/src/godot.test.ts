@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
-import type { Campaign } from "@gamefactory/core";
-import { automationArgs, godotProcessSucceeded, GodotVisualEvaluator } from "./index.js";
+import type { Campaign, EngineDriver, ScenarioRunner } from "@gamefactory/core";
+import { automationArgs, godotProcessSucceeded, GodotEvidenceAgent, GodotVisualEvaluator, normalizeScenarioArtifacts } from "./index.js";
 
 test("Godot automation disables the interactive native crash handler", () => {
   assert.deepEqual(
@@ -17,6 +17,137 @@ test("Godot automation disables the interactive native crash handler", () => {
 test("Godot automation rejects exit-zero runs that contain engine errors", () => {
   assert.equal(godotProcessSucceeded({ exitCode: 0, stdout: "SCRIPT ERROR: null texture", stderr: "", timedOut: false }), false);
   assert.equal(godotProcessSucceeded({ exitCode: 0, stdout: "Godot Engine", stderr: "", timedOut: false }), true);
+  assert.equal(godotProcessSucceeded({
+    exitCode: 0,
+    stdout: "Godot Engine",
+    stderr: "ERROR: Failed to read the root certificate store.\n   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2582)\n",
+    timedOut: false
+  }), true);
+});
+
+test("Godot scenario artifacts normalize candidate-defined kinds before crossing adapter boundaries", () => {
+  const normalized = normalizeScenarioArtifacts([{
+    kind: "gameplay-evidence",
+    path: "evidence/gameplay.json",
+    mediaType: "application/json",
+    label: "Causal gameplay trace"
+  }]);
+  assert.deepEqual(normalized.artifacts, [{
+    kind: "other",
+    path: "evidence/gameplay.json",
+    mediaType: "application/json",
+    label: "Causal gameplay trace",
+    metadata: { declaredKind: "gameplay-evidence" }
+  }]);
+  assert.equal(normalized.violations[0]?.severity, "warning");
+});
+
+test("Godot evidence agent refreshes deterministic engine evidence for read-only reviewers", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "gamefactory-godot-evidence-"));
+  try {
+    const engine: EngineDriver = {
+      id: "fixture.engine",
+      async doctor() { return { ok: true, checks: [] }; },
+      async build() { return { ok: true, exitCode: 0, stdout: "", stderr: "", artifacts: [], metrics: { import_ok: 1 } }; }
+    };
+    const scenarios: ScenarioRunner = {
+      id: "fixture.scenario",
+      async run() {
+        return { status: "pass", metrics: { mechanic_proven: 1, events: 11 }, artifacts: [], violations: [] };
+      }
+    };
+    const value: Campaign = {
+      apiVersion: "gamefactory.dev/v1",
+      id: "evidence-test",
+      objective: "prove the mechanic",
+      projectRoot: root,
+      workflow: "tournament",
+      requires: [],
+      mutablePaths: ["**"],
+      acceptance: { primaryMetric: "mechanic_proven", direction: "maximize" },
+      parameters: { godot: { importCheck: true, scenario: { provider: "godot.factory/v1", version: "1", path: "res://main.tscn" } } }
+    };
+    const result = await new GodotEvidenceAgent(engine, scenarios).run({
+      campaign: value,
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-evidence",
+      history: [],
+      signal: new AbortController().signal
+    });
+    assert.equal(result.metadata?.outcome, "pass");
+    assert.deepEqual(result.metadata?.metrics, { import_ok: 1, mechanic_proven: 1, events: 11 });
+    const manifest = result.artifacts?.find((artifact) => artifact.label === "Fresh Godot evidence manifest");
+    assert.ok(manifest);
+    const stored = JSON.parse(await readFile(manifest.path, "utf8")) as Record<string, unknown>;
+    assert.equal(stored.status, "pass");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("Godot evidence agent keeps clean-start and returning-player scenarios distinct", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "gamefactory-godot-multi-evidence-"));
+  try {
+    const engine: EngineDriver = {
+      id: "fixture.engine",
+      async doctor() { return { ok: true, checks: [] }; },
+      async build() { return { ok: true, exitCode: 0, stdout: "", stderr: "", artifacts: [], metrics: { import_ok: 1 } }; }
+    };
+    const calls: Array<{ experimentId: string; mode: unknown }> = [];
+    const scenarios: ScenarioRunner = {
+      id: "fixture.scenario",
+      async run(input) {
+        const mode = input.scenario.parameters?.mode;
+        calls.push({ experimentId: input.experimentId, mode });
+        return mode === "first-session"
+          ? { status: "pass", metrics: { first_session_complete: 1, consequential_choices: 3 }, artifacts: [], violations: [] }
+          : { status: "pass", metrics: { offline_contract: 1, causal_events: 9 }, artifacts: [], violations: [] };
+      }
+    };
+    const campaign: Campaign = {
+      apiVersion: "gamefactory.dev/v1",
+      id: "multi-evidence-test",
+      objective: "prove the opening and return loops separately",
+      projectRoot: root,
+      workflow: "tournament",
+      requires: [],
+      mutablePaths: ["**"],
+      acceptance: { primaryMetric: "first-session.first_session_complete", direction: "maximize" },
+      parameters: { godot: { importCheck: true, scenarios: [
+        { id: "first-session", provider: "godot.factory/v1", version: "1", path: "res://main.tscn", parameters: { mode: "first-session" } },
+        { id: "returning-player", provider: "godot.factory/v1", version: "1", path: "res://main.tscn", parameters: { mode: "returning-player" } }
+      ] } }
+    };
+    const result = await new GodotEvidenceAgent(engine, scenarios).run({
+      campaign,
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-evidence",
+      history: [],
+      signal: new AbortController().signal
+    });
+    assert.equal(result.metadata?.outcome, "pass");
+    assert.deepEqual(result.metadata?.metrics, {
+      import_ok: 1,
+      "first-session.first_session_complete": 1,
+      first_session_complete: 1,
+      "first-session.consequential_choices": 3,
+      consequential_choices: 3,
+      "returning-player.offline_contract": 1,
+      "returning-player.causal_events": 9,
+      scenarios_total: 2,
+      scenarios_passed: 2
+    });
+    assert.deepEqual(calls, [
+      { experimentId: "exp-evidence-first-session", mode: "first-session" },
+      { experimentId: "exp-evidence-returning-player", mode: "returning-player" }
+    ]);
+    const manifest = result.artifacts?.find((artifact) => artifact.label === "Fresh Godot evidence manifest");
+    assert.ok(manifest);
+    const stored = JSON.parse(await readFile(manifest.path, "utf8")) as { scenarios: unknown[] };
+    assert.equal(stored.scenarios.length, 2);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 function png(width: number, height: number, marker: number): Buffer {

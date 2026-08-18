@@ -4,7 +4,8 @@
     "../../extensions/godot",
     "../../extensions/agent-team",
     "../../extensions/video-foundry",
-    "../../extensions/sam3"
+    "../../extensions/sam3",
+    "../../extensions/pixel-motion"
   ],
   "capabilities": [
     "workspace:git",
@@ -12,6 +13,8 @@
     "agent:agent-team",
     "agent:video.google-omni",
     "agent:sam3.track",
-    "agent:animation.compile"
+    "agent:animation.compile",
+    "agent:pixel-motion.compile",
+    "evaluator:pixel-motion.quality"
   ]
 }

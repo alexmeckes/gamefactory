@@ -18,6 +18,7 @@
     "run:firefly": "node scripts/run-firefly-phases.mjs",
     "smoke:godot:assets": "node scripts/godot-smoke.mjs campaign.assets.json",
     "smoke:godot:discovery": "node scripts/godot-smoke.mjs campaign.discovery.json",
+    "smoke:pixel-motion": "node scripts/pixel-motion-smoke.mjs",
     "benchmark:model-routing": "npm run build && node scripts/model-routing-ab.mjs",
     "benchmark:model-routing:smoke": "npm run build && node scripts/model-routing-ab.mjs --smoke",
     "factory": "node packages/cli/dist/index.js",

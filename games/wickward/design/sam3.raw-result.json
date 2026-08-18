@@ -1,0 +1,117 @@
+{
+  "provider": "huggingface-transformers",
+  "model": "sam3",
+  "checkpoint": "facebook/sam3",
+  "backend": "transformers",
+  "precision": "bfloat16",
+  "jobs": [
+    {
+      "id": "red-warden",
+      "prompt": "red wax candle knight holding a round gold shield",
+      "instances": [
+        {
+          "index": 1,
+          "score": 0.73828125,
+          "bbox": [
+            92,
+            31,
+            438,
+            495
+          ],
+          "maskPath": "assets\\source\\red-warden\\red-warden-001.mask.png",
+          "cutoutPath": "assets\\source\\red-warden\\red-warden-001.cutout.png"
+        }
+      ]
+    },
+    {
+      "id": "blue-seer",
+      "prompt": "blue wax candle mage holding a burning matchstick wand",
+      "instances": [
+        {
+          "index": 1,
+          "score": 0.62890625,
+          "bbox": [
+            588,
+            27,
+            921,
+            495
+          ],
+          "maskPath": "assets\\source\\blue-seer\\blue-seer-001.mask.png",
+          "cutoutPath": "assets\\source\\blue-seer\\blue-seer-001.cutout.png"
+        }
+      ]
+    },
+    {
+      "id": "gold-chime",
+      "prompt": "gold wax candle healer holding a small bell",
+      "instances": [
+        {
+          "index": 1,
+          "score": 0.9296875,
+          "bbox": [
+            1110,
+            144,
+            1418,
+            496
+          ],
+          "maskPath": "assets\\source\\gold-chime\\gold-chime-001.mask.png",
+          "cutoutPath": "assets\\source\\gold-chime\\gold-chime-001.cutout.png"
+        }
+      ]
+    },
+    {
+      "id": "soot-moth",
+      "prompt": "round black soot moth with cream eye patterns",
+      "instances": [
+        {
+          "index": 1,
+          "score": 0.7890625,
+          "bbox": [
+            53,
+            589,
+            447,
+            950
+          ],
+          "maskPath": "assets\\source\\soot-moth\\soot-moth-001.mask.png",
+          "cutoutPath": "assets\\source\\soot-moth\\soot-moth-001.cutout.png"
+        }
+      ]
+    },
+    {
+      "id": "needle-moth",
+      "prompt": "narrow violet moth with four pointed wings",
+      "instances": [
+        {
+          "index": 1,
+          "score": 0.91015625,
+          "bbox": [
+            583,
+            553,
+            906,
+            957
+          ],
+          "maskPath": "assets\\source\\needle-moth\\needle-moth-001.mask.png",
+          "cutoutPath": "assets\\source\\needle-moth\\needle-moth-001.cutout.png"
+        }
+      ]
+    },
+    {
+      "id": "ash-moth",
+      "prompt": "large gray ash moth with skull face and cream patterned wings",
+      "instances": [
+        {
+          "index": 1,
+          "score": 0.7265625,
+          "bbox": [
+            989,
+            520,
+            1498,
+            965
+          ],
+          "maskPath": "assets\\source\\ash-moth\\ash-moth-001.mask.png",
+          "cutoutPath": "assets\\source\\ash-moth\\ash-moth-001.cutout.png"
+        }
+      ]
+    }
+  ]
+}

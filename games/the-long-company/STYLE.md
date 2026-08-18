@@ -1,0 +1,9 @@
+# The Long Company — pixel production direction
+
+Build a cohesive authored pixel-art interface at 480×270 native resolution, shown only at integer scale. The visual language should feel like a weathered mercenary campaign ledger made playable: compact character sprites and expressive portrait close-ups, route-map materials, field marks, scars, standards, wax, ink, stitched cloth, and restrained metal. The art director may choose the exact historical-fantasy culture, palette, heraldry, silhouettes, and composition.
+
+The complete screen is the design unit. Generate and review multiple whole gameplay-screen targets at the shipping camera before isolating portraits, buttons, panels, map pieces, icons, or sprites. Required target states are planning/route selection, march or battle action, return chronicle, and company hall. A player must understand state, risk, causality, and the primary next action before appreciating decoration.
+
+Pixel density, border weight, type scale, spacing, palette, portrait crop, sprite proportions, and ornament scale must remain consistent when elements are extracted or regenerated. Runtime images must be cleaned and compiled to native dimensions, placed 1:1, or use a declared nine-slice without scaling corners. Generated full scenes are references/source—not screenshots to paste behind invisible controls.
+
+Animation carries causality and memory: formation commitment, marching departure, attack anticipation, impact, wound, last stand, trait-earned mark, death/memorial transition, and return-summary reveal should be visually distinct where present. Omni motion studies may guide timing and silhouette, but runtime motion must be compiled, palette-locked, and verified in Godot. Avoid generic idle bob, ambient particles as fake polish, concept-art rendering, programmer chrome, default typography, tiny text, mixed resolutions, and ornamental controls that do not communicate an action.

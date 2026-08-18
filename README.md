@@ -29,7 +29,7 @@ What is implemented:
 - engine-backed synthetic player cohorts across personas, scenarios, and seeds;
 - modality-neutral asset briefs, command-backed generation, versioned style packs, provenance manifests, and PNG gates;
 - optional SAM 3 concept segmentation that agents can invoke as a graph node to produce verified masks and transparent cutouts;
-- optional Google Omni motion studies, SAM 3 persistent video tracking, and deterministic sprite-atlas compilation;
+- optional Google Omni motion studies, SAM 3 persistent video tracking, and deterministic palette-locked pixel animation compilation;
 - Godot 4 import gating, fixed-tick in-engine scenarios, telemetry, and capture;
 - an extension SDK, contract-test helpers, CLI, preset, and runnable examples.
 
@@ -113,6 +113,37 @@ npm run factory -- storage gc --apply  # only old cache/tmp files
 manifest-linked project history. Garbage collection never removes journals,
 results, traces, retained candidates, or content-addressed artifacts.
 
+## Spec-led projects
+
+New games use `gamefactory.dev/v2` project manifests. A bounded preproduction
+campaign freezes a claim-addressed `gamefactory.game-spec/v1` for the next
+slice, then the project runner advances through player-complete vertical slices.
+Each slice records the spec claims it consumes, its player-visible outcome and primary risk, named
+engine evidence, and an accepted Git revision. Only changed claims and accepted
+dependencies invalidate later work; unrelated spec edits do not restart the
+whole project. Existing v1 phase manifests remain supported as legacy projects.
+
+`frozen` is a slice-boundary lock, not a permanent product freeze. Engine traces,
+runtime captures, synthetic playtests, or direct user direction can open a
+versioned amendment between slice attempts. Amendments retain the concept,
+record their superseded revision and evidence, and selectively invalidate only
+the affected claim consumers. `maximumConvergencePasses` bounds each convergence
+episode without limiting the lifetime GameSpec revision number.
+Future claims may remain open in a frozen spec; a slice cannot begin until the
+claims it consumes are resolved.
+
+Validate a spec directly with:
+
+```sh
+npm run factory -- spec validate path/to/GAME_SPEC.json --project-id my-game
+```
+
+The optional `gamefactory.game-spec` extension contributes the fail-closed
+`evaluator:game.spec` gate for spec-convergence campaigns. Agent graphs can
+declare node authority and frozen `claimIds`; rejecting reviewers must tie
+blockers to those claims, while new scope remains an opportunity for the spec
+owner to accept or defer.
+
 Start a game from an ordinary description with five short multiple-choice decisions. Every question includes `Figure it out`, which leaves that decision open for design agents instead of applying a hidden default:
 
 ```sh
@@ -143,6 +174,19 @@ campaign talks to `codex app-server`, inherits the configured model and effort
 unless a node explicitly overrides `model` and `reasoningEffort`, and records
 both requested and provider-resolved routing alongside thread, turn,
 instruction, token, and native subagent events in the trace.
+
+For a production-quality representative encounter, use
+`presets/godot-polished`. It separates graybox proof from art production,
+reviews complete shipping-camera scene targets before individual asset work,
+requires every component to retain and match the approved target lineage,
+uses a read-only Sol Campaign Director, routes selected SAM 3, Omni, and
+pixel-motion work through explicit traced adapter nodes, treats repairable
+critic outcomes as downstream scheduling barriers, and rejects production
+claims while required surfaces or runtime assets remain prototype,
+placeholder, generated source, extracted, or merely engine-ready. The portable
+`gamefactory.scene-target/v1` contract lives in `@gamefactory/design-sdk`;
+ImageGen, SAM3, video generation, and Godot remain replaceable adapters around
+it.
 Set `FACTORY_SMOKE_VERBOSE=true` to print the complete provenance and artifact
 ledger instead of the compact smoke summary.
 
@@ -165,10 +209,14 @@ post-processing setting, and content hash. It does not install or load the model
 for campaigns that do not request it. See [the SAM 3 extension guide](extensions/sam3/README.md).
 
 For animation that benefits from a generated motion study, activate the optional
-`video.google-omni` -> `sam3.track` -> `animation.compile` lane. Configure a
+`video.google-omni` -> `sam3.track` -> `pixel-motion.compile` lane. The generic
+`animation.compile` remains available for non-pixel atlases. Configure a
 runtime-only Google key with `npm run factory -- credentials set google.gemini`;
 on Windows it is protected with current-user DPAPI and never copied into a
-candidate or trace. See [the video animation guide](docs/video-animation-pipeline.md).
+candidate or trace. The pixel compiler locks palettes and pivots, emits editable
+frames plus a Godot `SpriteFrames` resource, and is checked by
+`pixel-motion.quality`. See [the video animation guide](docs/video-animation-pipeline.md)
+and [pixel-motion extension guide](extensions/pixel-motion/README.md).
 
 Run `npm run smoke:godot:discovery` to compare three divergent tuning
 prototypes across novice, optimizer, and survivor policies. The 36 real Godot
@@ -192,6 +240,7 @@ and [safety notes](docs/safety.md).
 - `extensions/*` — workflows, agent orchestration, Git, Godot, and test adapters.
 - `extensions/sam3` — optional text-prompted segmentation and cutout worker.
 - `extensions/video-foundry` — optional provider video generation and deterministic animation compilation.
+- `extensions/pixel-motion` — lightweight palette, pivot, atlas, Godot resource, and temporal quality gates for pixel animation.
 - `bridges/godot` — copyable in-engine addon.
 - `presets/godot-minimal` — the minimal serious Godot capability set.
 - `examples/*` — smoke and engine fixtures.

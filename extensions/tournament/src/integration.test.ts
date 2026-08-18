@@ -213,6 +213,67 @@ test("tournament bounds agent concurrency, stops its evaluator waterfall, and se
   }
 });
 
+test("tournament can improve from a failing baseline when the primary metric is measurable", async () => {
+  const projectRoot = await mkdtemp(resolve(tmpdir(), "gamefactory-tournament-failing-baseline-"));
+  const records: ExperimentRecord[] = [];
+  const accepted: string[] = [];
+  const workspace: WorkspaceDriver = {
+    id: "baseline.workspace",
+    async createCandidate({ experimentId }) { return { id: experimentId, root: resolve(projectRoot, experimentId), metadata: {} }; },
+    async acceptCandidate({ candidate }) { accepted.push(candidate.id); return { revision: `accepted-${candidate.id}` }; },
+    async discardCandidate() { /* no loser in this fixture */ }
+  };
+  const agent: AgentDriver = { id: "baseline.agent", async run() { return { summary: "Replaced the failing baseline." }; } };
+  const evaluator: Evaluator = {
+    id: "baseline.quality",
+    version: "1",
+    async evaluate(input) {
+      const improved = input.candidate !== null;
+      return {
+        evaluator: "baseline.quality",
+        version: "1",
+        status: improved ? "pass" : "fail",
+        metrics: { polish_ready: improved ? 1 : 0 },
+        violations: improved ? [] : [{ code: "baseline.unpolished", message: "The starting point is intentionally unfinished.", severity: "error" }],
+        artifacts: []
+      };
+    }
+  };
+  const testCampaign: Campaign = {
+    apiVersion: "gamefactory.dev/v1",
+    id: "failing-baseline-contract",
+    objective: "Improve an unfinished baseline",
+    projectRoot,
+    workflow: "tournament",
+    requires: [],
+    parameters: { tournament: { workspace: workspace.id, agents: [agent.id], evaluators: [evaluator.id], candidateCount: 1, concurrency: 1 } },
+    acceptance: { primaryMetric: "polish_ready", direction: "maximize", minimumDelta: 0, hardGates: [evaluator.id] },
+    budget: { maximumExperiments: 1 }
+  };
+  const capabilities = new Map<string, unknown>([[`workspace:${workspace.id}`, workspace], [`agent:${agent.id}`, agent], [`evaluator:${evaluator.id}`, evaluator]]);
+  const context: WorkflowContext = {
+    campaign: testCampaign,
+    signal: new AbortController().signal,
+    startedAt: new Date().toISOString(),
+    get: <T>(kind: Parameters<WorkflowContext["get"]>[0], id: string) => capabilities.get(`${kind}:${id}`) as T,
+    getAll: <T>() => [...capabilities.values()] as T[],
+    appendRecord: async (record) => { records.push(record); },
+    readRecords: async () => [],
+    preserveArtifacts: async (artifacts) => artifacts,
+    emit: async () => undefined,
+    budget: new BudgetController(testCampaign.budget),
+    logger: new MemoryLogger()
+  };
+  try {
+    const result = await new TournamentWorkflow().run(context);
+    assert.equal(result.status, "budget-exhausted");
+    assert.deepEqual(records.map((record) => record.status), ["baseline", "keep"]);
+    assert.deepEqual(accepted, ["tournament-r0001-c001"]);
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
 test("Sol campaign director frames distinct candidates and synthesizes evidence without controlling acceptance", async () => {
   const projectRoot = await mkdtemp(resolve(tmpdir(), "gamefactory-tournament-director-"));
   const records: ExperimentRecord[] = [];

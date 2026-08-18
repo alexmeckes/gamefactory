@@ -1,0 +1,4 @@
+interface:
+  display_name: "Integrate Game Assets"
+  short_description: "Bring authored assets into a verified running game"
+  default_prompt: "Use $integrate-game-assets to integrate these target-linked assets into the current playable slice and verify them in-engine."

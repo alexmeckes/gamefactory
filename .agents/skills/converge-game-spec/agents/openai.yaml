@@ -1,0 +1,4 @@
+interface:
+  display_name: "Converge Game Spec"
+  short_description: "Evolve a falsifiable, adaptable game specification"
+  default_prompt: "Use $converge-game-spec to turn this concept and current evidence into the next reviewable GameSpec revision."
