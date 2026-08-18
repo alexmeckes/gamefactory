@@ -65,7 +65,7 @@ if (["alpha", "beta"].includes(request.nodeId)) {
   assert.ok(request.inputs.every((input) => input.structured.context.source === input.nodeId));
   assert.ok(request.inputs.every((input) => input.artifacts[0].path.endsWith("value.txt")));
   assert.ok(request.inputs.every((input) => input.output === ""), "structured handoffs should not duplicate raw stdout");
-  console.log(JSON.stringify({ summary: "joined structured findings", outcome: "pass" }));
+  console.log(JSON.stringify({ summary: "joined structured findings", outcome: "pass", projectEvidence: { scenarios: [], targetSha256: "a".repeat(64) } }));
 } else if (request.nodeId === "discover") {
   console.log("human-readable prelude");
   console.log(JSON.stringify({ summary: "found hypothesis", outcome: "ready", context: { hypothesis: "raise-value" } }));
@@ -444,10 +444,12 @@ test("agent graph runs independent readers in parallel and honors dependency ord
     assert.ok(join.started >= Math.max(alpha.finished, beta.finished), "dependent node should start after both predecessors");
     assert.equal(result.contributors?.length, 3);
     assert.ok(result.contributors?.every((item) => item.artifacts.some((artifact) => artifact.label?.includes("structured output"))));
-    const metadata = result.metadata as { mode: string; totalAttempts: number; nodes: Record<string, { outcome: string }> };
+    const metadata = result.metadata as { mode: string; totalAttempts: number; projectEvidence: { targetSha256: string; writerGenerations: Record<string, number> }; nodes: Record<string, { outcome: string }> };
     assert.equal(metadata.mode, "graph");
     assert.equal(metadata.totalAttempts, 3);
     assert.equal(metadata.nodes.join?.outcome, "pass");
+    assert.equal(metadata.projectEvidence.targetSha256, "a".repeat(64));
+    assert.deepEqual(metadata.projectEvidence.writerGenerations, {});
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -967,6 +969,12 @@ test("agent graph emits live topology, bounded progress, and attempt completion 
 test("polished Godot preset has a valid gated agent graph", async () => {
   const campaign = JSON.parse(await readFile(resolve(process.cwd(), "presets/godot-polished/campaign.template.json"), "utf8")) as Campaign;
   assert.doesNotThrow(() => validateAgentTeamConfiguration(campaign));
+  const specCampaign = JSON.parse(await readFile(resolve(process.cwd(), "presets/godot-polished/spec-campaign.template.json"), "utf8")) as Campaign;
+  assert.doesNotThrow(() => validateAgentTeamConfiguration(specCampaign));
+});
+
+test("agent graph validates structured output field contracts before launch", () => {
+  assert.throws(() => validateAgentTeamConfiguration(graphCampaign(".", [graphCommand("alpha", { role: "scout", permissions: "read", requiredOutputFields: ["bad field"] })])), /invalid field path/);
 });
 
 test("agent graph runs through the Codex App Server adapter and exposes native subagents", async () => {

@@ -1,7 +1,7 @@
 {
   "apiVersion": "gamefactory.dev/v1",
   "id": "replace-with-game-id",
-  "objective": "Resolve one coherent core-game thesis upfront, prove and repair it in one honest graybox, then build one visually production-ready Godot encounter. Use a separate tournament campaign only when a named unresolved design question has multiple cheap, falsifiable answers. Do not present graybox, concept, generated source, extracted source, or engine-ready assets as production.",
+  "objective": "Execute the authoritative projectSlice contract against the frozen GameSpec: prove and repair one player-complete Godot graybox, approve coherent whole-scene targets, then integrate one visually production-ready encounter with state-linked motion and artifact-backed evidence. Use a separate tournament campaign only for a named unresolved fork. Do not present graybox, concept, generated source, extracted source, or engine-ready assets as production.",
   "projectRoot": ".",
   "workflow": "autoresearch",
   "requires": [
@@ -40,24 +40,24 @@
         "nodes": [
           {
             "id": "core-game-director",
-            "skills": ["frame-core-game"],
+            "skills": ["plan-playable-slice"],
             "adapter": "codex-app-server",
             "role": "planner",
             "permissions": "read",
             "model": "gpt-5.6-sol",
             "reasoningEffort": "xhigh",
-            "instructions": "Resolve one coherent playable thesis before implementation. Define the repeated player decision, information available before it, uncertainty, immediate causal feedback, carried state, reason for another round, concrete first-session sequence, examples, counterfactuals, non-goals, and falsifiers. Make the strongest bounded choice supported by the game concept instead of offering a menu of ideas. Identify a tournament-worthy fork only when evidence cannot reasonably settle it inside this thesis.",
+            "instructions": "Read the authoritative projectSlice contract and frozen GameSpec. Produce one bounded, player-complete vertical-slice plan from input through state change, feedback, consequence, and next decision. Preserve its claim IDs, primary risk, non-goals, evidence gates, and mutable paths. Do not redesign the whole game or widen scope. Identify an evidence-backed spec amendment only if the frozen claim itself is falsified.",
             "maximumAttempts": 1
           },
           {
             "id": "mechanics-scout",
-            "skills": ["frame-core-game"],
+            "skills": ["plan-playable-slice"],
             "adapter": "codex-app-server",
             "role": "scout",
             "permissions": "read",
             "model": "gpt-5.6-luna",
             "reasoningEffort": "high",
-            "instructions": "Audit the core-game director's thesis and find the smallest interaction and deterministic scenarios that can honestly falsify it. Preserve the coherent thesis unless you identify a concrete contradiction. Return pass when the mechanic, scenarios, and explicit non-goals are bounded; use needs_advisor only for a material capability gap.",
+            "instructions": "Audit the slice plan against the authoritative projectSlice contract. Find the smallest real interaction and deterministic scenarios that can falsify its consumed claims. Treat new ideas as opportunities, not blockers. Request a spec amendment only with a cited consumed claim and preserved runtime evidence; use needs_advisor only for a material capability gap.",
             "dependsOn": ["core-game-director"],
             "advisor": { "model": "gpt-5.6-sol", "reasoningEffort": "high", "outcomes": ["needs_advisor"], "onFailure": true, "maximumAttempts": 1 }
           },
@@ -209,7 +209,7 @@
           },
           {
             "id": "production-slice-builder",
-            "skills": ["produce-pixel-game-assets"],
+            "skills": ["produce-pixel-game-assets", "integrate-game-assets", "choreograph-game-motion"],
             "adapter": "codex-app-server",
             "role": "implementer",
             "permissions": "write",
@@ -272,7 +272,9 @@
             "permissions": "read",
             "model": "gpt-5.6-sol",
             "reasoningEffort": "xhigh",
-            "instructions": "Make the final production-slice decision from the approved whole-scene target, scene review, current engine capture, component-fidelity findings, gameplay evidence, art-director findings, asset maturity, and polish manifest. Return pass only if every required surface is production, every required gate is evidenced, every runtime component is traceable to the selected scene target, and no blocker or runtime placeholder remains. Return revise rather than accepting a halfway state.",
+            "instructions": "Make the final production-slice decision from the authoritative projectSlice contract, approved whole-scene target, scene review, current engine capture, component-fidelity findings, gameplay evidence, art-director findings, asset maturity, and polish manifest. Return pass only if every required surface is production, every required gate is evidenced, every runtime component is traceable to the selected scene target, and no blocker or runtime placeholder remains. On pass, include projectEvidence in the structured output: each required scenario as {id, artifactSha256}, interactionTrace, engineCapture, targetSha256, motionEvidence, and each required runtime asset as {id, consumer, artifactSha256}; every hash must identify an actual declared preserved artifact. Return revise rather than accepting a halfway state. If runtime evidence falsifies a consumed frozen claim rather than the implementation, return a projectDisposition of kind spec-amendment with rationale, consumed claimIds, and evidenceArtifactSha256; do not use that route for ordinary repairable defects.",
+            "requiredOutputFields": ["projectEvidence.scenarios", "projectEvidence.interactionTrace", "projectEvidence.engineCapture", "projectEvidence.targetSha256", "projectEvidence.motionEvidence", "projectEvidence.runtimeAssets"],
+            "requiredOutputFieldsOn": ["pass"],
             "dependsOn": ["production-slice-builder", "evidence-auditor", "component-fidelity-gate", "art-director-gate"],
             "repair": { "target": "production-slice-builder", "outcomes": ["revise"], "maximumAttempts": 1, "allowedPaths": ["**"], "preserve": ["evidence-auditor"] }
           }

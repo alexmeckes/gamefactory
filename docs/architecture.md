@@ -80,6 +80,16 @@ invalidate a slice; changing a consumed claim or accepted dependency does.
 `maximumConvergencePasses` bounds one convergence episode; it is deliberately
 not a lifetime GameSpec revision ceiling.
 
+The project runner enforces this contract. It replaces the campaign mutation
+surface with the slice's mandatory `mutablePaths`, injects the full slice
+contract into every agent request, and includes non-goals, gates, attempt
+policy, skill content, and authority in reuse fingerprints. Evidence must cite
+preserved artifacts and the current spec, approved target, runtime consumers,
+and writer generations. Frozen specs are copied into immutable content-addressed
+archives and amendments must supersede the latest archived revision exactly.
+An agent may request the bounded spec-amendment return edge only with preserved
+runtime evidence tied to a consumed claim.
+
 Inside one spec or slice campaign, the autonomous loop remains bounded:
 
 1. Measure the current baseline.

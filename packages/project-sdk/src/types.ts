@@ -27,6 +27,14 @@ export interface ProjectAttemptPolicy {
   advisorEscalations?: number;
 }
 
+/** A slice may request this return edge only from preserved runtime evidence. */
+export interface ProjectSpecAmendmentRequest {
+  kind: "spec-amendment";
+  rationale: string;
+  claimIds: string[];
+  evidenceArtifactSha256: string[];
+}
+
 export interface ProjectEvidenceGate {
   scenarios?: string[];
   requireInteractionTrace?: boolean;

@@ -137,11 +137,11 @@ function slice(value: unknown, index: number): ProjectSlice {
   const consumesClaims = stringList(value.consumesClaims, `${label}.consumesClaims`, true);
   for (const claimId of consumesClaims) safeId(claimId, `${label}.consumesClaims`);
   const nonGoals = stringList(value.nonGoals, `${label}.nonGoals`);
-  const mutablePaths = stringList(value.mutablePaths, `${label}.mutablePaths`);
+  const mutablePaths = stringList(value.mutablePaths, `${label}.mutablePaths`, true);
   const parsedEvidence = evidence(value.evidence, `${label}.evidence`);
   const parsedPolicy = attemptPolicy(value.attemptPolicy, `${label}.attemptPolicy`);
   const parsedGate = gate(value.gate, `${label}.gate`);
-  return { id: value.id, title: value.title, order: value.order as number, ...(dependsOn.length ? { dependsOn } : {}), consumesClaims, playerOutcome: value.playerOutcome, primaryRisk: value.primaryRisk, ...(nonGoals.length ? { nonGoals } : {}), ...(mutablePaths.length ? { mutablePaths } : {}), ...(parsedEvidence ? { evidence: parsedEvidence } : {}), ...(parsedPolicy ? { attemptPolicy: parsedPolicy } : {}), ...(parsedGate ? { gate: parsedGate } : {}), attempts: attempts(value.attempts, `${label}.attempts`) };
+  return { id: value.id, title: value.title, order: value.order as number, ...(dependsOn.length ? { dependsOn } : {}), consumesClaims, playerOutcome: value.playerOutcome, primaryRisk: value.primaryRisk, ...(nonGoals.length ? { nonGoals } : {}), mutablePaths, ...(parsedEvidence ? { evidence: parsedEvidence } : {}), ...(parsedPolicy ? { attemptPolicy: parsedPolicy } : {}), ...(parsedGate ? { gate: parsedGate } : {}), attempts: attempts(value.attempts, `${label}.attempts`) };
 }
 
 function validateDag(phases: ProjectPhase[]): void {

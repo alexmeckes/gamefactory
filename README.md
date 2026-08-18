@@ -123,6 +123,14 @@ engine evidence, and an accepted Git revision. Only changed claims and accepted
 dependencies invalidate later work; unrelated spec edits do not restart the
 whole project. Existing v1 phase manifests remain supported as legacy projects.
 
+Slice `mutablePaths` are mandatory and narrow the underlying campaign; the
+project manifest, verbatim concept, and frozen spec are injected as immutable.
+Evidence gates accept only SHA-256 references to artifacts preserved by the
+accepted experiment. Proxy booleans and metrics do not satisfy interaction,
+engine-capture, target, motion, or runtime-consumer evidence. The runner binds
+evidence to the frozen spec and agent writer generations, archives every
+accepted frozen spec, and verifies exact supersedes lineage.
+
 `frozen` is a slice-boundary lock, not a permanent product freeze. Engine traces,
 runtime captures, synthetic playtests, or direct user direction can open a
 versioned amendment between slice attempts. Amendments retain the concept,
@@ -131,6 +139,10 @@ the affected claim consumers. `maximumConvergencePasses` bounds each convergence
 episode without limiting the lifetime GameSpec revision number.
 Future claims may remain open in a frozen spec; a slice cannot begin until the
 claims it consumes are resolved.
+When a slice result explicitly cites a falsified consumed claim and preserved
+evidence, `specAmendments` permits a bounded automatic return to the spec owner.
+Execution retries, creative repairs, advisor escalations, and spec amendments
+are separate budgets rather than overlapping whole-graph retry loops.
 
 Validate a spec directly with:
 

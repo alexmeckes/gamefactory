@@ -104,6 +104,8 @@ interface GraphNodeConfig extends ContributorConfig {
   maximumAttempts: number;
   required: boolean;
   refreshAfterRepair: boolean;
+  requiredOutputFields: string[];
+  requiredOutputFieldsOn: string[];
   repair?: RepairEdge;
   advisor?: AdvisorConfig;
   authority: NodeAuthority;
@@ -548,6 +550,8 @@ async function effectivePromptManifest(input: {
     metrics: item.metrics
   })), null, 2);
   const context = JSON.stringify(input.contextReferences, null, 2);
+  const projectContract = input.request.campaign.parameters?.projectSlice ?? input.request.campaign.parameters?.projectSpec;
+  const renderedProjectContract = projectContract === undefined ? undefined : JSON.stringify(projectContract, null, 2);
   const adapter = input.config.adapter === "codex-app-server"
     ? "codex.app-server"
     : input.config.adapter === "agent-driver"
@@ -568,6 +572,7 @@ async function effectivePromptManifest(input: {
     layers: [
       ...project.layers,
       promptLayer("campaign-objective", "campaign", "campaign.objective", input.request.campaign.objective),
+      ...(renderedProjectContract ? [promptLayer("project-contract", "boundary", "campaign.parameters.projectSlice|projectSpec", renderedProjectContract)] : []),
       promptLayer("campaign-boundaries", "boundary", "campaign.mutablePaths+immutablePaths", boundary),
       promptLayer("role-charter", "role", charter.path, charter.content, { ...(charter.version ? { version: charter.version } : {}) }),
       ...skills.map((skill) => promptLayer(`skill-${skill.name}`, "skill", skill.source, skill.content, { metadata: { name: skill.name, required: skill.required } })),
@@ -856,6 +861,8 @@ function graphNode(value: unknown, index: number, defaults: Pick<ContributorConf
   if (typeof rawAuthority !== "string" || !AUTHORITIES.has(rawAuthority as NodeAuthority)) throw new Error(`${location}.authority is invalid`);
   const authority = rawAuthority as NodeAuthority;
   if ((authority === "mutate-candidate" || authority === "mutate-spec") === readOnly) throw new Error(`${location}.authority ${authority} conflicts with ${readOnly ? "read" : "write"} permission`);
+  if (record.requiredOutputFields !== undefined && (!Array.isArray(record.requiredOutputFields) || record.requiredOutputFields.length > 64 || record.requiredOutputFields.some((field) => typeof field !== "string" || !/^[A-Za-z][A-Za-z0-9_-]*(?:\.[A-Za-z][A-Za-z0-9_-]*)*$/.test(field)))) throw new Error(`${location}.requiredOutputFields contains an invalid field path`);
+  const requiredOutputFields = [...new Set((record.requiredOutputFields ?? []) as string[])];
   const result: GraphNodeConfig = {
     ...base,
     role,
@@ -867,6 +874,8 @@ function graphNode(value: unknown, index: number, defaults: Pick<ContributorConf
     maximumAttempts: integer(record.maximumAttempts, 1, 1, 8, `${location}.maximumAttempts`),
     required: record.required !== false,
     refreshAfterRepair: record.refreshAfterRepair === true,
+    requiredOutputFields,
+    requiredOutputFieldsOn: record.requiredOutputFieldsOn === undefined ? [] : outcomeList(record.requiredOutputFieldsOn, ["pass"], `${location}.requiredOutputFieldsOn`),
     authority,
     authorityExplicit: record.authority !== undefined
   };
@@ -879,6 +888,20 @@ function graphNode(value: unknown, index: number, defaults: Pick<ContributorConf
     result.advisor = advisor;
   }
   return result;
+}
+
+function validateRequiredOutputFields(node: GraphNodeConfig, run: ContributorRun): void {
+  if (!node.requiredOutputFields.length) return;
+  if (node.requiredOutputFieldsOn.length && !node.requiredOutputFieldsOn.includes(run.provenance.outcome)) return;
+  const missing = node.requiredOutputFields.filter((path) => {
+    let current: unknown = run.structured;
+    for (const part of path.split(".")) {
+      if (!current || typeof current !== "object" || Array.isArray(current) || !(part in current)) return true;
+      current = (current as Record<string, unknown>)[part];
+    }
+    return current === undefined || current === null;
+  });
+  if (missing.length) throw new Error(`${node.id} structured output is missing required fields: ${missing.join(", ")}`);
 }
 
 function validateGraph(nodes: GraphNodeConfig[]): void {
@@ -1280,6 +1303,8 @@ async function invokeContributor(
     candidateRoot: request.candidate.root,
     mutablePaths: request.campaign.mutablePaths ?? [],
     immutablePaths: request.campaign.immutablePaths ?? [],
+    ...(request.campaign.parameters?.projectSlice !== undefined ? { projectSlice: request.campaign.parameters.projectSlice } : {}),
+    ...(request.campaign.parameters?.projectSpec !== undefined ? { projectSpec: request.campaign.parameters.projectSpec } : {}),
     stage,
     role: stage,
     contributorId: config.id,
@@ -2054,6 +2079,7 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
       }
       if (run.provenance.status === "complete") {
         validateAuthorityOutput(config, state.config, run);
+        validateRequiredOutputFields(state.config, run);
         completeState(state);
         return;
       }
@@ -2244,6 +2270,16 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
   const sinks = config.nodes.filter((node) => !dependedOn.has(node.id) && states.get(node.id)!.status === "complete");
   const writers = config.nodes.filter((node) => !node.readOnly).flatMap((node) => states.get(node.id)!.runs);
   const finalWriter = writers.at(-1);
+  const finalStructured = [...sinks].reverse().flatMap((node) => [...states.get(node.id)!.runs].reverse()).find((run) => run.structured)?.structured;
+  const projectSlice = request.campaign.parameters?.projectSlice;
+  const sliceRecord = projectSlice && typeof projectSlice === "object" && !Array.isArray(projectSlice) ? projectSlice as Record<string, unknown> : undefined;
+  const reportedProjectEvidence = finalStructured?.projectEvidence && typeof finalStructured.projectEvidence === "object" && !Array.isArray(finalStructured.projectEvidence) ? finalStructured.projectEvidence as Record<string, unknown> : undefined;
+  const projectEvidence = reportedProjectEvidence ? {
+    ...reportedProjectEvidence,
+    ...(typeof sliceRecord?.specRevision === "number" ? { specRevision: sliceRecord.specRevision } : {}),
+    ...(typeof sliceRecord?.specFingerprint === "string" ? { specFingerprint: sliceRecord.specFingerprint } : {}),
+    writerGenerations: Object.fromEntries(writerGenerations)
+  } : undefined;
   const sinkSummary = sinks.map((node) => `${node.id}: ${states.get(node.id)!.summary}`).join("; ");
   const summary = [finalWriter?.provenance.summary, sinkSummary].filter(Boolean).join(" | ") || "Agent graph completed";
   const usage = aggregateInvocationUsage(runs.map((run) => run.provenance.usage));
@@ -2272,6 +2308,8 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
     metadata: {
       pipeline: "agent.team",
       mode: "graph",
+      ...(projectEvidence ? { projectEvidence } : {}),
+      ...(finalStructured?.projectDisposition && typeof finalStructured.projectDisposition === "object" && !Array.isArray(finalStructured.projectDisposition) ? { projectDisposition: finalStructured.projectDisposition } : {}),
       maximumParallel: config.maximumParallel,
       totalAttempts,
       repairAttempts,

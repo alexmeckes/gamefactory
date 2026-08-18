@@ -1,0 +1,35 @@
+{
+  "apiVersion": "gamefactory.dev/v2",
+  "kind": "Project",
+  "id": "replace-with-project-id",
+  "title": "Replace with game title",
+  "projectRoot": ".",
+  "preproduction": {
+    "concept": "concept.md",
+    "spec": "game-spec.json",
+    "maximumConvergencePasses": 3,
+    "attempts": [{ "id": "spec-v1", "campaign": "spec-campaign.json", "config": "factory.json" }]
+  },
+  "slices": [
+    {
+      "id": "first-playable",
+      "title": "First player-complete slice",
+      "order": 10,
+      "consumesClaims": ["loop.core"],
+      "playerOutcome": "Replace with one end-to-end outcome.",
+      "primaryRisk": "Replace with the most important uncertainty.",
+      "nonGoals": ["Content breadth", "Meta progression", "Unproven secondary systems"],
+      "mutablePaths": ["game/**", "design/**", "evidence/**", "design-system.json", "sam3.request.json", "sam3.video.request.json", "video.request.json", "pixel-motion.request.json"],
+      "evidence": {
+        "scenarios": ["first-session", "returning-player"],
+        "requireInteractionTrace": true,
+        "requireEngineCapture": true,
+        "requireMotionEvidence": true,
+        "requireRuntimeAssets": ["interface", "characters", "feedback"]
+      },
+      "attemptPolicy": { "executionRetries": 2, "creativeRepairs": 3, "specAmendments": 1, "advisorEscalations": 2 },
+      "gate": { "requireAcceptedRevision": true },
+      "attempts": [{ "id": "slice-v1", "campaign": "campaign.json", "config": "factory.json" }]
+    }
+  ]
+}

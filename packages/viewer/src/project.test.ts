@@ -27,15 +27,21 @@ test("projects multiple campaigns into phases without merging source sequences",
     const common = { projectId: project.id, projectRunId: "project-run", manifestFingerprint: "a".repeat(64), actor: { kind: "factory" as const } };
     await journal.append({ ...common, type: "project-started", idempotencyKey: "start" });
     await journal.append({ ...common, type: "phase-started", idempotencyKey: "gameplay-start", phaseId: "gameplay", phaseAttemptId: "v1", campaignId: "gameplay", runId: "gameplay-run" });
-    await journal.append({ ...common, type: "phase-completed", idempotencyKey: "gameplay-complete", phaseId: "gameplay", phaseAttemptId: "v1", campaignId: "gameplay", runId: "gameplay-run", resultingRevision: "b".repeat(40) });
+    await journal.append({ ...common, type: "phase-completed", idempotencyKey: "gameplay-complete", phaseId: "gameplay", phaseAttemptId: "v1", campaignId: "gameplay", runId: "gameplay-run", resultingRevision: "b".repeat(40), data: { specChange: { kind: "initial", rationale: "Initial thesis." }, specArchivePath: "D:/factory/specs/r0001.json" } });
     await journal.append({ ...common, type: "phase-started", idempotencyKey: "art-start", phaseId: "art", phaseAttemptId: "v1", campaignId: "art", runId: "art-run" });
     const trace = await readFactoryProjectTrace(project, root);
     const snapshot = createFactoryProjectSnapshot(trace, { phaseId: "art", attemptId: "v1", runId: "art-run" });
     assert.equal(snapshot.project.status, "live");
     assert.equal(snapshot.phases[0]?.status, "complete");
+    assert.equal(snapshot.phases[0]?.specChange?.rationale, "Initial thesis.");
+    assert.equal(snapshot.phases[0]?.specArchivePath, "D:/factory/specs/r0001.json");
     assert.equal(snapshot.phases[1]?.status, "live");
     assert.equal(snapshot.selection.campaignId, "art");
     assert.equal(snapshot.run.runId, "art-run");
     assert.equal(snapshot.totals.campaigns, 2);
+    await journal.append({ ...common, type: "slice-invalidated", idempotencyKey: "gameplay-invalidated", phaseId: "gameplay", phaseAttemptId: "v1", campaignId: "gameplay", runId: "gameplay-run", data: { amendment: { kind: "spec-amendment", rationale: "Runtime evidence falsified the claim." } } });
+    const invalidated = createFactoryProjectSnapshot(await readFactoryProjectTrace(project, root));
+    assert.equal(invalidated.phases[0]?.status, "live");
+    assert.equal(invalidated.phases[0]?.invalidations, 1);
   } finally { await rm(root, { recursive: true, force: true }); }
 });

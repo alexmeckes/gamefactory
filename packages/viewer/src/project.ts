@@ -1,7 +1,7 @@
 import { stat } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 import { loadCampaign, loadFactoryConfig, resolveFactoryStatePath, type Campaign, type FactoryConfig } from "@gamefactory/core";
-import { ProjectJourneyJournal, type LoadedGameFactoryProject, type ProjectJourneyEvent } from "@gamefactory/project-sdk";
+import { ProjectJourneyJournal, type GameSpecChange, type LoadedGameFactoryProject, type ProjectJourneyEvent } from "@gamefactory/project-sdk";
 import { createFactorySnapshot, factoryTraceSignature, readFactoryTrace, type FactoryTrace, type FactoryViewerOptions, type FactoryViewerSnapshot, type ViewerUsageSummary } from "./trace.js";
 
 export interface ProjectViewerSelection {
@@ -49,6 +49,11 @@ export interface FactoryProjectSnapshot {
     playerOutcome?: string;
     primaryRisk?: string;
     reused?: boolean;
+    reusedFromProjectRunId?: string;
+    invalidations: number;
+    specChange?: GameSpecChange;
+    supersedes?: { revision: number; sha256: string };
+    specArchivePath?: string;
     attempts: Array<{
       id: string;
       campaignId: string;
@@ -151,7 +156,9 @@ export function createFactoryProjectSnapshot(trace: FactoryProjectTrace, request
     const completed = [...events].reverse().find((event) => event.type === "phase-completed" || event.type === "spec-frozen" || event.type === "slice-completed" || event.type === "promotion-applied");
     const blocked = [...events].reverse().find((event) => event.type === "phase-blocked" || event.type === "spec-blocked" || event.type === "slice-blocked");
     const started = [...events].reverse().find((event) => event.type === "phase-started" || event.type === "spec-started" || event.type === "slice-started");
-    const status = completed ? "complete" : blocked ? "blocked" : started ? "live" : "pending";
+    const invalidated = [...events].reverse().find((event) => event.type === "slice-invalidated");
+    const latestState = [completed, blocked, started, invalidated].filter((event): event is ProjectJourneyEvent => Boolean(event)).sort((left, right) => right.sequence - left.sequence)[0];
+    const status = latestState?.type === "slice-invalidated" || latestState?.type.endsWith("started") ? "live" : latestState?.type.endsWith("blocked") ? "blocked" : completed ? "complete" : "pending";
     const completedData = completed?.data && typeof completed.data === "object" && !Array.isArray(completed.data) ? completed.data : undefined;
     return {
       id: phase.id,
@@ -166,6 +173,11 @@ export function createFactoryProjectSnapshot(trace: FactoryProjectTrace, request
       ...(phase.playerOutcome ? { playerOutcome: phase.playerOutcome } : {}),
       ...(phase.primaryRisk ? { primaryRisk: phase.primaryRisk } : {}),
       ...(completedData?.reused === true ? { reused: true } : {}),
+      ...(typeof completedData?.reusedFromProjectRunId === "string" ? { reusedFromProjectRunId: completedData.reusedFromProjectRunId } : {}),
+      invalidations: events.filter((event) => event.type === "slice-invalidated").length,
+      ...(completedData?.specChange && typeof completedData.specChange === "object" && !Array.isArray(completedData.specChange) ? { specChange: completedData.specChange as unknown as GameSpecChange } : {}),
+      ...(completedData?.supersedes && typeof completedData.supersedes === "object" && !Array.isArray(completedData.supersedes) ? { supersedes: completedData.supersedes as unknown as { revision: number; sha256: string } } : {}),
+      ...(typeof completedData?.specArchivePath === "string" ? { specArchivePath: completedData.specArchivePath } : {}),
       attempts: phase.attempts.map((attempt) => {
         const snapshot = attemptSnapshots.get(key(phase.id, attempt.id))!;
         return { id: attempt.id, campaignId: snapshot.campaign.id, status: attempt.status ?? "active", runs: snapshot.runs, selectedRunId: snapshot.runId };

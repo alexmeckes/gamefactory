@@ -1,13 +1,14 @@
 import { createHash, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { FactoryRunner, loadCampaign, loadFactoryConfig, resolveCampaignRunIdentity, resolveFactoryStatePath, type Campaign, type CampaignResult, type FactoryConfig, type FactoryTraceEvent, type JournalJsonValue, type Logger } from "@gamefactory/core";
 import { acquireProjectLease, ProjectJourneyJournal, type ProjectJourneyIndex } from "./journal.js";
 import { projectManifestFingerprint } from "./manifest.js";
 import { gameSpecFingerprint, loadGameSpec } from "./spec.js";
-import type { GameFactoryProject, GameSpec, LoadedGameFactoryProject, LoadedProjectPhase, LoadedProjectPhaseAttempt, ProjectJourneyEvent, ProjectRunResult } from "./types.js";
+import type { GameFactoryProject, GameSpec, LoadedGameFactoryProject, LoadedProjectPhase, LoadedProjectPhaseAttempt, ProjectJourneyEvent, ProjectRunResult, ProjectSpecAmendmentRequest } from "./types.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -60,28 +61,85 @@ function activeAttempt(phase: LoadedProjectPhase): LoadedProjectPhaseAttempt {
   return phase.attempts.find((item) => (item.status ?? "active") === "active")!;
 }
 
-function campaignForPhase(campaign: Campaign, phase: LoadedProjectPhase): Campaign {
+function projectPath(project: LoadedGameFactoryProject, path: string): string {
+  return relative(project.root, path).replaceAll("\\", "/");
+}
+
+function patternContains(parent: string, child: string): boolean {
+  const outer = parent.replaceAll("\\", "/").replace(/^\.\//, "");
+  const inner = child.replaceAll("\\", "/").replace(/^\.\//, "");
+  if (outer === "**" || outer === inner) return true;
+  if (!outer.endsWith("/**")) return false;
+  const prefix = outer.slice(0, -3).replace(/\/$/, "");
+  return inner === prefix || inner.startsWith(`${prefix}/`);
+}
+
+function campaignForPhase(campaign: Campaign, phase: LoadedProjectPhase, project: LoadedGameFactoryProject, amendment?: ProjectSpecAmendmentRequest, frozenSpec?: { spec: GameSpec; fingerprint: string }): Campaign {
+  if (phase.workKind === "spec-convergence") {
+    const passes = project.preproduction?.maximumConvergencePasses ?? project.preproduction?.maximumRevisions ?? 3;
+    return {
+      ...campaign,
+      budget: { ...campaign.budget, maximumExperiments: Math.min(campaign.budget?.maximumExperiments ?? passes, passes) },
+      parameters: {
+        ...campaign.parameters,
+        projectSpec: {
+          projectId: project.id,
+          conceptPath: projectPath(project, project.preproduction!.conceptPath),
+          specPath: projectPath(project, project.preproduction!.specPath),
+          maximumConvergencePasses: passes,
+          ...(amendment ? { amendment } : {})
+        }
+      }
+    };
+  }
   if (phase.workKind !== "vertical-slice") return campaign;
+  if (!phase.mutablePaths?.length) throw new Error(`Project slice ${phase.id} must declare mutablePaths so its authority can be enforced`);
+  if (campaign.mutablePaths?.length) {
+    const outside = phase.mutablePaths.filter((path) => !campaign.mutablePaths!.some((parent) => patternContains(parent, path)));
+    if (outside.length) throw new Error(`Project slice ${phase.id} expands campaign mutation authority: ${outside.join(", ")}`);
+  }
+  const manifestRelative = projectPath(project, project.manifestPath);
+  const immutablePaths = [...new Set([
+    ...(campaign.immutablePaths ?? []),
+    ...(!manifestRelative.startsWith("../") && manifestRelative !== ".." ? [manifestRelative] : []),
+    ...(project.preproduction ? [projectPath(project, project.preproduction.conceptPath), projectPath(project, project.preproduction.specPath)] : [])
+  ])];
+  const sliceContract = {
+    projectId: project.id,
+    sliceId: phase.id,
+    title: phase.title,
+    claimIds: phase.consumesClaims ?? [],
+    playerOutcome: phase.playerOutcome,
+    primaryRisk: phase.primaryRisk,
+    nonGoals: phase.nonGoals ?? [],
+    mutablePaths: phase.mutablePaths,
+    evidence: phase.evidence ?? {},
+    gate: phase.gate ?? {},
+    attemptPolicy: phase.attemptPolicy ?? {},
+    ...(frozenSpec ? { specRevision: frozenSpec.spec.revision, specFingerprint: frozenSpec.fingerprint } : {})
+  };
   const agentTeam = campaign.parameters?.agentTeam;
-  if (!agentTeam || typeof agentTeam !== "object" || Array.isArray(agentTeam)) return campaign;
-  const graph = (agentTeam as Record<string, unknown>).graph;
-  if (!graph || typeof graph !== "object" || Array.isArray(graph)) return campaign;
-  const existingPolicy = (graph as Record<string, unknown>).attemptPolicy;
+  const graph = agentTeam && typeof agentTeam === "object" && !Array.isArray(agentTeam) ? (agentTeam as Record<string, unknown>).graph : undefined;
+  const graphRecord = graph && typeof graph === "object" && !Array.isArray(graph) ? graph as Record<string, unknown> : undefined;
+  const existingPolicy = graphRecord?.attemptPolicy;
   const policy = existingPolicy && typeof existingPolicy === "object" && !Array.isArray(existingPolicy) ? existingPolicy as Record<string, unknown> : {};
   const attemptPolicy = phase.attemptPolicy;
   return {
     ...campaign,
+    mutablePaths: [...phase.mutablePaths],
+    immutablePaths,
     parameters: {
       ...campaign.parameters,
-      agentTeam: {
+      projectSlice: sliceContract,
+      ...(graphRecord ? { agentTeam: {
         ...(agentTeam as Record<string, unknown>),
         graph: {
-          ...(graph as Record<string, unknown>),
+          ...graphRecord,
           claimIds: phase.consumesClaims ?? [],
           enforceClaimedBlockers: true,
           ...(attemptPolicy ? { attemptPolicy: { ...policy, ...(attemptPolicy.executionRetries !== undefined ? { executionRetries: attemptPolicy.executionRetries } : {}), ...(attemptPolicy.creativeRepairs !== undefined ? { creativeRepairs: attemptPolicy.creativeRepairs } : {}), ...(attemptPolicy.advisorEscalations !== undefined ? { advisorEscalations: attemptPolicy.advisorEscalations } : {}) } } : {})
         }
-      }
+      } } : {})
     }
   };
 }
@@ -115,23 +173,99 @@ function normalizedText(value: string): string {
   return value.replaceAll("\r\n", "\n");
 }
 
+async function campaignSkillFingerprint(campaign: Campaign): Promise<string> {
+  const agentTeam = campaign.parameters?.agentTeam;
+  const graph = agentTeam && typeof agentTeam === "object" && !Array.isArray(agentTeam) ? (agentTeam as Record<string, unknown>).graph : undefined;
+  const nodes = graph && typeof graph === "object" && !Array.isArray(graph) && Array.isArray((graph as Record<string, unknown>).nodes) ? (graph as Record<string, unknown>).nodes as unknown[] : [];
+  const names = new Set<string>();
+  for (const node of nodes) {
+    if (!node || typeof node !== "object" || Array.isArray(node) || !Array.isArray((node as Record<string, unknown>).skills)) continue;
+    for (const binding of (node as Record<string, unknown>).skills as unknown[]) {
+      const name = typeof binding === "string" ? binding : binding && typeof binding === "object" && !Array.isArray(binding) ? (binding as Record<string, unknown>).name : undefined;
+      if (typeof name === "string") names.add(name);
+    }
+  }
+  const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../../.agents/skills");
+  const entries = await Promise.all([...names].sort().map(async (name) => {
+    try { return [name, createHash("sha256").update(await readFile(resolve(root, name, "SKILL.md"), "utf8")).digest("hex")] as const; }
+    catch { return [name, "missing"] as const; }
+  }));
+  return hash(entries);
+}
+
 function keptRecord(result: CampaignResult) {
   return [...result.experiments].reverse().find((record) => record.status === "keep");
 }
 
-function evidenceReasons(phase: LoadedProjectPhase, result: CampaignResult): string[] {
+function projectMetadata(record: ReturnType<typeof keptRecord> | CampaignResult["experiments"][number] | undefined, key: "projectEvidence" | "projectDisposition"): unknown {
+  const direct = record?.metadata?.[key];
+  if (direct !== undefined) return direct;
+  const agent = record?.metadata?.agent;
+  return agent && typeof agent === "object" && !Array.isArray(agent) ? (agent as Record<string, unknown>)[key] : undefined;
+}
+
+function experimentArtifacts(record: CampaignResult["experiments"][number] | undefined) {
+  return [...(record?.agent?.artifacts ?? []), ...(record?.evaluations.flatMap((evaluation) => evaluation.artifacts) ?? [])];
+}
+
+function recordArtifacts(result: CampaignResult) {
+  return experimentArtifacts(keptRecord(result));
+}
+
+function evidenceReference(value: unknown): string | undefined {
+  if (typeof value === "string" && /^[a-f0-9]{64}$/.test(value)) return value;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const sha256 = (value as Record<string, unknown>).artifactSha256 ?? (value as Record<string, unknown>).sha256;
+  return typeof sha256 === "string" && /^[a-f0-9]{64}$/.test(sha256) ? sha256 : undefined;
+}
+
+function evidenceReasons(phase: LoadedProjectPhase, result: CampaignResult, frozenSpec?: { spec: GameSpec; fingerprint: string }): string[] {
   if (phase.workKind !== "vertical-slice" || !phase.evidence) return [];
-  const metadata = keptRecord(result)?.metadata?.projectEvidence;
+  const metadata = projectMetadata(keptRecord(result), "projectEvidence");
   const evidence = metadata && typeof metadata === "object" && !Array.isArray(metadata) ? metadata as Record<string, unknown> : {};
+  const artifacts = recordArtifacts(result);
+  const artifactByHash = new Map(artifacts.filter((artifact) => artifact.sha256).map((artifact) => [artifact.sha256!, artifact]));
+  const hasReference = (value: unknown, kinds?: Set<string>): boolean => {
+    const sha256 = evidenceReference(value);
+    const artifact = sha256 ? artifactByHash.get(sha256) : undefined;
+    return Boolean(artifact && (!kinds || kinds.has(artifact.kind)));
+  };
   const reasons: string[] = [];
-  const actualScenarios = new Set(Array.isArray(evidence.scenarios) ? evidence.scenarios.filter((item): item is string => typeof item === "string") : []);
-  for (const scenario of phase.evidence.scenarios ?? []) if (!actualScenarios.has(scenario) && result.bestMetrics[`scenario.${scenario}.passed`] !== 1) reasons.push(`Required slice scenario ${scenario} was not reported in projectEvidence.`);
-  if (phase.evidence.requireInteractionTrace && evidence.interactionTrace !== true && result.bestMetrics.interaction_trace !== 1) reasons.push("Slice requires a real interaction trace.");
-  if (phase.evidence.requireEngineCapture && evidence.engineCapture !== true && result.bestMetrics.engine_capture !== 1) reasons.push("Slice requires a current engine capture.");
-  if (phase.evidence.requireMotionEvidence && evidence.motionEvidence !== true && result.bestMetrics.motion_evidence !== 1) reasons.push("Slice requires current runtime motion evidence.");
-  const actualAssets = new Set(Array.isArray(evidence.runtimeAssets) ? evidence.runtimeAssets.filter((item): item is string => typeof item === "string") : []);
-  for (const asset of phase.evidence.requireRuntimeAssets ?? []) if (!actualAssets.has(asset) && result.bestMetrics[`runtime_asset.${asset}`] !== 1) reasons.push(`Required runtime asset family ${asset} was not evidenced in the engine.`);
+  if (!frozenSpec || evidence.specRevision !== frozenSpec.spec.revision || evidence.specFingerprint !== frozenSpec.fingerprint) reasons.push("Slice evidence is not bound to the current frozen GameSpec revision and fingerprint.");
+  const scenarioEvidence = new Map<string, unknown>();
+  if (Array.isArray(evidence.scenarios)) for (const item of evidence.scenarios) {
+    if (item && typeof item === "object" && !Array.isArray(item) && typeof (item as Record<string, unknown>).id === "string") scenarioEvidence.set((item as Record<string, unknown>).id as string, item);
+  }
+  for (const scenario of phase.evidence.scenarios ?? []) if (!hasReference(scenarioEvidence.get(scenario), new Set(["replay", "telemetry", "test-report", "log"]))) reasons.push(`Required slice scenario ${scenario} is not linked to a preserved scenario artifact.`);
+  if (phase.evidence.requireInteractionTrace && !hasReference(evidence.interactionTrace, new Set(["replay", "telemetry"]))) reasons.push("Slice requires a preserved real interaction trace artifact.");
+  if (phase.evidence.requireEngineCapture && !hasReference(evidence.engineCapture, new Set(["image", "video"]))) reasons.push("Slice requires a preserved current engine capture artifact.");
+  if (phase.evidence.requireEngineCapture && !hasReference(evidence.targetSha256, new Set(["image"]))) reasons.push("Slice engine evidence is not bound to a preserved approved target image hash.");
+  if (phase.evidence.requireMotionEvidence && !hasReference(evidence.motionEvidence, new Set(["video", "replay"]))) reasons.push("Slice requires preserved current runtime motion evidence.");
+  const runtimeEvidence = new Map<string, unknown>();
+  if (Array.isArray(evidence.runtimeAssets)) for (const item of evidence.runtimeAssets) {
+    if (item && typeof item === "object" && !Array.isArray(item) && typeof (item as Record<string, unknown>).id === "string" && typeof (item as Record<string, unknown>).consumer === "string") runtimeEvidence.set((item as Record<string, unknown>).id as string, item);
+  }
+  for (const asset of phase.evidence.requireRuntimeAssets ?? []) if (!hasReference(runtimeEvidence.get(asset))) reasons.push(`Required runtime asset family ${asset} is not linked to a preserved artifact and runtime consumer.`);
+  const recordAgent = keptRecord(result)?.metadata?.agent;
+  const actualWriterGenerations = recordAgent && typeof recordAgent === "object" && !Array.isArray(recordAgent) ? (recordAgent as Record<string, unknown>).writerGenerations : undefined;
+  if (actualWriterGenerations && JSON.stringify(evidence.writerGenerations) !== JSON.stringify(actualWriterGenerations)) reasons.push("Slice evidence writer generations do not match the accepted agent execution.");
   return reasons;
+}
+
+function specAmendmentRequest(phase: LoadedProjectPhase, result: CampaignResult): ProjectSpecAmendmentRequest | undefined {
+  const dispositionRecord = [...result.experiments].reverse().find((record) => projectMetadata(record, "projectDisposition") !== undefined);
+  const raw = projectMetadata(dispositionRecord, "projectDisposition");
+  if (!raw || typeof raw !== "object" || Array.isArray(raw) || (raw as Record<string, unknown>).kind !== "spec-amendment") return undefined;
+  const value = raw as Record<string, unknown>;
+  if (typeof value.rationale !== "string" || !value.rationale.trim()) throw new Error("A spec-amendment disposition must include a rationale");
+  const claimIds = Array.isArray(value.claimIds) ? value.claimIds.filter((item): item is string => typeof item === "string") : [];
+  if (!claimIds.length || claimIds.length !== (value.claimIds as unknown[] | undefined)?.length) throw new Error("A spec-amendment disposition must cite claimIds");
+  const unknown = claimIds.filter((id) => !(phase.consumesClaims ?? []).includes(id));
+  if (unknown.length) throw new Error(`Spec amendment cites claims outside slice ${phase.id}: ${unknown.join(", ")}`);
+  const evidenceArtifactSha256 = Array.isArray(value.evidenceArtifactSha256) ? value.evidenceArtifactSha256.filter((item): item is string => typeof item === "string" && /^[a-f0-9]{64}$/.test(item)) : [];
+  const preserved = new Set(experimentArtifacts(dispositionRecord).map((artifact) => artifact.sha256).filter((item): item is string => Boolean(item)));
+  if (!evidenceArtifactSha256.length || evidenceArtifactSha256.some((sha256) => !preserved.has(sha256))) throw new Error("A spec amendment must cite preserved evidence artifacts from this slice run");
+  return { kind: "spec-amendment", rationale: value.rationale, claimIds: [...new Set(claimIds)], evidenceArtifactSha256: [...new Set(evidenceArtifactSha256)] };
 }
 
 function eventType(phase: LoadedProjectPhase, state: "started" | "complete" | "blocked"): ProjectJourneyEvent["type"] {
@@ -148,12 +282,58 @@ async function validateFrozenSpec(project: LoadedGameFactoryProject): Promise<{ 
   return { spec, fingerprint: gameSpecFingerprint(spec) };
 }
 
+async function validateSpecLineageAndArchive(input: {
+  project: LoadedGameFactoryProject;
+  events: ProjectJourneyEvent[];
+  dataRoot?: string;
+}): Promise<{ spec: GameSpec; fingerprint: string; archivePath: string }> {
+  const frozen = await validateFrozenSpec(input.project);
+  const previous = [...input.events].reverse().find((event) => event.type === "spec-frozen" && event.specFingerprint && event.specRevision !== undefined);
+  if (previous) {
+    const data = previous.data && typeof previous.data === "object" && !Array.isArray(previous.data) ? previous.data as Record<string, unknown> : undefined;
+    if (typeof data?.specArchivePath === "string") {
+      const archived = await loadGameSpec(data.specArchivePath, input.project.id);
+      if (archived.revision !== previous.specRevision || gameSpecFingerprint(archived) !== previous.specFingerprint) throw new Error(`Frozen GameSpec archive for revision ${previous.specRevision} no longer matches its journal fingerprint`);
+    }
+  }
+  if (previous && (previous.specFingerprint !== frozen.fingerprint || previous.specRevision !== frozen.spec.revision)) {
+    if (!frozen.spec.supersedes || frozen.spec.supersedes.revision !== previous.specRevision || frozen.spec.supersedes.sha256 !== previous.specFingerprint) {
+      throw new Error(`GameSpec revision ${frozen.spec.revision} must supersede the latest frozen revision ${previous.specRevision} (${previous.specFingerprint})`);
+    }
+    if (!frozen.spec.change || frozen.spec.change.kind === "initial") throw new Error(`GameSpec revision ${frozen.spec.revision} must record attributable amendment metadata`);
+    if (frozen.spec.change.kind === "evidence-amendment" && !(frozen.spec.change.evidence?.length)) throw new Error(`Evidence amendment revision ${frozen.spec.revision} must cite evidence`);
+  } else if (!previous && frozen.spec.revision !== 1) {
+    throw new Error(`The first archived GameSpec must be revision 1, found revision ${frozen.spec.revision}`);
+  } else if (!previous && frozen.spec.change?.kind !== "initial") {
+    throw new Error("The first archived GameSpec must record initial change metadata");
+  }
+  const logical = join(".factory", "projects", input.project.id, "specs", `r${String(frozen.spec.revision).padStart(4, "0")}-${frozen.fingerprint}.json`);
+  const archivePath = resolveFactoryStatePath({ cwd: input.project.root, ...(input.dataRoot ? { dataRoot: input.dataRoot } : {}) }, logical, logical, "frozen GameSpec archive");
+  const source = await readFile(input.project.preproduction!.specPath, "utf8");
+  await mkdir(dirname(archivePath), { recursive: true });
+  try { await writeFile(archivePath, source, { encoding: "utf8", flag: "wx" }); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    if ((await readFile(archivePath, "utf8")) !== source) throw new Error(`Frozen GameSpec archive conflicts at ${archivePath}`);
+  }
+  return { ...frozen, archivePath };
+}
+
 async function unitFingerprint(input: { phase: LoadedProjectPhase; campaign: Campaign; config: FactoryConfig; project: LoadedGameFactoryProject; dependencies: Record<string, string | undefined>; frozenSpec?: { spec: GameSpec; fingerprint: string } }): Promise<{ fingerprint: string; spec?: { spec: GameSpec; fingerprint: string }; claimFingerprint?: string }> {
-  const runId = resolveCampaignRunIdentity(input.campaign, input.config).runId;
+  let identityCampaign = input.campaign;
+  if (input.phase.workKind === "vertical-slice") {
+    const projectSlice = input.campaign.parameters?.projectSlice;
+    if (projectSlice && typeof projectSlice === "object" && !Array.isArray(projectSlice)) {
+      const { specRevision: _specRevision, specFingerprint: _specFingerprint, ...stableSlice } = projectSlice as Record<string, unknown>;
+      identityCampaign = { ...input.campaign, parameters: { ...input.campaign.parameters, projectSlice: stableSlice } };
+    }
+  }
+  const runId = resolveCampaignRunIdentity(identityCampaign, input.config).runId;
+  const skillFingerprint = await campaignSkillFingerprint(input.campaign);
   if (input.phase.workKind === "spec-convergence") {
     const concept = input.project.preproduction ? await readFile(input.project.preproduction.conceptPath, "utf8") : "";
     const maximumConvergencePasses = input.project.preproduction?.maximumConvergencePasses ?? input.project.preproduction?.maximumRevisions ?? 3;
-    return { fingerprint: hash({ kind: "spec-convergence", concept: createHash("sha256").update(concept).digest("hex"), runId, maximumConvergencePasses }) };
+    return { fingerprint: hash({ kind: "spec-convergence", concept: createHash("sha256").update(concept).digest("hex"), runId, maximumConvergencePasses, skillFingerprint }) };
   }
   if (input.phase.workKind === "vertical-slice") {
     const frozenSpec = input.frozenSpec ?? await validateFrozenSpec(input.project);
@@ -165,10 +345,25 @@ async function unitFingerprint(input: { phase: LoadedProjectPhase; campaign: Cam
     if (!plan) throw new Error(`Frozen GameSpec does not define project slice ${input.phase.id}`);
     const missing = claims.filter((claim) => !plan.claimIds.includes(claim));
     if (missing.length > 0) throw new Error(`Project slice ${input.phase.id} consumes claims absent from its frozen spec plan: ${missing.join(", ")}`);
+    if (plan.playerOutcome !== input.phase.playerOutcome) throw new Error(`Project slice ${input.phase.id} playerOutcome differs from its frozen GameSpec plan`);
+    if (plan.primaryRisk !== input.phase.primaryRisk) throw new Error(`Project slice ${input.phase.id} primaryRisk differs from its frozen GameSpec plan`);
     const implementationDependencies = Object.fromEntries(Object.entries(input.dependencies).filter(([id]) => input.project.phases.find((phase) => phase.id === id)?.workKind !== "spec-convergence"));
-    return { fingerprint: hash({ kind: "vertical-slice", runId, claimFingerprint, dependencies: implementationDependencies, playerOutcome: input.phase.playerOutcome, primaryRisk: input.phase.primaryRisk, evidence: input.phase.evidence ?? {} }), spec: frozenSpec, claimFingerprint };
+    return { fingerprint: hash({
+      kind: "vertical-slice",
+      runId,
+      skillFingerprint,
+      claimFingerprint,
+      dependencies: implementationDependencies,
+      playerOutcome: input.phase.playerOutcome,
+      primaryRisk: input.phase.primaryRisk,
+      nonGoals: input.phase.nonGoals ?? [],
+      mutablePaths: input.phase.mutablePaths ?? [],
+      evidence: input.phase.evidence ?? {},
+      gate: input.phase.gate ?? {},
+      attemptPolicy: input.phase.attemptPolicy ?? {}
+    }), spec: frozenSpec, claimFingerprint };
   }
-  return { fingerprint: hash({ kind: "legacy-phase", runId, manifest: projectManifestFingerprint(rawProject(input.project)) }) };
+  return { fingerprint: hash({ kind: "legacy-phase", runId, skillFingerprint, manifest: projectManifestFingerprint(rawProject(input.project)) }) };
 }
 
 export class ProjectRunner {
@@ -204,7 +399,7 @@ export class ProjectRunner {
     for (const phase of [...this.project.phases].sort((a, b) => a.order - b.order)) {
       const attempt = activeAttempt(phase);
       const [loadedCampaign, config] = await Promise.all([loadCampaign(attempt.campaignPath), loadFactoryConfig(attempt.configPath)]);
-      const campaign = campaignForPhase(loadedCampaign, phase);
+      const campaign = campaignForPhase(loadedCampaign, phase, this.project);
       const runner = new FactoryRunner({ cwd: this.project.root, ...(this.options.dataRoot ? { dataRoot: this.options.dataRoot } : {}), ...(this.options.worktreeRoot ? { worktreeRoot: this.options.worktreeRoot } : {}), ...(this.options.onTraceEvent ? { onTraceEvent: this.options.onTraceEvent } : {}), config, logger: this.options.logger, ...(this.options.signal ? { signal: this.options.signal } : {}) });
       try { await runner.initialize(); for (const check of await runner.doctor(campaign)) output.push({ phaseId: phase.id, attemptId: attempt.id, ...check }); }
       finally { await runner.dispose(); }
@@ -245,7 +440,12 @@ export class ProjectRunner {
       const acceptedByPhase = new Map<string, string | undefined>();
       for (const event of completedEvents) if (event.phaseId) acceptedByPhase.set(event.phaseId, event.resultingRevision);
       let frozenSpec: { spec: GameSpec; fingerprint: string } | undefined;
-      for (const phase of [...this.project.phases].sort((left, right) => left.order - right.order)) {
+      let pendingAmendment: ProjectSpecAmendmentRequest | undefined;
+      const amendmentCounts = new Map<string, number>();
+      for (const event of currentEvents) if (event.projectRunId === projectRunId && event.type === "slice-invalidated" && event.phaseId) amendmentCounts.set(event.phaseId, (amendmentCounts.get(event.phaseId) ?? 0) + 1);
+      const orderedPhases = [...this.project.phases].sort((left, right) => left.order - right.order);
+      for (let phaseIndex = 0; phaseIndex < orderedPhases.length;) {
+        const phase = orderedPhases[phaseIndex]!;
         const missing = (phase.dependsOn ?? []).filter((id) => !completed.has(id));
         if (missing.length > 0) {
           const reasons = [`Dependencies are incomplete: ${missing.join(", ")}`];
@@ -255,7 +455,7 @@ export class ProjectRunner {
         }
         const attempt = activeAttempt(phase);
         const [loadedCampaign, config] = await Promise.all([loadCampaign(attempt.campaignPath), loadFactoryConfig(attempt.configPath)]);
-        const campaign = campaignForPhase(loadedCampaign, phase);
+        const campaign = campaignForPhase(loadedCampaign, phase, this.project, phase.workKind === "spec-convergence" ? pendingAmendment : undefined, frozenSpec);
         const runId = resolveCampaignRunIdentity(campaign, config).runId;
         const dependencies = Object.fromEntries((phase.dependsOn ?? []).map((id) => [id, acceptedByPhase.get(id)]));
         const unit = await unitFingerprint({ phase, campaign, config, project: this.project, dependencies, ...(frozenSpec ? { frozenSpec } : {}) });
@@ -264,15 +464,22 @@ export class ProjectRunner {
         let reusable = currentCompletion;
         if (!reusable && phaseKind !== "legacy-phase") reusable = [...currentEvents].reverse().find((event) => event.phaseId === phase.id && completionTypes.has(event.type) && event.unitFingerprint === unit.fingerprint);
         if (reusable && phaseKind === "spec-convergence") {
-          try { frozenSpec = await validateFrozenSpec(this.project); if (reusable.specFingerprint !== frozenSpec.fingerprint) reusable = undefined; }
+          try {
+            frozenSpec = await validateFrozenSpec(this.project);
+            if (reusable.specFingerprint !== frozenSpec.fingerprint) reusable = undefined;
+          }
           catch { reusable = undefined; }
         }
         if (reusable) {
           completed.add(phase.id);
           acceptedByPhase.set(phase.id, reusable.resultingRevision);
           const reusedAcrossRuns = reusable.projectRunId !== projectRunId;
-          if (reusedAcrossRuns) await this.journal.append({ projectId: this.project.id, projectRunId, type: eventType(phase, "complete"), idempotencyKey: `${projectRunId}:${phase.id}:reused:${unit.fingerprint}`, manifestFingerprint: this.manifestFingerprint, phaseId: phase.id, phaseAttemptId: attempt.id, workKind: phaseKind, unitFingerprint: unit.fingerprint, ...(reusable.specRevision !== undefined ? { specRevision: reusable.specRevision } : {}), ...(reusable.specFingerprint ? { specFingerprint: reusable.specFingerprint } : {}), ...(phase.consumesClaims ? { consumedClaims: phase.consumesClaims } : {}), campaignId: campaign.id, runId, actor: { kind: "factory" }, ...(reusable.resultingRevision ? { resultingRevision: reusable.resultingRevision } : {}), data: { reused: true, reusedFromProjectRunId: reusable.projectRunId } });
+          if (reusedAcrossRuns) {
+            const reusableData = reusable.data && typeof reusable.data === "object" && !Array.isArray(reusable.data) ? reusable.data as Record<string, JournalJsonValue> : {};
+            await this.journal.append({ projectId: this.project.id, projectRunId, type: eventType(phase, "complete"), idempotencyKey: `${projectRunId}:${phase.id}:reused:${unit.fingerprint}`, manifestFingerprint: this.manifestFingerprint, phaseId: phase.id, phaseAttemptId: attempt.id, workKind: phaseKind, unitFingerprint: unit.fingerprint, ...(reusable.specRevision !== undefined ? { specRevision: reusable.specRevision } : {}), ...(reusable.specFingerprint ? { specFingerprint: reusable.specFingerprint } : {}), ...(phase.consumesClaims ? { consumedClaims: phase.consumesClaims } : {}), campaignId: campaign.id, runId, actor: { kind: "factory" }, ...(reusable.resultingRevision ? { resultingRevision: reusable.resultingRevision } : {}), data: { ...reusableData, reused: true, reusedFromProjectRunId: reusable.projectRunId } });
+          }
           phases.push({ phaseId: phase.id, attemptId: attempt.id, status: "complete", ...(reusable.resultingRevision ? { acceptedRevision: reusable.resultingRevision } : {}), workKind: phaseKind, unitFingerprint: unit.fingerprint, reused: reusedAcrossRuns });
+          phaseIndex += 1;
           continue;
         }
         const startType = eventType(phase, "started");
@@ -281,7 +488,7 @@ export class ProjectRunner {
         const latestPhaseStart = phaseStarts.at(-1);
         const latestPhaseTerminal = latestPhaseStart && currentEvents.some((event) => event.projectRunId === projectRunId && event.phaseId === phase.id && event.sequence > latestPhaseStart.sequence && terminalTypes.has(event.type));
         const execution = latestPhaseStart && !latestPhaseTerminal ? phaseStarts.length : phaseStarts.length + 1;
-        const phaseKey = `${projectRunId}:${phase.id}:${attempt.id}:e${String(execution).padStart(4, "0")}`;
+        const phaseKey = `${projectRunId}:${phase.id}:${attempt.id}:${unit.fingerprint.slice(0, 12)}:e${String(execution).padStart(4, "0")}`;
         if (!latestPhaseStart || latestPhaseTerminal) {
           const phaseRevision = await gitRevision(this.project.root);
           await this.journal.append({ projectId: this.project.id, projectRunId, type: startType, idempotencyKey: `${phaseKey}:started`, manifestFingerprint: this.manifestFingerprint, phaseId: phase.id, phaseAttemptId: attempt.id, workKind: phaseKind, unitFingerprint: unit.fingerprint, ...(phase.consumesClaims ? { consumedClaims: phase.consumesClaims } : {}), campaignId: campaign.id, runId, actor: { kind: "factory" }, ...(phaseRevision ? { sourceRevision: phaseRevision } : {}), data: journalData({ ...(phase.playerOutcome ? { playerOutcome: phase.playerOutcome } : {}), ...(phase.primaryRisk ? { primaryRisk: phase.primaryRisk } : {}), ...(phase.attemptPolicy ? { attemptPolicy: phase.attemptPolicy } : {}) }) });
@@ -295,12 +502,51 @@ export class ProjectRunner {
           finally { await runner.dispose(); }
         }
         const gate = gateReasons(phase, campaignResult);
-        gate.reasons.push(...evidenceReasons(phase, campaignResult));
+        gate.reasons.push(...evidenceReasons(phase, campaignResult, frozenSpec));
+        let specArchivePath: string | undefined;
         if (phaseKind === "spec-convergence" && gate.reasons.length === 0) {
-          try { frozenSpec = await validateFrozenSpec(this.project); }
+          try {
+            const archived = await validateSpecLineageAndArchive({ project: this.project, events: await this.journal.read(), ...(this.options.dataRoot ? { dataRoot: this.options.dataRoot } : {}) });
+            frozenSpec = { spec: archived.spec, fingerprint: archived.fingerprint };
+            specArchivePath = archived.archivePath;
+          }
           catch (error) { gate.reasons.push(error instanceof Error ? error.message : String(error)); }
         }
         if (gate.reasons.length > 0) {
+          const amendment = phaseKind === "vertical-slice" ? specAmendmentRequest(phase, campaignResult) : undefined;
+          const amendmentCount = amendmentCounts.get(phase.id) ?? 0;
+          const amendmentLimit = phase.attemptPolicy?.specAmendments ?? 0;
+          if (amendment && amendmentCount < amendmentLimit) {
+            amendmentCounts.set(phase.id, amendmentCount + 1);
+            const cited = new Set(amendment.evidenceArtifactSha256);
+            await this.journal.append({
+              projectId: this.project.id,
+              projectRunId,
+              type: "slice-invalidated",
+              idempotencyKey: `${phaseKey}:invalidated:spec-amendment-${amendmentCount + 1}`,
+              manifestFingerprint: this.manifestFingerprint,
+              phaseId: phase.id,
+              phaseAttemptId: attempt.id,
+              workKind: phaseKind,
+              unitFingerprint: unit.fingerprint,
+              ...(phase.consumesClaims ? { consumedClaims: phase.consumesClaims } : {}),
+              campaignId: campaign.id,
+              runId,
+              actor: { kind: "agent" },
+              artifacts: campaignResult.experiments.flatMap((record) => experimentArtifacts(record)).filter((artifact) => artifact.sha256 && cited.has(artifact.sha256)),
+              data: journalData({ amendment, reasons: gate.reasons, attempt: amendmentCount + 1, maximum: amendmentLimit })
+            });
+            pendingAmendment = amendment;
+            const specId = this.project.preproduction?.id ?? "spec-convergence";
+            completed.delete(specId);
+            completed.delete(phase.id);
+            acceptedByPhase.delete(specId);
+            acceptedByPhase.delete(phase.id);
+            frozenSpec = undefined;
+            phaseIndex = 0;
+            continue;
+          }
+          if (amendment && amendmentCount >= amendmentLimit) gate.reasons.push(`Slice requested a GameSpec amendment after its limit of ${amendmentLimit} was exhausted.`);
           phases.push({ phaseId: phase.id, attemptId: attempt.id, status: "blocked", campaignResult, reasons: gate.reasons, ...(gate.acceptedRevision ? { acceptedRevision: gate.acceptedRevision } : {}), workKind: phaseKind, unitFingerprint: unit.fingerprint });
           await this.journal.append({ projectId: this.project.id, projectRunId, type: eventType(phase, "blocked"), idempotencyKey: `${phaseKey}:blocked`, manifestFingerprint: this.manifestFingerprint, phaseId: phase.id, phaseAttemptId: attempt.id, workKind: phaseKind, unitFingerprint: unit.fingerprint, ...(phase.consumesClaims ? { consumedClaims: phase.consumesClaims } : {}), campaignId: campaign.id, runId, actor: { kind: "factory" }, ...(gate.acceptedRevision ? { resultingRevision: gate.acceptedRevision } : {}), data: { reasons: gate.reasons, campaignStatus: campaignResult.status } });
           await this.journal.append({ projectId: this.project.id, projectRunId, type: "project-blocked", idempotencyKey: `${phaseKey}:project-blocked`, manifestFingerprint: this.manifestFingerprint, phaseId: phase.id, phaseAttemptId: attempt.id, campaignId: campaign.id, runId, actor: { kind: "factory" }, data: { reasons: gate.reasons } });
@@ -309,7 +555,9 @@ export class ProjectRunner {
         completed.add(phase.id);
         acceptedByPhase.set(phase.id, gate.acceptedRevision);
         phases.push({ phaseId: phase.id, attemptId: attempt.id, status: "complete", campaignResult, ...(gate.acceptedRevision ? { acceptedRevision: gate.acceptedRevision } : {}), workKind: phaseKind, unitFingerprint: unit.fingerprint });
-        await this.journal.append({ projectId: this.project.id, projectRunId, type: eventType(phase, "complete"), idempotencyKey: `${phaseKey}:completed`, manifestFingerprint: this.manifestFingerprint, phaseId: phase.id, phaseAttemptId: attempt.id, workKind: phaseKind, unitFingerprint: unit.fingerprint, ...(frozenSpec ? { specRevision: frozenSpec.spec.revision, specFingerprint: frozenSpec.fingerprint } : {}), ...(phase.consumesClaims ? { consumedClaims: phase.consumesClaims } : {}), campaignId: campaign.id, runId, actor: { kind: "factory" }, ...(gate.acceptedRevision ? { resultingRevision: gate.acceptedRevision } : {}), data: journalData({ bestMetrics: campaignResult.bestMetrics, ...(unit.claimFingerprint ? { claimFingerprint: unit.claimFingerprint } : {}), ...(phaseKind === "spec-convergence" && frozenSpec?.spec.change ? { specChange: frozenSpec.spec.change } : {}), ...(phaseKind === "spec-convergence" && frozenSpec?.spec.supersedes ? { supersedes: frozenSpec.spec.supersedes } : {}) }) });
+        await this.journal.append({ projectId: this.project.id, projectRunId, type: eventType(phase, "complete"), idempotencyKey: `${phaseKey}:completed`, manifestFingerprint: this.manifestFingerprint, phaseId: phase.id, phaseAttemptId: attempt.id, workKind: phaseKind, unitFingerprint: unit.fingerprint, ...(frozenSpec ? { specRevision: frozenSpec.spec.revision, specFingerprint: frozenSpec.fingerprint } : {}), ...(phase.consumesClaims ? { consumedClaims: phase.consumesClaims } : {}), campaignId: campaign.id, runId, actor: { kind: "factory" }, ...(gate.acceptedRevision ? { resultingRevision: gate.acceptedRevision } : {}), data: journalData({ bestMetrics: campaignResult.bestMetrics, ...(unit.claimFingerprint ? { claimFingerprint: unit.claimFingerprint } : {}), ...(phaseKind === "spec-convergence" && frozenSpec?.spec.change ? { specChange: frozenSpec.spec.change } : {}), ...(phaseKind === "spec-convergence" && frozenSpec?.spec.supersedes ? { supersedes: frozenSpec.spec.supersedes } : {}), ...(phaseKind === "spec-convergence" && specArchivePath ? { specArchivePath } : {}) }) });
+        if (phaseKind === "spec-convergence") pendingAmendment = undefined;
+        phaseIndex += 1;
       }
       const resultingRevision = await gitRevision(this.project.root);
       await this.journal.append({ projectId: this.project.id, projectRunId, type: "project-finished", idempotencyKey: `${projectRunId}:finished`, manifestFingerprint: this.manifestFingerprint, actor: { kind: "factory" }, ...(resultingRevision ? { resultingRevision } : {}) });
