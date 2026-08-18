@@ -101,6 +101,25 @@ if (["alpha", "beta"].includes(request.nodeId)) {
   console.log(JSON.stringify(value === "implemented\\n"
     ? { summary: "contract passed", outcome: "pass" }
     : { summary: "contract regressed", outcome: "revise" }));
+} else if (["nested-blocker-reviewer", "nested-unknown-blocker-reviewer"].includes(request.nodeId)) {
+  console.log(JSON.stringify({
+    summary: "scene direction requires another production step",
+    outcome: "revise",
+    findings: {
+      blockers: [{
+        classification: "blocker",
+        claimIds: [request.nodeId === "nested-unknown-blocker-reviewer" ? "scope.unknown" : "loop.first-errand"],
+        finding: "The current scene does not yet prove the accepted visual-comprehension claim."
+      }],
+      opportunities: [{ classification: "opportunity", finding: "Explore a second coherent direction." }]
+    }
+  }));
+} else if (request.nodeId === "nested-plan-consumer") {
+  const plan = request.inputs.find((input) => input.nodeId === "nested-blocker-reviewer");
+  assert.equal(plan.structured.outcome, "revise");
+  assert.equal(plan.structured.findings.blockers[0].claimIds[0], "loop.first-errand");
+  await writeFile("writer-a.txt", "consumed nested planning handoff\\n", "utf8");
+  console.log(JSON.stringify({ summary: "nested planning handoff consumed", outcome: "complete" }));
 } else if (request.nodeId === "capture") {
   const value = await readFile("value.txt", "utf8");
   const capturePath = ".factory/capture-" + request.attempt + ".txt";
@@ -413,6 +432,33 @@ test("explicit reviewer authority requires blockers to cite contract claims", as
       ], { claimIds: ["loop.first-errand"] }),
       candidate: { id: "candidate", root, metadata: {} }, experimentId: "exp-claimed-blocker", history: [], signal: new AbortController().signal
     }), /without a blocker/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("explicit reviewer authority accepts claim-linked nested blocker findings", async () => {
+  const root = await repository();
+  try {
+    const result = await new AgentTeam().run({
+      campaign: graphCampaign(root, [
+        graphCommand("nested-blocker-reviewer", { role: "planner", permissions: "read", authority: "propose", required: false }),
+        graphCommand("nested-plan-consumer", { role: "implementer", permissions: "write", dependsOn: ["nested-blocker-reviewer"] })
+      ], { claimIds: ["loop.first-errand"] }),
+      candidate: { id: "candidate", root, metadata: {} }, experimentId: "exp-nested-claimed-blocker", history: [], signal: new AbortController().signal
+    });
+    assert.match(result.summary, /nested planning handoff consumed/);
+    assert.equal(await readFile(resolve(root, "writer-a.txt"), "utf8"), "consumed nested planning handoff\n");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("explicit reviewer authority rejects unknown claims in nested blocker findings", async () => {
+  const root = await repository();
+  try {
+    await assert.rejects(() => new AgentTeam().run({
+      campaign: graphCampaign(root, [
+        graphCommand("nested-unknown-blocker-reviewer", { role: "planner", permissions: "read", authority: "propose" })
+      ], { claimIds: ["loop.first-errand"] }),
+      candidate: { id: "candidate", root, metadata: {} }, experimentId: "exp-nested-unknown-blocker", history: [], signal: new AbortController().signal
+    }), /cites unknown claim\(s\): scope\.unknown/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 

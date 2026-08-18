@@ -1,0 +1,12 @@
+{
+  "provider": "godot.factory/v1",
+  "version": "1",
+  "path": "res://game/main.tscn",
+  "parameters": {
+    "mode": "first-session",
+    "seed": 314159,
+    "ticks": 900,
+    "physics_hz": 60
+  }
+}
+

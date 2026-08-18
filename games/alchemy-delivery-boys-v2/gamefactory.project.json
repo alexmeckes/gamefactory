@@ -38,7 +38,8 @@
       "attempts": [
         { "id": "slice-v1", "campaign": "campaign.json", "config": "factory.json", "status": "superseded" },
         { "id": "slice-v2", "campaign": "campaign.json", "config": "factory.json", "status": "superseded" },
-        { "id": "slice-v3", "campaign": "campaign.json", "config": "factory.json", "status": "active" }
+        { "id": "slice-v3", "campaign": "campaign.json", "config": "factory.json", "status": "superseded" },
+        { "id": "slice-v4", "campaign": "campaign.json", "config": "factory.json", "status": "active" }
       ]
     }
   ]

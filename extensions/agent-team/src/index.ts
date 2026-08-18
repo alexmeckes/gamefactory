@@ -1946,8 +1946,19 @@ function validateAuthorityOutput(config: GraphAgentTeamConfig, node: GraphNodeCo
   if (!rejecting && !POSITIVE_CONTROL_OUTCOMES.has(controlOutcome)) throw new AgentTeamExecutionError(`${node.id} returned unknown control outcome ${run.provenance.outcome}`, [run]);
   if (!rejecting) return;
   const findings = run.structured?.findings;
-  if (!Array.isArray(findings)) throw new AgentTeamExecutionError(`${node.id} returned ${run.provenance.outcome} without structured findings`, [run]);
-  const blockers = findings.filter((finding) => finding && typeof finding === "object" && !Array.isArray(finding) && (finding as Record<string, unknown>).findingClass === "blocker") as Array<Record<string, unknown>>;
+  const nestedBlockers = findings && typeof findings === "object" && !Array.isArray(findings)
+    ? (findings as Record<string, unknown>).blockers
+    : undefined;
+  const findingList = Array.isArray(findings) ? findings : Array.isArray(nestedBlockers) ? nestedBlockers : undefined;
+  if (!findingList) throw new AgentTeamExecutionError(`${node.id} returned ${run.provenance.outcome} without structured findings`, [run]);
+  const blockers = findingList.filter((finding) => {
+    if (!finding || typeof finding !== "object" || Array.isArray(finding)) return false;
+    const record = finding as Record<string, unknown>;
+    if (record.findingClass !== undefined || record.classification !== undefined) {
+      return record.findingClass === "blocker" || record.classification === "blocker";
+    }
+    return Array.isArray(nestedBlockers);
+  }) as Array<Record<string, unknown>>;
   if (blockers.length === 0) throw new AgentTeamExecutionError(`${node.id} returned ${run.provenance.outcome} without a blocker; new scope must be reported as an opportunity`, [run]);
   for (const [index, finding] of blockers.entries()) {
     const claimIds = finding.claimIds;

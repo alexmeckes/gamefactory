@@ -1,6 +1,6 @@
 {
   "apiVersion": "gamefactory.dev/v1",
-  "id": "alchemy-delivery-boys-v2-slice-v3",
+  "id": "alchemy-delivery-boys-v2-slice-v4",
   "objective": "Execute the authoritative projectSlice contract against the frozen GameSpec: prove and repair one player-complete Godot graybox, approve coherent whole-scene targets, then integrate one visually production-ready encounter with state-linked motion and artifact-backed evidence. Use a separate tournament campaign only for a named unresolved fork. Do not present graybox, concept, generated source, extracted source, or engine-ready assets as production.",
   "projectRoot": ".",
   "workflow": "autoresearch",
@@ -67,9 +67,10 @@
             "adapter": "codex-app-server",
             "role": "planner",
             "permissions": "read",
+            "required": false,
             "model": "gpt-5.6-sol",
             "reasoningEffort": "high",
-            "instructions": "After the first-session experience and mechanics pass, define a feasible engine-native visual system for one representative encounter. Specify the rendering grid, palette, typography roles, sprite and animation contracts, peer layout regions, UI surface families, anti-patterns, and engine evidence. Do not assume pixel art requires pixel typography for every role; choose pixel, hybrid, or non-pixel type deliberately. Plan controlled scene life across ambient continuity, interaction response, gameplay consequence, and state transition. ImageGen outputs are reference or source only. Return a structured production plan without prescribing a single composition.",
+            "instructions": "After the first-session experience and mechanics pass, define a feasible engine-native visual system for one representative encounter. Specify the rendering grid, palette, typography roles, sprite and animation contracts, peer layout regions, UI surface families, anti-patterns, and engine evidence. Do not assume pixel art requires pixel typography for every role; choose pixel, hybrid, or non-pixel type deliberately. Plan controlled scene life across ambient continuity, interaction response, gameplay consequence, and state transition. ImageGen outputs are reference or source only. Return a structured production plan without prescribing a single composition. Missing targets and production assets are expected at this planning stage and are not blockers by themselves; return pass when the handoff is sufficient for scene-target-builder, and reserve revise for contradictory or insufficient upstream gameplay evidence.",
             "dependsOn": ["gameplay-gate", "first-session-experience-gate"]
           },
           {
