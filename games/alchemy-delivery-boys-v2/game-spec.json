@@ -3,32 +3,82 @@
   "kind": "GameSpec",
   "projectId": "alchemy-delivery-boys-v2",
   "revision": 1,
-  "status": "draft",
-  "concept": "alchemy delivery boys, you mix potions and bring them to villagers",
-  "thesis": "Brewing, carrying, and delivery form one continuous spatial problem in which the potion visibly changes through the player's actions and journey.",
+  "status": "frozen",
+  "concept": "alchemy delivery boys, you mix potions and bring them to villagers\n",
+  "thesis": "Each delivery is one readable causal chain: the player mixes for a villager's need, directly carries the potion through a consequential journey, and learns from the villager's reaction to what actually arrived.",
   "claims": [
     {
       "id": "loop.core",
       "category": "loop",
-      "statement": "Within the opening minutes, the player can make a potion, directly move through a compact world, influence what reaches a villager, understand the reaction, and immediately face another meaningful choice.",
-      "status": "open",
+      "statement": "Within the opening session, the player can read a villager need, commit to a distinguishable potion mix, directly traverse a compact world while making a journey choice that visibly changes or preserves the carried potion, and receive a reaction that links the need to the potion's delivered state before presenting another meaningful delivery choice.",
+      "status": "required",
       "falsifiers": [
-        "The opening is primarily menus, prose, waiting, or passive playback.",
-        "Direct movement and world interaction do not change the delivered potion or villager response.",
-        "The result cannot be attributed to choices the player understood before acting."
+        "A player can obtain the same successful reaction without engaging with either mixing or direct traversal, making one part of the concept merely decorative.",
+        "The potion's delivered state does not visibly preserve the effects of the player's mix and journey choices.",
+        "The villager reaction does not make the relationship among the stated need, the delivered potion, and the outcome understandable enough to support a counterfactual choice.",
+        "After the reaction, the player has no changed knowledge or carried consequence that makes the next delivery choice meaningfully different."
       ]
+    }
+  ],
+  "decisions": [
+    {
+      "id": "core.one-causal-delivery",
+      "status": "accepted",
+      "question": "What is the smallest distinctive playable interpretation of mixing potions and bringing them to villagers?",
+      "resolution": "Treat brewing, direct travel, delivered potion state, and villager reaction as one uninterrupted causal loop rather than separate crafting and travel activities.",
+      "affectedClaims": [
+        "loop.core"
+      ]
+    },
+    {
+      "id": "core.readable-not-certain",
+      "status": "accepted",
+      "question": "How much should the player know before committing to a delivery plan?",
+      "resolution": "Expose enough information to form a prediction while leaving the interaction between mix and journey to be managed and learned through immediate feedback.",
+      "affectedClaims": [
+        "loop.core"
+      ]
+    },
+    {
+      "id": "future.delivery-boys-structure",
+      "status": "deferred",
+      "question": "Does delivery boys require team control, character switching, or multiplayer?",
+      "resolution": "Do not require a team mechanic in the first slice; revisit only after one embodied delivery proves the concept's causal loop."
     }
   ],
   "slices": [
     {
       "id": "first-delivery",
-      "playerOutcome": "Complete one embodied brew-and-deliver loop and understand why the villager reacted as they did.",
-      "primaryRisk": "The idea becomes a static crafting interface with decorative travel.",
-      "claimIds": ["loop.core"]
+      "playerOutcome": "Complete one short potion delivery by brewing, moving through a compact world, and seeing the recipient react to the potion that actually arrived.",
+      "primaryRisk": "The experience collapses into menu selection, text panels, and passive travel instead of an embodied, readable game.",
+      "claimIds": [
+        "loop.core"
+      ]
     }
+  ],
+  "assumptions": [
+    "One directly controlled courier can represent the supplied concept in the first slice without resolving the eventual structure of the delivery boys.",
+    "A villager need, relevant potion qualities, and journey-relevant conditions can be communicated through concise, playable cues rather than explanation-heavy panels.",
+    "The journey can create a meaningful tradeoff through changing or preserving potion state without requiring a timer, combat, or a large map."
+  ],
+  "openQuestions": [
+    "Which journey pressure best supports the loop: route choice, handling, environmental exposure, opportunistic modification, or another equally falsifiable interaction?",
+    "Should failed or imperfect deliveries create recoverable consequences, altered relationships, new knowledge, or some combination in later slices?",
+    "What longer-term structure, if any, should connect multiple couriers, villagers, recipes, and delivery rounds?",
+    "Which visual, audio, and motion language will make potion-state changes and villager reactions readable in the chosen engine implementation?"
   ],
   "change": {
     "kind": "initial",
-    "rationale": "Initial open thesis for bounded spec convergence; the spec owner may refine the creative solution while preserving the concept and stable core claim."
+    "rationale": "Initial frozen revision bounded to the supplied concept and the authoritative first-delivery project contract. No earlier frozen GameSpec exists in this project lineage to supersede.",
+    "evidence": [
+      "The supplied concept requires potion mixing and delivery to villagers.",
+      "The project contract defines first-delivery as the next player-complete slice and consumes loop.core."
+    ],
+    "affectedClaims": [
+      "loop.core"
+    ],
+    "affectedSlices": [
+      "first-delivery"
+    ]
   }
 }
