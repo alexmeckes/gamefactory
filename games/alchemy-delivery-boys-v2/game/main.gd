@@ -11,6 +11,18 @@ const CAULDRON_POS := Vector2(143.0, 158.0)
 const RECIPIENT_POS := Vector2(423.0, 137.0)
 const FOLLOWUP_SUN_POS := Vector2(397.0, 79.0)
 const FOLLOWUP_HERB_POS := Vector2(450.0, 79.0)
+const FOLLOWUP_REQUESTS := {
+	"sunmill_cough": {
+		"requester": "Sunmill baker", "need": {"warm": 3, "soothing": 0},
+		"journey_effect": "Exposed gust can add warmth when the bottle contains soothing.",
+		"route_plan": "exposed", "consequence": "Trade soothing for the extra warmth the cough needs."
+	},
+	"herbalist_chill": {
+		"requester": "Herbalist", "need": {"warm": 1, "soothing": 2},
+		"journey_effect": "Shelter preserves a soothing-heavy bottle.",
+		"route_plan": "sheltered", "consequence": "Protect soothing from the gust for the herbalist's chill."
+	}
+}
 
 var elapsed := 0.0
 var player_position := Vector2(72.0, 178.0)
@@ -28,6 +40,7 @@ var reaction_cause := ""
 var learned_relationship := ""
 var followup_options: Array[String] = []
 var followup_choice := ""
+var selected_followup: Dictionary = {}
 var feedback_line := "Walk with WASD / arrows. SPACE or E acts."
 
 var scenario_mode := "manual"
@@ -41,6 +54,10 @@ var trace: Array[Dictionary] = []
 var events_this_tick: Array[Dictionary] = []
 var current_input := {"kind": "none", "x": 0.0, "y": 0.0, "action": ""}
 var setup_violation := ""
+var route_sample_bucket := -1
+var post_reaction_move_recorded := false
+var evidence_dir := ""
+var captured_paths: Array[String] = []
 
 
 func _ready() -> void:
@@ -79,6 +96,20 @@ func move_courier(direction: Vector2, delta: float, input_kind: String) -> void:
 	player_position += normalized * MOVE_SPEED * delta
 	player_position.x = clampf(player_position.x, 18.0, VIEW_SIZE.x - 18.0)
 	player_position.y = clampf(player_position.y, 48.0, VIEW_SIZE.y - 18.0)
+	if carrying and chosen_route.is_empty():
+		var sample_bucket := int(player_position.x / 32.0)
+		if sample_bucket != route_sample_bucket:
+			route_sample_bucket = sample_bucket
+			record_event("route_navigation_sample", {
+				"available_routes": ["exposed", "sheltered"],
+				"carried_state": bottled_state.duplicate(), "position_causes_route": true
+			})
+	elif not reaction.is_empty() and followup_choice.is_empty() and not post_reaction_move_recorded:
+		post_reaction_move_recorded = true
+		record_event("followup_navigation_sample", {
+			"available_requests": followup_options.duplicate(),
+			"retained_knowledge": learned_relationship
+		})
 	apply_route_crossing()
 
 
@@ -204,17 +235,35 @@ func deliver_potion() -> void:
 		"reaction_cause": reaction_cause, "retained_knowledge": learned_relationship,
 		"followup_alternatives": followup_options.duplicate()
 	})
+	record_event("followup_requests_disclosed", {
+		"requests": followup_request_snapshot(),
+		"retained_knowledge": learned_relationship,
+		"prior_reaction": reaction
+	})
 
 
 func choose_followup(choice: String) -> void:
 	if not followup_options.has(choice) or not followup_choice.is_empty():
 		return
 	followup_choice = choice
-	feedback_line = "Next request chosen: %s. Lesson retained." % choice.replace("_", " ").capitalize()
+	selected_followup = FOLLOWUP_REQUESTS[choice].duplicate(true)
+	var other_choice := followup_options[0] if followup_options[1] == choice else followup_options[1]
+	feedback_line = "Next: %s via %s. Lesson applied." % [selected_followup.requester, selected_followup.route_plan]
 	record_event("followup_selected", {
 		"choice": followup_choice, "alternatives": followup_options.duplicate(),
-		"informed_by": learned_relationship, "prior_reaction": reaction
+		"selected_request": selected_followup.duplicate(true),
+		"contrasted_request": FOLLOWUP_REQUESTS[other_choice].duplicate(true),
+		"informed_by": learned_relationship, "prior_reaction": reaction,
+		"resulting_plan": selected_followup.route_plan,
+		"resulting_consequence": selected_followup.consequence
 	})
+
+
+func followup_request_snapshot() -> Dictionary:
+	var result := {}
+	for request_id in followup_options:
+		result[request_id] = FOLLOWUP_REQUESTS[request_id].duplicate(true)
+	return result
 
 
 func record_event(event_name: String, data: Dictionary = {}) -> void:
@@ -253,8 +302,12 @@ func _draw() -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(248, 63), "EXPOSED: 1 S -> 1 W", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color("dbe7f0"))
 	draw_string(ThemeDB.fallback_font, Vector2(248, 228), "SHELTER: PRESERVE", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color("d7e8cc"))
 	if not reaction.is_empty():
-		marker(FOLLOWUP_SUN_POS, Color("efc95e"), "SUNMILL")
-		marker(FOLLOWUP_HERB_POS, Color("85c898"), "HERBALIST")
+		marker(FOLLOWUP_SUN_POS, Color("efc95e"), "")
+		marker(FOLLOWUP_HERB_POS, Color("85c898"), "")
+		draw_string(ThemeDB.fallback_font, Vector2(378, 61), "SUN W3/S0", HORIZONTAL_ALIGNMENT_LEFT, -1, 7, Color("f3f5f4"))
+		draw_string(ThemeDB.fallback_font, Vector2(378, 69), "EXPOSED", HORIZONTAL_ALIGNMENT_LEFT, -1, 7, Color("efc95e"))
+		draw_string(ThemeDB.fallback_font, Vector2(431, 61), "HERB W1/S2", HORIZONTAL_ALIGNMENT_LEFT, -1, 7, Color("f3f5f4"))
+		draw_string(ThemeDB.fallback_font, Vector2(431, 69), "SHELTER", HORIZONTAL_ALIGNMENT_LEFT, -1, 7, Color("85c898"))
 
 	var courier_color := Color("f5efe1")
 	draw_circle(player_position, 8.0, courier_color)
@@ -264,14 +317,17 @@ func _draw() -> void:
 
 	draw_rect(Rect2(8, 242, 464, 18), Color("11171d"), true)
 	draw_string(ThemeDB.fallback_font, Vector2(14, 255), feedback_line.left(78), HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color("eef3f5"))
-	var state_text := "NEED:%s  BREW:W%d/S%d  ROUTE:%s  RESULT:%s" % ["ON" if need_active else "?", bottled_state.warm, bottled_state.soothing, chosen_route if not chosen_route.is_empty() else "—", reaction if not reaction.is_empty() else "—"]
-	draw_string(ThemeDB.fallback_font, Vector2(232, 152), state_text, HORIZONTAL_ALIGNMENT_LEFT, 235, 8, Color("f1e4bf"))
+	var state_text := "BREW W%d/S%d -> ROUTE %s" % [bottled_state.warm, bottled_state.soothing, chosen_route if not chosen_route.is_empty() else "—"]
+	draw_string(ThemeDB.fallback_font, Vector2(235, 151), state_text, HORIZONTAL_ALIGNMENT_LEFT, 230, 8, Color("f1e4bf"))
+	if not reaction.is_empty():
+		draw_string(ThemeDB.fallback_font, Vector2(235, 161), "ARRIVED W%d/S%d -> %s" % [delivered_state.warm, delivered_state.soothing, reaction], HORIZONTAL_ALIGNMENT_LEFT, 230, 8, Color("f1e4bf"))
 
 
 func marker(position: Vector2, color: Color, label: String) -> void:
 	draw_circle(position, 10.0, Color(color, 0.25))
 	draw_circle(position, 5.0, color)
-	draw_string(ThemeDB.fallback_font, position + Vector2(-28, -13), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 7, Color("f3f5f4"))
+	if not label.is_empty():
+		draw_string(ThemeDB.fallback_font, position + Vector2(-28, -13), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 7, Color("f3f5f4"))
 
 
 func potion_color(state: Dictionary) -> Color:
@@ -285,6 +341,9 @@ func factory_setup(parameters: Dictionary) -> void:
 	scenario_mode = str(parameters.get("mode", ""))
 	scenario_seed = int(parameters.get("seed", 0))
 	factory_hz = maxi(1, int(parameters.get("physics_hz", 60)))
+	evidence_dir = str(parameters.get("evidence_dir", ""))
+	if not evidence_dir.is_empty():
+		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(evidence_dir))
 	if scenario_mode not in ["first-session", "returning-player"]:
 		setup_violation = "Unsupported scenario mode: %s" % scenario_mode
 		return
@@ -319,12 +378,17 @@ func reset_gameplay() -> void:
 	learned_relationship = ""
 	followup_options.clear()
 	followup_choice = ""
+	selected_followup.clear()
 	feedback_line = "Walk with WASD / arrows. SPACE or E acts."
 	factory_tick_index = -1
 	factory_action_index = 0
 	trace.clear()
 	events_this_tick.clear()
 	setup_violation = ""
+	route_sample_bucket = -1
+	post_reaction_move_recorded = false
+	evidence_dir = ""
+	captured_paths.clear()
 
 
 func build_factory_actions() -> void:
@@ -376,6 +440,7 @@ func factory_tick(tick: int) -> void:
 
 
 func factory_sample() -> Dictionary:
+	capture_causal_frame()
 	return {
 		"scenario": scenario_mode,
 		"seed": scenario_seed,
@@ -391,8 +456,27 @@ func factory_sample() -> Dictionary:
 		"reaction_cause": reaction_cause,
 		"followup_alternatives": followup_options.duplicate(),
 		"followup_selection": followup_choice,
+		"selected_followup": selected_followup.duplicate(true),
 		"events": events_this_tick.duplicate(true)
 	}
+
+
+func capture_causal_frame() -> void:
+	if evidence_dir.is_empty():
+		return
+	var capture_events := ["need_disclosed", "brew_committed", "route_selected", "delivery_resolved", "followup_selected"]
+	for item in events_this_tick:
+		if capture_events.has(item.event):
+			var path := evidence_dir.path_join("%02d-%s.png" % [captured_paths.size() + 1, item.event])
+			var image: Image = get_viewport().get_texture().get_image()
+			if image == null:
+				setup_violation = "Engine capture returned no viewport image for %s." % path
+				return
+			var error := image.save_png(ProjectSettings.globalize_path(path))
+			if error == OK:
+				captured_paths.append(path)
+			else:
+				setup_violation = "Engine capture failed for %s (error %d)." % [path, error]
 
 
 func event_count(event_name: String) -> int:
@@ -404,7 +488,7 @@ func event_count(event_name: String) -> int:
 
 
 func has_causal_chain() -> bool:
-	var required := ["need_disclosed", "brew_committed", "route_selected", "delivery_resolved", "followup_selected"]
+	var required := ["need_disclosed", "brew_committed", "route_navigation_sample", "route_selected", "delivery_resolved", "followup_requests_disclosed", "followup_navigation_sample", "followup_selected"]
 	var cursor := -1
 	for required_event in required:
 		var found := -1
@@ -416,6 +500,51 @@ func has_causal_chain() -> bool:
 			return false
 		cursor = found
 	return true
+
+
+func first_event(event_name: String) -> Dictionary:
+	for item in trace:
+		if item.event == event_name:
+			return item
+	return {}
+
+
+func navigation_agency_is_trace_grounded() -> bool:
+	var commit := first_event("brew_committed")
+	var route_move := first_event("route_navigation_sample")
+	var selection := first_event("route_selected")
+	if commit.is_empty() or route_move.is_empty() or selection.is_empty():
+		return false
+	var alternatives: Dictionary = commit.get("route_alternatives", {})
+	var pre_route: Dictionary = selection.get("pre_route", {})
+	var delta: Dictionary = selection.get("delta", {})
+	var post_route: Dictionary = selection.get("post_route", {})
+	var derived_post := {
+		"warm": int(pre_route.get("warm", 0)) + int(delta.get("warm", 0)),
+		"soothing": int(pre_route.get("soothing", 0)) + int(delta.get("soothing", 0))
+	}
+	var selected_by_position: bool = (selection.route == "exposed" and float(selection.position.y) < 136.0) or (selection.route == "sheltered" and float(selection.position.y) >= 136.0)
+	var axis_input: Dictionary = route_move.get("input", {})
+	var direct_axis := str(axis_input.get("kind", "")).contains("axis") and (absf(float(axis_input.get("x", 0.0))) > 0.0 or absf(float(axis_input.get("y", 0.0))) > 0.0)
+	var consequence_valid: bool = (selection.route == "exposed" and delta != {"warm": 0, "soothing": 0}) or (selection.route == "sheltered" and delta == {"warm": 0, "soothing": 0})
+	return alternatives.size() == 2 and direct_axis and selected_by_position and consequence_valid and post_route == derived_post
+
+
+func followup_choice_is_trace_grounded() -> bool:
+	var disclosed := first_event("followup_requests_disclosed")
+	var movement := first_event("followup_navigation_sample")
+	var selected := first_event("followup_selected")
+	if disclosed.is_empty() or movement.is_empty() or selected.is_empty():
+		return false
+	var requests: Dictionary = disclosed.get("requests", {})
+	if requests.size() != 2 or not requests.has(followup_choice):
+		return false
+	var sun: Dictionary = requests.get("sunmill_cough", {})
+	var herb: Dictionary = requests.get("herbalist_chill", {})
+	var distinct_needs: bool = sun.get("need", {}) != herb.get("need", {})
+	var distinct_plans: bool = sun.get("route_plan", "") != herb.get("route_plan", "")
+	var chosen_profile: Dictionary = requests[followup_choice]
+	return distinct_needs and distinct_plans and not learned_relationship.is_empty() and selected.get("prior_reaction", "") == reaction and selected.get("selected_request", {}) == chosen_profile and selected.get("resulting_plan", "") == chosen_profile.get("route_plan", "")
 
 
 func factory_collect() -> Dictionary:
@@ -430,7 +559,8 @@ func factory_collect() -> Dictionary:
 	var distinct_ingredients := contributions.has("ember") and contributions.has("moss")
 	var route_expected := (scenario_mode == "first-session" and chosen_route == "exposed") or (scenario_mode == "returning-player" and chosen_route == "sheltered")
 	var scenario_outcome_ok := (scenario_mode == "first-session" and reaction == "satisfied") or (scenario_mode == "returning-player" and reaction == "imperfect")
-	var followup_ok := not followup_choice.is_empty() and not learned_relationship.is_empty()
+	var navigation_agency_ok := navigation_agency_is_trace_grounded()
+	var followup_ok := followup_choice_is_trace_grounded()
 	var invalid_transitions := event_count("invalid_bottle") + event_count("invalid_delivery") + event_count("invalid_context_action")
 	if not chain_ok:
 		violations.append({"code": "gameplay.causal_chain", "message": "Missing or out-of-order decision-to-feedback event.", "severity": "error"})
@@ -446,11 +576,15 @@ func factory_collect() -> Dictionary:
 		violations.append({"code": "gameplay.counterfactual", "message": "Configured route did not produce its state-derived counterfactual outcome.", "severity": "error"})
 	if not followup_ok:
 		violations.append({"code": "gameplay.next_choice", "message": "Attributed feedback did not reach a follow-up decision.", "severity": "error"})
+	if not navigation_agency_ok:
+		violations.append({"code": "gameplay.navigation_agency", "message": "Route alternatives, direct axis movement, position-caused selection, and state consequence are not linked in the trace.", "severity": "error"})
 	if invalid_transitions > 0:
 		violations.append({"code": "gameplay.invalid_transition", "message": "The evidence replay attempted an invalid gameplay transition.", "severity": "error"})
+	if not evidence_dir.is_empty() and captured_paths.size() != 5:
+		violations.append({"code": "gameplay.engine_capture", "message": "Expected five ordered causal captures but preserved %d." % captured_paths.size(), "severity": "error"})
 	var consequential_choices := event_count("brew_committed") + event_count("route_selected") + event_count("followup_selected")
 	var complete := violations.is_empty()
-	return {
+	var result := {
 		"metrics": {
 			"completion": 1 if complete else 0,
 			"concept_defined": 1 if event_count("need_disclosed") == 1 else 0,
@@ -464,7 +598,45 @@ func factory_collect() -> Dictionary:
 			"followup_choice_trace_grounded": 1 if followup_ok else 0,
 			"causal_events": trace.size(),
 			"invalid_transitions": invalid_transitions,
-			"navigation_is_agency": 0
+			"navigation_is_agency": 1 if navigation_agency_ok else 0
 		},
 		"violations": violations
 	}
+	if not write_review_report(result):
+		result.violations.append({"code": "gameplay.review_report", "message": "Could not preserve the scenario review report.", "severity": "error"})
+		result.metrics.completion = 0
+		result.metrics.mechanic_proven = 0
+		result.metrics.clean_start_loop_complete = 0
+		result.metrics.returning_loop_complete = 0
+	return result
+
+
+func write_review_report(result: Dictionary) -> bool:
+	if evidence_dir.is_empty():
+		return true
+	var report_path := evidence_dir.path_join("scenario-review.json")
+	var file := FileAccess.open(ProjectSettings.globalize_path(report_path), FileAccess.WRITE)
+	if not file:
+		return false
+	var report := {
+		"scenario": scenario_mode,
+		"seed": scenario_seed,
+		"initial_state": first_event("initial_state"),
+		"mode_setup": first_event("clean_start_reset") if scenario_mode == "first-session" else first_event("returning_prerequisite_seeded"),
+		"decisions_and_alternatives": {
+			"brew": first_event("brew_committed"), "route": first_event("route_selected"),
+			"followup_disclosure": first_event("followup_requests_disclosed"), "followup_selection": first_event("followup_selected")
+		},
+		"causal_events": trace.duplicate(true),
+		"carried_state": {"committed": bottled_state, "route_delta": route_delta, "delivered": delivered_state, "consumed_by_reaction": not reaction.is_empty()},
+		"metrics": result.metrics,
+		"metric_trace_sources": {
+			"completion": "ordered causal events plus zero violations", "consequential_choices": "brew_committed + route_selected + followup_selected",
+			"navigation_is_agency": "brew_committed.route_alternatives + route_navigation_sample.input + route_selected position/pre/delta/post",
+			"followup_choice_trace_grounded": "delivery_resolved + followup_requests_disclosed + followup_navigation_sample + followup_selected"
+		},
+		"violations": result.violations, "engine_errors": [],
+		"artifact_paths": captured_paths.duplicate()
+	}
+	file.store_string(JSON.stringify(report, "  ") + "\n")
+	return true

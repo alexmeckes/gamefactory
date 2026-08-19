@@ -1,0 +1,5005 @@
+{
+  "schema": "gamefactory.scene-target-validation/v1",
+  "result": "pass",
+  "hypothesis": "The accepted persistent 480x270 village remains coherent and decomposable when authoritative primary-view identity, semantic runtime pivots, and anchor-reconstructed placements are enforced independently from the mutation-sensitive complete-target fingerprint.",
+  "checks": {
+    "views": [
+      {
+        "viewId": "continuous-route-pending",
+        "nativeSize": {
+          "width": 480,
+          "height": 270
+        },
+        "nativeSha256": "92c31af3c13f2872853d5e1fa773120a40bbe385805a8cd55cf0190a41556520",
+        "review3xSize": {
+          "width": 1440,
+          "height": 810
+        },
+        "review3xSha256": "2892d341f7f2b03e9ecd22b2329c98aba422e0f0f4ced2e9a1da8524b4f848f8",
+        "integerScaleVerified": true
+      },
+      {
+        "viewId": "continuous-need-disclosed",
+        "nativeSize": {
+          "width": 480,
+          "height": 270
+        },
+        "nativeSha256": "b7356abc5ce7a15217b18db239cf309b4c553c53c4aa202844f40a3a70a446d7",
+        "review3xSize": {
+          "width": 1440,
+          "height": 810
+        },
+        "review3xSha256": "7d58876f7a98f387e50cc451a7fcfcd2240a86409520caabdac2e7eff47bcbe2",
+        "integerScaleVerified": true
+      },
+      {
+        "viewId": "continuous-mix-feedback",
+        "nativeSize": {
+          "width": 480,
+          "height": 270
+        },
+        "nativeSha256": "27d5713bb9788ea2768d21b7b885eb64f1c1ad570571e81fb13f641070c7c382",
+        "review3xSize": {
+          "width": 1440,
+          "height": 810
+        },
+        "review3xSha256": "66c8b267646fd6710694a55453058482089cfba2033a48d8b474c6929ccce49b",
+        "integerScaleVerified": true
+      },
+      {
+        "viewId": "continuous-exposed-conversion",
+        "nativeSize": {
+          "width": 480,
+          "height": 270
+        },
+        "nativeSha256": "94e441a5f7af311889914e5c111f35bfa0d3b1e64c782435aeae421b47a8a739",
+        "review3xSize": {
+          "width": 1440,
+          "height": 810
+        },
+        "review3xSha256": "8240f98e3872c520adab999f6626e8737c462ebcb835f2898983d78d7be9b1b4",
+        "integerScaleVerified": true
+      },
+      {
+        "viewId": "continuous-sheltered-preservation",
+        "nativeSize": {
+          "width": 480,
+          "height": 270
+        },
+        "nativeSha256": "0d76f4a8117026047f8d773de1683fa6a9ae2849ddd6a8c84ece3bf765f05e25",
+        "review3xSize": {
+          "width": 1440,
+          "height": 810
+        },
+        "review3xSha256": "1b61e2049b5a73d4f818c4f1c980b817d81984559bf9d65f982f00fd5a4668d6",
+        "integerScaleVerified": true
+      },
+      {
+        "viewId": "continuous-satisfied-delivery",
+        "nativeSize": {
+          "width": 480,
+          "height": 270
+        },
+        "nativeSha256": "be5a6b2de84a4859dd6611ee00a6a019352702f4b580840b06ec903f832c1532",
+        "review3xSize": {
+          "width": 1440,
+          "height": 810
+        },
+        "review3xSha256": "2132daf7993f487d39762968a9ab39aef77883e2d861a19b4762cacfb634caaf",
+        "integerScaleVerified": true
+      },
+      {
+        "viewId": "continuous-imperfect-recovery",
+        "nativeSize": {
+          "width": 480,
+          "height": 270
+        },
+        "nativeSha256": "a177557002041844c22aad51f98746d66fa6b1c1ece86bc13463282d4cdfd5bb",
+        "review3xSize": {
+          "width": 1440,
+          "height": 810
+        },
+        "review3xSha256": "2d2ac1f51b85825935e66ae4c8c02f86ba9fa5da45c492276f4e82b6da00111d",
+        "integerScaleVerified": true
+      },
+      {
+        "viewId": "continuous-followup-selection",
+        "nativeSize": {
+          "width": 480,
+          "height": 270
+        },
+        "nativeSha256": "1115df518c2b94d950c2403c515afedbc1fa4b2184e200cbe27c5c5a42126450",
+        "review3xSize": {
+          "width": 1440,
+          "height": 810
+        },
+        "review3xSha256": "03d482a79008c72fac4dfd3c393391fa71338c142713d5ad314ed1d82d143a69",
+        "integerScaleVerified": true
+      },
+      {
+        "viewId": "following-rooms-route-pending",
+        "nativeSize": {
+          "width": 480,
+          "height": 270
+        },
+        "nativeSha256": "ab6fa5f17b2961568f626144ee1ef3f7206434eac8955f5784cfaf918f227391",
+        "review3xSize": {
+          "width": 1440,
+          "height": 810
+        },
+        "review3xSha256": "0939db9d724a2eab8dec6322731a2c9d3d71a1492eb307ab280d1ce99b66c99c",
+        "integerScaleVerified": true
+      }
+    ],
+    "directions": {
+      "completeDirectionsAtRoutePending": 2,
+      "selectedStateVariants": 8,
+      "selectedCandidateId": "continuous-causal-village"
+    },
+    "typography": {
+      "previewFont": "Segoe UI host preview only",
+      "bodySizePx": 12,
+      "captionSizePx": 11,
+      "lineHeightPx": 16,
+      "minimumContrastRatio": 4.5,
+      "measuredMinimumContrastRatio": 11.5,
+      "surfacesChecked": 28,
+      "clippedSurfaces": 0,
+      "undersizedReadingSurfaces": 0,
+      "longestCopyChecks": [
+        {
+          "role": "request-status",
+          "rect": {
+            "x": 6,
+            "y": 3,
+            "width": 142,
+            "height": 65
+          },
+          "insetPx": 6,
+          "fontSizesPx": [
+            11,
+            12,
+            12
+          ],
+          "lineHeightPx": 16,
+          "longestText": "Mira needs",
+          "longestTextWidthPx": 58,
+          "innerWidthPx": 130,
+          "clipped": false,
+          "contrastRatio": 13.35
+        },
+        {
+          "role": "carried-status",
+          "rect": {
+            "x": 340,
+            "y": 3,
+            "width": 136,
+            "height": 66
+          },
+          "insetPx": 6,
+          "fontSizesPx": [
+            11,
+            12,
+            12
+          ],
+          "lineHeightPx": 16,
+          "longestText": "2 Soothing",
+          "longestTextWidthPx": 57,
+          "innerWidthPx": 124,
+          "clipped": false,
+          "contrastRatio": 13.35
+        },
+        {
+          "role": "request-status",
+          "rect": {
+            "x": 6,
+            "y": 3,
+            "width": 142,
+            "height": 65
+          },
+          "insetPx": 6,
+          "fontSizesPx": [
+            11,
+            12,
+            12
+          ],
+          "lineHeightPx": 16,
+          "longestText": "Mira needs",
+          "longestTextWidthPx": 58,
+          "innerWidthPx": 130,
+          "clipped": false,
+          "contrastRatio": 13.35
+        },
+        {
+          "role": "brew-context",
+          "rect": {
+            "x": 45,
+            "y": 168,
+            "width": 48,
+            "height": 18
+          },
+          "insetPx": 5,
+          "fontSizesPx": [
+            11
+          ],
+          "lineHeightPx": 16,
+          "longestText": "EMBER",
+          "longestTextWidthPx": 38,
+          "innerWidthPx": 38,
+          "clipped": false,
+          "contrastRatio": 13.35
+        },
+        {
+          "role": "brew-context",
+          "rect": {
+            "x": 47,
+            "y": 190,
+            "width": 41,
+            "height": 18
+          },
+          "insetPx": 5,
+          "fontSizesPx": [
+            11
+          ],
+          "lineHeightPx": 16,
+          "longestText": "MOSS",
+          "longestTextWidthPx": 31,
+          "innerWidthPx": 31,
+          "clipped": false,
+          "contrastRatio": 13.35
+        },
+        {
+          "role": "world-action",
+          "rect": {
+            "x": 104,
+            "y": 170,
+            "width": 46,
+            "height": 19
+          },
+          "insetPx": 5,
+          "fontSizesPx": [
+            11
+          ],
+          "lineHeightPx": 16,
+          "longestText": "E  ADD",
+          "longestTextWidthPx": 36,
+          "innerWidthPx": 36,
+          "clipped": false,
+          "contrastRatio": 13.35
+        },
+        {
+          "role": "request-status",
+          "rect": {
+            "x": 6,
+            "y": 3,
+            "width": 142,
+            "height": 65
+          },
+          "insetPx": 6,
+          "fontSizesPx": [
+            11,
+            12,
+            12
+          ],
+          "lineHeightPx": 16,
+          "longestText": "Mira needs",
+          "longestTextWidthPx": 58,
+          "innerWidthPx": 130,
+          "clipped": false,
+          "contrastRatio": 13.35
+        },
+        {
+          "role": "brew-context",
+          "rect": {
+            "x": 66,
+            "y": 191,
+            "width": 41,
+            "height": 18
+          },
+          "insetPx": 5,
+          "fontSizesPx": [
+            11
+          ],
+          "lineHeightPx": 16,
+          "longestText": "MOSS",
+          "longestTextWidthPx": 31,
+          "innerWidthPx": 31,
+          "clipped": false,
+          "contrastRatio": 13.35
+        },
+        {
+          "role": "world-action",
+          "rect": {
+            "x": 96,
+            "y": 74,
+            "width": 46,
+            "height": 19
+          },
+          "insetPx": 5,
+          "fontSizesPx": [
+            11
+          ],
+          "lineHeightPx": 16,
+          "longestText": "E  ADD",
+          "longestTextWidthPx": 36,
+          "innerWidthPx": 36,
+          "clipped": false,
+          "contrastRatio": 13.35
+        },
+        {
+          "role": "feedback",
+          "rect": {
+            "x": 6,
+            "y": 222,
+            "width": 286,
+            "height": 43
+          },
+          "insetPx": 6,
+          "fontSizesPx": [
+            11,
+            12
+          ],
+          "lineHeightPx": 16,
+          "longestText": "Brew: 1 Warmth  ·  2 Soothing",
+          "longestTextWidthPx": 155,
+          "innerWidthPx": 274,
+          "clipped": false,
+          "contrastRatio": 13.35
+        },
+        {
+          "role": "request-status",
+          "rect": {
+            "x": 6,
+            "y": 3,
+            "width": 142,
+            "height": 65
+          },
+          "insetPx": 6,
+          "fontSizesPx": [
+            11,
+            12,
+            12
+          ],
+          "lineHeightPx": 16,
+          "longestText": "Mira needs",
+          "longestTextWidthPx": 58,
+          "innerWidthPx": 130,
+          "clipped": false,
+          "contrastRatio": 13.35
+        },
+        {
+          "role": "carried-status",
+          "rect": {
+            "x": 340,
+            "y": 3,
+            "width": 136,
+            "height": 66
+          },
+          "insetPx": 6,
+          "fontSizesPx": [
+            11,
+            12,
+            12
+          ],
+          "lineHeightPx": 16,
+          "longestText": "1 Soothing",
+          "longestTextWidthPx": 57,
+          "innerWidthPx": 124,
+          "clipped": false,
+          "contrastRatio": 13.35
+        },
+        {
+          "role": "feedback",
+          "rect": {
+            "x": 6,
+            "y": 222,
+            "width": 286,
+            "height": 43
+          },
+          "insetPx": 6,
+          "fontSizesPx": [
+            11,
+            12
+          ],
+          "lineHeightPx": 16,
+          "longestText": "+1 Warmth  ·  −1 Soothing",
+          "longestTextWidthPx": 139,
+          "innerWidthPx": 274,
+          "clipped": false,
+          "contrastRatio": 13.35
+        },
+        {
+          "role": "request-status",
+          "rect": {
+            "x": 6,
+            "y": 3,
+            "width": 142,
+            "height": 65
+          },
+          "insetPx": 6,
+          "fontSizesPx": [
+            11,
+            12,
+            12
+          ],
+          "lineHeightPx": 16,
+          "longestText": "Mira needs",
+          "longestTextWidthPx": 58,
+          "innerWidthPx": 130,
+          "clipped": false,
+          "contrastRatio": 13.35
+        },
+        {
+          "role": "carried-status",
+          "rect": {
+            "x": 340,
+            "y": 3,
+            "width": 136,
+            "height": 66
+          },
+          "insetPx": 6,
+          "fontSizesPx": [
+            11,
+            12,
+            12
+          ],
+          "lineHeightPx": 16,
+          "longestText": "2 Soothing",
+          "longestTextWidthPx": 57,
+          "innerWidthPx": 124,
+          "clipped": false,
+          "contrastRatio": 13.35
+        },
+        {
+          "role": "feedback",
+          "rect": {
+            "x": 6,
+            "y": 222,
+            "width": 254,
+            "height": 43
+          },
+          "insetPx": 6,
+          "fontSizesPx": [
+            11,
+            12
+          ],
+          "lineHeightPx": 16,
+          "longestText": "1 Warmth  ·  2 Soothing",
+          "longestTextWidthPx": 123,
+          "innerWidthPx": 242,
+          "clipped": false,
+          "contrastRatio": 13.35
+        },
+        {
+          "role": "request-status",
+          "rect": {
+            "x": 6,
+            "y": 3,
+            "width": 142,
+            "height": 65
+          },
+          "insetPx": 6,
+          "fontSizesPx": [
+            11,
+            12,
+            12
+          ],
+          "lineHeightPx": 16,
+          "longestText": "Mira needed",
+          "longestTextWidthPx": 66,
+          "innerWidthPx": 130,
+          "clipped": false,
+          "contrastRatio": 13.35
+        },
+        {
+          "role": "reaction-comparison",
+          "rect": {
+            "x": 6,
+            "y": 205,
+            "width": 228,
+            "height": 60
+          },
+          "insetPx": 6,
+          "fontSizesPx": [
+            11,
+            12,
+            12,
+            12
+          ],
+          "lineHeightPx": 16,
+          "longestText": "Exact match",
+          "longestTextWidthPx": 68,
+          "innerWidthPx": 216,
+          "clipped": false,
+          "contrastRatio": 13.35
+        },
+        {
+          "role": "delivery-context",
+          "rect": {
+            "x": 382,
+            "y": 73,
+            "width": 72,
+            "height": 24
+          },
+          "insetPx": 4,
+          "fontSizesPx": [
+            12
+          ],
+          "lineHeightPx": 16,
+          "longestText": "RELIEF",
+          "longestTextWidthPx": 36,
+          "innerWidthPx": 64,
+          "clipped": false,
+          "contrastRatio": 13.35
+        },
+        {
+          "role": "request-status",
+          "rect": {
+            "x": 6,
+            "y": 3,
+            "width": 142,
+            "height": 65
+          },
+          "insetPx": 6,
+          "fontSizesPx": [
+            11,
+            12,
+            12
+          ],
+          "lineHeightPx": 16,
+          "longestText": "Mira needed",
+          "longestTextWidthPx": 66,
+          "innerWidthPx": 130,
+          "clipped": false,
+          "contrastRatio": 13.35
+        },
+        {
+          "role": "reaction-comparison",
+          "rect": {
+            "x": 6,
+            "y": 205,
+            "width": 228,
+            "height": 60
+          },
+          "insetPx": 6,
+          "fontSizesPx": [
+            11,
+            12,
+            12,
+            12
+          ],
+          "lineHeightPx": 16,
+          "longestText": "Imperfect — recoverable",
+          "longestTextWidthPx": 142,
+          "innerWidthPx": 216,
+          "clipped": false,
+          "contrastRatio": 13.35
+        },
+        {
+          "role": "delivery-context",
+          "rect": {
+            "x": 382,
+            "y": 73,
+            "width": 72,
+            "height": 24
+          },
+          "insetPx": 4,
+          "fontSizesPx": [
+            12
+          ],
+          "lineHeightPx": 16,
+          "longestText": "SHIVER",
+          "longestTextWidthPx": 43,
+          "innerWidthPx": 64,
+          "clipped": false,
+          "contrastRatio": 13.35
+        },
+        {
+          "role": "followup-status",
+          "rect": {
+            "x": 6,
+            "y": 3,
+            "width": 142,
+            "height": 65
+          },
+          "insetPx": 6,
+          "fontSizesPx": [
+            12,
+            11,
+            11
+          ],
+          "lineHeightPx": 16,
+          "longestText": "Gust shifts • shelter holds",
+          "longestTextWidthPx": 125,
+          "innerWidthPx": 130,
+          "clipped": false,
+          "contrastRatio": 13.35
+        },
+        {
+          "role": "followup-context",
+          "rect": {
+            "x": 250,
+            "y": 151,
+            "width": 58,
+            "height": 34
+          },
+          "insetPx": 6,
+          "fontSizesPx": [
+            11,
+            11
+          ],
+          "lineHeightPx": 16,
+          "longestText": "Sunmill",
+          "longestTextWidthPx": 39,
+          "innerWidthPx": 46,
+          "clipped": false,
+          "contrastRatio": 11.5
+        },
+        {
+          "role": "followup-context",
+          "rect": {
+            "x": 407,
+            "y": 151,
+            "width": 67,
+            "height": 34
+          },
+          "insetPx": 6,
+          "fontSizesPx": [
+            11,
+            11
+          ],
+          "lineHeightPx": 16,
+          "longestText": "Herbalist",
+          "longestTextWidthPx": 47,
+          "innerWidthPx": 55,
+          "clipped": false,
+          "contrastRatio": 11.5
+        },
+        {
+          "role": "world-action",
+          "rect": {
+            "x": 270,
+            "y": 190,
+            "width": 38,
+            "height": 19
+          },
+          "insetPx": 5,
+          "fontSizesPx": [
+            11
+          ],
+          "lineHeightPx": 16,
+          "longestText": "E  GO",
+          "longestTextWidthPx": 28,
+          "innerWidthPx": 28,
+          "clipped": false,
+          "contrastRatio": 13.35
+        },
+        {
+          "role": "request-status",
+          "rect": {
+            "x": 6,
+            "y": 3,
+            "width": 142,
+            "height": 65
+          },
+          "insetPx": 6,
+          "fontSizesPx": [
+            11,
+            12,
+            12
+          ],
+          "lineHeightPx": 16,
+          "longestText": "Mira needs",
+          "longestTextWidthPx": 58,
+          "innerWidthPx": 130,
+          "clipped": false,
+          "contrastRatio": 13.35
+        },
+        {
+          "role": "carried-status",
+          "rect": {
+            "x": 340,
+            "y": 3,
+            "width": 136,
+            "height": 66
+          },
+          "insetPx": 6,
+          "fontSizesPx": [
+            11,
+            12,
+            12
+          ],
+          "lineHeightPx": 16,
+          "longestText": "2 Soothing",
+          "longestTextWidthPx": 57,
+          "innerWidthPx": 124,
+          "clipped": false,
+          "contrastRatio": 13.35
+        }
+      ]
+    },
+    "brewCue": {
+      "region": {
+        "x": 36,
+        "y": 82,
+        "width": 116,
+        "height": 150
+      },
+      "emberPlanterAnchor": {
+        "x": 72,
+        "y": 191
+      },
+      "mossPlanterAnchor": {
+        "x": 83,
+        "y": 213
+      },
+      "detachedLowerRightLabelRemovedByPersistentBasis": true,
+      "reachableActionCue": "E ADD"
+    },
+    "components": [
+      {
+        "componentId": "village-environment",
+        "category": "environment",
+        "sourceViews": 8,
+        "sourceHashesVerified": true,
+        "nativeRenderSize": {
+          "width": 480,
+          "height": 270
+        },
+        "primaryPlacementBounds": {
+          "x": 0,
+          "y": 0,
+          "width": 480,
+          "height": 270
+        },
+        "runtimePivot": {
+          "mode": "top-left",
+          "x": 0,
+          "y": 0
+        },
+        "semanticPivot": {
+          "mode": "top-left",
+          "x": 0,
+          "y": 0
+        },
+        "semanticPivotVerified": true,
+        "viewportAnchorReconstructionVerified": true,
+        "runtimeSizeSeparatedFromPlacement": false,
+        "productionAbsent": true
+      },
+      {
+        "componentId": "cauldron",
+        "category": "environment-interactable",
+        "sourceViews": 3,
+        "sourceHashesVerified": true,
+        "nativeRenderSize": {
+          "width": 32,
+          "height": 32
+        },
+        "primaryPlacementBounds": {
+          "x": 45,
+          "y": 86,
+          "width": 48,
+          "height": 53
+        },
+        "runtimePivot": {
+          "mode": "bottom-center",
+          "x": 16,
+          "y": 31
+        },
+        "semanticPivot": {
+          "mode": "bottom-center",
+          "x": 16,
+          "y": 31
+        },
+        "semanticPivotVerified": true,
+        "viewportAnchorReconstructionVerified": true,
+        "runtimeSizeSeparatedFromPlacement": true,
+        "productionAbsent": true
+      },
+      {
+        "componentId": "ember-ingredient",
+        "category": "environment-interactable",
+        "sourceViews": 3,
+        "sourceHashesVerified": true,
+        "nativeRenderSize": {
+          "width": 16,
+          "height": 16
+        },
+        "primaryPlacementBounds": {
+          "x": 59,
+          "y": 180,
+          "width": 25,
+          "height": 21
+        },
+        "runtimePivot": {
+          "mode": "bottom-center",
+          "x": 8,
+          "y": 15
+        },
+        "semanticPivot": {
+          "mode": "bottom-center",
+          "x": 8,
+          "y": 15
+        },
+        "semanticPivotVerified": true,
+        "viewportAnchorReconstructionVerified": true,
+        "runtimeSizeSeparatedFromPlacement": true,
+        "productionAbsent": true
+      },
+      {
+        "componentId": "moss-ingredient",
+        "category": "environment-interactable",
+        "sourceViews": 3,
+        "sourceHashesVerified": true,
+        "nativeRenderSize": {
+          "width": 16,
+          "height": 16
+        },
+        "primaryPlacementBounds": {
+          "x": 69,
+          "y": 200,
+          "width": 28,
+          "height": 23
+        },
+        "runtimePivot": {
+          "mode": "bottom-center",
+          "x": 8,
+          "y": 15
+        },
+        "semanticPivot": {
+          "mode": "bottom-center",
+          "x": 8,
+          "y": 15
+        },
+        "semanticPivotVerified": true,
+        "viewportAnchorReconstructionVerified": true,
+        "runtimeSizeSeparatedFromPlacement": true,
+        "productionAbsent": true
+      },
+      {
+        "componentId": "courier",
+        "category": "actor",
+        "sourceViews": 8,
+        "sourceHashesVerified": true,
+        "nativeRenderSize": {
+          "width": 24,
+          "height": 32
+        },
+        "primaryPlacementBounds": {
+          "x": 117,
+          "y": 116,
+          "width": 27,
+          "height": 49
+        },
+        "runtimePivot": {
+          "mode": "bottom-center",
+          "x": 12,
+          "y": 31
+        },
+        "semanticPivot": {
+          "mode": "bottom-center",
+          "x": 12,
+          "y": 31
+        },
+        "semanticPivotVerified": true,
+        "viewportAnchorReconstructionVerified": true,
+        "runtimeSizeSeparatedFromPlacement": true,
+        "productionAbsent": true
+      },
+      {
+        "componentId": "partner",
+        "category": "actor",
+        "sourceViews": 8,
+        "sourceHashesVerified": true,
+        "nativeRenderSize": {
+          "width": 24,
+          "height": 32
+        },
+        "primaryPlacementBounds": {
+          "x": 91,
+          "y": 105,
+          "width": 30,
+          "height": 50
+        },
+        "runtimePivot": {
+          "mode": "bottom-center",
+          "x": 12,
+          "y": 31
+        },
+        "semanticPivot": {
+          "mode": "bottom-center",
+          "x": 12,
+          "y": 31
+        },
+        "semanticPivotVerified": true,
+        "viewportAnchorReconstructionVerified": true,
+        "runtimeSizeSeparatedFromPlacement": true,
+        "productionAbsent": true
+      },
+      {
+        "componentId": "mira",
+        "category": "actor",
+        "sourceViews": 8,
+        "sourceHashesVerified": true,
+        "nativeRenderSize": {
+          "width": 24,
+          "height": 32
+        },
+        "primaryPlacementBounds": {
+          "x": 388,
+          "y": 101,
+          "width": 34,
+          "height": 55
+        },
+        "runtimePivot": {
+          "mode": "bottom-center",
+          "x": 12,
+          "y": 31
+        },
+        "semanticPivot": {
+          "mode": "bottom-center",
+          "x": 12,
+          "y": 31
+        },
+        "semanticPivotVerified": true,
+        "viewportAnchorReconstructionVerified": true,
+        "runtimeSizeSeparatedFromPlacement": true,
+        "productionAbsent": true
+      },
+      {
+        "componentId": "bottle",
+        "category": "prop",
+        "sourceViews": 5,
+        "sourceHashesVerified": true,
+        "nativeRenderSize": {
+          "width": 12,
+          "height": 16
+        },
+        "primaryPlacementBounds": {
+          "x": 194,
+          "y": 144,
+          "width": 14,
+          "height": 31
+        },
+        "runtimePivot": {
+          "mode": "bottom-center",
+          "x": 6,
+          "y": 15
+        },
+        "semanticPivot": {
+          "mode": "bottom-center",
+          "x": 6,
+          "y": 15
+        },
+        "semanticPivotVerified": true,
+        "viewportAnchorReconstructionVerified": true,
+        "runtimeSizeSeparatedFromPlacement": true,
+        "productionAbsent": true
+      },
+      {
+        "componentId": "gust-sign",
+        "category": "interface-world",
+        "sourceViews": 8,
+        "sourceHashesVerified": true,
+        "nativeRenderSize": {
+          "width": 32,
+          "height": 16
+        },
+        "primaryPlacementBounds": {
+          "x": 188,
+          "y": 67,
+          "width": 42,
+          "height": 33
+        },
+        "runtimePivot": {
+          "mode": "bottom-center",
+          "x": 16,
+          "y": 15
+        },
+        "semanticPivot": {
+          "mode": "bottom-center",
+          "x": 16,
+          "y": 15
+        },
+        "semanticPivotVerified": true,
+        "viewportAnchorReconstructionVerified": true,
+        "runtimeSizeSeparatedFromPlacement": true,
+        "productionAbsent": true
+      },
+      {
+        "componentId": "shelter-sign",
+        "category": "interface-world",
+        "sourceViews": 8,
+        "sourceHashesVerified": true,
+        "nativeRenderSize": {
+          "width": 48,
+          "height": 16
+        },
+        "primaryPlacementBounds": {
+          "x": 208,
+          "y": 173,
+          "width": 56,
+          "height": 34
+        },
+        "runtimePivot": {
+          "mode": "bottom-center",
+          "x": 24,
+          "y": 15
+        },
+        "semanticPivot": {
+          "mode": "bottom-center",
+          "x": 24,
+          "y": 15
+        },
+        "semanticPivotVerified": true,
+        "viewportAnchorReconstructionVerified": true,
+        "runtimeSizeSeparatedFromPlacement": true,
+        "productionAbsent": true
+      },
+      {
+        "componentId": "route-effects",
+        "category": "effect",
+        "sourceViews": 2,
+        "sourceHashesVerified": true,
+        "nativeRenderSize": {
+          "width": 32,
+          "height": 32
+        },
+        "primaryPlacementBounds": {
+          "x": 205,
+          "y": 35,
+          "width": 125,
+          "height": 100
+        },
+        "runtimePivot": {
+          "mode": "center",
+          "x": 16,
+          "y": 16
+        },
+        "semanticPivot": {
+          "mode": "center",
+          "x": 16,
+          "y": 16
+        },
+        "semanticPivotVerified": true,
+        "viewportAnchorReconstructionVerified": true,
+        "runtimeSizeSeparatedFromPlacement": true,
+        "productionAbsent": true
+      },
+      {
+        "componentId": "reaction-effects",
+        "category": "effect",
+        "sourceViews": 2,
+        "sourceHashesVerified": true,
+        "nativeRenderSize": {
+          "width": 32,
+          "height": 32
+        },
+        "primaryPlacementBounds": {
+          "x": 376,
+          "y": 72,
+          "width": 82,
+          "height": 91
+        },
+        "runtimePivot": {
+          "mode": "center",
+          "x": 16,
+          "y": 16
+        },
+        "semanticPivot": {
+          "mode": "center",
+          "x": 16,
+          "y": 16
+        },
+        "semanticPivotVerified": true,
+        "viewportAnchorReconstructionVerified": true,
+        "runtimeSizeSeparatedFromPlacement": true,
+        "productionAbsent": true
+      },
+      {
+        "componentId": "request-status",
+        "category": "interface",
+        "sourceViews": 8,
+        "sourceHashesVerified": true,
+        "nativeRenderSize": {
+          "width": 142,
+          "height": 65
+        },
+        "primaryPlacementBounds": {
+          "x": 6,
+          "y": 3,
+          "width": 142,
+          "height": 65
+        },
+        "runtimePivot": {
+          "mode": "top-left",
+          "x": 0,
+          "y": 0
+        },
+        "semanticPivot": {
+          "mode": "top-left",
+          "x": 0,
+          "y": 0
+        },
+        "semanticPivotVerified": true,
+        "viewportAnchorReconstructionVerified": true,
+        "runtimeSizeSeparatedFromPlacement": false,
+        "productionAbsent": true
+      },
+      {
+        "componentId": "carried-status",
+        "category": "interface",
+        "sourceViews": 3,
+        "sourceHashesVerified": true,
+        "nativeRenderSize": {
+          "width": 136,
+          "height": 66
+        },
+        "primaryPlacementBounds": {
+          "x": 340,
+          "y": 3,
+          "width": 136,
+          "height": 66
+        },
+        "runtimePivot": {
+          "mode": "top-left",
+          "x": 0,
+          "y": 0
+        },
+        "semanticPivot": {
+          "mode": "top-left",
+          "x": 0,
+          "y": 0
+        },
+        "semanticPivotVerified": true,
+        "viewportAnchorReconstructionVerified": true,
+        "runtimeSizeSeparatedFromPlacement": false,
+        "productionAbsent": true
+      },
+      {
+        "componentId": "causal-feedback",
+        "category": "interface",
+        "sourceViews": 3,
+        "sourceHashesVerified": true,
+        "nativeRenderSize": {
+          "width": 286,
+          "height": 43
+        },
+        "primaryPlacementBounds": {
+          "x": 6,
+          "y": 222,
+          "width": 286,
+          "height": 43
+        },
+        "runtimePivot": {
+          "mode": "top-left",
+          "x": 0,
+          "y": 0
+        },
+        "semanticPivot": {
+          "mode": "top-left",
+          "x": 0,
+          "y": 0
+        },
+        "semanticPivotVerified": true,
+        "viewportAnchorReconstructionVerified": true,
+        "runtimeSizeSeparatedFromPlacement": false,
+        "productionAbsent": true
+      },
+      {
+        "componentId": "delivery-comparison",
+        "category": "interface",
+        "sourceViews": 2,
+        "sourceHashesVerified": true,
+        "nativeRenderSize": {
+          "width": 228,
+          "height": 60
+        },
+        "primaryPlacementBounds": {
+          "x": 6,
+          "y": 205,
+          "width": 228,
+          "height": 60
+        },
+        "runtimePivot": {
+          "mode": "top-left",
+          "x": 0,
+          "y": 0
+        },
+        "semanticPivot": {
+          "mode": "top-left",
+          "x": 0,
+          "y": 0
+        },
+        "semanticPivotVerified": true,
+        "viewportAnchorReconstructionVerified": true,
+        "runtimeSizeSeparatedFromPlacement": false,
+        "productionAbsent": true
+      },
+      {
+        "componentId": "ember-context-label",
+        "category": "interface-world",
+        "sourceViews": 1,
+        "sourceHashesVerified": true,
+        "nativeRenderSize": {
+          "width": 48,
+          "height": 18
+        },
+        "primaryPlacementBounds": {
+          "x": 45,
+          "y": 168,
+          "width": 48,
+          "height": 18
+        },
+        "runtimePivot": {
+          "mode": "bottom-center",
+          "x": 24,
+          "y": 17
+        },
+        "semanticPivot": {
+          "mode": "bottom-center",
+          "x": 24,
+          "y": 17
+        },
+        "semanticPivotVerified": true,
+        "viewportAnchorReconstructionVerified": true,
+        "runtimeSizeSeparatedFromPlacement": false,
+        "productionAbsent": true
+      },
+      {
+        "componentId": "moss-context-label",
+        "category": "interface-world",
+        "sourceViews": 2,
+        "sourceHashesVerified": true,
+        "nativeRenderSize": {
+          "width": 41,
+          "height": 18
+        },
+        "primaryPlacementBounds": {
+          "x": 47,
+          "y": 190,
+          "width": 41,
+          "height": 18
+        },
+        "runtimePivot": {
+          "mode": "bottom-center",
+          "x": 20,
+          "y": 17
+        },
+        "semanticPivot": {
+          "mode": "bottom-center",
+          "x": 20,
+          "y": 17
+        },
+        "semanticPivotVerified": true,
+        "viewportAnchorReconstructionVerified": true,
+        "runtimeSizeSeparatedFromPlacement": false,
+        "productionAbsent": true
+      },
+      {
+        "componentId": "world-action-cue",
+        "category": "interface-world",
+        "sourceViews": 3,
+        "sourceHashesVerified": true,
+        "nativeRenderSize": {
+          "width": 46,
+          "height": 19
+        },
+        "primaryPlacementBounds": {
+          "x": 104,
+          "y": 170,
+          "width": 46,
+          "height": 19
+        },
+        "runtimePivot": {
+          "mode": "bottom-center",
+          "x": 23,
+          "y": 18
+        },
+        "semanticPivot": {
+          "mode": "bottom-center",
+          "x": 23,
+          "y": 18
+        },
+        "semanticPivotVerified": true,
+        "viewportAnchorReconstructionVerified": true,
+        "runtimeSizeSeparatedFromPlacement": false,
+        "productionAbsent": true
+      },
+      {
+        "componentId": "reaction-label",
+        "category": "interface-world",
+        "sourceViews": 2,
+        "sourceHashesVerified": true,
+        "nativeRenderSize": {
+          "width": 72,
+          "height": 24
+        },
+        "primaryPlacementBounds": {
+          "x": 382,
+          "y": 73,
+          "width": 72,
+          "height": 24
+        },
+        "runtimePivot": {
+          "mode": "bottom-center",
+          "x": 36,
+          "y": 23
+        },
+        "semanticPivot": {
+          "mode": "bottom-center",
+          "x": 36,
+          "y": 23
+        },
+        "semanticPivotVerified": true,
+        "viewportAnchorReconstructionVerified": true,
+        "runtimeSizeSeparatedFromPlacement": false,
+        "productionAbsent": true
+      },
+      {
+        "componentId": "sunmill-pennant",
+        "category": "interface-world",
+        "sourceViews": 1,
+        "sourceHashesVerified": true,
+        "nativeRenderSize": {
+          "width": 16,
+          "height": 24
+        },
+        "primaryPlacementBounds": {
+          "x": 329,
+          "y": 156,
+          "width": 39,
+          "height": 56
+        },
+        "runtimePivot": {
+          "mode": "bottom-center",
+          "x": 8,
+          "y": 23
+        },
+        "semanticPivot": {
+          "mode": "bottom-center",
+          "x": 8,
+          "y": 23
+        },
+        "semanticPivotVerified": true,
+        "viewportAnchorReconstructionVerified": true,
+        "runtimeSizeSeparatedFromPlacement": true,
+        "productionAbsent": true
+      },
+      {
+        "componentId": "herbalist-pennant",
+        "category": "interface-world",
+        "sourceViews": 1,
+        "sourceHashesVerified": true,
+        "nativeRenderSize": {
+          "width": 16,
+          "height": 24
+        },
+        "primaryPlacementBounds": {
+          "x": 365,
+          "y": 174,
+          "width": 40,
+          "height": 41
+        },
+        "runtimePivot": {
+          "mode": "bottom-center",
+          "x": 8,
+          "y": 23
+        },
+        "semanticPivot": {
+          "mode": "bottom-center",
+          "x": 8,
+          "y": 23
+        },
+        "semanticPivotVerified": true,
+        "viewportAnchorReconstructionVerified": true,
+        "runtimeSizeSeparatedFromPlacement": true,
+        "productionAbsent": true
+      },
+      {
+        "componentId": "sunmill-info-sign",
+        "category": "interface-world",
+        "sourceViews": 1,
+        "sourceHashesVerified": true,
+        "nativeRenderSize": {
+          "width": 58,
+          "height": 34
+        },
+        "primaryPlacementBounds": {
+          "x": 250,
+          "y": 151,
+          "width": 58,
+          "height": 34
+        },
+        "runtimePivot": {
+          "mode": "center",
+          "x": 29,
+          "y": 17
+        },
+        "semanticPivot": {
+          "mode": "center",
+          "x": 29,
+          "y": 17
+        },
+        "semanticPivotVerified": true,
+        "viewportAnchorReconstructionVerified": true,
+        "runtimeSizeSeparatedFromPlacement": false,
+        "productionAbsent": true
+      },
+      {
+        "componentId": "herbalist-info-sign",
+        "category": "interface-world",
+        "sourceViews": 1,
+        "sourceHashesVerified": true,
+        "nativeRenderSize": {
+          "width": 67,
+          "height": 34
+        },
+        "primaryPlacementBounds": {
+          "x": 407,
+          "y": 151,
+          "width": 67,
+          "height": 34
+        },
+        "runtimePivot": {
+          "mode": "center",
+          "x": 33,
+          "y": 17
+        },
+        "semanticPivot": {
+          "mode": "center",
+          "x": 33,
+          "y": 17
+        },
+        "semanticPivotVerified": true,
+        "viewportAnchorReconstructionVerified": true,
+        "runtimeSizeSeparatedFromPlacement": false,
+        "productionAbsent": true
+      }
+    ],
+    "componentBounds": {
+      "selectedStateOverlays": [
+        {
+          "viewId": "continuous-route-pending",
+          "path": "design/scene-targets/component-overlays/continuous-route-pending.png",
+          "sha256": "4023ff7e336e75c53d13e0e1115f2979ec4d65f18c03b3841a4f5fc7f22875ca",
+          "review3xPath": "design/scene-targets/component-overlays-3x/continuous-route-pending.png",
+          "review3xSha256": "06a27fd10a6f0a08176f72218ea274e8495fbec0ce072bef25e08b234c6f64fe",
+          "components": [
+            {
+              "componentId": "village-environment",
+              "viewportPlacementBounds": {
+                "x": 0,
+                "y": 0,
+                "width": 480,
+                "height": 270
+              },
+              "viewportAnchor": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 0,
+                "y": 0,
+                "width": 480,
+                "height": 270
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 480,
+                "height": 270
+              },
+              "runtimePivot": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "componentId": "cauldron",
+              "viewportPlacementBounds": {
+                "x": 45,
+                "y": 86,
+                "width": 48,
+                "height": 53
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 69,
+                "y": 139
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 45,
+                "y": 86,
+                "width": 48,
+                "height": 53
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 32,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 16,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "ember-ingredient",
+              "viewportPlacementBounds": {
+                "x": 59,
+                "y": 180,
+                "width": 25,
+                "height": 21
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 71,
+                "y": 201
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 59,
+                "y": 180,
+                "width": 25,
+                "height": 21
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 16,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 8,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "moss-ingredient",
+              "viewportPlacementBounds": {
+                "x": 69,
+                "y": 200,
+                "width": 28,
+                "height": 23
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 83,
+                "y": 223
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 69,
+                "y": 200,
+                "width": 28,
+                "height": 23
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 16,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 8,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "courier",
+              "viewportPlacementBounds": {
+                "x": 174,
+                "y": 141,
+                "width": 29,
+                "height": 50
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 188,
+                "y": 191
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 174,
+                "y": 141,
+                "width": 29,
+                "height": 50
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 24,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 12,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "partner",
+              "viewportPlacementBounds": {
+                "x": 91,
+                "y": 105,
+                "width": 30,
+                "height": 50
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 106,
+                "y": 155
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 91,
+                "y": 105,
+                "width": 30,
+                "height": 50
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 24,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 12,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "mira",
+              "viewportPlacementBounds": {
+                "x": 388,
+                "y": 101,
+                "width": 34,
+                "height": 55
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 405,
+                "y": 156
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 388,
+                "y": 101,
+                "width": 34,
+                "height": 55
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 24,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 12,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "bottle",
+              "viewportPlacementBounds": {
+                "x": 194,
+                "y": 144,
+                "width": 14,
+                "height": 31
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 201,
+                "y": 175
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 194,
+                "y": 144,
+                "width": 14,
+                "height": 31
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 12,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 6,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "gust-sign",
+              "viewportPlacementBounds": {
+                "x": 188,
+                "y": 67,
+                "width": 42,
+                "height": 33
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 209,
+                "y": 100
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 188,
+                "y": 67,
+                "width": 42,
+                "height": 33
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 32,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 16,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "shelter-sign",
+              "viewportPlacementBounds": {
+                "x": 208,
+                "y": 173,
+                "width": 56,
+                "height": 34
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 236,
+                "y": 207
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 208,
+                "y": 173,
+                "width": 56,
+                "height": 34
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 48,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 24,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "request-status",
+              "viewportPlacementBounds": {
+                "x": 6,
+                "y": 3,
+                "width": 142,
+                "height": 65
+              },
+              "viewportAnchor": {
+                "mode": "top-left",
+                "x": 6,
+                "y": 3
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 6,
+                "y": 3,
+                "width": 142,
+                "height": 65
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 142,
+                "height": 65
+              },
+              "runtimePivot": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "componentId": "carried-status",
+              "viewportPlacementBounds": {
+                "x": 340,
+                "y": 3,
+                "width": 136,
+                "height": 66
+              },
+              "viewportAnchor": {
+                "mode": "top-left",
+                "x": 340,
+                "y": 3
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 340,
+                "y": 3,
+                "width": 136,
+                "height": 66
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 136,
+                "height": 66
+              },
+              "runtimePivot": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              }
+            }
+          ]
+        },
+        {
+          "viewId": "continuous-need-disclosed",
+          "path": "design/scene-targets/component-overlays/continuous-need-disclosed.png",
+          "sha256": "b6780dd22e76ef543a8f7be04da08599a3fc5246efffedf0e6f68109844a12de",
+          "review3xPath": "design/scene-targets/component-overlays-3x/continuous-need-disclosed.png",
+          "review3xSha256": "ea17b4ab3ae6e0b76957549235d9971d999ed68ed201cea036176d4fd8694301",
+          "components": [
+            {
+              "componentId": "village-environment",
+              "viewportPlacementBounds": {
+                "x": 0,
+                "y": 0,
+                "width": 480,
+                "height": 270
+              },
+              "viewportAnchor": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 0,
+                "y": 0,
+                "width": 480,
+                "height": 270
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 480,
+                "height": 270
+              },
+              "runtimePivot": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "componentId": "cauldron",
+              "viewportPlacementBounds": {
+                "x": 45,
+                "y": 86,
+                "width": 48,
+                "height": 53
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 69,
+                "y": 139
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 45,
+                "y": 86,
+                "width": 48,
+                "height": 53
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 32,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 16,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "ember-ingredient",
+              "viewportPlacementBounds": {
+                "x": 59,
+                "y": 180,
+                "width": 25,
+                "height": 21
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 71,
+                "y": 201
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 59,
+                "y": 180,
+                "width": 25,
+                "height": 21
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 16,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 8,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "moss-ingredient",
+              "viewportPlacementBounds": {
+                "x": 69,
+                "y": 200,
+                "width": 28,
+                "height": 23
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 83,
+                "y": 223
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 69,
+                "y": 200,
+                "width": 28,
+                "height": 23
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 16,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 8,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "courier",
+              "viewportPlacementBounds": {
+                "x": 117,
+                "y": 116,
+                "width": 27,
+                "height": 49
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 130,
+                "y": 165
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 117,
+                "y": 116,
+                "width": 27,
+                "height": 49
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 24,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 12,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "partner",
+              "viewportPlacementBounds": {
+                "x": 91,
+                "y": 105,
+                "width": 30,
+                "height": 50
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 106,
+                "y": 155
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 91,
+                "y": 105,
+                "width": 30,
+                "height": 50
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 24,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 12,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "mira",
+              "viewportPlacementBounds": {
+                "x": 388,
+                "y": 101,
+                "width": 34,
+                "height": 55
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 405,
+                "y": 156
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 388,
+                "y": 101,
+                "width": 34,
+                "height": 55
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 24,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 12,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "gust-sign",
+              "viewportPlacementBounds": {
+                "x": 188,
+                "y": 67,
+                "width": 42,
+                "height": 33
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 209,
+                "y": 100
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 188,
+                "y": 67,
+                "width": 42,
+                "height": 33
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 32,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 16,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "shelter-sign",
+              "viewportPlacementBounds": {
+                "x": 208,
+                "y": 173,
+                "width": 56,
+                "height": 34
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 236,
+                "y": 207
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 208,
+                "y": 173,
+                "width": 56,
+                "height": 34
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 48,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 24,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "request-status",
+              "viewportPlacementBounds": {
+                "x": 6,
+                "y": 3,
+                "width": 142,
+                "height": 65
+              },
+              "viewportAnchor": {
+                "mode": "top-left",
+                "x": 6,
+                "y": 3
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 6,
+                "y": 3,
+                "width": 142,
+                "height": 65
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 142,
+                "height": 65
+              },
+              "runtimePivot": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "componentId": "ember-context-label",
+              "viewportPlacementBounds": {
+                "x": 45,
+                "y": 168,
+                "width": 48,
+                "height": 18
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 69,
+                "y": 186
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 45,
+                "y": 168,
+                "width": 48,
+                "height": 18
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 48,
+                "height": 18
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 24,
+                "y": 17
+              }
+            },
+            {
+              "componentId": "moss-context-label",
+              "viewportPlacementBounds": {
+                "x": 47,
+                "y": 190,
+                "width": 41,
+                "height": 18
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 67,
+                "y": 208
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 47,
+                "y": 190,
+                "width": 41,
+                "height": 18
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 41,
+                "height": 18
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 20,
+                "y": 17
+              }
+            },
+            {
+              "componentId": "world-action-cue",
+              "viewportPlacementBounds": {
+                "x": 104,
+                "y": 170,
+                "width": 46,
+                "height": 19
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 127,
+                "y": 189
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 104,
+                "y": 170,
+                "width": 46,
+                "height": 19
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 46,
+                "height": 19
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 23,
+                "y": 18
+              }
+            }
+          ]
+        },
+        {
+          "viewId": "continuous-mix-feedback",
+          "path": "design/scene-targets/component-overlays/continuous-mix-feedback.png",
+          "sha256": "5229c2b921ed2e5c7de0988afa136b520aa422eb2b4c503b06adecb60f2613f4",
+          "review3xPath": "design/scene-targets/component-overlays-3x/continuous-mix-feedback.png",
+          "review3xSha256": "e11aba6ea0ec31494bb5f6fab431c8811e9577a86c86fa798f2fde0e49049661",
+          "components": [
+            {
+              "componentId": "village-environment",
+              "viewportPlacementBounds": {
+                "x": 0,
+                "y": 0,
+                "width": 480,
+                "height": 270
+              },
+              "viewportAnchor": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 0,
+                "y": 0,
+                "width": 480,
+                "height": 270
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 480,
+                "height": 270
+              },
+              "runtimePivot": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "componentId": "cauldron",
+              "viewportPlacementBounds": {
+                "x": 45,
+                "y": 86,
+                "width": 48,
+                "height": 53
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 69,
+                "y": 139
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 45,
+                "y": 86,
+                "width": 48,
+                "height": 53
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 32,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 16,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "ember-ingredient",
+              "viewportPlacementBounds": {
+                "x": 59,
+                "y": 180,
+                "width": 25,
+                "height": 21
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 71,
+                "y": 201
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 59,
+                "y": 180,
+                "width": 25,
+                "height": 21
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 16,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 8,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "moss-ingredient",
+              "viewportPlacementBounds": {
+                "x": 69,
+                "y": 200,
+                "width": 28,
+                "height": 23
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 83,
+                "y": 223
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 69,
+                "y": 200,
+                "width": 28,
+                "height": 23
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 16,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 8,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "courier",
+              "viewportPlacementBounds": {
+                "x": 85,
+                "y": 98,
+                "width": 30,
+                "height": 50
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 100,
+                "y": 148
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 85,
+                "y": 98,
+                "width": 30,
+                "height": 50
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 24,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 12,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "partner",
+              "viewportPlacementBounds": {
+                "x": 91,
+                "y": 105,
+                "width": 30,
+                "height": 50
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 106,
+                "y": 155
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 91,
+                "y": 105,
+                "width": 30,
+                "height": 50
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 24,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 12,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "mira",
+              "viewportPlacementBounds": {
+                "x": 388,
+                "y": 101,
+                "width": 34,
+                "height": 55
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 405,
+                "y": 156
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 388,
+                "y": 101,
+                "width": 34,
+                "height": 55
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 24,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 12,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "gust-sign",
+              "viewportPlacementBounds": {
+                "x": 188,
+                "y": 67,
+                "width": 42,
+                "height": 33
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 209,
+                "y": 100
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 188,
+                "y": 67,
+                "width": 42,
+                "height": 33
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 32,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 16,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "shelter-sign",
+              "viewportPlacementBounds": {
+                "x": 208,
+                "y": 173,
+                "width": 56,
+                "height": 34
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 236,
+                "y": 207
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 208,
+                "y": 173,
+                "width": 56,
+                "height": 34
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 48,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 24,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "request-status",
+              "viewportPlacementBounds": {
+                "x": 6,
+                "y": 3,
+                "width": 142,
+                "height": 65
+              },
+              "viewportAnchor": {
+                "mode": "top-left",
+                "x": 6,
+                "y": 3
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 6,
+                "y": 3,
+                "width": 142,
+                "height": 65
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 142,
+                "height": 65
+              },
+              "runtimePivot": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "componentId": "causal-feedback",
+              "viewportPlacementBounds": {
+                "x": 6,
+                "y": 222,
+                "width": 286,
+                "height": 43
+              },
+              "viewportAnchor": {
+                "mode": "top-left",
+                "x": 6,
+                "y": 222
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 6,
+                "y": 222,
+                "width": 286,
+                "height": 43
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 286,
+                "height": 43
+              },
+              "runtimePivot": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "componentId": "moss-context-label",
+              "viewportPlacementBounds": {
+                "x": 66,
+                "y": 191,
+                "width": 41,
+                "height": 18
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 86,
+                "y": 209
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 66,
+                "y": 191,
+                "width": 41,
+                "height": 18
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 41,
+                "height": 18
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 20,
+                "y": 17
+              }
+            },
+            {
+              "componentId": "world-action-cue",
+              "viewportPlacementBounds": {
+                "x": 96,
+                "y": 74,
+                "width": 46,
+                "height": 19
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 119,
+                "y": 93
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 96,
+                "y": 74,
+                "width": 46,
+                "height": 19
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 46,
+                "height": 19
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 23,
+                "y": 18
+              }
+            }
+          ]
+        },
+        {
+          "viewId": "continuous-exposed-conversion",
+          "path": "design/scene-targets/component-overlays/continuous-exposed-conversion.png",
+          "sha256": "7071ddffd2d4b20e11e71d94a8105ca977d4a8cf3bd2ebf83443d4884f6882c3",
+          "review3xPath": "design/scene-targets/component-overlays-3x/continuous-exposed-conversion.png",
+          "review3xSha256": "a223e8ff7fe6925de7ccba618856c1cd698e02feb50f7ad174db9c5e38bd38f6",
+          "components": [
+            {
+              "componentId": "village-environment",
+              "viewportPlacementBounds": {
+                "x": 0,
+                "y": 0,
+                "width": 480,
+                "height": 270
+              },
+              "viewportAnchor": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 0,
+                "y": 0,
+                "width": 480,
+                "height": 270
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 480,
+                "height": 270
+              },
+              "runtimePivot": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "componentId": "courier",
+              "viewportPlacementBounds": {
+                "x": 234,
+                "y": 57,
+                "width": 40,
+                "height": 55
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 254,
+                "y": 112
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 234,
+                "y": 57,
+                "width": 40,
+                "height": 55
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 24,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 12,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "partner",
+              "viewportPlacementBounds": {
+                "x": 91,
+                "y": 105,
+                "width": 30,
+                "height": 50
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 106,
+                "y": 155
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 91,
+                "y": 105,
+                "width": 30,
+                "height": 50
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 24,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 12,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "mira",
+              "viewportPlacementBounds": {
+                "x": 388,
+                "y": 101,
+                "width": 34,
+                "height": 55
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 405,
+                "y": 156
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 388,
+                "y": 101,
+                "width": 34,
+                "height": 55
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 24,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 12,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "bottle",
+              "viewportPlacementBounds": {
+                "x": 257,
+                "y": 72,
+                "width": 14,
+                "height": 28
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 264,
+                "y": 100
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 257,
+                "y": 72,
+                "width": 14,
+                "height": 28
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 12,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 6,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "gust-sign",
+              "viewportPlacementBounds": {
+                "x": 188,
+                "y": 67,
+                "width": 42,
+                "height": 33
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 209,
+                "y": 100
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 188,
+                "y": 67,
+                "width": 42,
+                "height": 33
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 32,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 16,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "shelter-sign",
+              "viewportPlacementBounds": {
+                "x": 208,
+                "y": 173,
+                "width": 56,
+                "height": 34
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 236,
+                "y": 207
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 208,
+                "y": 173,
+                "width": 56,
+                "height": 34
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 48,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 24,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "route-effects",
+              "viewportPlacementBounds": {
+                "x": 205,
+                "y": 35,
+                "width": 125,
+                "height": 100
+              },
+              "viewportAnchor": {
+                "mode": "center",
+                "x": 267,
+                "y": 85
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 205,
+                "y": 35,
+                "width": 125,
+                "height": 100
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 32,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "center",
+                "x": 16,
+                "y": 16
+              }
+            },
+            {
+              "componentId": "request-status",
+              "viewportPlacementBounds": {
+                "x": 6,
+                "y": 3,
+                "width": 142,
+                "height": 65
+              },
+              "viewportAnchor": {
+                "mode": "top-left",
+                "x": 6,
+                "y": 3
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 6,
+                "y": 3,
+                "width": 142,
+                "height": 65
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 142,
+                "height": 65
+              },
+              "runtimePivot": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "componentId": "carried-status",
+              "viewportPlacementBounds": {
+                "x": 340,
+                "y": 3,
+                "width": 136,
+                "height": 66
+              },
+              "viewportAnchor": {
+                "mode": "top-left",
+                "x": 340,
+                "y": 3
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 340,
+                "y": 3,
+                "width": 136,
+                "height": 66
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 136,
+                "height": 66
+              },
+              "runtimePivot": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "componentId": "causal-feedback",
+              "viewportPlacementBounds": {
+                "x": 6,
+                "y": 222,
+                "width": 286,
+                "height": 43
+              },
+              "viewportAnchor": {
+                "mode": "top-left",
+                "x": 6,
+                "y": 222
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 6,
+                "y": 222,
+                "width": 286,
+                "height": 43
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 286,
+                "height": 43
+              },
+              "runtimePivot": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              }
+            }
+          ]
+        },
+        {
+          "viewId": "continuous-sheltered-preservation",
+          "path": "design/scene-targets/component-overlays/continuous-sheltered-preservation.png",
+          "sha256": "b7c984c4aeca74bc69270ded30c39eb9d89076a217248aef9286420af5d448e9",
+          "review3xPath": "design/scene-targets/component-overlays-3x/continuous-sheltered-preservation.png",
+          "review3xSha256": "c3f0b8d08232807c2be2697e4e3557e213ae435a331686046a024bf375f7f9cc",
+          "components": [
+            {
+              "componentId": "village-environment",
+              "viewportPlacementBounds": {
+                "x": 0,
+                "y": 0,
+                "width": 480,
+                "height": 270
+              },
+              "viewportAnchor": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 0,
+                "y": 0,
+                "width": 480,
+                "height": 270
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 480,
+                "height": 270
+              },
+              "runtimePivot": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "componentId": "courier",
+              "viewportPlacementBounds": {
+                "x": 260,
+                "y": 150,
+                "width": 43,
+                "height": 61
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 281,
+                "y": 211
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 260,
+                "y": 150,
+                "width": 43,
+                "height": 61
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 24,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 12,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "partner",
+              "viewportPlacementBounds": {
+                "x": 91,
+                "y": 105,
+                "width": 30,
+                "height": 50
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 106,
+                "y": 155
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 91,
+                "y": 105,
+                "width": 30,
+                "height": 50
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 24,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 12,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "mira",
+              "viewportPlacementBounds": {
+                "x": 388,
+                "y": 101,
+                "width": 34,
+                "height": 55
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 405,
+                "y": 156
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 388,
+                "y": 101,
+                "width": 34,
+                "height": 55
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 24,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 12,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "bottle",
+              "viewportPlacementBounds": {
+                "x": 281,
+                "y": 163,
+                "width": 14,
+                "height": 28
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 288,
+                "y": 191
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 281,
+                "y": 163,
+                "width": 14,
+                "height": 28
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 12,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 6,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "gust-sign",
+              "viewportPlacementBounds": {
+                "x": 188,
+                "y": 67,
+                "width": 42,
+                "height": 33
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 209,
+                "y": 100
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 188,
+                "y": 67,
+                "width": 42,
+                "height": 33
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 32,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 16,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "shelter-sign",
+              "viewportPlacementBounds": {
+                "x": 208,
+                "y": 173,
+                "width": 56,
+                "height": 34
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 236,
+                "y": 207
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 208,
+                "y": 173,
+                "width": 56,
+                "height": 34
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 48,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 24,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "route-effects",
+              "viewportPlacementBounds": {
+                "x": 242,
+                "y": 128,
+                "width": 105,
+                "height": 93
+              },
+              "viewportAnchor": {
+                "mode": "center",
+                "x": 294,
+                "y": 174
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 242,
+                "y": 128,
+                "width": 105,
+                "height": 93
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 32,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "center",
+                "x": 16,
+                "y": 16
+              }
+            },
+            {
+              "componentId": "request-status",
+              "viewportPlacementBounds": {
+                "x": 6,
+                "y": 3,
+                "width": 142,
+                "height": 65
+              },
+              "viewportAnchor": {
+                "mode": "top-left",
+                "x": 6,
+                "y": 3
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 6,
+                "y": 3,
+                "width": 142,
+                "height": 65
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 142,
+                "height": 65
+              },
+              "runtimePivot": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "componentId": "carried-status",
+              "viewportPlacementBounds": {
+                "x": 340,
+                "y": 3,
+                "width": 136,
+                "height": 66
+              },
+              "viewportAnchor": {
+                "mode": "top-left",
+                "x": 340,
+                "y": 3
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 340,
+                "y": 3,
+                "width": 136,
+                "height": 66
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 136,
+                "height": 66
+              },
+              "runtimePivot": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "componentId": "causal-feedback",
+              "viewportPlacementBounds": {
+                "x": 6,
+                "y": 222,
+                "width": 254,
+                "height": 43
+              },
+              "viewportAnchor": {
+                "mode": "top-left",
+                "x": 6,
+                "y": 222
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 6,
+                "y": 222,
+                "width": 254,
+                "height": 43
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 286,
+                "height": 43
+              },
+              "runtimePivot": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              }
+            }
+          ]
+        },
+        {
+          "viewId": "continuous-satisfied-delivery",
+          "path": "design/scene-targets/component-overlays/continuous-satisfied-delivery.png",
+          "sha256": "a9f13f7ab0e77d76d8be30875feced8d8c1cf597ff619fdc46628f7e998ae382",
+          "review3xPath": "design/scene-targets/component-overlays-3x/continuous-satisfied-delivery.png",
+          "review3xSha256": "9538034eb1d64db0b1080cfebc1927b771b3495ffeacb1f5a74ed524a22f52e3",
+          "components": [
+            {
+              "componentId": "village-environment",
+              "viewportPlacementBounds": {
+                "x": 0,
+                "y": 0,
+                "width": 480,
+                "height": 270
+              },
+              "viewportAnchor": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 0,
+                "y": 0,
+                "width": 480,
+                "height": 270
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 480,
+                "height": 270
+              },
+              "runtimePivot": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "componentId": "courier",
+              "viewportPlacementBounds": {
+                "x": 348,
+                "y": 105,
+                "width": 44,
+                "height": 58
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 370,
+                "y": 163
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 348,
+                "y": 105,
+                "width": 44,
+                "height": 58
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 24,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 12,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "partner",
+              "viewportPlacementBounds": {
+                "x": 91,
+                "y": 105,
+                "width": 30,
+                "height": 50
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 106,
+                "y": 155
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 91,
+                "y": 105,
+                "width": 30,
+                "height": 50
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 24,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 12,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "mira",
+              "viewportPlacementBounds": {
+                "x": 383,
+                "y": 99,
+                "width": 44,
+                "height": 61
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 405,
+                "y": 160
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 383,
+                "y": 99,
+                "width": 44,
+                "height": 61
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 24,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 12,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "bottle",
+              "viewportPlacementBounds": {
+                "x": 378,
+                "y": 124,
+                "width": 14,
+                "height": 22
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 385,
+                "y": 146
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 378,
+                "y": 124,
+                "width": 14,
+                "height": 22
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 12,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 6,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "gust-sign",
+              "viewportPlacementBounds": {
+                "x": 188,
+                "y": 67,
+                "width": 42,
+                "height": 33
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 209,
+                "y": 100
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 188,
+                "y": 67,
+                "width": 42,
+                "height": 33
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 32,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 16,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "shelter-sign",
+              "viewportPlacementBounds": {
+                "x": 208,
+                "y": 173,
+                "width": 56,
+                "height": 34
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 236,
+                "y": 207
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 208,
+                "y": 173,
+                "width": 56,
+                "height": 34
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 48,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 24,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "reaction-effects",
+              "viewportPlacementBounds": {
+                "x": 376,
+                "y": 72,
+                "width": 82,
+                "height": 91
+              },
+              "viewportAnchor": {
+                "mode": "center",
+                "x": 417,
+                "y": 117
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 376,
+                "y": 72,
+                "width": 82,
+                "height": 91
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 32,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "center",
+                "x": 16,
+                "y": 16
+              }
+            },
+            {
+              "componentId": "request-status",
+              "viewportPlacementBounds": {
+                "x": 6,
+                "y": 3,
+                "width": 142,
+                "height": 65
+              },
+              "viewportAnchor": {
+                "mode": "top-left",
+                "x": 6,
+                "y": 3
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 6,
+                "y": 3,
+                "width": 142,
+                "height": 65
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 142,
+                "height": 65
+              },
+              "runtimePivot": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "componentId": "delivery-comparison",
+              "viewportPlacementBounds": {
+                "x": 6,
+                "y": 205,
+                "width": 228,
+                "height": 60
+              },
+              "viewportAnchor": {
+                "mode": "top-left",
+                "x": 6,
+                "y": 205
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 6,
+                "y": 205,
+                "width": 228,
+                "height": 60
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 228,
+                "height": 60
+              },
+              "runtimePivot": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "componentId": "reaction-label",
+              "viewportPlacementBounds": {
+                "x": 382,
+                "y": 73,
+                "width": 72,
+                "height": 24
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 418,
+                "y": 97
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 382,
+                "y": 73,
+                "width": 72,
+                "height": 24
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 72,
+                "height": 24
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 36,
+                "y": 23
+              }
+            }
+          ]
+        },
+        {
+          "viewId": "continuous-imperfect-recovery",
+          "path": "design/scene-targets/component-overlays/continuous-imperfect-recovery.png",
+          "sha256": "4f3433db9a93b888fe19fd04fa2f85de8f24fe7ebe9d3f1ec2cd79ba8e03a304",
+          "review3xPath": "design/scene-targets/component-overlays-3x/continuous-imperfect-recovery.png",
+          "review3xSha256": "95483a3484f6ea100992c35d21d814a937336cf18e7199f7a6619d81184c15ae",
+          "components": [
+            {
+              "componentId": "village-environment",
+              "viewportPlacementBounds": {
+                "x": 0,
+                "y": 0,
+                "width": 480,
+                "height": 270
+              },
+              "viewportAnchor": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 0,
+                "y": 0,
+                "width": 480,
+                "height": 270
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 480,
+                "height": 270
+              },
+              "runtimePivot": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "componentId": "courier",
+              "viewportPlacementBounds": {
+                "x": 352,
+                "y": 105,
+                "width": 42,
+                "height": 58
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 373,
+                "y": 163
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 352,
+                "y": 105,
+                "width": 42,
+                "height": 58
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 24,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 12,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "partner",
+              "viewportPlacementBounds": {
+                "x": 91,
+                "y": 105,
+                "width": 30,
+                "height": 50
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 106,
+                "y": 155
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 91,
+                "y": 105,
+                "width": 30,
+                "height": 50
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 24,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 12,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "mira",
+              "viewportPlacementBounds": {
+                "x": 383,
+                "y": 99,
+                "width": 44,
+                "height": 61
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 405,
+                "y": 160
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 383,
+                "y": 99,
+                "width": 44,
+                "height": 61
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 24,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 12,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "bottle",
+              "viewportPlacementBounds": {
+                "x": 380,
+                "y": 124,
+                "width": 14,
+                "height": 22
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 387,
+                "y": 146
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 380,
+                "y": 124,
+                "width": 14,
+                "height": 22
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 12,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 6,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "gust-sign",
+              "viewportPlacementBounds": {
+                "x": 188,
+                "y": 67,
+                "width": 42,
+                "height": 33
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 209,
+                "y": 100
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 188,
+                "y": 67,
+                "width": 42,
+                "height": 33
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 32,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 16,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "shelter-sign",
+              "viewportPlacementBounds": {
+                "x": 208,
+                "y": 173,
+                "width": 56,
+                "height": 34
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 236,
+                "y": 207
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 208,
+                "y": 173,
+                "width": 56,
+                "height": 34
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 48,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 24,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "reaction-effects",
+              "viewportPlacementBounds": {
+                "x": 376,
+                "y": 72,
+                "width": 82,
+                "height": 91
+              },
+              "viewportAnchor": {
+                "mode": "center",
+                "x": 417,
+                "y": 117
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 376,
+                "y": 72,
+                "width": 82,
+                "height": 91
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 32,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "center",
+                "x": 16,
+                "y": 16
+              }
+            },
+            {
+              "componentId": "request-status",
+              "viewportPlacementBounds": {
+                "x": 6,
+                "y": 3,
+                "width": 142,
+                "height": 65
+              },
+              "viewportAnchor": {
+                "mode": "top-left",
+                "x": 6,
+                "y": 3
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 6,
+                "y": 3,
+                "width": 142,
+                "height": 65
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 142,
+                "height": 65
+              },
+              "runtimePivot": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "componentId": "delivery-comparison",
+              "viewportPlacementBounds": {
+                "x": 6,
+                "y": 205,
+                "width": 228,
+                "height": 60
+              },
+              "viewportAnchor": {
+                "mode": "top-left",
+                "x": 6,
+                "y": 205
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 6,
+                "y": 205,
+                "width": 228,
+                "height": 60
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 228,
+                "height": 60
+              },
+              "runtimePivot": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "componentId": "reaction-label",
+              "viewportPlacementBounds": {
+                "x": 382,
+                "y": 73,
+                "width": 72,
+                "height": 24
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 418,
+                "y": 97
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 382,
+                "y": 73,
+                "width": 72,
+                "height": 24
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 72,
+                "height": 24
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 36,
+                "y": 23
+              }
+            }
+          ]
+        },
+        {
+          "viewId": "continuous-followup-selection",
+          "path": "design/scene-targets/component-overlays/continuous-followup-selection.png",
+          "sha256": "a23d4cbc2bbe27ed0bf403180ff84a757f0c3615fd600ed5453caf1d15b9ce59",
+          "review3xPath": "design/scene-targets/component-overlays-3x/continuous-followup-selection.png",
+          "review3xSha256": "ee273d34b9ba9914151e5e7f0b4a1be107e7f51e95d01a7a7134ab5a8856a14f",
+          "components": [
+            {
+              "componentId": "village-environment",
+              "viewportPlacementBounds": {
+                "x": 0,
+                "y": 0,
+                "width": 480,
+                "height": 270
+              },
+              "viewportAnchor": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 0,
+                "y": 0,
+                "width": 480,
+                "height": 270
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 480,
+                "height": 270
+              },
+              "runtimePivot": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "componentId": "courier",
+              "viewportPlacementBounds": {
+                "x": 310,
+                "y": 169,
+                "width": 32,
+                "height": 52
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 326,
+                "y": 221
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 310,
+                "y": 169,
+                "width": 32,
+                "height": 52
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 24,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 12,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "partner",
+              "viewportPlacementBounds": {
+                "x": 91,
+                "y": 105,
+                "width": 30,
+                "height": 50
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 106,
+                "y": 155
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 91,
+                "y": 105,
+                "width": 30,
+                "height": 50
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 24,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 12,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "mira",
+              "viewportPlacementBounds": {
+                "x": 388,
+                "y": 101,
+                "width": 34,
+                "height": 55
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 405,
+                "y": 156
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 388,
+                "y": 101,
+                "width": 34,
+                "height": 55
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 24,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 12,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "gust-sign",
+              "viewportPlacementBounds": {
+                "x": 188,
+                "y": 67,
+                "width": 42,
+                "height": 33
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 209,
+                "y": 100
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 188,
+                "y": 67,
+                "width": 42,
+                "height": 33
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 32,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 16,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "shelter-sign",
+              "viewportPlacementBounds": {
+                "x": 208,
+                "y": 173,
+                "width": 56,
+                "height": 34
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 236,
+                "y": 207
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 208,
+                "y": 173,
+                "width": 56,
+                "height": 34
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 48,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 24,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "request-status",
+              "viewportPlacementBounds": {
+                "x": 6,
+                "y": 3,
+                "width": 142,
+                "height": 65
+              },
+              "viewportAnchor": {
+                "mode": "top-left",
+                "x": 6,
+                "y": 3
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 6,
+                "y": 3,
+                "width": 142,
+                "height": 65
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 142,
+                "height": 65
+              },
+              "runtimePivot": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "componentId": "world-action-cue",
+              "viewportPlacementBounds": {
+                "x": 270,
+                "y": 190,
+                "width": 38,
+                "height": 19
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 289,
+                "y": 209
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 270,
+                "y": 190,
+                "width": 38,
+                "height": 19
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 46,
+                "height": 19
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 23,
+                "y": 18
+              }
+            },
+            {
+              "componentId": "sunmill-pennant",
+              "viewportPlacementBounds": {
+                "x": 329,
+                "y": 156,
+                "width": 39,
+                "height": 56
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 348,
+                "y": 212
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 329,
+                "y": 156,
+                "width": 39,
+                "height": 56
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 16,
+                "height": 24
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 8,
+                "y": 23
+              }
+            },
+            {
+              "componentId": "herbalist-pennant",
+              "viewportPlacementBounds": {
+                "x": 365,
+                "y": 174,
+                "width": 40,
+                "height": 41
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 385,
+                "y": 215
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 365,
+                "y": 174,
+                "width": 40,
+                "height": 41
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 16,
+                "height": 24
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 8,
+                "y": 23
+              }
+            },
+            {
+              "componentId": "sunmill-info-sign",
+              "viewportPlacementBounds": {
+                "x": 250,
+                "y": 151,
+                "width": 58,
+                "height": 34
+              },
+              "viewportAnchor": {
+                "mode": "center",
+                "x": 279,
+                "y": 168
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 250,
+                "y": 151,
+                "width": 58,
+                "height": 34
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 58,
+                "height": 34
+              },
+              "runtimePivot": {
+                "mode": "center",
+                "x": 29,
+                "y": 17
+              }
+            },
+            {
+              "componentId": "herbalist-info-sign",
+              "viewportPlacementBounds": {
+                "x": 407,
+                "y": 151,
+                "width": 67,
+                "height": 34
+              },
+              "viewportAnchor": {
+                "mode": "center",
+                "x": 440,
+                "y": 168
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 407,
+                "y": 151,
+                "width": 67,
+                "height": 34
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 67,
+                "height": 34
+              },
+              "runtimePivot": {
+                "mode": "center",
+                "x": 33,
+                "y": 17
+              }
+            }
+          ]
+        }
+      ],
+      "allSelectedStatesCovered": true,
+      "allPlacementsReconstructedFromViewportAnchors": true
+    },
+    "environmentContinuity": {
+      "persistentWorldBasisPath": "design/scene-targets/continuity-source/continuous-world-basis.png",
+      "persistentWorldBasisSha256": "a316f5c631e39293c3280e55c4af92ddebc1fd5ffefae260e03a07e6611bffa1",
+      "transitionMasks": [
+        {
+          "startViewId": "continuous-need-disclosed",
+          "endViewId": "continuous-mix-feedback",
+          "path": "design/scene-targets/continuity-masks/continuous-need-disclosed--to--continuous-mix-feedback.png",
+          "sha256": "2209ebcd1100f46061bba6817011c39a42e6bcbe140d5c116f295242bd1b079f",
+          "unexpectedEnvironmentPixelChanges": 0,
+          "allowedCausalAndUiRectangles": [
+            {
+              "x": 36,
+              "y": 82,
+              "width": 116,
+              "height": 150
+            },
+            {
+              "x": 36,
+              "y": 82,
+              "width": 116,
+              "height": 150
+            },
+            {
+              "x": 6,
+              "y": 3,
+              "width": 144,
+              "height": 67
+            },
+            {
+              "x": 45,
+              "y": 168,
+              "width": 50,
+              "height": 20
+            },
+            {
+              "x": 47,
+              "y": 190,
+              "width": 43,
+              "height": 20
+            },
+            {
+              "x": 104,
+              "y": 170,
+              "width": 48,
+              "height": 21
+            },
+            {
+              "x": 6,
+              "y": 3,
+              "width": 144,
+              "height": 67
+            },
+            {
+              "x": 66,
+              "y": 191,
+              "width": 43,
+              "height": 20
+            },
+            {
+              "x": 96,
+              "y": 74,
+              "width": 48,
+              "height": 21
+            },
+            {
+              "x": 6,
+              "y": 222,
+              "width": 288,
+              "height": 45
+            }
+          ],
+          "legend": {
+            "unchangedEnvironment": "#1B1A24",
+            "excludedCausalOrUiRegion": "#2A3341",
+            "unexpectedEnvironmentChange": "#FF00FF"
+          }
+        },
+        {
+          "startViewId": "continuous-mix-feedback",
+          "endViewId": "continuous-route-pending",
+          "path": "design/scene-targets/continuity-masks/continuous-mix-feedback--to--continuous-route-pending.png",
+          "sha256": "a0779e7adde52ddd7cbaa38527ff5f855a50d33f60ce419cd3f20638e5b47783",
+          "unexpectedEnvironmentPixelChanges": 0,
+          "allowedCausalAndUiRectangles": [
+            {
+              "x": 36,
+              "y": 82,
+              "width": 116,
+              "height": 150
+            },
+            {
+              "x": 160,
+              "y": 120,
+              "width": 76,
+              "height": 84
+            },
+            {
+              "x": 6,
+              "y": 3,
+              "width": 144,
+              "height": 67
+            },
+            {
+              "x": 66,
+              "y": 191,
+              "width": 43,
+              "height": 20
+            },
+            {
+              "x": 96,
+              "y": 74,
+              "width": 48,
+              "height": 21
+            },
+            {
+              "x": 6,
+              "y": 222,
+              "width": 288,
+              "height": 45
+            },
+            {
+              "x": 6,
+              "y": 3,
+              "width": 144,
+              "height": 67
+            },
+            {
+              "x": 340,
+              "y": 3,
+              "width": 138,
+              "height": 68
+            }
+          ],
+          "legend": {
+            "unchangedEnvironment": "#1B1A24",
+            "excludedCausalOrUiRegion": "#2A3341",
+            "unexpectedEnvironmentChange": "#FF00FF"
+          }
+        },
+        {
+          "startViewId": "continuous-route-pending",
+          "endViewId": "continuous-exposed-conversion",
+          "path": "design/scene-targets/continuity-masks/continuous-route-pending--to--continuous-exposed-conversion.png",
+          "sha256": "6b85d4b7052b6e41ae8d5606cbe3d10a20c6af9c4ab627f95197a4b0008a0727",
+          "unexpectedEnvironmentPixelChanges": 0,
+          "allowedCausalAndUiRectangles": [
+            {
+              "x": 160,
+              "y": 120,
+              "width": 76,
+              "height": 84
+            },
+            {
+              "x": 205,
+              "y": 35,
+              "width": 125,
+              "height": 100
+            },
+            {
+              "x": 6,
+              "y": 3,
+              "width": 144,
+              "height": 67
+            },
+            {
+              "x": 340,
+              "y": 3,
+              "width": 138,
+              "height": 68
+            },
+            {
+              "x": 6,
+              "y": 3,
+              "width": 144,
+              "height": 67
+            },
+            {
+              "x": 340,
+              "y": 3,
+              "width": 138,
+              "height": 68
+            },
+            {
+              "x": 6,
+              "y": 222,
+              "width": 288,
+              "height": 45
+            }
+          ],
+          "legend": {
+            "unchangedEnvironment": "#1B1A24",
+            "excludedCausalOrUiRegion": "#2A3341",
+            "unexpectedEnvironmentChange": "#FF00FF"
+          }
+        },
+        {
+          "startViewId": "continuous-route-pending",
+          "endViewId": "continuous-sheltered-preservation",
+          "path": "design/scene-targets/continuity-masks/continuous-route-pending--to--continuous-sheltered-preservation.png",
+          "sha256": "bb1533976bdeb392bf77625ace0df6f4467c8d2d1299dae121611dc994a19374",
+          "unexpectedEnvironmentPixelChanges": 0,
+          "allowedCausalAndUiRectangles": [
+            {
+              "x": 160,
+              "y": 120,
+              "width": 76,
+              "height": 84
+            },
+            {
+              "x": 242,
+              "y": 128,
+              "width": 105,
+              "height": 93
+            },
+            {
+              "x": 6,
+              "y": 3,
+              "width": 144,
+              "height": 67
+            },
+            {
+              "x": 340,
+              "y": 3,
+              "width": 138,
+              "height": 68
+            },
+            {
+              "x": 6,
+              "y": 3,
+              "width": 144,
+              "height": 67
+            },
+            {
+              "x": 340,
+              "y": 3,
+              "width": 138,
+              "height": 68
+            },
+            {
+              "x": 6,
+              "y": 222,
+              "width": 256,
+              "height": 45
+            }
+          ],
+          "legend": {
+            "unchangedEnvironment": "#1B1A24",
+            "excludedCausalOrUiRegion": "#2A3341",
+            "unexpectedEnvironmentChange": "#FF00FF"
+          }
+        },
+        {
+          "startViewId": "continuous-exposed-conversion",
+          "endViewId": "continuous-satisfied-delivery",
+          "path": "design/scene-targets/continuity-masks/continuous-exposed-conversion--to--continuous-satisfied-delivery.png",
+          "sha256": "93eaf14539030a9e4ebd241aeae13b566ada250c3bccf4e5c14ffb3cc62cb061",
+          "unexpectedEnvironmentPixelChanges": 0,
+          "allowedCausalAndUiRectangles": [
+            {
+              "x": 205,
+              "y": 35,
+              "width": 125,
+              "height": 100
+            },
+            {
+              "x": 345,
+              "y": 68,
+              "width": 128,
+              "height": 130
+            },
+            {
+              "x": 6,
+              "y": 3,
+              "width": 144,
+              "height": 67
+            },
+            {
+              "x": 340,
+              "y": 3,
+              "width": 138,
+              "height": 68
+            },
+            {
+              "x": 6,
+              "y": 222,
+              "width": 288,
+              "height": 45
+            },
+            {
+              "x": 6,
+              "y": 3,
+              "width": 144,
+              "height": 67
+            },
+            {
+              "x": 6,
+              "y": 205,
+              "width": 230,
+              "height": 62
+            },
+            {
+              "x": 382,
+              "y": 73,
+              "width": 74,
+              "height": 26
+            }
+          ],
+          "legend": {
+            "unchangedEnvironment": "#1B1A24",
+            "excludedCausalOrUiRegion": "#2A3341",
+            "unexpectedEnvironmentChange": "#FF00FF"
+          }
+        },
+        {
+          "startViewId": "continuous-sheltered-preservation",
+          "endViewId": "continuous-imperfect-recovery",
+          "path": "design/scene-targets/continuity-masks/continuous-sheltered-preservation--to--continuous-imperfect-recovery.png",
+          "sha256": "6a08ea0e413991136a1ca7b936f694a7d5f918773739c78bd51dd3223c705053",
+          "unexpectedEnvironmentPixelChanges": 0,
+          "allowedCausalAndUiRectangles": [
+            {
+              "x": 242,
+              "y": 128,
+              "width": 105,
+              "height": 93
+            },
+            {
+              "x": 345,
+              "y": 68,
+              "width": 128,
+              "height": 130
+            },
+            {
+              "x": 6,
+              "y": 3,
+              "width": 144,
+              "height": 67
+            },
+            {
+              "x": 340,
+              "y": 3,
+              "width": 138,
+              "height": 68
+            },
+            {
+              "x": 6,
+              "y": 222,
+              "width": 256,
+              "height": 45
+            },
+            {
+              "x": 6,
+              "y": 3,
+              "width": 144,
+              "height": 67
+            },
+            {
+              "x": 6,
+              "y": 205,
+              "width": 230,
+              "height": 62
+            },
+            {
+              "x": 382,
+              "y": 73,
+              "width": 74,
+              "height": 26
+            }
+          ],
+          "legend": {
+            "unchangedEnvironment": "#1B1A24",
+            "excludedCausalOrUiRegion": "#2A3341",
+            "unexpectedEnvironmentChange": "#FF00FF"
+          }
+        },
+        {
+          "startViewId": "continuous-satisfied-delivery",
+          "endViewId": "continuous-followup-selection",
+          "path": "design/scene-targets/continuity-masks/continuous-satisfied-delivery--to--continuous-followup-selection.png",
+          "sha256": "8bf9cd628a153d29a05e17b1dd5d52909fe717e62a7a98d842c24dd8b2a31cc7",
+          "unexpectedEnvironmentPixelChanges": 0,
+          "allowedCausalAndUiRectangles": [
+            {
+              "x": 345,
+              "y": 68,
+              "width": 128,
+              "height": 130
+            },
+            {
+              "x": 292,
+              "y": 145,
+              "width": 150,
+              "height": 85
+            },
+            {
+              "x": 6,
+              "y": 3,
+              "width": 144,
+              "height": 67
+            },
+            {
+              "x": 6,
+              "y": 205,
+              "width": 230,
+              "height": 62
+            },
+            {
+              "x": 382,
+              "y": 73,
+              "width": 74,
+              "height": 26
+            },
+            {
+              "x": 6,
+              "y": 3,
+              "width": 144,
+              "height": 67
+            },
+            {
+              "x": 250,
+              "y": 151,
+              "width": 60,
+              "height": 36
+            },
+            {
+              "x": 407,
+              "y": 151,
+              "width": 69,
+              "height": 36
+            },
+            {
+              "x": 270,
+              "y": 190,
+              "width": 40,
+              "height": 21
+            }
+          ],
+          "legend": {
+            "unchangedEnvironment": "#1B1A24",
+            "excludedCausalOrUiRegion": "#2A3341",
+            "unexpectedEnvironmentChange": "#FF00FF"
+          }
+        },
+        {
+          "startViewId": "continuous-imperfect-recovery",
+          "endViewId": "continuous-followup-selection",
+          "path": "design/scene-targets/continuity-masks/continuous-imperfect-recovery--to--continuous-followup-selection.png",
+          "sha256": "8bf9cd628a153d29a05e17b1dd5d52909fe717e62a7a98d842c24dd8b2a31cc7",
+          "unexpectedEnvironmentPixelChanges": 0,
+          "allowedCausalAndUiRectangles": [
+            {
+              "x": 345,
+              "y": 68,
+              "width": 128,
+              "height": 130
+            },
+            {
+              "x": 292,
+              "y": 145,
+              "width": 150,
+              "height": 85
+            },
+            {
+              "x": 6,
+              "y": 3,
+              "width": 144,
+              "height": 67
+            },
+            {
+              "x": 6,
+              "y": 205,
+              "width": 230,
+              "height": 62
+            },
+            {
+              "x": 382,
+              "y": 73,
+              "width": 74,
+              "height": 26
+            },
+            {
+              "x": 6,
+              "y": 3,
+              "width": 144,
+              "height": 67
+            },
+            {
+              "x": 250,
+              "y": 151,
+              "width": 60,
+              "height": 36
+            },
+            {
+              "x": 407,
+              "y": 151,
+              "width": 69,
+              "height": 36
+            },
+            {
+              "x": 270,
+              "y": 190,
+              "width": 40,
+              "height": 21
+            }
+          ],
+          "legend": {
+            "unchangedEnvironment": "#1B1A24",
+            "excludedCausalOrUiRegion": "#2A3341",
+            "unexpectedEnvironmentChange": "#FF00FF"
+          }
+        }
+      ],
+      "allUnexpectedEnvironmentPixelChanges": 0
+    },
+    "protectedGeometry": {
+      "viewsChecked": 8,
+      "uiProtectedIntersections": [],
+      "intersectionCount": 0
+    },
+    "schemaContract": {
+      "apiVersion": "gamefactory.scene-target/v1",
+      "selectedCandidateId": "continuous-causal-village",
+      "selectedPrimaryViewSha256": "92c31af3c13f2872853d5e1fa773120a40bbe385805a8cd55cf0190a41556520",
+      "approvalMatchesSelectedPrimaryView": true,
+      "componentPrimaryViewLineageVerified": true,
+      "componentPrimaryViewLineageCount": 24,
+      "componentCount": 24,
+      "completeTargetSha256": "b5f820db9b72579404f1a09568e45bd202fc5e10ab4ee5310dd1bc266314ae45",
+      "selectedTargetFingerprintMatchesCompleteTarget": true,
+      "fingerprintMutationSensitivity": {
+        "selectedViewMutationChangesFingerprint": true,
+        "experienceMutationChangesFingerprint": true,
+        "componentMutationChangesFingerprint": true
+      },
+      "authoritativeParser": {
+        "contract": "@gamefactory/design-sdk parseSceneTarget",
+        "sourceContractSha256": "2bb88c0159feda9b88c44bbf5d553abc8c834278f89ca7816b309ca7ffa532b8",
+        "compiledParserSha256": "73228ce934bf3930c2e72154ce5b2cf30787b149e22da5e7b16411b979e794ef",
+        "result": "pass",
+        "apiVersion": "gamefactory.scene-target/v1",
+        "selectedCandidateId": "continuous-causal-village",
+        "selectedPrimaryViewId": "continuous-route-pending",
+        "selectedPrimaryViewSha256": "92c31af3c13f2872853d5e1fa773120a40bbe385805a8cd55cf0190a41556520",
+        "approvalSelectedTargetSha256": "92c31af3c13f2872853d5e1fa773120a40bbe385805a8cd55cf0190a41556520",
+        "componentLineageCount": 24,
+        "componentCount": 24
+      },
+      "componentProductionAbsent": true
+    },
+    "compositionOverlaps": [
+      {
+        "left": "playfield",
+        "right": "request-status",
+        "sharedStates": [
+          "exposed-conversion",
+          "imperfect-recovery",
+          "mix-feedback",
+          "need-disclosed",
+          "route-pending",
+          "satisfied-delivery",
+          "sheltered-preservation"
+        ],
+        "mutuallyAllowed": true
+      },
+      {
+        "left": "playfield",
+        "right": "followup-status",
+        "sharedStates": [
+          "followup-selection"
+        ],
+        "mutuallyAllowed": true
+      },
+      {
+        "left": "playfield",
+        "right": "carried-status",
+        "sharedStates": [
+          "exposed-conversion",
+          "route-pending",
+          "sheltered-preservation"
+        ],
+        "mutuallyAllowed": true
+      },
+      {
+        "left": "playfield",
+        "right": "feedback",
+        "sharedStates": [
+          "exposed-conversion",
+          "mix-feedback",
+          "sheltered-preservation"
+        ],
+        "mutuallyAllowed": true
+      },
+      {
+        "left": "playfield",
+        "right": "reaction-comparison",
+        "sharedStates": [
+          "imperfect-recovery",
+          "satisfied-delivery"
+        ],
+        "mutuallyAllowed": true
+      },
+      {
+        "left": "playfield",
+        "right": "brew-context",
+        "sharedStates": [
+          "mix-feedback",
+          "need-disclosed"
+        ],
+        "mutuallyAllowed": true
+      },
+      {
+        "left": "playfield",
+        "right": "route-context",
+        "sharedStates": [
+          "exposed-conversion",
+          "route-pending",
+          "sheltered-preservation"
+        ],
+        "mutuallyAllowed": true
+      },
+      {
+        "left": "playfield",
+        "right": "delivery-context",
+        "sharedStates": [
+          "imperfect-recovery",
+          "satisfied-delivery"
+        ],
+        "mutuallyAllowed": true
+      },
+      {
+        "left": "playfield",
+        "right": "followup-context",
+        "sharedStates": [
+          "followup-selection"
+        ],
+        "mutuallyAllowed": true
+      }
+    ],
+    "approval": {
+      "status": "needs-revision",
+      "reviewer": "pending-scene-target-gate"
+    }
+  },
+  "errors": [],
+  "evidenceBoundary": "This validates proposed target geometry, hashes, typography, protected overlaps, continuity, and lineage. It does not prove runtime integration, motion, human comprehension, fun, or production maturity."
+}
