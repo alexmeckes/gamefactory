@@ -1,5 +1,5 @@
-import { constants } from "node:fs";
-import { copyFile, mkdir, readFile, realpath, stat } from "node:fs/promises";
+import { constants, createReadStream } from "node:fs";
+import { copyFile, mkdir, realpath, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { basename, extname, isAbsolute, relative, resolve } from "node:path";
 import type { ArtifactReference, Logger } from "./types.js";
@@ -55,6 +55,25 @@ function errorCode(error: unknown): string | undefined {
   return error && typeof error === "object" && "code" in error && typeof error.code === "string"
     ? error.code
     : undefined;
+}
+
+const destinationWrites = new Map<string, Promise<void>>();
+
+async function sha256File(path: string): Promise<string> {
+  const hash = createHash("sha256");
+  for await (const chunk of createReadStream(path)) hash.update(chunk as Buffer);
+  return hash.digest("hex");
+}
+
+async function serializeDestination(path: string, operation: () => Promise<void>): Promise<void> {
+  const prior = destinationWrites.get(path) ?? Promise.resolve();
+  const current = prior.catch(() => undefined).then(operation);
+  destinationWrites.set(path, current);
+  try {
+    await current;
+  } finally {
+    if (destinationWrites.get(path) === current) destinationWrites.delete(path);
+  }
 }
 
 export class ContentAddressedArtifactStore {
@@ -119,35 +138,37 @@ export class ContentAddressedArtifactStore {
       }
     }
 
-    let content: Buffer;
+    let sizeBytes: number;
+    let sha256: string;
     try {
       const info = await stat(source);
       if (!info.isFile()) {
         throw this.failure("not-file", artifact, source, namespace, `Artifact source ${source} is not a regular file.`);
       }
-      content = await readFile(source);
+      sizeBytes = info.size;
+      sha256 = await sha256File(source);
     } catch (error) {
       if (error instanceof ArtifactPreservationError) throw error;
       const code: ArtifactPreservationErrorCode = errorCode(error) === "ENOENT" ? "not-found" : "read-failed";
       throw this.failure(code, artifact, source, namespace, `Unable to read artifact source ${source}.`, error);
     }
 
-    const sha256 = createHash("sha256").update(content).digest("hex");
     const extension = extname(source).slice(0, 16);
     const destinationDirectory = resolve(this.root, sha256.slice(0, 2));
     const destination = resolve(destinationDirectory, `${sha256}${extension}`);
     try {
-      await mkdir(destinationDirectory, { recursive: true });
-      if (source.toLowerCase() !== destination.toLowerCase()) {
-        await copyFile(source, destination, constants.COPYFILE_EXCL).catch((error: NodeJS.ErrnoException) => {
-          if (error.code !== "EEXIST") throw error;
-        });
-        const stored = await readFile(destination);
-        const storedSha256 = createHash("sha256").update(stored).digest("hex");
-        if (storedSha256 !== sha256) {
-          throw new Error(`Content-addressed destination failed verification: ${destination}`);
+      await serializeDestination(destination, async () => {
+        await mkdir(destinationDirectory, { recursive: true });
+        if (source.toLowerCase() !== destination.toLowerCase()) {
+          await copyFile(source, destination, constants.COPYFILE_EXCL).catch((error: NodeJS.ErrnoException) => {
+            if (error.code !== "EEXIST") throw error;
+          });
+          const storedSha256 = await sha256File(destination);
+          if (storedSha256 !== sha256) {
+            throw new Error(`Content-addressed destination failed verification: ${destination}`);
+          }
         }
-      }
+      });
     } catch (error) {
       throw this.failure("write-failed", artifact, source, namespace, `Unable to store artifact ${source}.`, error);
     }
@@ -161,7 +182,7 @@ export class ContentAddressedArtifactStore {
         sourcePath: source,
         sourceName: basename(source),
         namespace,
-        sizeBytes: content.byteLength
+        sizeBytes
       }
     };
   }

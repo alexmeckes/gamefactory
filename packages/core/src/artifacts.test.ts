@@ -25,6 +25,35 @@ test("artifact store preserves candidate-local evidence by content hash", async 
   }
 });
 
+test("artifact store serializes concurrent preservation of the same large artifact across store instances", async () => {
+  const directory = await mkdtemp(resolve(tmpdir(), "gamefactory-artifacts-concurrent-"));
+  try {
+    const source = resolve(directory, "candidate", "motion.avi");
+    const storeRoot = resolve(directory, "store");
+    await mkdir(resolve(directory, "candidate"), { recursive: true });
+    const content = Buffer.alloc(4 * 1024 * 1024, 0x5a);
+    await writeFile(source, content);
+    const stores = [
+      new ContentAddressedArtifactStore(storeRoot, new MemoryLogger()),
+      new ContentAddressedArtifactStore(storeRoot, new MemoryLogger())
+    ];
+
+    const preserved = await Promise.all(
+      Array.from({ length: 12 }, (_, index) =>
+        stores[index % stores.length]!.preserve([{ kind: "video", path: source }], `campaign/experiment/${index}`)
+      )
+    );
+
+    const references = preserved.map(([artifact]) => artifact!);
+    assert.equal(new Set(references.map((artifact) => artifact.sha256)).size, 1);
+    assert.equal(new Set(references.map((artifact) => artifact.path)).size, 1);
+    assert.equal(references[0]?.metadata.sizeBytes, content.byteLength);
+    assert.deepEqual(await readFile(references[0]!.path), content);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("artifact store fails closed when its content store cannot be written", async () => {
   const directory = await mkdtemp(resolve(tmpdir(), "gamefactory-artifacts-write-failure-"));
   try {
