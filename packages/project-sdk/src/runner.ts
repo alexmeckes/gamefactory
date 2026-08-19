@@ -499,12 +499,33 @@ export class ProjectRunner {
     const events = await this.journal.read();
     const latestStart = [...events].reverse().find((event) => event.type === "project-started");
     const terminal = latestStart && events.some((event) => event.projectRunId === latestStart.projectRunId && event.type === "project-finished");
-    const projectRunId = latestStart && !terminal && latestStart.manifestFingerprint === this.manifestFingerprint ? latestStart.projectRunId : `${this.project.id}-${randomUUID()}`;
-    const startedAt = latestStart?.projectRunId === projectRunId ? latestStart.timestamp : new Date().toISOString();
+    let projectRunId = latestStart && !terminal && latestStart.manifestFingerprint === this.manifestFingerprint ? latestStart.projectRunId : `${this.project.id}-${randomUUID()}`;
+    let startedAt = latestStart?.projectRunId === projectRunId ? latestStart.timestamp : new Date().toISOString();
     const baseRevision = await gitRevision(this.project.root);
     if (latestStart?.projectRunId === projectRunId) {
       const latestRevision = [...events].reverse().find((event) => event.projectRunId === projectRunId && event.resultingRevision)?.resultingRevision ?? latestStart.sourceRevision;
-      if (latestRevision && baseRevision && latestRevision !== baseRevision) throw new Error(`Project revision changed outside the recorded journey: expected ${latestRevision}, found ${baseRevision}.`);
+      if (latestRevision && baseRevision && latestRevision !== baseRevision) {
+        const runEvents = events.filter((event) => event.projectRunId === projectRunId);
+        if (runEvents.length !== 1 || runEvents[0]?.type !== "project-started") throw new Error(`Project revision changed outside the recorded journey: expected ${latestRevision}, found ${baseRevision}.`);
+        const reconciliationLease = join(".factory", "projects", this.project.id, "run.lock");
+        const reconciliationLeasePath = resolveFactoryStatePath({ cwd: this.project.root, ...(this.options.dataRoot ? { dataRoot: this.options.dataRoot } : {}) }, reconciliationLease, reconciliationLease, "project lease");
+        const releaseReconciliation = await acquireProjectLease(reconciliationLeasePath, `${projectRunId}:supersede-before-execution`);
+        try {
+          await this.journal.append({
+            projectId: this.project.id,
+            projectRunId,
+            type: "project-finished",
+            idempotencyKey: `${projectRunId}:superseded-before-execution:${baseRevision}`,
+            manifestFingerprint: this.manifestFingerprint,
+            actor: { kind: "factory" },
+            data: { status: "superseded-before-execution", expectedRevision: latestRevision, actualRevision: baseRevision },
+          });
+        } finally {
+          await releaseReconciliation();
+        }
+        projectRunId = `${this.project.id}-${randomUUID()}`;
+        startedAt = new Date().toISOString();
+      }
     }
     const logicalLease = join(".factory", "projects", this.project.id, "run.lock");
     const leasePath = resolveFactoryStatePath({ cwd: this.project.root, ...(this.options.dataRoot ? { dataRoot: this.options.dataRoot } : {}) }, logicalLease, logicalLease, "project lease");

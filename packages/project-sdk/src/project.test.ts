@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { promisify } from "node:util";
 import test from "node:test";
 import { MemoryLogger, type Campaign, type CampaignResult } from "@gamefactory/core";
 import { ProjectJourneyJournal } from "./journal.js";
@@ -9,6 +11,8 @@ import { loadProject } from "./manifest.js";
 import { ProjectRunner } from "./runner.js";
 import { gameSpecFingerprint, parseGameSpec } from "./spec.js";
 import { SqliteProjectJourneyIndex } from "./sqlite.js";
+
+const execFileAsync = promisify(execFile);
 
 async function fixture(): Promise<{ root: string; manifestPath: string }> {
   const root = await mkdtemp(join(tmpdir(), "gamefactory-project-"));
@@ -69,6 +73,48 @@ test("project runner anchors state to the manifest project root when launched el
   } finally {
     await rm(root, { recursive: true, force: true });
     await rm(launcher, { recursive: true, force: true });
+  }
+});
+
+test("project runner supersedes a revision-stale run that never started a phase", async () => {
+  const { root, manifestPath } = await fixture();
+  try {
+    await writeFile(join(root, ".gitignore"), ".factory/\n", "utf8");
+    await execFileAsync("git", ["init"], { cwd: root });
+    await execFileAsync("git", ["config", "user.email", "factory@example.test"], { cwd: root });
+    await execFileAsync("git", ["config", "user.name", "GameFactory Test"], { cwd: root });
+    await execFileAsync("git", ["add", "."], { cwd: root });
+    await execFileAsync("git", ["commit", "-m", "initial"], { cwd: root });
+    const oldRevision = (await execFileAsync("git", ["rev-parse", "HEAD"], { cwd: root })).stdout.trim();
+    const project = await loadProject(manifestPath);
+    const runner = new ProjectRunner(project, {
+      cwd: root,
+      logger: new MemoryLogger(),
+      executeCampaign: async () => ({
+        campaignId: "project-campaign",
+        status: "complete",
+        startedAt: "2026-01-01T00:00:00.000Z",
+        finishedAt: "2026-01-01T00:00:01.000Z",
+        bestMetrics: { score: 3 },
+        summary: "accepted",
+        experiments: [{ campaignId: "project-campaign", experimentId: "candidate", startedAt: "2026-01-01T00:00:00.000Z", finishedAt: "2026-01-01T00:00:01.000Z", status: "keep", revision: "pending", summary: "kept", metrics: { score: 3 }, evaluations: [] }],
+      }),
+    });
+    await runner.journal.append({ projectId: project.id, projectRunId: "stale-run", type: "project-started", idempotencyKey: "stale-run:started", manifestFingerprint: runner.manifestFingerprint, actor: { kind: "factory" }, sourceRevision: oldRevision });
+    await writeFile(join(root, "revision-change.txt"), "infrastructure repair\n", "utf8");
+    await execFileAsync("git", ["add", "revision-change.txt"], { cwd: root });
+    await execFileAsync("git", ["commit", "-m", "repair"], { cwd: root });
+    const newRevision = (await execFileAsync("git", ["rev-parse", "HEAD"], { cwd: root })).stdout.trim();
+    const result = await runner.run();
+    const events = await runner.journal.read();
+    const staleTerminalData = events.find((event) => event.projectRunId === "stale-run" && event.type === "project-finished")?.data;
+
+    assert.equal(result.status, "complete");
+    assert.notEqual(result.projectRunId, "stale-run");
+    assert.equal(staleTerminalData && typeof staleTerminalData === "object" && !Array.isArray(staleTerminalData) ? staleTerminalData.status : undefined, "superseded-before-execution");
+    assert.equal(events.find((event) => event.projectRunId === result.projectRunId && event.type === "project-started")?.sourceRevision, newRevision);
+  } finally {
+    await rm(root, { recursive: true, force: true });
   }
 });
 
