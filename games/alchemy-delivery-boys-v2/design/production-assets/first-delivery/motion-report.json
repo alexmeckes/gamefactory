@@ -1,0 +1,165 @@
+{
+  "apiVersion": "gamefactory.motion-report/v1",
+  "status": "pass",
+  "specRevision": 1,
+  "sliceId": "first-delivery",
+  "motionGrammar": {
+    "principles": [
+      "Whole-pixel actor motion and nearest-neighbor frames",
+      "Physical response precedes explanatory UI",
+      "State changes are immediate; presentation recovery never blocks manual control",
+      "Ambient beats use offset phases and stay behind decision-critical silhouettes",
+      "The fixed camera never cuts or shakes"
+    ],
+    "categories": {
+      "gameplayCritical": [
+        "brew-commit",
+        "exposed-conversion",
+        "sheltered-preservation",
+        "satisfied-handoff",
+        "imperfect-handoff"
+      ],
+      "interactionResponse": [
+        "partner-disclosure",
+        "ingredient-add",
+        "followup-selected"
+      ],
+      "ambientContinuity": [
+        "cauldron simmer",
+        "offset actor breath",
+        "wind ribbons",
+        "pennant sway"
+      ],
+      "transition": [
+        "physical bottle before carried badge",
+        "reaction hold before follow-up activation"
+      ]
+    }
+  },
+  "stateGraphs": {
+    "courier": "idle/walk four-direction -> talk/interact -> carry -> gust-brace or shelter-check -> handoff -> follow-up walk/select",
+    "partner": "offset-idle -> disclosure-gesture -> offset-idle",
+    "mira": "idle -> receive -> relief|shiver -> settle",
+    "bottle": "absent -> rise -> carried W1/S2 -> W2/S1|preserved -> handoff -> consumed",
+    "interface": "opening -> request -> feedback -> carried -> comparison -> follow-up"
+  },
+  "eventBindings": [
+    {
+      "event": "need_disclosed",
+      "beat": "partner-disclosure",
+      "owner": "partner/request-status"
+    },
+    {
+      "event": "ingredient_added",
+      "beat": "ingredient-add",
+      "owner": "courier/ingredient/cauldron"
+    },
+    {
+      "event": "brew_committed",
+      "beat": "brew-commit",
+      "owner": "cauldron/bottle/carried-status"
+    },
+    {
+      "event": "route_selected:exposed",
+      "beat": "exposed-conversion",
+      "owner": "courier/bottle/route-effects"
+    },
+    {
+      "event": "route_selected:sheltered",
+      "beat": "sheltered-preservation",
+      "owner": "courier/bottle/route-effects"
+    },
+    {
+      "event": "delivery_resolved:satisfied",
+      "beat": "satisfied-handoff",
+      "owner": "courier/bottle/Mira/reaction-effects"
+    },
+    {
+      "event": "delivery_resolved:imperfect",
+      "beat": "imperfect-handoff",
+      "owner": "courier/bottle/Mira/reaction-effects"
+    },
+    {
+      "event": "followup_selected",
+      "beat": "followup-selected",
+      "owner": "pennants/info-signs/action-cue"
+    }
+  ],
+  "timings": {
+    "ingredientArcMs": 450,
+    "bottleRiseMs": 450,
+    "routeConsequenceMs": 1000,
+    "handoffTransferMs": 420,
+    "poseBeforeCopyMs": 240,
+    "comparisonDelayMs": 400,
+    "reactionHoldMs": 1150,
+    "ambientFrameCadenceHz": [
+      1.1,
+      4.4
+    ]
+  },
+  "interruptions": {
+    "manualInput": "Never locked; a later real action may replace the active presentation beat.",
+    "factoryReplay": "Holds zero input for the authored 1.15 s reaction read, then resumes the same direct-axis plan.",
+    "repeatedIngredient": "A new add restarts the local arc from the newly selected ingredient without duplicating persistent effects.",
+    "fallback": "Authoritative potion, route, reaction, and follow-up state remains visible even after an animation has settled."
+  },
+  "ambientContinuity": {
+    "cauldron": "Four-frame simmer at 4.4 Hz",
+    "partnerAndMira": "Independent low-amplitude offset breathing",
+    "wind": "Two translucent ribbon instances with different phase and opacity",
+    "pennants": "Independent 3.5/4.0 Hz sway only after follow-up activation"
+  },
+  "transitions": {
+    "disclosure": "Opening withdraws only after partner gesture begins.",
+    "bottle": "The bottle rises physically before the carried panel becomes visible.",
+    "reaction": "Handoff precedes relief/shiver; pose precedes label and comparison.",
+    "followup": "Reaction settles before pennants, info signs, and E GO become eligible."
+  },
+  "providerProvenance": {
+    "method": "Hand-authored direct raster frames plus engine-native state choreography",
+    "externalMotionProvider": null,
+    "sam3": "skipped",
+    "videoStudy": "skipped",
+    "pixelMotion": "skipped"
+  },
+  "captures": [
+    {
+      "path": "evidence/production-run/first-session/shipping-motion.mp4",
+      "sha256": "40d9ec46a41b27636f15b85017970140f31e383e5161d1ef16e899f0e61a46b1",
+      "scenario": "first-session",
+      "fps": 10
+    },
+    {
+      "path": "evidence/production-run/returning-player/shipping-motion.mp4",
+      "sha256": "7b2f72040a3d5335bbfd593d92e272018a9bb7055a48c4e2b1bdffe0ef3b8089",
+      "scenario": "returning-player",
+      "fps": 10
+    },
+    {
+      "path": "evidence/production-run/capture-index.json",
+      "sha256": "ff1073664aeaf162696e86cfab9e4418b08008ff89495f157c5d8f6bed958894"
+    }
+  ],
+  "traceLinks": [
+    {
+      "path": "evidence/production-run/first-session/scenario-review.json",
+      "sha256": "38ede58530d2c4cabeb25fc534d5e0098e24d1b8041ea1c601284a119291226b",
+      "scenario": "first-session"
+    },
+    {
+      "path": "evidence/production-run/returning-player/scenario-review.json",
+      "sha256": "af639758ad136dc7956c2789ece4eb04e2a5353b291d753766c17abac991dcae",
+      "scenario": "returning-player"
+    }
+  ],
+  "violations": [],
+  "regressionChecks": {
+    "shippingFramesPerScenario": 150,
+    "shippingSpeedSeconds": 15,
+    "motionCorrespondsToTraceEvents": true,
+    "repeatedLoopSeams": "Ambient sheets loop on fixed frame cadences with stable pivots and palette.",
+    "reducedMotion": "Not required by the slice contract; authoritative state and labels remain readable with effects settled or absent.",
+    "performance": "Both 900-tick real-renderer scenarios completed with 150 PNG samples and zero scenario violations."
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "apiVersion": "gamefactory.production-slice/v1",
+  "status": "pass",
+  "maturity": "production-slice",
+  "specRevision": 1,
+  "sliceId": "first-delivery",
+  "targetFingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+  "integrationReport": "design/production-assets/first-delivery/integration-report.json",
+  "motionReport": "design/production-assets/first-delivery/motion-report.json",
+  "polishReport": "design/production-assets/first-delivery/polish-report.json",
+  "captureIndex": "evidence/production-run/capture-index.json",
+  "scenarioOutcomes": [
+    {
+      "scenario": "first-session",
+      "status": "pass",
+      "metrics": {
+        "causal_events": 21,
+        "clean_start_loop_complete": 1,
+        "completion": 1,
+        "concept_defined": 1,
+        "consequential_choices": 3,
+        "delivered_state_trace_grounded": 1,
+        "followup_choice_trace_grounded": 1,
+        "invalid_transitions": 0,
+        "meaningful_interactions": 3,
+        "mechanic_proven": 1,
+        "motion_frames_captured": 150,
+        "navigation_is_agency": 1,
+        "reaction_trace_grounded": 1,
+        "returning_loop_complete": 0,
+        "simulated_seconds": 15.0,
+        "ticks_completed": 900
+      },
+      "violations": [],
+      "result": {
+        "path": "evidence/production-run/first-session/runner/result.json",
+        "sha256": "78e6fe1c2835e0730e5549a4adab8af3258be2b90acd4db9d266ea23223188c2"
+      },
+      "interactionTrace": {
+        "path": "evidence/production-run/first-session/scenario-review.json",
+        "sha256": "38ede58530d2c4cabeb25fc534d5e0098e24d1b8041ea1c601284a119291226b"
+      }
+    },
+    {
+      "scenario": "returning-player",
+      "status": "pass",
+      "metrics": {
+        "causal_events": 21,
+        "clean_start_loop_complete": 0,
+        "completion": 1,
+        "concept_defined": 1,
+        "consequential_choices": 3,
+        "delivered_state_trace_grounded": 1,
+        "followup_choice_trace_grounded": 1,
+        "invalid_transitions": 0,
+        "meaningful_interactions": 3,
+        "mechanic_proven": 1,
+        "motion_frames_captured": 150,
+        "navigation_is_agency": 1,
+        "reaction_trace_grounded": 1,
+        "returning_loop_complete": 1,
+        "simulated_seconds": 15.0,
+        "ticks_completed": 900
+      },
+      "violations": [],
+      "result": {
+        "path": "evidence/production-run/returning-player/runner/result.json",
+        "sha256": "c9249b5678595d3b7c9513553bb8143c2e12fd33631bc52216084f8279fe833b"
+      },
+      "interactionTrace": {
+        "path": "evidence/production-run/returning-player/scenario-review.json",
+        "sha256": "af639758ad136dc7956c2789ece4eb04e2a5353b291d753766c17abac991dcae"
+      }
+    },
+    {
+      "scenario": "native-first-session",
+      "status": "pass",
+      "metrics": {
+        "causal_events": 21,
+        "clean_start_loop_complete": 1,
+        "completion": 1,
+        "concept_defined": 1,
+        "consequential_choices": 3,
+        "delivered_state_trace_grounded": 1,
+        "followup_choice_trace_grounded": 1,
+        "invalid_transitions": 0,
+        "meaningful_interactions": 3,
+        "mechanic_proven": 1,
+        "motion_frames_captured": 150,
+        "navigation_is_agency": 1,
+        "reaction_trace_grounded": 1,
+        "returning_loop_complete": 0,
+        "simulated_seconds": 15.0,
+        "ticks_completed": 900
+      },
+      "violations": [],
+      "result": {
+        "path": "evidence/production-run/native-first-session/runner/result.json",
+        "sha256": "83417a8734304d7a96abe987b9b93d2ace24a6a38231dfb367e205adfbdb6de9"
+      },
+      "interactionTrace": {
+        "path": "evidence/production-run/native-first-session/scenario-review.json",
+        "sha256": "549aeccd66af33a98590b9701b35290a709ae6d049667411d460148c7041e166"
+      }
+    }
+  ],
+  "remainingProvisionalSurfaces": [],
+  "limitations": [
+    "No audio family was declared in the approved component contract.",
+    "Evidence is deterministic engine replay, not a claim of human fun."
+  ]
+}

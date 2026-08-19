@@ -1,0 +1,1517 @@
+{
+  "apiVersion": "gamefactory.production-asset-inventory/v1",
+  "specRevision": 1,
+  "sliceId": "first-delivery",
+  "hypothesis": "A direct authored native-pixel set plus target-measured code-native UI preserves the continuous causal village more faithfully than cutout extraction from baked whole-screen targets.",
+  "target": {
+    "id": "continuous-causal-village",
+    "primaryViewSha256": "92c31af3c13f2872853d5e1fa773120a40bbe385805a8cd55cf0190a41556520",
+    "fingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+    "approvalStatus": "approved"
+  },
+  "productionGrammar": {
+    "nativeViewport": [
+      480,
+      270
+    ],
+    "shippingPresentation": [
+      1440,
+      810
+    ],
+    "integerScale": 3,
+    "filter": "nearest-neighbor",
+    "palette": {
+      "ink": "#1B1A24",
+      "deep_slate": "#2A3341",
+      "plum_shadow": "#44354E",
+      "wood": "#6B4638",
+      "clay": "#A85D43",
+      "ember": "#E66A3C",
+      "warmth": "#F3B94E",
+      "paper": "#F4E1B5",
+      "moss_dark": "#345B43",
+      "moss": "#69A35C",
+      "soothing": "#83C9A0",
+      "roof_blue": "#4D6D7A",
+      "wind": "#B7DCE1",
+      "alchemy_violet": "#8467A8",
+      "specular": "#FFF3CE",
+      "stone": "#9A7652",
+      "stone_light": "#C49A68",
+      "grass": "#526B38",
+      "sky": "#E5A45F",
+      "rose": "#C97878"
+    },
+    "outline": "one-pixel ink/deep-slate clusters; two-pixel structural edges only",
+    "lighting": "warm upper-left late-afternoon practical light",
+    "typography": "DejaVu Sans regular/bold at measured 11-12 native pixels; custom 5x5 pixel glyphs only for short place identity"
+  },
+  "providerLanes": {
+    "direct": "usable and selected",
+    "segmentation": "skipped; no request produced",
+    "videoMotionStudy": "skipped; no request produced",
+    "pixelMotion": "skipped; no temporal source produced"
+  },
+  "components": [
+    {
+      "id": "village-environment",
+      "category": "environment",
+      "targetLineage": {
+        "targetId": "continuous-causal-village",
+        "targetFingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+        "sourceViewId": "continuous-pre-disclosure",
+        "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+        "crop": {
+          "x": 0,
+          "y": 0,
+          "width": 480,
+          "height": 270
+        },
+        "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt"
+      },
+      "states": [
+        "pre-disclosure",
+        "route-pending",
+        "need-disclosed",
+        "mix-feedback",
+        "exposed-conversion",
+        "sheltered-preservation",
+        "satisfied-delivery",
+        "imperfect-recovery",
+        "followup-selection"
+      ],
+      "productionMethod": "direct-authored-native-raster",
+      "nativeSize": {
+        "width": 480,
+        "height": 270
+      },
+      "renderSize": {
+        "width": 480,
+        "height": 270
+      },
+      "scaling": "1:1 native pixels; nearest-neighbor integer 3x shipping presentation",
+      "pivot": {
+        "mode": "top-left",
+        "x": 0,
+        "y": 0
+      },
+      "layer": {
+        "name": "environment",
+        "order": 0
+      },
+      "animation": {
+        "frameSize": [
+          480,
+          270
+        ],
+        "frames": 1,
+        "timingMs": []
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "output": "game/assets/production/first-delivery/environment/village-environment.png",
+      "outputSha256": "fd576abd5180e43530f3f26af7e28f2b32808a1e4725c2f154736f685f0db097",
+      "classification": "engine-ready input; production status depends on current runtime captures and reports"
+    },
+    {
+      "id": "cauldron",
+      "category": "environment-interactable",
+      "targetLineage": {
+        "targetId": "continuous-causal-village",
+        "targetFingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+        "sourceViewId": "continuous-pre-disclosure",
+        "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+        "crop": {
+          "x": 45,
+          "y": 86,
+          "width": 48,
+          "height": 53
+        },
+        "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt"
+      },
+      "states": [
+        "pre-disclosure",
+        "need-disclosed",
+        "mix-feedback",
+        "route-pending"
+      ],
+      "productionMethod": "direct-authored-native-raster",
+      "nativeSize": {
+        "width": 32,
+        "height": 32
+      },
+      "renderSize": {
+        "width": 32,
+        "height": 32
+      },
+      "scaling": "1:1 native pixels; nearest-neighbor integer 3x shipping presentation",
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 16,
+        "y": 31
+      },
+      "layer": {
+        "name": "environment-interactable",
+        "order": 20
+      },
+      "animation": {
+        "frameSize": [
+          32,
+          32
+        ],
+        "frames": 4,
+        "timingMs": [
+          220,
+          220,
+          220,
+          220
+        ]
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "output": "game/assets/production/first-delivery/interactables/cauldron.png",
+      "outputSha256": "c6ad3d390746780574efa8ae30c66af6608df5a29d98737515359819b223a9c5",
+      "classification": "engine-ready input; production status depends on current runtime captures and reports"
+    },
+    {
+      "id": "ember-ingredient",
+      "category": "environment-interactable",
+      "targetLineage": {
+        "targetId": "continuous-causal-village",
+        "targetFingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+        "sourceViewId": "continuous-pre-disclosure",
+        "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+        "crop": {
+          "x": 59,
+          "y": 180,
+          "width": 25,
+          "height": 21
+        },
+        "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt"
+      },
+      "states": [
+        "pre-disclosure",
+        "need-disclosed",
+        "mix-feedback",
+        "route-pending"
+      ],
+      "productionMethod": "direct-authored-native-raster",
+      "nativeSize": {
+        "width": 16,
+        "height": 16
+      },
+      "renderSize": {
+        "width": 16,
+        "height": 16
+      },
+      "scaling": "1:1 native pixels; nearest-neighbor integer 3x shipping presentation",
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 8,
+        "y": 15
+      },
+      "layer": {
+        "name": "environment-interactable",
+        "order": 20
+      },
+      "animation": {
+        "frameSize": [
+          16,
+          16
+        ],
+        "frames": 4,
+        "timingMs": [
+          260,
+          260,
+          260,
+          260
+        ]
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "output": "game/assets/production/first-delivery/interactables/ember-ingredient.png",
+      "outputSha256": "140e959cf209b9a0467737fc0826a7168f6bd6f02898871fa771cc345d73dcf5",
+      "classification": "engine-ready input; production status depends on current runtime captures and reports"
+    },
+    {
+      "id": "moss-ingredient",
+      "category": "environment-interactable",
+      "targetLineage": {
+        "targetId": "continuous-causal-village",
+        "targetFingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+        "sourceViewId": "continuous-pre-disclosure",
+        "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+        "crop": {
+          "x": 69,
+          "y": 200,
+          "width": 28,
+          "height": 23
+        },
+        "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt"
+      },
+      "states": [
+        "pre-disclosure",
+        "need-disclosed",
+        "mix-feedback",
+        "route-pending"
+      ],
+      "productionMethod": "direct-authored-native-raster",
+      "nativeSize": {
+        "width": 16,
+        "height": 16
+      },
+      "renderSize": {
+        "width": 16,
+        "height": 16
+      },
+      "scaling": "1:1 native pixels; nearest-neighbor integer 3x shipping presentation",
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 8,
+        "y": 15
+      },
+      "layer": {
+        "name": "environment-interactable",
+        "order": 20
+      },
+      "animation": {
+        "frameSize": [
+          16,
+          16
+        ],
+        "frames": 4,
+        "timingMs": [
+          320,
+          320,
+          320,
+          320
+        ]
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "output": "game/assets/production/first-delivery/interactables/moss-ingredient.png",
+      "outputSha256": "16b4a9102d1b7df8e2bdee9bffa8d1caa3d6bc2dcef962d9c8ea06221c198f6b",
+      "classification": "engine-ready input; production status depends on current runtime captures and reports"
+    },
+    {
+      "id": "courier",
+      "category": "actor",
+      "targetLineage": {
+        "targetId": "continuous-causal-village",
+        "targetFingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+        "sourceViewId": "continuous-pre-disclosure",
+        "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+        "crop": {
+          "x": 117,
+          "y": 116,
+          "width": 27,
+          "height": 49
+        },
+        "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt"
+      },
+      "states": [
+        "pre-disclosure",
+        "need-disclosed",
+        "mix-feedback",
+        "route-pending",
+        "exposed-conversion",
+        "sheltered-preservation",
+        "satisfied-delivery",
+        "imperfect-recovery",
+        "followup-selection"
+      ],
+      "productionMethod": "direct-authored-native-raster",
+      "nativeSize": {
+        "width": 24,
+        "height": 32
+      },
+      "renderSize": {
+        "width": 24,
+        "height": 32
+      },
+      "scaling": "1:1 native pixels; nearest-neighbor integer 3x shipping presentation",
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 12,
+        "y": 31
+      },
+      "layer": {
+        "name": "courier",
+        "order": 40
+      },
+      "animation": {
+        "frameSize": [
+          24,
+          32
+        ],
+        "frames": 12,
+        "timingMs": [
+          140,
+          140,
+          140,
+          140,
+          140,
+          140,
+          140,
+          140,
+          140,
+          140,
+          140,
+          140
+        ],
+        "grid": [
+          6,
+          2
+        ]
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "output": "game/assets/production/first-delivery/characters/courier.png",
+      "outputSha256": "401b206a31c5b4df93d96b07e718bd3b24fcbf2ae32ba3bc33bcc902abac827f",
+      "classification": "engine-ready input; production status depends on current runtime captures and reports"
+    },
+    {
+      "id": "partner",
+      "category": "actor",
+      "targetLineage": {
+        "targetId": "continuous-causal-village",
+        "targetFingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+        "sourceViewId": "continuous-pre-disclosure",
+        "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+        "crop": {
+          "x": 91,
+          "y": 105,
+          "width": 30,
+          "height": 50
+        },
+        "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt"
+      },
+      "states": [
+        "pre-disclosure",
+        "route-pending",
+        "need-disclosed",
+        "mix-feedback",
+        "exposed-conversion",
+        "sheltered-preservation",
+        "satisfied-delivery",
+        "imperfect-recovery",
+        "followup-selection"
+      ],
+      "productionMethod": "direct-authored-native-raster",
+      "nativeSize": {
+        "width": 24,
+        "height": 32
+      },
+      "renderSize": {
+        "width": 24,
+        "height": 32
+      },
+      "scaling": "1:1 native pixels; nearest-neighbor integer 3x shipping presentation",
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 12,
+        "y": 31
+      },
+      "layer": {
+        "name": "supporting-actors",
+        "order": 39
+      },
+      "animation": {
+        "frameSize": [
+          24,
+          32
+        ],
+        "frames": 4,
+        "timingMs": [
+          420,
+          420,
+          180,
+          240
+        ]
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "output": "game/assets/production/first-delivery/characters/partner.png",
+      "outputSha256": "86ef7efdadf4245ce3cb1ba94d34247c45642f8f1dee207820c604443bffc780",
+      "classification": "engine-ready input; production status depends on current runtime captures and reports"
+    },
+    {
+      "id": "mira",
+      "category": "actor",
+      "targetLineage": {
+        "targetId": "continuous-causal-village",
+        "targetFingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+        "sourceViewId": "continuous-pre-disclosure",
+        "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+        "crop": {
+          "x": 388,
+          "y": 101,
+          "width": 34,
+          "height": 55
+        },
+        "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt"
+      },
+      "states": [
+        "pre-disclosure",
+        "need-disclosed",
+        "mix-feedback",
+        "route-pending",
+        "exposed-conversion",
+        "sheltered-preservation",
+        "satisfied-delivery",
+        "imperfect-recovery",
+        "followup-selection"
+      ],
+      "productionMethod": "direct-authored-native-raster",
+      "nativeSize": {
+        "width": 24,
+        "height": 32
+      },
+      "renderSize": {
+        "width": 24,
+        "height": 32
+      },
+      "scaling": "1:1 native pixels; nearest-neighbor integer 3x shipping presentation",
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 12,
+        "y": 31
+      },
+      "layer": {
+        "name": "recipient",
+        "order": 41
+      },
+      "animation": {
+        "frameSize": [
+          24,
+          32
+        ],
+        "frames": 5,
+        "timingMs": [
+          480,
+          220,
+          180,
+          150,
+          220
+        ]
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "output": "game/assets/production/first-delivery/characters/mira.png",
+      "outputSha256": "d73008a1a6c0908d75665df5eae91901bba9ff706633494125fe087ce8a6c0fb",
+      "classification": "engine-ready input; production status depends on current runtime captures and reports"
+    },
+    {
+      "id": "bottle",
+      "category": "prop",
+      "targetLineage": {
+        "targetId": "continuous-causal-village",
+        "targetFingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+        "sourceViewId": "continuous-route-pending",
+        "sourceViewSha256": "92c31af3c13f2872853d5e1fa773120a40bbe385805a8cd55cf0190a41556520",
+        "crop": {
+          "x": 194,
+          "y": 144,
+          "width": 14,
+          "height": 31
+        },
+        "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-route-pending].nativePaintoverPrompt"
+      },
+      "states": [
+        "route-pending",
+        "exposed-conversion",
+        "sheltered-preservation",
+        "satisfied-delivery",
+        "imperfect-recovery"
+      ],
+      "productionMethod": "direct-authored-native-raster",
+      "nativeSize": {
+        "width": 12,
+        "height": 16
+      },
+      "renderSize": {
+        "width": 12,
+        "height": 16
+      },
+      "scaling": "1:1 native pixels; nearest-neighbor integer 3x shipping presentation",
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 6,
+        "y": 15
+      },
+      "layer": {
+        "name": "courier-prop",
+        "order": 42
+      },
+      "animation": {
+        "frameSize": [
+          12,
+          16
+        ],
+        "frames": 4,
+        "timingMs": [
+          180,
+          180,
+          150,
+          180
+        ]
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "output": "game/assets/production/first-delivery/props/bottle.png",
+      "outputSha256": "610306c333e879d15e6ca557441c2c3fbc1fca9b7fd677c90840ff4cf3aa5817",
+      "classification": "engine-ready input; production status depends on current runtime captures and reports"
+    },
+    {
+      "id": "gust-sign",
+      "category": "interface-world",
+      "targetLineage": {
+        "targetId": "continuous-causal-village",
+        "targetFingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+        "sourceViewId": "continuous-pre-disclosure",
+        "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+        "crop": {
+          "x": 188,
+          "y": 67,
+          "width": 42,
+          "height": 33
+        },
+        "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt"
+      },
+      "states": [
+        "pre-disclosure",
+        "route-pending",
+        "need-disclosed",
+        "mix-feedback",
+        "exposed-conversion",
+        "sheltered-preservation",
+        "satisfied-delivery",
+        "imperfect-recovery",
+        "followup-selection"
+      ],
+      "productionMethod": "direct-authored-native-raster",
+      "nativeSize": {
+        "width": 32,
+        "height": 16
+      },
+      "renderSize": {
+        "width": 32,
+        "height": 16
+      },
+      "scaling": "1:1 native pixels; nearest-neighbor integer 3x shipping presentation",
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 16,
+        "y": 15
+      },
+      "layer": {
+        "name": "interface-world-signage",
+        "order": 25
+      },
+      "animation": {
+        "frameSize": [
+          32,
+          16
+        ],
+        "frames": 1,
+        "timingMs": []
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "output": "game/assets/production/first-delivery/interface/gust-sign.png",
+      "outputSha256": "ebf973375878e8c5e12ab744733ecb9d31b4d13f1845353f9ee5ec1cfa247dd3",
+      "classification": "engine-ready input; production status depends on current runtime captures and reports"
+    },
+    {
+      "id": "shelter-sign",
+      "category": "interface-world",
+      "targetLineage": {
+        "targetId": "continuous-causal-village",
+        "targetFingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+        "sourceViewId": "continuous-pre-disclosure",
+        "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+        "crop": {
+          "x": 208,
+          "y": 173,
+          "width": 56,
+          "height": 34
+        },
+        "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt"
+      },
+      "states": [
+        "pre-disclosure",
+        "route-pending",
+        "need-disclosed",
+        "mix-feedback",
+        "exposed-conversion",
+        "sheltered-preservation",
+        "satisfied-delivery",
+        "imperfect-recovery",
+        "followup-selection"
+      ],
+      "productionMethod": "direct-authored-native-raster",
+      "nativeSize": {
+        "width": 48,
+        "height": 16
+      },
+      "renderSize": {
+        "width": 48,
+        "height": 16
+      },
+      "scaling": "1:1 native pixels; nearest-neighbor integer 3x shipping presentation",
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 24,
+        "y": 15
+      },
+      "layer": {
+        "name": "interface-world-signage",
+        "order": 25
+      },
+      "animation": {
+        "frameSize": [
+          48,
+          16
+        ],
+        "frames": 1,
+        "timingMs": []
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "output": "game/assets/production/first-delivery/interface/shelter-sign.png",
+      "outputSha256": "202a06c974934ce52a0ff1e2f184276e414d1ef5210da1497f7b96b8a4af7c32",
+      "classification": "engine-ready input; production status depends on current runtime captures and reports"
+    },
+    {
+      "id": "route-effects",
+      "category": "effect",
+      "targetLineage": {
+        "targetId": "continuous-causal-village",
+        "targetFingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+        "sourceViewId": "continuous-exposed-conversion",
+        "sourceViewSha256": "94e441a5f7af311889914e5c111f35bfa0d3b1e64c782435aeae421b47a8a739",
+        "crop": {
+          "x": 205,
+          "y": 35,
+          "width": 125,
+          "height": 100
+        },
+        "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-exposed-conversion].nativePaintoverPrompt"
+      },
+      "states": [
+        "exposed-conversion",
+        "sheltered-preservation"
+      ],
+      "productionMethod": "direct-authored-native-raster",
+      "nativeSize": {
+        "width": 32,
+        "height": 32
+      },
+      "renderSize": {
+        "width": 32,
+        "height": 32
+      },
+      "scaling": "1:1 native pixels; nearest-neighbor integer 3x shipping presentation",
+      "pivot": {
+        "mode": "center",
+        "x": 16,
+        "y": 16
+      },
+      "layer": {
+        "name": "route-effects",
+        "order": 50
+      },
+      "animation": {
+        "frameSize": [
+          32,
+          32
+        ],
+        "frames": 5,
+        "timingMs": [
+          90,
+          90,
+          120,
+          160,
+          220
+        ]
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "output": "game/assets/production/first-delivery/effects/route-effects.png",
+      "outputSha256": "64e5b5dc32f65cc9e7c943a7ecc0beeca912187ea23a3610641e28ea9995a182",
+      "classification": "engine-ready input; production status depends on current runtime captures and reports"
+    },
+    {
+      "id": "reaction-effects",
+      "category": "effect",
+      "targetLineage": {
+        "targetId": "continuous-causal-village",
+        "targetFingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+        "sourceViewId": "continuous-satisfied-delivery",
+        "sourceViewSha256": "be5a6b2de84a4859dd6611ee00a6a019352702f4b580840b06ec903f832c1532",
+        "crop": {
+          "x": 376,
+          "y": 72,
+          "width": 82,
+          "height": 91
+        },
+        "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-satisfied-delivery].nativePaintoverPrompt"
+      },
+      "states": [
+        "satisfied-delivery",
+        "imperfect-recovery"
+      ],
+      "productionMethod": "direct-authored-native-raster",
+      "nativeSize": {
+        "width": 32,
+        "height": 32
+      },
+      "renderSize": {
+        "width": 32,
+        "height": 32
+      },
+      "scaling": "1:1 native pixels; nearest-neighbor integer 3x shipping presentation",
+      "pivot": {
+        "mode": "center",
+        "x": 16,
+        "y": 16
+      },
+      "layer": {
+        "name": "reaction-effects-behind-copy",
+        "order": 49
+      },
+      "animation": {
+        "frameSize": [
+          32,
+          32
+        ],
+        "frames": 5,
+        "timingMs": [
+          90,
+          110,
+          140,
+          180,
+          240
+        ]
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "output": "game/assets/production/first-delivery/effects/reaction-effects.png",
+      "outputSha256": "f850d76f4611607bd549343fe3a15ce256092df31b767716b3c0a95d938b2e95",
+      "classification": "engine-ready input; production status depends on current runtime captures and reports"
+    },
+    {
+      "id": "opening-status",
+      "category": "interface",
+      "targetLineage": {
+        "targetId": "continuous-causal-village",
+        "targetFingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+        "sourceViewId": "continuous-pre-disclosure",
+        "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+        "crop": {
+          "x": 6,
+          "y": 3,
+          "width": 142,
+          "height": 65
+        },
+        "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt"
+      },
+      "states": [
+        "pre-disclosure"
+      ],
+      "productionMethod": "deliberately-styled-code-native-ui",
+      "nativeSize": {
+        "width": 142,
+        "height": 65
+      },
+      "renderSize": {
+        "width": 142,
+        "height": 65
+      },
+      "scaling": "1:1 native pixels; nearest-neighbor integer 3x shipping presentation",
+      "pivot": {
+        "mode": "top-left",
+        "x": 0,
+        "y": 0
+      },
+      "layer": {
+        "name": "request-status",
+        "order": 80
+      },
+      "animation": {
+        "frameSize": [
+          142,
+          65
+        ],
+        "frames": 1,
+        "timingMs": [],
+        "runtimeOwned": true
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "output": "game/main.gd",
+      "outputSha256": "ba0d0ca84d78036e5839f2cd8cfa50e415b44b5387a57f2c40a434ed31738a3c",
+      "classification": "engine-ready input; production status depends on current runtime captures and reports"
+    },
+    {
+      "id": "request-status",
+      "category": "interface",
+      "targetLineage": {
+        "targetId": "continuous-causal-village",
+        "targetFingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+        "sourceViewId": "continuous-route-pending",
+        "sourceViewSha256": "92c31af3c13f2872853d5e1fa773120a40bbe385805a8cd55cf0190a41556520",
+        "crop": {
+          "x": 6,
+          "y": 3,
+          "width": 142,
+          "height": 65
+        },
+        "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-route-pending].nativePaintoverPrompt"
+      },
+      "states": [
+        "route-pending",
+        "need-disclosed",
+        "mix-feedback",
+        "exposed-conversion",
+        "sheltered-preservation",
+        "satisfied-delivery",
+        "imperfect-recovery",
+        "followup-selection"
+      ],
+      "productionMethod": "deliberately-styled-code-native-ui",
+      "nativeSize": {
+        "width": 142,
+        "height": 65
+      },
+      "renderSize": {
+        "width": 142,
+        "height": 65
+      },
+      "scaling": "1:1 native pixels; nearest-neighbor integer 3x shipping presentation",
+      "pivot": {
+        "mode": "top-left",
+        "x": 0,
+        "y": 0
+      },
+      "layer": {
+        "name": "request-status",
+        "order": 80
+      },
+      "animation": {
+        "frameSize": [
+          142,
+          65
+        ],
+        "frames": 1,
+        "timingMs": [],
+        "runtimeOwned": true
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "output": "game/main.gd",
+      "outputSha256": "ba0d0ca84d78036e5839f2cd8cfa50e415b44b5387a57f2c40a434ed31738a3c",
+      "classification": "engine-ready input; production status depends on current runtime captures and reports"
+    },
+    {
+      "id": "carried-status",
+      "category": "interface",
+      "targetLineage": {
+        "targetId": "continuous-causal-village",
+        "targetFingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+        "sourceViewId": "continuous-route-pending",
+        "sourceViewSha256": "92c31af3c13f2872853d5e1fa773120a40bbe385805a8cd55cf0190a41556520",
+        "crop": {
+          "x": 340,
+          "y": 3,
+          "width": 136,
+          "height": 66
+        },
+        "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-route-pending].nativePaintoverPrompt"
+      },
+      "states": [
+        "route-pending",
+        "exposed-conversion",
+        "sheltered-preservation"
+      ],
+      "productionMethod": "deliberately-styled-code-native-ui",
+      "nativeSize": {
+        "width": 136,
+        "height": 66
+      },
+      "renderSize": {
+        "width": 136,
+        "height": 66
+      },
+      "scaling": "1:1 native pixels; nearest-neighbor integer 3x shipping presentation",
+      "pivot": {
+        "mode": "top-left",
+        "x": 0,
+        "y": 0
+      },
+      "layer": {
+        "name": "carried-status",
+        "order": 81
+      },
+      "animation": {
+        "frameSize": [
+          136,
+          66
+        ],
+        "frames": 1,
+        "timingMs": [],
+        "runtimeOwned": true
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "output": "game/main.gd",
+      "outputSha256": "ba0d0ca84d78036e5839f2cd8cfa50e415b44b5387a57f2c40a434ed31738a3c",
+      "classification": "engine-ready input; production status depends on current runtime captures and reports"
+    },
+    {
+      "id": "causal-feedback",
+      "category": "interface",
+      "targetLineage": {
+        "targetId": "continuous-causal-village",
+        "targetFingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+        "sourceViewId": "continuous-mix-feedback",
+        "sourceViewSha256": "27d5713bb9788ea2768d21b7b885eb64f1c1ad570571e81fb13f641070c7c382",
+        "crop": {
+          "x": 6,
+          "y": 222,
+          "width": 286,
+          "height": 43
+        },
+        "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-mix-feedback].nativePaintoverPrompt"
+      },
+      "states": [
+        "mix-feedback",
+        "exposed-conversion",
+        "sheltered-preservation"
+      ],
+      "productionMethod": "deliberately-styled-code-native-ui",
+      "nativeSize": {
+        "width": 286,
+        "height": 43
+      },
+      "renderSize": {
+        "width": 286,
+        "height": 43
+      },
+      "scaling": "1:1 native pixels; nearest-neighbor integer 3x shipping presentation",
+      "pivot": {
+        "mode": "top-left",
+        "x": 0,
+        "y": 0
+      },
+      "layer": {
+        "name": "temporary-feedback",
+        "order": 82
+      },
+      "animation": {
+        "frameSize": [
+          286,
+          43
+        ],
+        "frames": 1,
+        "timingMs": [],
+        "runtimeOwned": true
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "output": "game/main.gd",
+      "outputSha256": "ba0d0ca84d78036e5839f2cd8cfa50e415b44b5387a57f2c40a434ed31738a3c",
+      "classification": "engine-ready input; production status depends on current runtime captures and reports"
+    },
+    {
+      "id": "delivery-comparison",
+      "category": "interface",
+      "targetLineage": {
+        "targetId": "continuous-causal-village",
+        "targetFingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+        "sourceViewId": "continuous-satisfied-delivery",
+        "sourceViewSha256": "be5a6b2de84a4859dd6611ee00a6a019352702f4b580840b06ec903f832c1532",
+        "crop": {
+          "x": 6,
+          "y": 205,
+          "width": 228,
+          "height": 60
+        },
+        "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-satisfied-delivery].nativePaintoverPrompt"
+      },
+      "states": [
+        "satisfied-delivery",
+        "imperfect-recovery"
+      ],
+      "productionMethod": "deliberately-styled-code-native-ui",
+      "nativeSize": {
+        "width": 228,
+        "height": 60
+      },
+      "renderSize": {
+        "width": 228,
+        "height": 60
+      },
+      "scaling": "1:1 native pixels; nearest-neighbor integer 3x shipping presentation",
+      "pivot": {
+        "mode": "top-left",
+        "x": 0,
+        "y": 0
+      },
+      "layer": {
+        "name": "temporary-feedback",
+        "order": 82
+      },
+      "animation": {
+        "frameSize": [
+          228,
+          60
+        ],
+        "frames": 1,
+        "timingMs": [],
+        "runtimeOwned": true
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "output": "game/main.gd",
+      "outputSha256": "ba0d0ca84d78036e5839f2cd8cfa50e415b44b5387a57f2c40a434ed31738a3c",
+      "classification": "engine-ready input; production status depends on current runtime captures and reports"
+    },
+    {
+      "id": "ember-context-label",
+      "category": "interface-world",
+      "targetLineage": {
+        "targetId": "continuous-causal-village",
+        "targetFingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+        "sourceViewId": "continuous-need-disclosed",
+        "sourceViewSha256": "b7356abc5ce7a15217b18db239cf309b4c553c53c4aa202844f40a3a70a446d7",
+        "crop": {
+          "x": 45,
+          "y": 168,
+          "width": 48,
+          "height": 18
+        },
+        "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-need-disclosed].nativePaintoverPrompt"
+      },
+      "states": [
+        "need-disclosed"
+      ],
+      "productionMethod": "deliberately-styled-code-native-ui",
+      "nativeSize": {
+        "width": 48,
+        "height": 18
+      },
+      "renderSize": {
+        "width": 48,
+        "height": 18
+      },
+      "scaling": "1:1 native pixels; nearest-neighbor integer 3x shipping presentation",
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 24,
+        "y": 17
+      },
+      "layer": {
+        "name": "interface-world-signage",
+        "order": 45
+      },
+      "animation": {
+        "frameSize": [
+          48,
+          18
+        ],
+        "frames": 1,
+        "timingMs": [],
+        "runtimeOwned": true
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "output": "game/main.gd",
+      "outputSha256": "ba0d0ca84d78036e5839f2cd8cfa50e415b44b5387a57f2c40a434ed31738a3c",
+      "classification": "engine-ready input; production status depends on current runtime captures and reports"
+    },
+    {
+      "id": "moss-context-label",
+      "category": "interface-world",
+      "targetLineage": {
+        "targetId": "continuous-causal-village",
+        "targetFingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+        "sourceViewId": "continuous-need-disclosed",
+        "sourceViewSha256": "b7356abc5ce7a15217b18db239cf309b4c553c53c4aa202844f40a3a70a446d7",
+        "crop": {
+          "x": 47,
+          "y": 190,
+          "width": 41,
+          "height": 18
+        },
+        "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-need-disclosed].nativePaintoverPrompt"
+      },
+      "states": [
+        "need-disclosed",
+        "mix-feedback"
+      ],
+      "productionMethod": "deliberately-styled-code-native-ui",
+      "nativeSize": {
+        "width": 41,
+        "height": 18
+      },
+      "renderSize": {
+        "width": 41,
+        "height": 18
+      },
+      "scaling": "1:1 native pixels; nearest-neighbor integer 3x shipping presentation",
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 20,
+        "y": 17
+      },
+      "layer": {
+        "name": "interface-world-signage",
+        "order": 45
+      },
+      "animation": {
+        "frameSize": [
+          41,
+          18
+        ],
+        "frames": 1,
+        "timingMs": [],
+        "runtimeOwned": true
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "output": "game/main.gd",
+      "outputSha256": "ba0d0ca84d78036e5839f2cd8cfa50e415b44b5387a57f2c40a434ed31738a3c",
+      "classification": "engine-ready input; production status depends on current runtime captures and reports"
+    },
+    {
+      "id": "world-action-cue",
+      "category": "interface-world",
+      "targetLineage": {
+        "targetId": "continuous-causal-village",
+        "targetFingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+        "sourceViewId": "continuous-pre-disclosure",
+        "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+        "crop": {
+          "x": 102,
+          "y": 82,
+          "width": 50,
+          "height": 19
+        },
+        "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt"
+      },
+      "states": [
+        "pre-disclosure",
+        "need-disclosed",
+        "mix-feedback",
+        "followup-selection"
+      ],
+      "productionMethod": "deliberately-styled-code-native-ui",
+      "nativeSize": {
+        "width": 50,
+        "height": 19
+      },
+      "renderSize": {
+        "width": 50,
+        "height": 19
+      },
+      "scaling": "1:1 native pixels; nearest-neighbor integer 3x shipping presentation",
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 25,
+        "y": 18
+      },
+      "layer": {
+        "name": "interface-world-signage",
+        "order": 46
+      },
+      "animation": {
+        "frameSize": [
+          50,
+          19
+        ],
+        "frames": 1,
+        "timingMs": [],
+        "runtimeOwned": true
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "output": "game/main.gd",
+      "outputSha256": "ba0d0ca84d78036e5839f2cd8cfa50e415b44b5387a57f2c40a434ed31738a3c",
+      "classification": "engine-ready input; production status depends on current runtime captures and reports"
+    },
+    {
+      "id": "reaction-label",
+      "category": "interface-world",
+      "targetLineage": {
+        "targetId": "continuous-causal-village",
+        "targetFingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+        "sourceViewId": "continuous-satisfied-delivery",
+        "sourceViewSha256": "be5a6b2de84a4859dd6611ee00a6a019352702f4b580840b06ec903f832c1532",
+        "crop": {
+          "x": 382,
+          "y": 73,
+          "width": 72,
+          "height": 24
+        },
+        "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-satisfied-delivery].nativePaintoverPrompt"
+      },
+      "states": [
+        "satisfied-delivery",
+        "imperfect-recovery"
+      ],
+      "productionMethod": "deliberately-styled-code-native-ui",
+      "nativeSize": {
+        "width": 72,
+        "height": 24
+      },
+      "renderSize": {
+        "width": 72,
+        "height": 24
+      },
+      "scaling": "1:1 native pixels; nearest-neighbor integer 3x shipping presentation",
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 36,
+        "y": 23
+      },
+      "layer": {
+        "name": "temporary-feedback",
+        "order": 82
+      },
+      "animation": {
+        "frameSize": [
+          72,
+          24
+        ],
+        "frames": 1,
+        "timingMs": [],
+        "runtimeOwned": true
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "output": "game/main.gd",
+      "outputSha256": "ba0d0ca84d78036e5839f2cd8cfa50e415b44b5387a57f2c40a434ed31738a3c",
+      "classification": "engine-ready input; production status depends on current runtime captures and reports"
+    },
+    {
+      "id": "sunmill-pennant",
+      "category": "interface-world",
+      "targetLineage": {
+        "targetId": "continuous-causal-village",
+        "targetFingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+        "sourceViewId": "continuous-followup-selection",
+        "sourceViewSha256": "1115df518c2b94d950c2403c515afedbc1fa4b2184e200cbe27c5c5a42126450",
+        "crop": {
+          "x": 329,
+          "y": 156,
+          "width": 39,
+          "height": 56
+        },
+        "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-followup-selection].nativePaintoverPrompt"
+      },
+      "states": [
+        "followup-selection"
+      ],
+      "productionMethod": "direct-authored-native-raster",
+      "nativeSize": {
+        "width": 16,
+        "height": 24
+      },
+      "renderSize": {
+        "width": 16,
+        "height": 24
+      },
+      "scaling": "1:1 native pixels; nearest-neighbor integer 3x shipping presentation",
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 8,
+        "y": 23
+      },
+      "layer": {
+        "name": "interface-world-signage",
+        "order": 25
+      },
+      "animation": {
+        "frameSize": [
+          16,
+          24
+        ],
+        "frames": 4,
+        "timingMs": [
+          240,
+          240,
+          160,
+          240
+        ]
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "output": "game/assets/production/first-delivery/interface/sunmill-pennant.png",
+      "outputSha256": "1f1fb34b6244349ff112c04d80158e3a879ca0c9d3e6f0344a5077404c27d2da",
+      "classification": "engine-ready input; production status depends on current runtime captures and reports"
+    },
+    {
+      "id": "herbalist-pennant",
+      "category": "interface-world",
+      "targetLineage": {
+        "targetId": "continuous-causal-village",
+        "targetFingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+        "sourceViewId": "continuous-followup-selection",
+        "sourceViewSha256": "1115df518c2b94d950c2403c515afedbc1fa4b2184e200cbe27c5c5a42126450",
+        "crop": {
+          "x": 365,
+          "y": 174,
+          "width": 40,
+          "height": 41
+        },
+        "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-followup-selection].nativePaintoverPrompt"
+      },
+      "states": [
+        "followup-selection"
+      ],
+      "productionMethod": "direct-authored-native-raster",
+      "nativeSize": {
+        "width": 16,
+        "height": 24
+      },
+      "renderSize": {
+        "width": 16,
+        "height": 24
+      },
+      "scaling": "1:1 native pixels; nearest-neighbor integer 3x shipping presentation",
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 8,
+        "y": 23
+      },
+      "layer": {
+        "name": "interface-world-signage",
+        "order": 25
+      },
+      "animation": {
+        "frameSize": [
+          16,
+          24
+        ],
+        "frames": 4,
+        "timingMs": [
+          280,
+          280,
+          180,
+          280
+        ]
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "output": "game/assets/production/first-delivery/interface/herbalist-pennant.png",
+      "outputSha256": "6f8870452fd1ffb4796c6e89c6565f7546e40eebb4fc9e31420ebd481a82d73e",
+      "classification": "engine-ready input; production status depends on current runtime captures and reports"
+    },
+    {
+      "id": "sunmill-info-sign",
+      "category": "interface-world",
+      "targetLineage": {
+        "targetId": "continuous-causal-village",
+        "targetFingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+        "sourceViewId": "continuous-followup-selection",
+        "sourceViewSha256": "1115df518c2b94d950c2403c515afedbc1fa4b2184e200cbe27c5c5a42126450",
+        "crop": {
+          "x": 250,
+          "y": 151,
+          "width": 58,
+          "height": 34
+        },
+        "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-followup-selection].nativePaintoverPrompt"
+      },
+      "states": [
+        "followup-selection"
+      ],
+      "productionMethod": "deliberately-styled-code-native-ui",
+      "nativeSize": {
+        "width": 58,
+        "height": 34
+      },
+      "renderSize": {
+        "width": 58,
+        "height": 34
+      },
+      "scaling": "1:1 native pixels; nearest-neighbor integer 3x shipping presentation",
+      "pivot": {
+        "mode": "center",
+        "x": 29,
+        "y": 17
+      },
+      "layer": {
+        "name": "interface-world-signage",
+        "order": 45
+      },
+      "animation": {
+        "frameSize": [
+          58,
+          34
+        ],
+        "frames": 1,
+        "timingMs": [],
+        "runtimeOwned": true
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "output": "game/main.gd",
+      "outputSha256": "ba0d0ca84d78036e5839f2cd8cfa50e415b44b5387a57f2c40a434ed31738a3c",
+      "classification": "engine-ready input; production status depends on current runtime captures and reports"
+    },
+    {
+      "id": "herbalist-info-sign",
+      "category": "interface-world",
+      "targetLineage": {
+        "targetId": "continuous-causal-village",
+        "targetFingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+        "sourceViewId": "continuous-followup-selection",
+        "sourceViewSha256": "1115df518c2b94d950c2403c515afedbc1fa4b2184e200cbe27c5c5a42126450",
+        "crop": {
+          "x": 407,
+          "y": 151,
+          "width": 67,
+          "height": 34
+        },
+        "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-followup-selection].nativePaintoverPrompt"
+      },
+      "states": [
+        "followup-selection"
+      ],
+      "productionMethod": "deliberately-styled-code-native-ui",
+      "nativeSize": {
+        "width": 67,
+        "height": 34
+      },
+      "renderSize": {
+        "width": 67,
+        "height": 34
+      },
+      "scaling": "1:1 native pixels; nearest-neighbor integer 3x shipping presentation",
+      "pivot": {
+        "mode": "center",
+        "x": 33,
+        "y": 17
+      },
+      "layer": {
+        "name": "interface-world-signage",
+        "order": 45
+      },
+      "animation": {
+        "frameSize": [
+          67,
+          34
+        ],
+        "frames": 1,
+        "timingMs": [],
+        "runtimeOwned": true
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "output": "game/main.gd",
+      "outputSha256": "ba0d0ca84d78036e5839f2cd8cfa50e415b44b5387a57f2c40a434ed31738a3c",
+      "classification": "engine-ready input; production status depends on current runtime captures and reports"
+    }
+  ],
+  "fonts": [
+    {
+      "role": "body",
+      "path": "game/assets/production/first-delivery/interface/fonts/DejaVuSans.ttf",
+      "sha256": "3fdf69cabf06049ea70a00b5919340e2ce1e6d02b0cc3c4b44fb6801bd1e0d22"
+    },
+    {
+      "role": "semibold",
+      "path": "game/assets/production/first-delivery/interface/fonts/DejaVuSans-Bold.ttf",
+      "sha256": "b184b89e3c1075f22f6b71575b6fc20d4972b3cfd3b23322ca6fd596dcaef167"
+    },
+    {
+      "role": "license",
+      "path": "game/assets/production/first-delivery/interface/fonts/LICENSE_DEJAVU.txt",
+      "sha256": "d75938dec098f06f0ac3c00853065d94f020be1c3c62ef1dc2975ba15b4d9b0e"
+    }
+  ],
+  "regressionChecks": {
+    "componentCount": 25,
+    "directRasterCount": 14,
+    "codeNativeCount": 11,
+    "allTargetComponentsCovered": true,
+    "losslessPng": true
+  }
+}

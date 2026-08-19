@@ -1,0 +1,37 @@
+{
+  "schema": "gamefactory.preserved-candidate-import/v1",
+  "campaignId": "alchemy-delivery-boys-v2-slice-v6",
+  "runId": "alchemy-delivery-boys-v2-slice-v6-fb222ddd1d59bd57",
+  "experimentId": "exp-0001",
+  "baseRevision": "4a49dc23e8d56dd862c95fc2b82663b459a13884",
+  "terminalOutcome": "rejected-metadata-inconsistency",
+  "reason": "The evidence auditor verified gameplay, engine captures, asset integrity, hashes, and motion, but found design/scene-targets/validation.json still recorded needs-revision after scene-target.json was approved.",
+  "recoveryPolicy": {
+    "source": "factory content-addressed artifact store",
+    "hashVerification": "sha256-before-copy",
+    "importedScope": "source, design, and runtime manifests only",
+    "excludedScope": "candidate engine evidence; the recovery campaign must regenerate it"
+  },
+  "verifiedEvidence": {
+    "causalEventsPerScenario": 21,
+    "consequentialChoicesPerScenario": 3,
+    "captureFramesPerScenario": 150,
+    "checkedEvidenceHashes": 21,
+    "checkedRuntimeComponents": 25,
+    "hashMismatches": 0,
+    "missingComponents": 0
+  },
+  "blockingFinding": {
+    "id": "stale-target-validation-gate",
+    "sceneTargetApproval": "approved",
+    "validationApproval": "needs-revision",
+    "repair": "Bind the validation approval snapshot to the same gate verdict, selected target hash, reviewer, and timestamp."
+  },
+  "postImportFinding": {
+    "id": "runtime-assets-not-preserved",
+    "severity": "blocker",
+    "finding": "The production manifests and game/main.gd were preserved, but the fourteen raster outputs and three bundled font files named by the production inventory were not included in the rejected candidate's structured artifact list before cleanup.",
+    "recovery": "The DejaVu font files and license were recovered byte-for-byte from the installed matplotlib distribution. design/recovery/runtime-bootstrap.json records a compile-only whole-scene background plus transparent raster shims so Godot can prove the recovered logic. Every mismatched raster must be target-linked, replaced, preserved, and reverified before production acceptance.",
+    "factoryRepair": "The polished preset now requires the production builder to return every runtime inventory output as a structured artifact and requires the evidence auditor to recompute hashes and reject missing preservation coverage."
+  }
+}

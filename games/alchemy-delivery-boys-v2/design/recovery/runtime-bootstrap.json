@@ -1,0 +1,145 @@
+{
+  "schema": "gamefactory.runtime-bootstrap/v1",
+  "status": "compile-only-not-production",
+  "sourceRun": "alchemy-delivery-boys-v2-slice-v6-fb222ddd1d59bd57",
+  "reason": "The rejected candidate was cleaned after preserving reports but not its runtime asset files.",
+  "productionRequirement": "Before acceptance, replace or explicitly re-author every mismatched raster, update inventory provenance, and regenerate both Godot scenarios and visual captures.",
+  "assets": [
+    {
+      "id": "village-environment",
+      "path": "game/assets/production/first-delivery/environment/village-environment.png",
+      "expectedSha256": "fd576abd5180e43530f3f26af7e28f2b32808a1e4725c2f154736f685f0db097",
+      "actualSha256": "d0fb5250b55b11198bc4c84edbcd722644fd2db42b8226474dc076953d158c66",
+      "matchesApprovedInventory": false,
+      "bootstrapTreatment": "approved whole-scene basis"
+    },
+    {
+      "id": "cauldron",
+      "path": "game/assets/production/first-delivery/interactables/cauldron.png",
+      "expectedSha256": "c6ad3d390746780574efa8ae30c66af6608df5a29d98737515359819b223a9c5",
+      "actualSha256": "7c144b83e87d4af88b0091e7322beae43a35d69f467fed9edea0fe799913b56e",
+      "matchesApprovedInventory": false,
+      "bootstrapTreatment": "transparent compile shim"
+    },
+    {
+      "id": "ember-ingredient",
+      "path": "game/assets/production/first-delivery/interactables/ember-ingredient.png",
+      "expectedSha256": "140e959cf209b9a0467737fc0826a7168f6bd6f02898871fa771cc345d73dcf5",
+      "actualSha256": "594fa41204c1220effacd599dd208dc94aa660581e16f165565a80561fda1193",
+      "matchesApprovedInventory": false,
+      "bootstrapTreatment": "transparent compile shim"
+    },
+    {
+      "id": "moss-ingredient",
+      "path": "game/assets/production/first-delivery/interactables/moss-ingredient.png",
+      "expectedSha256": "16b4a9102d1b7df8e2bdee9bffa8d1caa3d6bc2dcef962d9c8ea06221c198f6b",
+      "actualSha256": "594fa41204c1220effacd599dd208dc94aa660581e16f165565a80561fda1193",
+      "matchesApprovedInventory": false,
+      "bootstrapTreatment": "transparent compile shim"
+    },
+    {
+      "id": "courier",
+      "path": "game/assets/production/first-delivery/characters/courier.png",
+      "expectedSha256": "401b206a31c5b4df93d96b07e718bd3b24fcbf2ae32ba3bc33bcc902abac827f",
+      "actualSha256": "2c1827281704504158203160d41fedad53febe65232d4d6910711e87bc26a293",
+      "matchesApprovedInventory": false,
+      "bootstrapTreatment": "transparent compile shim"
+    },
+    {
+      "id": "partner",
+      "path": "game/assets/production/first-delivery/characters/partner.png",
+      "expectedSha256": "86ef7efdadf4245ce3cb1ba94d34247c45642f8f1dee207820c604443bffc780",
+      "actualSha256": "841b82313a68b4769751630367bf42f39d148e0b42d5f8348e14cead2b80a07e",
+      "matchesApprovedInventory": false,
+      "bootstrapTreatment": "transparent compile shim"
+    },
+    {
+      "id": "mira",
+      "path": "game/assets/production/first-delivery/characters/mira.png",
+      "expectedSha256": "d73008a1a6c0908d75665df5eae91901bba9ff706633494125fe087ce8a6c0fb",
+      "actualSha256": "84a96062da11b246e08456daaf2d01f0c9acc5faed52d41ef780962cf3636b12",
+      "matchesApprovedInventory": false,
+      "bootstrapTreatment": "transparent compile shim"
+    },
+    {
+      "id": "bottle",
+      "path": "game/assets/production/first-delivery/props/bottle.png",
+      "expectedSha256": "610306c333e879d15e6ca557441c2c3fbc1fca9b7fd677c90840ff4cf3aa5817",
+      "actualSha256": "9716ea3fc201f175660cf7353f8125e0c2966eaf33315291383d647ad6bc5acb",
+      "matchesApprovedInventory": false,
+      "bootstrapTreatment": "transparent compile shim"
+    },
+    {
+      "id": "gust-sign",
+      "path": "game/assets/production/first-delivery/interface/gust-sign.png",
+      "expectedSha256": "ebf973375878e8c5e12ab744733ecb9d31b4d13f1845353f9ee5ec1cfa247dd3",
+      "actualSha256": "168f86be7f8027a9f865742c149c20906267e5b93c2c953c4979aeec25d87fd8",
+      "matchesApprovedInventory": false,
+      "bootstrapTreatment": "transparent compile shim"
+    },
+    {
+      "id": "shelter-sign",
+      "path": "game/assets/production/first-delivery/interface/shelter-sign.png",
+      "expectedSha256": "202a06c974934ce52a0ff1e2f184276e414d1ef5210da1497f7b96b8a4af7c32",
+      "actualSha256": "9716ea3fc201f175660cf7353f8125e0c2966eaf33315291383d647ad6bc5acb",
+      "matchesApprovedInventory": false,
+      "bootstrapTreatment": "transparent compile shim"
+    },
+    {
+      "id": "route-effects",
+      "path": "game/assets/production/first-delivery/effects/route-effects.png",
+      "expectedSha256": "64e5b5dc32f65cc9e7c943a7ecc0beeca912187ea23a3610641e28ea9995a182",
+      "actualSha256": "2007d35d5ba0bdca230fe314fe52856a872b71d65b1876a29f5950f64d55fdc6",
+      "matchesApprovedInventory": false,
+      "bootstrapTreatment": "transparent compile shim"
+    },
+    {
+      "id": "reaction-effects",
+      "path": "game/assets/production/first-delivery/effects/reaction-effects.png",
+      "expectedSha256": "f850d76f4611607bd549343fe3a15ce256092df31b767716b3c0a95d938b2e95",
+      "actualSha256": "2007d35d5ba0bdca230fe314fe52856a872b71d65b1876a29f5950f64d55fdc6",
+      "matchesApprovedInventory": false,
+      "bootstrapTreatment": "transparent compile shim"
+    },
+    {
+      "id": "sunmill-pennant",
+      "path": "game/assets/production/first-delivery/interface/sunmill-pennant.png",
+      "expectedSha256": "1f1fb34b6244349ff112c04d80158e3a879ca0c9d3e6f0344a5077404c27d2da",
+      "actualSha256": "517f967f9e5307e7866afab8f53f8ff6fca6776842a8c2b021a507a1ef70987c",
+      "matchesApprovedInventory": false,
+      "bootstrapTreatment": "transparent compile shim"
+    },
+    {
+      "id": "herbalist-pennant",
+      "path": "game/assets/production/first-delivery/interface/herbalist-pennant.png",
+      "expectedSha256": "6f8870452fd1ffb4796c6e89c6565f7546e40eebb4fc9e31420ebd481a82d73e",
+      "actualSha256": "517f967f9e5307e7866afab8f53f8ff6fca6776842a8c2b021a507a1ef70987c",
+      "matchesApprovedInventory": false,
+      "bootstrapTreatment": "transparent compile shim"
+    },
+    {
+      "id": "font-body",
+      "path": "game/assets/production/first-delivery/interface/fonts/DejaVuSans.ttf",
+      "expectedSha256": "3fdf69cabf06049ea70a00b5919340e2ce1e6d02b0cc3c4b44fb6801bd1e0d22",
+      "actualSha256": "3fdf69cabf06049ea70a00b5919340e2ce1e6d02b0cc3c4b44fb6801bd1e0d22",
+      "matchesApprovedInventory": true,
+      "bootstrapTreatment": "exact licensed recovery from matplotlib DejaVu distribution"
+    },
+    {
+      "id": "font-semibold",
+      "path": "game/assets/production/first-delivery/interface/fonts/DejaVuSans-Bold.ttf",
+      "expectedSha256": "b184b89e3c1075f22f6b71575b6fc20d4972b3cfd3b23322ca6fd596dcaef167",
+      "actualSha256": "b184b89e3c1075f22f6b71575b6fc20d4972b3cfd3b23322ca6fd596dcaef167",
+      "matchesApprovedInventory": true,
+      "bootstrapTreatment": "exact licensed recovery from matplotlib DejaVu distribution"
+    },
+    {
+      "id": "font-license",
+      "path": "game/assets/production/first-delivery/interface/fonts/LICENSE_DEJAVU.txt",
+      "expectedSha256": "d75938dec098f06f0ac3c00853065d94f020be1c3c62ef1dc2975ba15b4d9b0e",
+      "actualSha256": "d75938dec098f06f0ac3c00853065d94f020be1c3c62ef1dc2975ba15b4d9b0e",
+      "matchesApprovedInventory": true,
+      "bootstrapTreatment": "exact licensed recovery from matplotlib DejaVu distribution"
+    }
+  ]
+}

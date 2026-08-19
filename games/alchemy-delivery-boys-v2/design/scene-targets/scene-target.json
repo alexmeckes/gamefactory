@@ -1,7 +1,7 @@
 {
   "apiVersion": "gamefactory.scene-target/v1",
   "id": "alchemy-delivery-boys-v2-first-delivery",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "selectedCandidateId": "continuous-causal-village",
   "nativeGeometry": {
     "viewport": {
@@ -163,6 +163,74 @@
       "primaryViewId": "continuous-route-pending",
       "views": [
         {
+          "id": "continuous-pre-disclosure",
+          "label": "Opening before partner disclosure",
+          "state": "pre-disclosure",
+          "path": "design/scene-targets/views/continuous-pre-disclosure.png",
+          "sha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+          "prompt": "Repair prompt (verbatim):\nUse case: precise-object-edit\nAsset type: whole-screen gameplay state variant, proposed design target only, not runtime production art\nInput images: the selected continuous-causal-village target and its canonical persistent-world basis.\nPrimary request: Add one explicit opening state before request disclosure. Preserve the exact 480x270 fixed camera, continuous village geography, route topology, architecture, palette, lighting, pixel density, actor identity and scale, landmark anchors, and quiet upper-corner text-safe regions. Place the empty-handed courier beside the brew-yard partner and keep both future routes plus Mira visible. Show a compact code-native MORNING ROUND status in the existing upper-left safe region and one world-anchored E TALK cue pointing to the partner.\nText (verbatim): status heading 'Morning round'; status instruction 'Talk to your partner'; action prompt 'E TALK'.\nDisclosure constraint: do not show Mira's request, potion quantities, ingredient instructions, a physical bottle, or a carried-potion badge before the player talks to the partner.\nGlobal constraints: world-first hierarchy; direct movement plus one context action; no modal cards, route-choice controls, dashboard frame, extra meters, extra characters, decorative border, camera change, topology change, hidden path, logo, watermark, painterly blur, or mixed pixel density. This is a complete gameplay viewport, not an isolated asset or concept vignette.",
+          "required": true,
+          "nativeSize": {
+            "width": 480,
+            "height": 270
+          },
+          "authoringMode": "native-480x270-pixel-spec-composite",
+          "referenceViewPath": "design/scene-targets/reference-views/continuous-pre-disclosure.png",
+          "referenceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+          "review3xPath": "design/scene-targets/review-3x/continuous-pre-disclosure.png",
+          "review3xSha256": "ed032a67dc28737f692b64d907e8301fe60ef317961cc8c681bae14879353d30",
+          "nativePaintoverPrompt": "At exact native 480x270, preserve the selected continuous-village camera and persistent-world basis. Show the empty-handed courier facing the brew-yard partner, keep both routes and Mira visible, cover the old disclosure copy with the measured MORNING ROUND status in the existing upper-left safe region, and place E TALK beside the partner. Reveal no request, potion quantity, ingredient instruction, bottle, or carried badge.",
+          "typographyChecks": [
+            {
+              "role": "opening-status",
+              "rect": {
+                "x": 6,
+                "y": 3,
+                "width": 142,
+                "height": 65
+              },
+              "texts": [
+                "Morning round",
+                "Talk to your partner"
+              ],
+              "insetPx": 6,
+              "fontSizesPx": [
+                11,
+                12
+              ],
+              "lineHeightPx": 16,
+              "longestText": "Talk to your partner",
+              "longestTextWidthPx": 104,
+              "innerWidthPx": 130,
+              "clipped": false,
+              "contrastRatio": 13.35
+            },
+            {
+              "role": "world-action",
+              "rect": {
+                "x": 102,
+                "y": 82,
+                "width": 50,
+                "height": 19
+              },
+              "texts": [
+                "E  TALK"
+              ],
+              "insetPx": 5,
+              "fontSizesPx": [
+                11
+              ],
+              "lineHeightPx": 16,
+              "longestText": "E  TALK",
+              "longestTextWidthPx": 40,
+              "innerWidthPx": 40,
+              "clipped": false,
+              "contrastRatio": 13.35,
+              "targetId": "partner"
+            }
+          ]
+        },
+        {
           "id": "continuous-route-pending",
           "label": "Brew complete, both routes pending",
           "state": "route-pending",
@@ -189,6 +257,11 @@
                 "width": 142,
                 "height": 65
               },
+              "texts": [
+                "Mira needs",
+                "2 Warmth",
+                "1 Soothing"
+              ],
               "insetPx": 6,
               "fontSizesPx": [
                 11,
@@ -210,6 +283,11 @@
                 "width": 136,
                 "height": 66
               },
+              "texts": [
+                "Bottled",
+                "1 Warmth",
+                "2 Soothing"
+              ],
               "insetPx": 6,
               "fontSizesPx": [
                 11,
@@ -252,6 +330,11 @@
                 "width": 142,
                 "height": 65
               },
+              "texts": [
+                "Mira needs",
+                "2 Warmth",
+                "1 Soothing"
+              ],
               "insetPx": 6,
               "fontSizesPx": [
                 11,
@@ -273,6 +356,9 @@
                 "width": 48,
                 "height": 18
               },
+              "texts": [
+                "EMBER"
+              ],
               "insetPx": 5,
               "fontSizesPx": [
                 11
@@ -292,6 +378,9 @@
                 "width": 41,
                 "height": 18
               },
+              "texts": [
+                "MOSS"
+              ],
               "insetPx": 5,
               "fontSizesPx": [
                 11
@@ -311,6 +400,9 @@
                 "width": 46,
                 "height": 19
               },
+              "texts": [
+                "E  ADD"
+              ],
               "insetPx": 5,
               "fontSizesPx": [
                 11
@@ -351,6 +443,11 @@
                 "width": 142,
                 "height": 65
               },
+              "texts": [
+                "Mira needs",
+                "2 Warmth",
+                "1 Soothing"
+              ],
               "insetPx": 6,
               "fontSizesPx": [
                 11,
@@ -372,6 +469,9 @@
                 "width": 41,
                 "height": 18
               },
+              "texts": [
+                "MOSS"
+              ],
               "insetPx": 5,
               "fontSizesPx": [
                 11
@@ -391,6 +491,9 @@
                 "width": 46,
                 "height": 19
               },
+              "texts": [
+                "E  ADD"
+              ],
               "insetPx": 5,
               "fontSizesPx": [
                 11
@@ -410,6 +513,10 @@
                 "width": 286,
                 "height": 43
               },
+              "texts": [
+                "Moss added",
+                "Brew: 1 Warmth  ·  2 Soothing"
+              ],
               "insetPx": 6,
               "fontSizesPx": [
                 11,
@@ -451,6 +558,11 @@
                 "width": 142,
                 "height": 65
               },
+              "texts": [
+                "Mira needs",
+                "2 Warmth",
+                "1 Soothing"
+              ],
               "insetPx": 6,
               "fontSizesPx": [
                 11,
@@ -472,6 +584,11 @@
                 "width": 136,
                 "height": 66
               },
+              "texts": [
+                "Carried",
+                "2 Warmth",
+                "1 Soothing"
+              ],
               "insetPx": 6,
               "fontSizesPx": [
                 11,
@@ -493,6 +610,10 @@
                 "width": 286,
                 "height": 43
               },
+              "texts": [
+                "Gust changed the bottle",
+                "+1 Warmth  ·  −1 Soothing"
+              ],
               "insetPx": 6,
               "fontSizesPx": [
                 11,
@@ -534,6 +655,11 @@
                 "width": 142,
                 "height": 65
               },
+              "texts": [
+                "Mira needs",
+                "2 Warmth",
+                "1 Soothing"
+              ],
               "insetPx": 6,
               "fontSizesPx": [
                 11,
@@ -555,6 +681,11 @@
                 "width": 136,
                 "height": 66
               },
+              "texts": [
+                "Carried",
+                "1 Warmth",
+                "2 Soothing"
+              ],
               "insetPx": 6,
               "fontSizesPx": [
                 11,
@@ -576,6 +707,10 @@
                 "width": 254,
                 "height": 43
               },
+              "texts": [
+                "Shelter preserved",
+                "1 Warmth  ·  2 Soothing"
+              ],
               "insetPx": 6,
               "fontSizesPx": [
                 11,
@@ -617,6 +752,11 @@
                 "width": 142,
                 "height": 65
               },
+              "texts": [
+                "Mira needed",
+                "2 Warmth",
+                "1 Soothing"
+              ],
               "insetPx": 6,
               "fontSizesPx": [
                 11,
@@ -638,6 +778,12 @@
                 "width": 228,
                 "height": 60
               },
+              "texts": [
+                "Arrived",
+                "2 Warmth",
+                "1 Soothing",
+                "Exact match"
+              ],
               "insetPx": 6,
               "fontSizesPx": [
                 11,
@@ -660,6 +806,9 @@
                 "width": 72,
                 "height": 24
               },
+              "texts": [
+                "RELIEF"
+              ],
               "insetPx": 4,
               "fontSizesPx": [
                 12
@@ -700,6 +849,11 @@
                 "width": 142,
                 "height": 65
               },
+              "texts": [
+                "Mira needed",
+                "2 Warmth",
+                "1 Soothing"
+              ],
               "insetPx": 6,
               "fontSizesPx": [
                 11,
@@ -721,6 +875,12 @@
                 "width": 228,
                 "height": 60
               },
+              "texts": [
+                "Arrived",
+                "1 Warmth",
+                "2 Soothing",
+                "Imperfect — recoverable"
+              ],
               "insetPx": 6,
               "fontSizesPx": [
                 11,
@@ -743,6 +903,9 @@
                 "width": 72,
                 "height": 24
               },
+              "texts": [
+                "SHIVER"
+              ],
               "insetPx": 4,
               "fontSizesPx": [
                 12
@@ -783,6 +946,11 @@
                 "width": 142,
                 "height": 65
               },
+              "texts": [
+                "Next delivery",
+                "Walk to a pennant",
+                "Gust shifts • shelter holds"
+              ],
               "insetPx": 6,
               "fontSizesPx": [
                 12,
@@ -804,6 +972,10 @@
                 "width": 58,
                 "height": 34
               },
+              "texts": [
+                "Sunmill",
+                "3W · 0S"
+              ],
               "insetPx": 6,
               "fontSizesPx": [
                 11,
@@ -824,6 +996,10 @@
                 "width": 67,
                 "height": 34
               },
+              "texts": [
+                "Herbalist",
+                "1W · 2S"
+              ],
               "insetPx": 6,
               "fontSizesPx": [
                 11,
@@ -844,6 +1020,9 @@
                 "width": 38,
                 "height": 19
               },
+              "texts": [
+                "E  GO"
+              ],
               "insetPx": 5,
               "fontSizesPx": [
                 11
@@ -858,7 +1037,7 @@
           ]
         }
       ],
-      "candidateSha256": "d672e1290db226ba7445c80e693f1001f8f7602494515c08b434655a7b16365e"
+      "candidateSha256": "51c19ca13d41ec2df548e9d832daaafd613483883899508a62b127db1bdafd9f"
     },
     {
       "id": "courier-following-village-rooms",
@@ -892,6 +1071,11 @@
                 "width": 142,
                 "height": 65
               },
+              "texts": [
+                "Mira needs",
+                "2 Warmth",
+                "1 Soothing"
+              ],
               "insetPx": 6,
               "fontSizesPx": [
                 11,
@@ -913,6 +1097,11 @@
                 "width": 136,
                 "height": 66
               },
+              "texts": [
+                "Bottled",
+                "1 Warmth",
+                "2 Soothing"
+              ],
               "insetPx": 6,
               "fontSizesPx": [
                 11,
@@ -937,9 +1126,32 @@
       "id": "village-environment",
       "label": "Persistent continuous village basis",
       "category": "environment",
-      "sourceViewId": "continuous-route-pending",
-      "sourceViewSha256": "92c31af3c13f2872853d5e1fa773120a40bbe385805a8cd55cf0190a41556520",
+      "sourceViewId": "continuous-pre-disclosure",
+      "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
       "sourceViews": [
+        {
+          "viewId": "continuous-pre-disclosure",
+          "stateId": "pre-disclosure",
+          "viewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+          "tightSourceBounds": {
+            "x": 0,
+            "y": 0,
+            "width": 480,
+            "height": 270
+          },
+          "viewportPlacementBounds": {
+            "x": 0,
+            "y": 0,
+            "width": 480,
+            "height": 270
+          },
+          "viewportAnchor": {
+            "mode": "top-left",
+            "x": 0,
+            "y": 0
+          },
+          "promptSource": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt"
+        },
         {
           "viewId": "continuous-route-pending",
           "stateId": "route-pending",
@@ -1138,6 +1350,7 @@
         "height": 270
       },
       "stateIds": [
+        "pre-disclosure",
         "route-pending",
         "need-disclosed",
         "mix-feedback",
@@ -1176,6 +1389,22 @@
         "order": 0
       },
       "stateVariants": [
+        {
+          "stateId": "pre-disclosure",
+          "sourceViewId": "continuous-pre-disclosure",
+          "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+          "viewportPlacementBounds": {
+            "x": 0,
+            "y": 0,
+            "width": 480,
+            "height": 270
+          },
+          "viewportAnchor": {
+            "mode": "top-left",
+            "x": 0,
+            "y": 0
+          }
+        },
         {
           "stateId": "route-pending",
           "sourceViewId": "continuous-route-pending",
@@ -1315,16 +1544,39 @@
         ],
         "timing": "state-linked; no synchronized ambient quota"
       },
-      "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-route-pending].nativePaintoverPrompt",
+      "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt",
       "extractionStrategy": "Reconstruct after scene approval using the declared runtime geometry; the full-screen proposed target is not an isolated or production asset."
     },
     {
       "id": "cauldron",
       "label": "Brew cauldron",
       "category": "environment-interactable",
-      "sourceViewId": "continuous-need-disclosed",
-      "sourceViewSha256": "b7356abc5ce7a15217b18db239cf309b4c553c53c4aa202844f40a3a70a446d7",
+      "sourceViewId": "continuous-pre-disclosure",
+      "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
       "sourceViews": [
+        {
+          "viewId": "continuous-pre-disclosure",
+          "stateId": "pre-disclosure",
+          "viewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+          "tightSourceBounds": {
+            "x": 45,
+            "y": 86,
+            "width": 48,
+            "height": 53
+          },
+          "viewportPlacementBounds": {
+            "x": 45,
+            "y": 86,
+            "width": 48,
+            "height": 53
+          },
+          "viewportAnchor": {
+            "mode": "bottom-center",
+            "x": 69,
+            "y": 139
+          },
+          "promptSource": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt"
+        },
         {
           "viewId": "continuous-need-disclosed",
           "stateId": "need-disclosed",
@@ -1408,6 +1660,7 @@
         "height": 53
       },
       "stateIds": [
+        "pre-disclosure",
         "need-disclosed",
         "mix-feedback",
         "route-pending"
@@ -1441,6 +1694,22 @@
         "order": 20
       },
       "stateVariants": [
+        {
+          "stateId": "pre-disclosure",
+          "sourceViewId": "continuous-pre-disclosure",
+          "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+          "viewportPlacementBounds": {
+            "x": 45,
+            "y": 86,
+            "width": 48,
+            "height": 53
+          },
+          "viewportAnchor": {
+            "mode": "bottom-center",
+            "x": 69,
+            "y": 139
+          }
+        },
         {
           "stateId": "need-disclosed",
           "sourceViewId": "continuous-need-disclosed",
@@ -1501,16 +1770,39 @@
         ],
         "timing": "context action and commit"
       },
-      "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-need-disclosed].nativePaintoverPrompt",
+      "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt",
       "extractionStrategy": "Reconstruct after scene approval using the declared runtime geometry; the full-screen proposed target is not an isolated or production asset."
     },
     {
       "id": "ember-ingredient",
       "label": "Angular Ember planter pickup",
       "category": "environment-interactable",
-      "sourceViewId": "continuous-need-disclosed",
-      "sourceViewSha256": "b7356abc5ce7a15217b18db239cf309b4c553c53c4aa202844f40a3a70a446d7",
+      "sourceViewId": "continuous-pre-disclosure",
+      "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
       "sourceViews": [
+        {
+          "viewId": "continuous-pre-disclosure",
+          "stateId": "pre-disclosure",
+          "viewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+          "tightSourceBounds": {
+            "x": 59,
+            "y": 180,
+            "width": 25,
+            "height": 21
+          },
+          "viewportPlacementBounds": {
+            "x": 59,
+            "y": 180,
+            "width": 25,
+            "height": 21
+          },
+          "viewportAnchor": {
+            "mode": "bottom-center",
+            "x": 71,
+            "y": 201
+          },
+          "promptSource": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt"
+        },
         {
           "viewId": "continuous-need-disclosed",
           "stateId": "need-disclosed",
@@ -1594,6 +1886,7 @@
         "height": 21
       },
       "stateIds": [
+        "pre-disclosure",
         "need-disclosed",
         "mix-feedback",
         "route-pending"
@@ -1628,6 +1921,22 @@
       },
       "stateVariants": [
         {
+          "stateId": "pre-disclosure",
+          "sourceViewId": "continuous-pre-disclosure",
+          "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+          "viewportPlacementBounds": {
+            "x": 59,
+            "y": 180,
+            "width": 25,
+            "height": 21
+          },
+          "viewportAnchor": {
+            "mode": "bottom-center",
+            "x": 71,
+            "y": 201
+          }
+        },
+        {
           "stateId": "need-disclosed",
           "sourceViewId": "continuous-need-disclosed",
           "sourceViewSha256": "b7356abc5ce7a15217b18db239cf309b4c553c53c4aa202844f40a3a70a446d7",
@@ -1687,16 +1996,39 @@
         ],
         "timing": "context action"
       },
-      "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-need-disclosed].nativePaintoverPrompt",
+      "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt",
       "extractionStrategy": "Reconstruct after scene approval using the declared runtime geometry; the full-screen proposed target is not an isolated or production asset."
     },
     {
       "id": "moss-ingredient",
       "label": "Rounded Moss planter pickup",
       "category": "environment-interactable",
-      "sourceViewId": "continuous-need-disclosed",
-      "sourceViewSha256": "b7356abc5ce7a15217b18db239cf309b4c553c53c4aa202844f40a3a70a446d7",
+      "sourceViewId": "continuous-pre-disclosure",
+      "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
       "sourceViews": [
+        {
+          "viewId": "continuous-pre-disclosure",
+          "stateId": "pre-disclosure",
+          "viewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+          "tightSourceBounds": {
+            "x": 69,
+            "y": 200,
+            "width": 28,
+            "height": 23
+          },
+          "viewportPlacementBounds": {
+            "x": 69,
+            "y": 200,
+            "width": 28,
+            "height": 23
+          },
+          "viewportAnchor": {
+            "mode": "bottom-center",
+            "x": 83,
+            "y": 223
+          },
+          "promptSource": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt"
+        },
         {
           "viewId": "continuous-need-disclosed",
           "stateId": "need-disclosed",
@@ -1780,6 +2112,7 @@
         "height": 23
       },
       "stateIds": [
+        "pre-disclosure",
         "need-disclosed",
         "mix-feedback",
         "route-pending"
@@ -1813,6 +2146,22 @@
         "order": 20
       },
       "stateVariants": [
+        {
+          "stateId": "pre-disclosure",
+          "sourceViewId": "continuous-pre-disclosure",
+          "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+          "viewportPlacementBounds": {
+            "x": 69,
+            "y": 200,
+            "width": 28,
+            "height": 23
+          },
+          "viewportAnchor": {
+            "mode": "bottom-center",
+            "x": 83,
+            "y": 223
+          }
+        },
         {
           "stateId": "need-disclosed",
           "sourceViewId": "continuous-need-disclosed",
@@ -1873,16 +2222,39 @@
         ],
         "timing": "context action"
       },
-      "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-need-disclosed].nativePaintoverPrompt",
+      "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt",
       "extractionStrategy": "Reconstruct after scene approval using the declared runtime geometry; the full-screen proposed target is not an isolated or production asset."
     },
     {
       "id": "courier",
       "label": "Courier silhouette, satchel, and carry poses",
       "category": "actor",
-      "sourceViewId": "continuous-need-disclosed",
-      "sourceViewSha256": "b7356abc5ce7a15217b18db239cf309b4c553c53c4aa202844f40a3a70a446d7",
+      "sourceViewId": "continuous-pre-disclosure",
+      "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
       "sourceViews": [
+        {
+          "viewId": "continuous-pre-disclosure",
+          "stateId": "pre-disclosure",
+          "viewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+          "tightSourceBounds": {
+            "x": 117,
+            "y": 116,
+            "width": 27,
+            "height": 49
+          },
+          "viewportPlacementBounds": {
+            "x": 117,
+            "y": 116,
+            "width": 27,
+            "height": 49
+          },
+          "viewportAnchor": {
+            "mode": "bottom-center",
+            "x": 130,
+            "y": 165
+          },
+          "promptSource": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt"
+        },
         {
           "viewId": "continuous-need-disclosed",
           "stateId": "need-disclosed",
@@ -2081,6 +2453,7 @@
         "height": 49
       },
       "stateIds": [
+        "pre-disclosure",
         "need-disclosed",
         "mix-feedback",
         "route-pending",
@@ -2119,6 +2492,22 @@
         "order": 40
       },
       "stateVariants": [
+        {
+          "stateId": "pre-disclosure",
+          "sourceViewId": "continuous-pre-disclosure",
+          "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+          "viewportPlacementBounds": {
+            "x": 117,
+            "y": 116,
+            "width": 27,
+            "height": 49
+          },
+          "viewportAnchor": {
+            "mode": "bottom-center",
+            "x": 130,
+            "y": 165
+          }
+        },
         {
           "stateId": "need-disclosed",
           "sourceViewId": "continuous-need-disclosed",
@@ -2253,6 +2642,7 @@
         "required": true,
         "beats": [
           "four-direction idle/walk",
+          "talk",
           "carry idle/walk",
           "interact",
           "gust brace",
@@ -2260,16 +2650,39 @@
         ],
         "timing": "player movement and causal transitions"
       },
-      "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-need-disclosed].nativePaintoverPrompt",
+      "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt",
       "extractionStrategy": "Reconstruct after scene approval using the declared runtime geometry; the full-screen proposed target is not an isolated or production asset."
     },
     {
       "id": "partner",
       "label": "Brew-yard partner",
       "category": "actor",
-      "sourceViewId": "continuous-route-pending",
-      "sourceViewSha256": "92c31af3c13f2872853d5e1fa773120a40bbe385805a8cd55cf0190a41556520",
+      "sourceViewId": "continuous-pre-disclosure",
+      "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
       "sourceViews": [
+        {
+          "viewId": "continuous-pre-disclosure",
+          "stateId": "pre-disclosure",
+          "viewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+          "tightSourceBounds": {
+            "x": 91,
+            "y": 105,
+            "width": 30,
+            "height": 50
+          },
+          "viewportPlacementBounds": {
+            "x": 91,
+            "y": 105,
+            "width": 30,
+            "height": 50
+          },
+          "viewportAnchor": {
+            "mode": "bottom-center",
+            "x": 106,
+            "y": 155
+          },
+          "promptSource": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt"
+        },
         {
           "viewId": "continuous-route-pending",
           "stateId": "route-pending",
@@ -2468,6 +2881,7 @@
         "height": 50
       },
       "stateIds": [
+        "pre-disclosure",
         "route-pending",
         "need-disclosed",
         "mix-feedback",
@@ -2506,6 +2920,22 @@
         "order": 39
       },
       "stateVariants": [
+        {
+          "stateId": "pre-disclosure",
+          "sourceViewId": "continuous-pre-disclosure",
+          "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+          "viewportPlacementBounds": {
+            "x": 91,
+            "y": 105,
+            "width": 30,
+            "height": 50
+          },
+          "viewportAnchor": {
+            "mode": "bottom-center",
+            "x": 106,
+            "y": 155
+          }
+        },
         {
           "stateId": "route-pending",
           "sourceViewId": "continuous-route-pending",
@@ -2644,16 +3074,39 @@
         ],
         "timing": "ambient and disclosure"
       },
-      "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-route-pending].nativePaintoverPrompt",
+      "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt",
       "extractionStrategy": "Reconstruct after scene approval using the declared runtime geometry; the full-screen proposed target is not an isolated or production asset."
     },
     {
       "id": "mira",
       "label": "Mira recipient and reaction poses",
       "category": "actor",
-      "sourceViewId": "continuous-need-disclosed",
-      "sourceViewSha256": "b7356abc5ce7a15217b18db239cf309b4c553c53c4aa202844f40a3a70a446d7",
+      "sourceViewId": "continuous-pre-disclosure",
+      "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
       "sourceViews": [
+        {
+          "viewId": "continuous-pre-disclosure",
+          "stateId": "pre-disclosure",
+          "viewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+          "tightSourceBounds": {
+            "x": 388,
+            "y": 101,
+            "width": 34,
+            "height": 55
+          },
+          "viewportPlacementBounds": {
+            "x": 388,
+            "y": 101,
+            "width": 34,
+            "height": 55
+          },
+          "viewportAnchor": {
+            "mode": "bottom-center",
+            "x": 405,
+            "y": 156
+          },
+          "promptSource": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt"
+        },
         {
           "viewId": "continuous-need-disclosed",
           "stateId": "need-disclosed",
@@ -2852,6 +3305,7 @@
         "height": 55
       },
       "stateIds": [
+        "pre-disclosure",
         "need-disclosed",
         "mix-feedback",
         "route-pending",
@@ -2890,6 +3344,22 @@
         "order": 41
       },
       "stateVariants": [
+        {
+          "stateId": "pre-disclosure",
+          "sourceViewId": "continuous-pre-disclosure",
+          "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+          "viewportPlacementBounds": {
+            "x": 388,
+            "y": 101,
+            "width": 34,
+            "height": 55
+          },
+          "viewportAnchor": {
+            "mode": "bottom-center",
+            "x": 405,
+            "y": 156
+          }
+        },
         {
           "stateId": "need-disclosed",
           "sourceViewId": "continuous-need-disclosed",
@@ -3031,7 +3501,7 @@
         ],
         "timing": "handoff precedes reaction copy"
       },
-      "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-need-disclosed].nativePaintoverPrompt",
+      "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt",
       "extractionStrategy": "Reconstruct after scene approval using the declared runtime geometry; the full-screen proposed target is not an isolated or production asset."
     },
     {
@@ -3304,9 +3774,32 @@
       "id": "gust-sign",
       "label": "Physical Gust route sign",
       "category": "interface-world",
-      "sourceViewId": "continuous-route-pending",
-      "sourceViewSha256": "92c31af3c13f2872853d5e1fa773120a40bbe385805a8cd55cf0190a41556520",
+      "sourceViewId": "continuous-pre-disclosure",
+      "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
       "sourceViews": [
+        {
+          "viewId": "continuous-pre-disclosure",
+          "stateId": "pre-disclosure",
+          "viewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+          "tightSourceBounds": {
+            "x": 188,
+            "y": 67,
+            "width": 42,
+            "height": 33
+          },
+          "viewportPlacementBounds": {
+            "x": 188,
+            "y": 67,
+            "width": 42,
+            "height": 33
+          },
+          "viewportAnchor": {
+            "mode": "bottom-center",
+            "x": 209,
+            "y": 100
+          },
+          "promptSource": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt"
+        },
         {
           "viewId": "continuous-route-pending",
           "stateId": "route-pending",
@@ -3505,6 +3998,7 @@
         "height": 33
       },
       "stateIds": [
+        "pre-disclosure",
         "route-pending",
         "need-disclosed",
         "mix-feedback",
@@ -3544,6 +4038,22 @@
       },
       "stateVariants": [
         {
+          "stateId": "pre-disclosure",
+          "sourceViewId": "continuous-pre-disclosure",
+          "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+          "viewportPlacementBounds": {
+            "x": 188,
+            "y": 67,
+            "width": 42,
+            "height": 33
+          },
+          "viewportAnchor": {
+            "mode": "bottom-center",
+            "x": 209,
+            "y": 100
+          }
+        },
+        {
           "stateId": "route-pending",
           "sourceViewId": "continuous-route-pending",
           "sourceViewSha256": "92c31af3c13f2872853d5e1fa773120a40bbe385805a8cd55cf0190a41556520",
@@ -3680,16 +4190,39 @@
         "beats": [],
         "timing": "static identity"
       },
-      "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-route-pending].nativePaintoverPrompt",
+      "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt",
       "extractionStrategy": "Reconstruct after scene approval using the declared runtime geometry; the full-screen proposed target is not an isolated or production asset."
     },
     {
       "id": "shelter-sign",
       "label": "Physical Shelter route sign",
       "category": "interface-world",
-      "sourceViewId": "continuous-route-pending",
-      "sourceViewSha256": "92c31af3c13f2872853d5e1fa773120a40bbe385805a8cd55cf0190a41556520",
+      "sourceViewId": "continuous-pre-disclosure",
+      "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
       "sourceViews": [
+        {
+          "viewId": "continuous-pre-disclosure",
+          "stateId": "pre-disclosure",
+          "viewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+          "tightSourceBounds": {
+            "x": 208,
+            "y": 173,
+            "width": 56,
+            "height": 34
+          },
+          "viewportPlacementBounds": {
+            "x": 208,
+            "y": 173,
+            "width": 56,
+            "height": 34
+          },
+          "viewportAnchor": {
+            "mode": "bottom-center",
+            "x": 236,
+            "y": 207
+          },
+          "promptSource": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt"
+        },
         {
           "viewId": "continuous-route-pending",
           "stateId": "route-pending",
@@ -3888,6 +4421,7 @@
         "height": 34
       },
       "stateIds": [
+        "pre-disclosure",
         "route-pending",
         "need-disclosed",
         "mix-feedback",
@@ -3926,6 +4460,22 @@
         "order": 25
       },
       "stateVariants": [
+        {
+          "stateId": "pre-disclosure",
+          "sourceViewId": "continuous-pre-disclosure",
+          "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+          "viewportPlacementBounds": {
+            "x": 208,
+            "y": 173,
+            "width": 56,
+            "height": 34
+          },
+          "viewportAnchor": {
+            "mode": "bottom-center",
+            "x": 236,
+            "y": 207
+          }
+        },
         {
           "stateId": "route-pending",
           "sourceViewId": "continuous-route-pending",
@@ -4063,7 +4613,7 @@
         "beats": [],
         "timing": "static identity"
       },
-      "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-route-pending].nativePaintoverPrompt",
+      "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt",
       "extractionStrategy": "Reconstruct after scene approval using the declared runtime geometry; the full-screen proposed target is not an isolated or production asset."
     },
     {
@@ -4358,6 +4908,113 @@
       },
       "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-satisfied-delivery].nativePaintoverPrompt",
       "extractionStrategy": "Reconstruct after scene approval using the declared runtime geometry; the full-screen proposed target is not an isolated or production asset."
+    },
+    {
+      "id": "opening-status",
+      "label": "Pre-disclosure opening status surface",
+      "category": "interface",
+      "sourceViewId": "continuous-pre-disclosure",
+      "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+      "sourceViews": [
+        {
+          "viewId": "continuous-pre-disclosure",
+          "stateId": "pre-disclosure",
+          "viewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+          "tightSourceBounds": {
+            "x": 6,
+            "y": 3,
+            "width": 142,
+            "height": 65
+          },
+          "viewportPlacementBounds": {
+            "x": 6,
+            "y": 3,
+            "width": 142,
+            "height": 65
+          },
+          "viewportAnchor": {
+            "mode": "top-left",
+            "x": 6,
+            "y": 3
+          },
+          "promptSource": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt"
+        }
+      ],
+      "crop": {
+        "x": 6,
+        "y": 3,
+        "width": 142,
+        "height": 65
+      },
+      "placementBounds": {
+        "x": 6,
+        "y": 3,
+        "width": 142,
+        "height": 65
+      },
+      "stateIds": [
+        "pre-disclosure"
+      ],
+      "derivedFromSceneTargetSha256": "92c31af3c13f2872853d5e1fa773120a40bbe385805a8cd55cf0190a41556520",
+      "nativeRenderSize": {
+        "width": 142,
+        "height": 65
+      },
+      "runtimeGeometry": {
+        "method": "code-native-ui",
+        "frameSize": {
+          "width": 142,
+          "height": 65
+        },
+        "pivot": {
+          "mode": "top-left",
+          "x": 0,
+          "y": 0
+        },
+        "targetPlacementIsNotAssetSize": true,
+        "note": "Uses the established upper-left safe region without request or potion content."
+      },
+      "anchor": {
+        "mode": "top-left",
+        "x": 0,
+        "y": 0
+      },
+      "layer": {
+        "name": "request-status",
+        "order": 80
+      },
+      "stateVariants": [
+        {
+          "stateId": "pre-disclosure",
+          "sourceViewId": "continuous-pre-disclosure",
+          "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+          "viewportPlacementBounds": {
+            "x": 6,
+            "y": 3,
+            "width": 142,
+            "height": 65
+          },
+          "viewportAnchor": {
+            "mode": "top-left",
+            "x": 6,
+            "y": 3
+          }
+        }
+      ],
+      "typographyRoles": [
+        "body",
+        "caption"
+      ],
+      "animationNeed": {
+        "required": true,
+        "beats": [
+          "opening hold",
+          "withdraw on partner talk"
+        ],
+        "timing": "present only before disclosure"
+      },
+      "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt",
+      "extractionStrategy": "Build after scene approval as deterministic code-native UI using the declared measured bounds, type roles, and one-pixel structural geometry."
     },
     {
       "id": "request-status",
@@ -4743,7 +5400,7 @@
           "copy update",
           "followup transition"
         ],
-        "timing": "temporary compact reminder"
+        "timing": "temporary compact reminder after disclosure"
       },
       "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-route-pending].nativePaintoverPrompt",
       "extractionStrategy": "Build after scene approval as deterministic code-native UI using the declared measured bounds, type roles, and one-pixel structural geometry."
@@ -5525,9 +6182,32 @@
       "id": "world-action-cue",
       "label": "World-anchored context action cue",
       "category": "interface-world",
-      "sourceViewId": "continuous-need-disclosed",
-      "sourceViewSha256": "b7356abc5ce7a15217b18db239cf309b4c553c53c4aa202844f40a3a70a446d7",
+      "sourceViewId": "continuous-pre-disclosure",
+      "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
       "sourceViews": [
+        {
+          "viewId": "continuous-pre-disclosure",
+          "stateId": "pre-disclosure",
+          "viewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+          "tightSourceBounds": {
+            "x": 102,
+            "y": 82,
+            "width": 50,
+            "height": 19
+          },
+          "viewportPlacementBounds": {
+            "x": 102,
+            "y": 82,
+            "width": 50,
+            "height": 19
+          },
+          "viewportAnchor": {
+            "mode": "bottom-center",
+            "x": 127,
+            "y": 101
+          },
+          "promptSource": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt"
+        },
         {
           "viewId": "continuous-need-disclosed",
           "stateId": "need-disclosed",
@@ -5599,44 +6279,45 @@
         }
       ],
       "crop": {
-        "x": 104,
-        "y": 170,
-        "width": 46,
+        "x": 102,
+        "y": 82,
+        "width": 50,
         "height": 19
       },
       "placementBounds": {
-        "x": 104,
-        "y": 170,
-        "width": 46,
+        "x": 102,
+        "y": 82,
+        "width": 50,
         "height": 19
       },
       "stateIds": [
+        "pre-disclosure",
         "need-disclosed",
         "mix-feedback",
         "followup-selection"
       ],
       "derivedFromSceneTargetSha256": "92c31af3c13f2872853d5e1fa773120a40bbe385805a8cd55cf0190a41556520",
       "nativeRenderSize": {
-        "width": 46,
+        "width": 50,
         "height": 19
       },
       "runtimeGeometry": {
         "method": "code-native-nine-slice-ui",
         "frameSize": {
-          "width": 46,
+          "width": 50,
           "height": 19
         },
         "pivot": {
           "mode": "bottom-center",
-          "x": 23,
+          "x": 25,
           "y": 18
         },
         "targetPlacementIsNotAssetSize": true,
-        "note": "46x19 is the maximum footprint; E GO contracts to 38x19."
+        "note": "50x19 is the maximum footprint for E TALK; E ADD and E GO contract with preserved corners."
       },
       "anchor": {
         "mode": "bottom-center",
-        "x": 23,
+        "x": 25,
         "y": 18
       },
       "layer": {
@@ -5644,6 +6325,22 @@
         "order": 46
       },
       "stateVariants": [
+        {
+          "stateId": "pre-disclosure",
+          "sourceViewId": "continuous-pre-disclosure",
+          "sourceViewSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+          "viewportPlacementBounds": {
+            "x": 102,
+            "y": 82,
+            "width": 50,
+            "height": 19
+          },
+          "viewportAnchor": {
+            "mode": "bottom-center",
+            "x": 127,
+            "y": 101
+          }
+        },
         {
           "stateId": "need-disclosed",
           "sourceViewId": "continuous-need-disclosed",
@@ -5705,7 +6402,7 @@
         ],
         "timing": "context proximity"
       },
-      "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-need-disclosed].nativePaintoverPrompt",
+      "sourcePromptPointer": "$.candidates[id=continuous-causal-village].views[id=continuous-pre-disclosure].nativePaintoverPrompt",
       "extractionStrategy": "Build after scene approval as deterministic code-native UI using the declared measured bounds, type roles, and one-pixel structural geometry."
     },
     {
@@ -6294,6 +6991,7 @@
           "id": "playfield",
           "label": "World-dominant continuous playfield",
           "stateIds": [
+            "pre-disclosure",
             "need-disclosed",
             "mix-feedback",
             "route-pending",
@@ -6323,8 +7021,9 @@
         },
         {
           "id": "request-status",
-          "label": "Compact request reminder",
+          "label": "Compact opening or request reminder",
           "stateIds": [
+            "pre-disclosure",
             "need-disclosed",
             "mix-feedback",
             "route-pending",
@@ -6414,8 +7113,9 @@
         },
         {
           "id": "brew-context",
-          "label": "World-anchored brew action cue",
+          "label": "World-anchored brew-yard interaction context",
           "stateIds": [
+            "pre-disclosure",
             "need-disclosed",
             "mix-feedback"
           ],
@@ -6487,9 +7187,46 @@
         "Request and carried status remain at opposite upper corners and never compete for the fork or destination.",
         "Lower feedback is temporary, limited to one or two short lines, and cannot become a persistent log.",
         "Both route counterfactuals remain simultaneously visible until movement commits the courier to one physical path.",
-        "Follow-up destinations remain physical pennants selected by movement and context action, never cards or modal buttons."
+        "Follow-up destinations remain physical pennants selected by movement and context action, never cards or modal buttons.",
+        "Before partner interaction, the upper-left safe region contains only opening guidance and E TALK remains world-anchored beside the partner; request, potion quantities, ingredient instructions, bottle, and carried status are absent."
       ],
       "protectedGeometryByView": [
+        {
+          "viewId": "continuous-pre-disclosure",
+          "stateId": "pre-disclosure",
+          "items": [
+            {
+              "id": "courier",
+              "kind": "actor",
+              "rect": {
+                "x": 117,
+                "y": 116,
+                "width": 27,
+                "height": 49
+              }
+            },
+            {
+              "id": "partner",
+              "kind": "actor",
+              "rect": {
+                "x": 91,
+                "y": 105,
+                "width": 30,
+                "height": 50
+              }
+            },
+            {
+              "id": "cauldron",
+              "kind": "landmark",
+              "rect": {
+                "x": 45,
+                "y": 86,
+                "width": 48,
+                "height": 53
+              }
+            }
+          ]
+        },
         {
           "viewId": "continuous-need-disclosed",
           "stateId": "need-disclosed",
@@ -6760,6 +7497,30 @@
         }
       ],
       "uiRectanglesByView": [
+        {
+          "viewId": "continuous-pre-disclosure",
+          "stateId": "pre-disclosure",
+          "items": [
+            {
+              "role": "opening-status",
+              "rect": {
+                "x": 6,
+                "y": 3,
+                "width": 142,
+                "height": 65
+              }
+            },
+            {
+              "role": "world-action",
+              "rect": {
+                "x": 102,
+                "y": 82,
+                "width": 50,
+                "height": 19
+              }
+            }
+          ]
+        },
         {
           "viewId": "continuous-route-pending",
           "stateId": "route-pending",
@@ -7087,6 +7848,7 @@
           "label": "Inhabited village continuity",
           "kind": "ambient",
           "stateIds": [
+            "pre-disclosure",
             "need-disclosed",
             "mix-feedback",
             "route-pending",
@@ -7098,6 +7860,19 @@
           ],
           "trigger": "Scene is active between player actions.",
           "visibleResponse": "Cauldron simmers when available, characters breathe with offset phases, and vane, pennants, and awning preview route conditions without synchronized decorative noise."
+        },
+        {
+          "id": "partner-disclosure",
+          "label": "Partner discloses the first request",
+          "kind": "interaction",
+          "stateIds": [
+            "pre-disclosure",
+            "need-disclosed"
+          ],
+          "trigger": "The empty-handed courier reaches the partner and uses E TALK.",
+          "visibleResponse": "The partner gives a short disclosure gesture, the MORNING ROUND surface resolves into Mira's request, ingredient cues activate, and no bottle appears.",
+          "startViewId": "continuous-pre-disclosure",
+          "endViewId": "continuous-need-disclosed"
         },
         {
           "id": "ingredient-add",
@@ -7200,6 +7975,25 @@
       ]
     },
     "states": [
+      {
+        "id": "pre-disclosure",
+        "viewId": "continuous-pre-disclosure",
+        "playerQuestion": "Who should I speak to before the delivery begins?",
+        "primaryAction": "Move to the brew-yard partner and use E TALK.",
+        "essentialInformation": [
+          "The partner is the disclosure affordance",
+          "The request has not been disclosed",
+          "The courier is empty-handed"
+        ],
+        "actors": [
+          "courier",
+          "partner",
+          "Mira",
+          "cauldron",
+          "future route landmarks"
+        ],
+        "persistentContext": "The navigable village, both future routes, and Mira are visible before any request or bottle exists."
+      },
       {
         "id": "need-disclosed",
         "viewId": "continuous-need-disclosed",
@@ -7350,6 +8144,18 @@
       "basisClassification": "derived-whole-screen-scene-basis; proposed target input only; not an isolated or production asset",
       "dynamicPatchesByView": [
         {
+          "viewId": "continuous-pre-disclosure",
+          "stateId": "pre-disclosure",
+          "allowedCausalBounds": [
+            {
+              "x": 85,
+              "y": 96,
+              "width": 67,
+              "height": 74
+            }
+          ]
+        },
+        {
           "viewId": "continuous-need-disclosed",
           "stateId": "need-disclosed",
           "allowedCausalBounds": [
@@ -7450,23 +8256,17 @@
     }
   },
   "approval": {
-    "status": "needs-revision",
-    "reviewer": "pending-scene-target-gate",
+    "status": "approved",
+    "reviewer": "scene-target-gate",
     "selectedTargetId": "continuous-causal-village",
     "selectedPrimaryViewId": "continuous-route-pending",
     "selectedPrimaryViewSha256": "92c31af3c13f2872853d5e1fa773120a40bbe385805a8cd55cf0190a41556520",
-    "selectedCandidateSha256": "d672e1290db226ba7445c80e693f1001f8f7602494515c08b434655a7b16365e",
+    "selectedCandidateSha256": "51c19ca13d41ec2df548e9d832daaafd613483883899508a62b127db1bdafd9f",
     "selectedTargetSha256": "92c31af3c13f2872853d5e1fa773120a40bbe385805a8cd55cf0190a41556520",
     "findings": [
-      "Proposed selection remains continuous-causal-village because both embodied route counterfactuals and the recipient remain attributable in one fixed view.",
-      "All eight selected views share one persistent world basis, admit only declared causal patches, and have exact native plus integer-3x review presentations.",
-      "Follow-up need tags flank protected geometry; the courier, both physical pennants, selection differentiation, E GO cue, and walking corridor remain simultaneously visible.",
-      "Every component separates tight per-state target placement from expected runtime frame size and uses a pivot that exactly matches its declared top-left, center, or bottom-center semantics.",
-      "Authoritative contract identity and all component lineage use the selected primary-view SHA-256; a separate complete-target fingerprint covers all required view hashes, prompt identities, experience rules, native geometry, and the component map.",
-      "All eight component overlays are rebuilt from declared viewport anchors and checked for exact placement reconstruction, clipping, protected-geometry intersections, and off-viewport bounds.",
-      "Generated scenes and native paintovers remain proposed whole-screen targets only; component.production is absent and no production asset claim is made.",
-      "Approval remains pending scene-target-gate review."
-    ]
+      "{\"selectedTargetId\":\"continuous-causal-village\",\"selectedTargetSha256\":\"92c31af3c13f2872853d5e1fa773120a40bbe385805a8cd55cf0190a41556520\",\"hypothesis\":\"A partner-anchored E TALK cue and non-disclosing opening status make the first interaction legible without weakening the continuous-world causal loop.\",\"blockers\":[],\"opportunities\":[{\"classification\":\"opportunity\",\"id\":\"runtime-regression-evidence\",\"affectedState\":\"all nine selected states\",\"evidence\":\"The target is intentionally unintegrated; preserved target-linked motion and runtime captures are therefore not yet present.\",\"playerImpact\":\"None at this scene-approval gate, but later implementation drift could weaken causality or hierarchy.\",\"smallestCoherentNextStep\":\"After integration, capture first-session and returning-player sequences at 480x270 and integer 3x with the approved target hash recorded.\",\"regressionEvidence\":\"Interaction traces plus ordered engine captures covering disclosure, brew commit, both route consequences, both reactions, and follow-up selection.\"},{\"classification\":\"opportunity\",\"id\":\"production-type-and-actor-scale\",\"affectedState\":\"all states\",\"evidence\":\"Actors sit near the lower acceptable silhouette bound, and Segoe UI is explicitly a preview font only.\",\"playerImpact\":\"A poorly matched production font or smaller runtime actors could reduce readability.\",\"smallestCoherentNextStep\":\"Preserve the declared 24x32 actor frames and measured 11–12px typography bounds using a bundled license-compatible humanist sans.\",\"regressionEvidence\":\"Native and 3x captures confirming silhouette recognition, zero clipped copy, and at least 4.5:1 contrast.\"}],\"evidence\":{\"directionSelection\":\"The selected fixed-camera village keeps the brew yard, both route counterfactuals, courier, and Mira simultaneously attributable. The alternate closer direction improves actor scale but visually segments navigation around its central building.\",\"stateCoverage\":\"Nine whole-screen variants cover pre-disclosure, need, mixing feedback, route commitment, both route consequences, exact and imperfect handoffs, recovery, and the next embodied choice.\",\"opening\":\"The repaired opening shows only Morning round, Talk to your partner, and partner-anchored E TALK; request values, ingredient instructions, bottle, and carried status are withheld.\",\"layoutAndTypography\":\"All declared UI occupies intentional quiet or world-anchored regions; validation reports nine checked views, zero protected-geometry intersections, 30 measured text surfaces, zero clipping, and 11.5 minimum contrast.\",\"motion\":\"The plan links ambient continuity, disclosure, ingredient response, bottle production, route effects, handoff reactions, and follow-up activation to gameplay state rather than decorative quotas.\",\"decomposition\":\"The manifest defines 25 components with per-state bounds, native sizes, pivots, layers, typography roles, animation needs, and exact source-view lineage; nine overlays reconstruct all placements exactly.\",\"engineGrounding\":\"The current Godot graybox uses the same 480x270 viewport and implements partner disclosure, distinguishable Ember/Moss brewing, movement-selected exposed/sheltered routes, state-derived delivery reactions, and movement-based follow-up choices. No production-runtime fidelity claim is made.\",\"integrity\":\"All native, reference, and 3x view hashes independently matched their declared SHA-256 values; the authoritative parser and complete-target fingerprint checks pass.\"}}"
+    ],
+    "approvedAt": "2026-08-19T09:15:03.0223636-04:00"
   },
   "metadata": {
     "maturity": "proposed-target",
@@ -7476,6 +8276,18 @@
     "hypothesis": "A single world-first 480x270 village with compact edge UI can keep brewing, route choice, potion mutation, recipient reaction, and the next choice causally reconstructable without collapsing play into panels.",
     "selectionReason": "The selected direction keeps the brew yard, both physical route alternatives, the courier, and Mira simultaneously attributable. The closer comparison improves actor scale but the central building compresses the counterfactual-route read and makes the village feel more like connected pockets.",
     "stateInventory": [
+      {
+        "state": "pre-disclosure",
+        "playerQuestion": "Who should I speak to before the delivery begins?",
+        "primaryAction": "Walk to the brew-yard partner and use E TALK.",
+        "essentialInformation": "The partner is ready to disclose the job; no request, potion value, ingredient instruction, bottle, or carried state is shown.",
+        "actors": [
+          "courier",
+          "partner",
+          "Mira"
+        ],
+        "persistentContext": "Brew yard, cauldron, fork, both future routes, and destination share the unchanged viewport."
+      },
       {
         "state": "need-disclosed",
         "playerQuestion": "What does Mira need, and which ingredient should I add?",
@@ -7579,9 +8391,9 @@
         "decision": "selected-for-review",
         "hierarchy": "Pass: the inhabited playfield dominates and edge UI remains subordinate.",
         "scale": "Concern: courier and supporting actors are readable at native scale but close to the lower acceptable silhouette bound.",
-        "legibility": "Pass for proposal: 26 selected-state reading surfaces use declared 11-12px roles with measured contrast and zero clipping in native captures.",
+        "legibility": "Pass for proposal: 28 selected-state reading surfaces use declared 11-12px roles with measured contrast and zero clipping in native captures.",
         "controls": "Pass: one context glyph and direct route movement; no modal route controls.",
-        "stateComprehension": "Pass: need, brew, both route consequences, arrived state, distinct reactions, and follow-up can be reconstructed across the sequence.",
+        "stateComprehension": "Pass for proposal: the partner-targeted opening interaction precedes request disclosure; need, brew, both route consequences, arrived state, distinct reactions, and follow-up remain reconstructable across the preserved sequence.",
         "engineFeasibility": "Pass: fixed camera, tile rhythm, sprite-scale actors, code-native text, compact overlays, and modular state effects are feasible in Godot.",
         "actorUiBalance": "Pass: status occupies quiet roof/sky and reaction copy waits for physical acting.",
         "overlaps": "Pass for proposal: measured UI rectangles have zero intersections with protected actor, landmark, and movement-corridor geometry; playfield overlap is not treated as blanket permission."
@@ -7600,6 +8412,11 @@
       }
     ],
     "selectedViewReviews": [
+      {
+        "viewId": "continuous-pre-disclosure",
+        "result": "proposed-after-native-repair",
+        "finding": "The empty-handed courier and partner share the brew yard before disclosure; MORNING ROUND uses the existing text-safe region, E TALK points to the partner, and request, potion values, ingredient instructions, bottle, and carried status are absent."
+      },
       {
         "viewId": "continuous-route-pending",
         "result": "proposed-after-native-repair",
@@ -7699,7 +8516,7 @@
         "height": 270
       },
       "nonIntegerReduction": true,
-      "repair": "The generated sources now serve only as complete-scene composition references. Every selected state starts from one persistent 480x270 world basis, then admits only declared causal actor/effect patches and measured UI; 3x review files are exact nearest-neighbor presentations."
+      "repair": "The generated sources serve only as complete-scene composition references. Every selected state, including the deterministic pre-disclosure repair, starts from one persistent 480x270 world basis, then admits only declared causal actor/effect patches and measured UI; 3x review files are exact nearest-neighbor presentations."
     },
     "upstreamEvidence": [
       "evidence/runs/first-session/captures/01-need_disclosed.png",
@@ -7712,12 +8529,18 @@
     "limitations": [
       "Deterministic engine captures prove causal execution, not human comprehension or fun.",
       "These files are proposed whole-screen targets and native geometry specifications, not running Godot captures or production assets.",
+      "The repaired pre-disclosure state is whole-screen target evidence only; this bounded repair does not alter or recapture Godot runtime behavior.",
       "The generated village imagery remains a composition reference; downstream art must be reconstructed at native or declared integer scale after approval.",
       "Segoe UI is used only to measure and demonstrate the humanist typography role in these target files; production integration must bundle a license-compatible matched font.",
       "No isolated, extracted, engine-ready, or production component exists before scene-target approval."
     ],
     "nativeSpecBuilder": "design/scene-targets/build_native_targets.py",
     "referenceViews": [
+      {
+        "path": "design/scene-targets/reference-views/continuous-pre-disclosure.png",
+        "sha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+        "classification": "deterministic-derived-whole-screen-repair-reference"
+      },
       {
         "path": "design/scene-targets/reference-views/continuous-route-pending.png",
         "sha256": "55c5f9dd7a7a4fa150acdb5d303ed6290842133bd34231b416ccb14d387d8da2",
@@ -7765,16 +8588,355 @@
       }
     ],
     "revision": {
-      "version": "1.2.1",
-      "hypothesis": "The accepted fixed-camera direction remains decomposable when authoritative primary-view identity, semantically exact pivots, and anchor-reconstructed placement evidence are enforced without reopening its camera or topology.",
+      "version": "1.3.0",
+      "hypothesis": "A world-anchored partner talk cue plus non-disclosing opening status can make the first required interaction spatially legible without changing the selected fixed-camera village, revealing the request early, or weakening the existing causal sequence.",
       "scope": [
-        "authoritative-primary-view-identity",
-        "semantic-runtime-pivots",
-        "authoritative-parser-validation",
-        "anchor-derived-overlay-regression"
+        "pre-disclosure-opening-state",
+        "partner-disclosure-affordance",
+        "opening-to-need-continuity",
+        "state-and-component-contract-coverage"
       ]
     },
     "componentBoundEvidence": [
+      {
+        "viewId": "continuous-pre-disclosure",
+        "path": "design/scene-targets/component-overlays/continuous-pre-disclosure.png",
+        "sha256": "138a23acc689988a4e6c8a2a9ef940bd7f5107ffcb7580d232e3eb2c5d19190a",
+        "review3xPath": "design/scene-targets/component-overlays-3x/continuous-pre-disclosure.png",
+        "review3xSha256": "0dcdadf37bf5cd115eb48cbba60b9d8f2349951e86b84aa51ba2f7d60b721c96",
+        "components": [
+          {
+            "componentId": "village-environment",
+            "viewportPlacementBounds": {
+              "x": 0,
+              "y": 0,
+              "width": 480,
+              "height": 270
+            },
+            "viewportAnchor": {
+              "mode": "top-left",
+              "x": 0,
+              "y": 0
+            },
+            "placementReconstructedFromViewportAnchor": {
+              "x": 0,
+              "y": 0,
+              "width": 480,
+              "height": 270
+            },
+            "placementReconstructionExact": true,
+            "nativeRenderSize": {
+              "width": 480,
+              "height": 270
+            },
+            "runtimePivot": {
+              "mode": "top-left",
+              "x": 0,
+              "y": 0
+            }
+          },
+          {
+            "componentId": "cauldron",
+            "viewportPlacementBounds": {
+              "x": 45,
+              "y": 86,
+              "width": 48,
+              "height": 53
+            },
+            "viewportAnchor": {
+              "mode": "bottom-center",
+              "x": 69,
+              "y": 139
+            },
+            "placementReconstructedFromViewportAnchor": {
+              "x": 45,
+              "y": 86,
+              "width": 48,
+              "height": 53
+            },
+            "placementReconstructionExact": true,
+            "nativeRenderSize": {
+              "width": 32,
+              "height": 32
+            },
+            "runtimePivot": {
+              "mode": "bottom-center",
+              "x": 16,
+              "y": 31
+            }
+          },
+          {
+            "componentId": "ember-ingredient",
+            "viewportPlacementBounds": {
+              "x": 59,
+              "y": 180,
+              "width": 25,
+              "height": 21
+            },
+            "viewportAnchor": {
+              "mode": "bottom-center",
+              "x": 71,
+              "y": 201
+            },
+            "placementReconstructedFromViewportAnchor": {
+              "x": 59,
+              "y": 180,
+              "width": 25,
+              "height": 21
+            },
+            "placementReconstructionExact": true,
+            "nativeRenderSize": {
+              "width": 16,
+              "height": 16
+            },
+            "runtimePivot": {
+              "mode": "bottom-center",
+              "x": 8,
+              "y": 15
+            }
+          },
+          {
+            "componentId": "moss-ingredient",
+            "viewportPlacementBounds": {
+              "x": 69,
+              "y": 200,
+              "width": 28,
+              "height": 23
+            },
+            "viewportAnchor": {
+              "mode": "bottom-center",
+              "x": 83,
+              "y": 223
+            },
+            "placementReconstructedFromViewportAnchor": {
+              "x": 69,
+              "y": 200,
+              "width": 28,
+              "height": 23
+            },
+            "placementReconstructionExact": true,
+            "nativeRenderSize": {
+              "width": 16,
+              "height": 16
+            },
+            "runtimePivot": {
+              "mode": "bottom-center",
+              "x": 8,
+              "y": 15
+            }
+          },
+          {
+            "componentId": "courier",
+            "viewportPlacementBounds": {
+              "x": 117,
+              "y": 116,
+              "width": 27,
+              "height": 49
+            },
+            "viewportAnchor": {
+              "mode": "bottom-center",
+              "x": 130,
+              "y": 165
+            },
+            "placementReconstructedFromViewportAnchor": {
+              "x": 117,
+              "y": 116,
+              "width": 27,
+              "height": 49
+            },
+            "placementReconstructionExact": true,
+            "nativeRenderSize": {
+              "width": 24,
+              "height": 32
+            },
+            "runtimePivot": {
+              "mode": "bottom-center",
+              "x": 12,
+              "y": 31
+            }
+          },
+          {
+            "componentId": "partner",
+            "viewportPlacementBounds": {
+              "x": 91,
+              "y": 105,
+              "width": 30,
+              "height": 50
+            },
+            "viewportAnchor": {
+              "mode": "bottom-center",
+              "x": 106,
+              "y": 155
+            },
+            "placementReconstructedFromViewportAnchor": {
+              "x": 91,
+              "y": 105,
+              "width": 30,
+              "height": 50
+            },
+            "placementReconstructionExact": true,
+            "nativeRenderSize": {
+              "width": 24,
+              "height": 32
+            },
+            "runtimePivot": {
+              "mode": "bottom-center",
+              "x": 12,
+              "y": 31
+            }
+          },
+          {
+            "componentId": "mira",
+            "viewportPlacementBounds": {
+              "x": 388,
+              "y": 101,
+              "width": 34,
+              "height": 55
+            },
+            "viewportAnchor": {
+              "mode": "bottom-center",
+              "x": 405,
+              "y": 156
+            },
+            "placementReconstructedFromViewportAnchor": {
+              "x": 388,
+              "y": 101,
+              "width": 34,
+              "height": 55
+            },
+            "placementReconstructionExact": true,
+            "nativeRenderSize": {
+              "width": 24,
+              "height": 32
+            },
+            "runtimePivot": {
+              "mode": "bottom-center",
+              "x": 12,
+              "y": 31
+            }
+          },
+          {
+            "componentId": "gust-sign",
+            "viewportPlacementBounds": {
+              "x": 188,
+              "y": 67,
+              "width": 42,
+              "height": 33
+            },
+            "viewportAnchor": {
+              "mode": "bottom-center",
+              "x": 209,
+              "y": 100
+            },
+            "placementReconstructedFromViewportAnchor": {
+              "x": 188,
+              "y": 67,
+              "width": 42,
+              "height": 33
+            },
+            "placementReconstructionExact": true,
+            "nativeRenderSize": {
+              "width": 32,
+              "height": 16
+            },
+            "runtimePivot": {
+              "mode": "bottom-center",
+              "x": 16,
+              "y": 15
+            }
+          },
+          {
+            "componentId": "shelter-sign",
+            "viewportPlacementBounds": {
+              "x": 208,
+              "y": 173,
+              "width": 56,
+              "height": 34
+            },
+            "viewportAnchor": {
+              "mode": "bottom-center",
+              "x": 236,
+              "y": 207
+            },
+            "placementReconstructedFromViewportAnchor": {
+              "x": 208,
+              "y": 173,
+              "width": 56,
+              "height": 34
+            },
+            "placementReconstructionExact": true,
+            "nativeRenderSize": {
+              "width": 48,
+              "height": 16
+            },
+            "runtimePivot": {
+              "mode": "bottom-center",
+              "x": 24,
+              "y": 15
+            }
+          },
+          {
+            "componentId": "opening-status",
+            "viewportPlacementBounds": {
+              "x": 6,
+              "y": 3,
+              "width": 142,
+              "height": 65
+            },
+            "viewportAnchor": {
+              "mode": "top-left",
+              "x": 6,
+              "y": 3
+            },
+            "placementReconstructedFromViewportAnchor": {
+              "x": 6,
+              "y": 3,
+              "width": 142,
+              "height": 65
+            },
+            "placementReconstructionExact": true,
+            "nativeRenderSize": {
+              "width": 142,
+              "height": 65
+            },
+            "runtimePivot": {
+              "mode": "top-left",
+              "x": 0,
+              "y": 0
+            }
+          },
+          {
+            "componentId": "world-action-cue",
+            "viewportPlacementBounds": {
+              "x": 102,
+              "y": 82,
+              "width": 50,
+              "height": 19
+            },
+            "viewportAnchor": {
+              "mode": "bottom-center",
+              "x": 127,
+              "y": 101
+            },
+            "placementReconstructedFromViewportAnchor": {
+              "x": 102,
+              "y": 82,
+              "width": 50,
+              "height": 19
+            },
+            "placementReconstructionExact": true,
+            "nativeRenderSize": {
+              "width": 50,
+              "height": 19
+            },
+            "runtimePivot": {
+              "mode": "bottom-center",
+              "x": 25,
+              "y": 18
+            }
+          }
+        ]
+      },
       {
         "viewId": "continuous-route-pending",
         "path": "design/scene-targets/component-overlays/continuous-route-pending.png",
@@ -8532,12 +9694,12 @@
             },
             "placementReconstructionExact": true,
             "nativeRenderSize": {
-              "width": 46,
+              "width": 50,
               "height": 19
             },
             "runtimePivot": {
               "mode": "bottom-center",
-              "x": 23,
+              "x": 25,
               "y": 18
             }
           }
@@ -8931,12 +10093,12 @@
             },
             "placementReconstructionExact": true,
             "nativeRenderSize": {
-              "width": 46,
+              "width": 50,
               "height": 19
             },
             "runtimePivot": {
               "mode": "bottom-center",
-              "x": 23,
+              "x": 25,
               "y": 18
             }
           }
@@ -10536,12 +11698,12 @@
             },
             "placementReconstructionExact": true,
             "nativeRenderSize": {
-              "width": 46,
+              "width": 50,
               "height": 19
             },
             "runtimePivot": {
               "mode": "bottom-center",
-              "x": 23,
+              "x": 25,
               "y": 18
             }
           },
@@ -10669,6 +11831,68 @@
       }
     ],
     "environmentContinuityEvidence": [
+      {
+        "startViewId": "continuous-pre-disclosure",
+        "endViewId": "continuous-need-disclosed",
+        "path": "design/scene-targets/continuity-masks/continuous-pre-disclosure--to--continuous-need-disclosed.png",
+        "sha256": "6bfd41dd8bf56332c70f1f7e9e1d756d82f40b73f66c939b9b69d0c288d70b27",
+        "unexpectedEnvironmentPixelChanges": 0,
+        "allowedCausalAndUiRectangles": [
+          {
+            "x": 85,
+            "y": 96,
+            "width": 67,
+            "height": 74
+          },
+          {
+            "x": 36,
+            "y": 82,
+            "width": 116,
+            "height": 150
+          },
+          {
+            "x": 6,
+            "y": 3,
+            "width": 144,
+            "height": 67
+          },
+          {
+            "x": 102,
+            "y": 82,
+            "width": 52,
+            "height": 21
+          },
+          {
+            "x": 6,
+            "y": 3,
+            "width": 144,
+            "height": 67
+          },
+          {
+            "x": 45,
+            "y": 168,
+            "width": 50,
+            "height": 20
+          },
+          {
+            "x": 47,
+            "y": 190,
+            "width": 43,
+            "height": 20
+          },
+          {
+            "x": 104,
+            "y": 170,
+            "width": 48,
+            "height": 21
+          }
+        ],
+        "legend": {
+          "unchangedEnvironment": "#1B1A24",
+          "excludedCausalOrUiRegion": "#2A3341",
+          "unexpectedEnvironmentChange": "#FF00FF"
+        }
+      },
       {
         "startViewId": "continuous-need-disclosed",
         "endViewId": "continuous-mix-feedback",
@@ -11189,6 +12413,6 @@
       "native geometry",
       "component map excluding its lineage field"
     ],
-    "sha256": "b5f820db9b72579404f1a09568e45bd202fc5e10ab4ee5310dd1bc266314ae45"
+    "sha256": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245"
   }
 }

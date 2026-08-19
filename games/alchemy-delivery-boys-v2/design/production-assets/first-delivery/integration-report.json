@@ -1,0 +1,929 @@
+{
+  "apiVersion": "gamefactory.integration-report/v1",
+  "status": "pass",
+  "specRevision": 1,
+  "sliceId": "first-delivery",
+  "targetHash": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+  "components": [
+    {
+      "id": "village-environment",
+      "method": "direct-authored-native-raster",
+      "output": "game/assets/production/first-delivery/environment/village-environment.png",
+      "outputSha256": "fd576abd5180e43530f3f26af7e28f2b32808a1e4725c2f154736f685f0db097",
+      "nativeSize": {
+        "width": 480,
+        "height": 270
+      },
+      "pivot": {
+        "mode": "top-left",
+        "x": 0,
+        "y": 0
+      },
+      "layer": {
+        "name": "environment",
+        "order": 0
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "states": [
+        "pre-disclosure",
+        "route-pending",
+        "need-disclosed",
+        "mix-feedback",
+        "exposed-conversion",
+        "sheltered-preservation",
+        "satisfied-delivery",
+        "imperfect-recovery",
+        "followup-selection"
+      ]
+    },
+    {
+      "id": "cauldron",
+      "method": "direct-authored-native-raster",
+      "output": "game/assets/production/first-delivery/interactables/cauldron.png",
+      "outputSha256": "c6ad3d390746780574efa8ae30c66af6608df5a29d98737515359819b223a9c5",
+      "nativeSize": {
+        "width": 32,
+        "height": 32
+      },
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 16,
+        "y": 31
+      },
+      "layer": {
+        "name": "environment-interactable",
+        "order": 20
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "states": [
+        "pre-disclosure",
+        "need-disclosed",
+        "mix-feedback",
+        "route-pending"
+      ]
+    },
+    {
+      "id": "ember-ingredient",
+      "method": "direct-authored-native-raster",
+      "output": "game/assets/production/first-delivery/interactables/ember-ingredient.png",
+      "outputSha256": "140e959cf209b9a0467737fc0826a7168f6bd6f02898871fa771cc345d73dcf5",
+      "nativeSize": {
+        "width": 16,
+        "height": 16
+      },
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 8,
+        "y": 15
+      },
+      "layer": {
+        "name": "environment-interactable",
+        "order": 20
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "states": [
+        "pre-disclosure",
+        "need-disclosed",
+        "mix-feedback",
+        "route-pending"
+      ]
+    },
+    {
+      "id": "moss-ingredient",
+      "method": "direct-authored-native-raster",
+      "output": "game/assets/production/first-delivery/interactables/moss-ingredient.png",
+      "outputSha256": "16b4a9102d1b7df8e2bdee9bffa8d1caa3d6bc2dcef962d9c8ea06221c198f6b",
+      "nativeSize": {
+        "width": 16,
+        "height": 16
+      },
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 8,
+        "y": 15
+      },
+      "layer": {
+        "name": "environment-interactable",
+        "order": 20
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "states": [
+        "pre-disclosure",
+        "need-disclosed",
+        "mix-feedback",
+        "route-pending"
+      ]
+    },
+    {
+      "id": "courier",
+      "method": "direct-authored-native-raster",
+      "output": "game/assets/production/first-delivery/characters/courier.png",
+      "outputSha256": "401b206a31c5b4df93d96b07e718bd3b24fcbf2ae32ba3bc33bcc902abac827f",
+      "nativeSize": {
+        "width": 24,
+        "height": 32
+      },
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 12,
+        "y": 31
+      },
+      "layer": {
+        "name": "courier",
+        "order": 40
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "states": [
+        "pre-disclosure",
+        "need-disclosed",
+        "mix-feedback",
+        "route-pending",
+        "exposed-conversion",
+        "sheltered-preservation",
+        "satisfied-delivery",
+        "imperfect-recovery",
+        "followup-selection"
+      ]
+    },
+    {
+      "id": "partner",
+      "method": "direct-authored-native-raster",
+      "output": "game/assets/production/first-delivery/characters/partner.png",
+      "outputSha256": "86ef7efdadf4245ce3cb1ba94d34247c45642f8f1dee207820c604443bffc780",
+      "nativeSize": {
+        "width": 24,
+        "height": 32
+      },
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 12,
+        "y": 31
+      },
+      "layer": {
+        "name": "supporting-actors",
+        "order": 39
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "states": [
+        "pre-disclosure",
+        "route-pending",
+        "need-disclosed",
+        "mix-feedback",
+        "exposed-conversion",
+        "sheltered-preservation",
+        "satisfied-delivery",
+        "imperfect-recovery",
+        "followup-selection"
+      ]
+    },
+    {
+      "id": "mira",
+      "method": "direct-authored-native-raster",
+      "output": "game/assets/production/first-delivery/characters/mira.png",
+      "outputSha256": "d73008a1a6c0908d75665df5eae91901bba9ff706633494125fe087ce8a6c0fb",
+      "nativeSize": {
+        "width": 24,
+        "height": 32
+      },
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 12,
+        "y": 31
+      },
+      "layer": {
+        "name": "recipient",
+        "order": 41
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "states": [
+        "pre-disclosure",
+        "need-disclosed",
+        "mix-feedback",
+        "route-pending",
+        "exposed-conversion",
+        "sheltered-preservation",
+        "satisfied-delivery",
+        "imperfect-recovery",
+        "followup-selection"
+      ]
+    },
+    {
+      "id": "bottle",
+      "method": "direct-authored-native-raster",
+      "output": "game/assets/production/first-delivery/props/bottle.png",
+      "outputSha256": "610306c333e879d15e6ca557441c2c3fbc1fca9b7fd677c90840ff4cf3aa5817",
+      "nativeSize": {
+        "width": 12,
+        "height": 16
+      },
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 6,
+        "y": 15
+      },
+      "layer": {
+        "name": "courier-prop",
+        "order": 42
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "states": [
+        "route-pending",
+        "exposed-conversion",
+        "sheltered-preservation",
+        "satisfied-delivery",
+        "imperfect-recovery"
+      ]
+    },
+    {
+      "id": "gust-sign",
+      "method": "direct-authored-native-raster",
+      "output": "game/assets/production/first-delivery/interface/gust-sign.png",
+      "outputSha256": "ebf973375878e8c5e12ab744733ecb9d31b4d13f1845353f9ee5ec1cfa247dd3",
+      "nativeSize": {
+        "width": 32,
+        "height": 16
+      },
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 16,
+        "y": 15
+      },
+      "layer": {
+        "name": "interface-world-signage",
+        "order": 25
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "states": [
+        "pre-disclosure",
+        "route-pending",
+        "need-disclosed",
+        "mix-feedback",
+        "exposed-conversion",
+        "sheltered-preservation",
+        "satisfied-delivery",
+        "imperfect-recovery",
+        "followup-selection"
+      ]
+    },
+    {
+      "id": "shelter-sign",
+      "method": "direct-authored-native-raster",
+      "output": "game/assets/production/first-delivery/interface/shelter-sign.png",
+      "outputSha256": "202a06c974934ce52a0ff1e2f184276e414d1ef5210da1497f7b96b8a4af7c32",
+      "nativeSize": {
+        "width": 48,
+        "height": 16
+      },
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 24,
+        "y": 15
+      },
+      "layer": {
+        "name": "interface-world-signage",
+        "order": 25
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "states": [
+        "pre-disclosure",
+        "route-pending",
+        "need-disclosed",
+        "mix-feedback",
+        "exposed-conversion",
+        "sheltered-preservation",
+        "satisfied-delivery",
+        "imperfect-recovery",
+        "followup-selection"
+      ]
+    },
+    {
+      "id": "route-effects",
+      "method": "direct-authored-native-raster",
+      "output": "game/assets/production/first-delivery/effects/route-effects.png",
+      "outputSha256": "64e5b5dc32f65cc9e7c943a7ecc0beeca912187ea23a3610641e28ea9995a182",
+      "nativeSize": {
+        "width": 32,
+        "height": 32
+      },
+      "pivot": {
+        "mode": "center",
+        "x": 16,
+        "y": 16
+      },
+      "layer": {
+        "name": "route-effects",
+        "order": 50
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "states": [
+        "exposed-conversion",
+        "sheltered-preservation"
+      ]
+    },
+    {
+      "id": "reaction-effects",
+      "method": "direct-authored-native-raster",
+      "output": "game/assets/production/first-delivery/effects/reaction-effects.png",
+      "outputSha256": "f850d76f4611607bd549343fe3a15ce256092df31b767716b3c0a95d938b2e95",
+      "nativeSize": {
+        "width": 32,
+        "height": 32
+      },
+      "pivot": {
+        "mode": "center",
+        "x": 16,
+        "y": 16
+      },
+      "layer": {
+        "name": "reaction-effects-behind-copy",
+        "order": 49
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "states": [
+        "satisfied-delivery",
+        "imperfect-recovery"
+      ]
+    },
+    {
+      "id": "opening-status",
+      "method": "deliberately-styled-code-native-ui",
+      "output": "game/main.gd",
+      "outputSha256": "ba0d0ca84d78036e5839f2cd8cfa50e415b44b5387a57f2c40a434ed31738a3c",
+      "nativeSize": {
+        "width": 142,
+        "height": 65
+      },
+      "pivot": {
+        "mode": "top-left",
+        "x": 0,
+        "y": 0
+      },
+      "layer": {
+        "name": "request-status",
+        "order": 80
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "states": [
+        "pre-disclosure"
+      ]
+    },
+    {
+      "id": "request-status",
+      "method": "deliberately-styled-code-native-ui",
+      "output": "game/main.gd",
+      "outputSha256": "ba0d0ca84d78036e5839f2cd8cfa50e415b44b5387a57f2c40a434ed31738a3c",
+      "nativeSize": {
+        "width": 142,
+        "height": 65
+      },
+      "pivot": {
+        "mode": "top-left",
+        "x": 0,
+        "y": 0
+      },
+      "layer": {
+        "name": "request-status",
+        "order": 80
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "states": [
+        "route-pending",
+        "need-disclosed",
+        "mix-feedback",
+        "exposed-conversion",
+        "sheltered-preservation",
+        "satisfied-delivery",
+        "imperfect-recovery",
+        "followup-selection"
+      ]
+    },
+    {
+      "id": "carried-status",
+      "method": "deliberately-styled-code-native-ui",
+      "output": "game/main.gd",
+      "outputSha256": "ba0d0ca84d78036e5839f2cd8cfa50e415b44b5387a57f2c40a434ed31738a3c",
+      "nativeSize": {
+        "width": 136,
+        "height": 66
+      },
+      "pivot": {
+        "mode": "top-left",
+        "x": 0,
+        "y": 0
+      },
+      "layer": {
+        "name": "carried-status",
+        "order": 81
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "states": [
+        "route-pending",
+        "exposed-conversion",
+        "sheltered-preservation"
+      ]
+    },
+    {
+      "id": "causal-feedback",
+      "method": "deliberately-styled-code-native-ui",
+      "output": "game/main.gd",
+      "outputSha256": "ba0d0ca84d78036e5839f2cd8cfa50e415b44b5387a57f2c40a434ed31738a3c",
+      "nativeSize": {
+        "width": 286,
+        "height": 43
+      },
+      "pivot": {
+        "mode": "top-left",
+        "x": 0,
+        "y": 0
+      },
+      "layer": {
+        "name": "temporary-feedback",
+        "order": 82
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "states": [
+        "mix-feedback",
+        "exposed-conversion",
+        "sheltered-preservation"
+      ]
+    },
+    {
+      "id": "delivery-comparison",
+      "method": "deliberately-styled-code-native-ui",
+      "output": "game/main.gd",
+      "outputSha256": "ba0d0ca84d78036e5839f2cd8cfa50e415b44b5387a57f2c40a434ed31738a3c",
+      "nativeSize": {
+        "width": 228,
+        "height": 60
+      },
+      "pivot": {
+        "mode": "top-left",
+        "x": 0,
+        "y": 0
+      },
+      "layer": {
+        "name": "temporary-feedback",
+        "order": 82
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "states": [
+        "satisfied-delivery",
+        "imperfect-recovery"
+      ]
+    },
+    {
+      "id": "ember-context-label",
+      "method": "deliberately-styled-code-native-ui",
+      "output": "game/main.gd",
+      "outputSha256": "ba0d0ca84d78036e5839f2cd8cfa50e415b44b5387a57f2c40a434ed31738a3c",
+      "nativeSize": {
+        "width": 48,
+        "height": 18
+      },
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 24,
+        "y": 17
+      },
+      "layer": {
+        "name": "interface-world-signage",
+        "order": 45
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "states": [
+        "need-disclosed"
+      ]
+    },
+    {
+      "id": "moss-context-label",
+      "method": "deliberately-styled-code-native-ui",
+      "output": "game/main.gd",
+      "outputSha256": "ba0d0ca84d78036e5839f2cd8cfa50e415b44b5387a57f2c40a434ed31738a3c",
+      "nativeSize": {
+        "width": 41,
+        "height": 18
+      },
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 20,
+        "y": 17
+      },
+      "layer": {
+        "name": "interface-world-signage",
+        "order": 45
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "states": [
+        "need-disclosed",
+        "mix-feedback"
+      ]
+    },
+    {
+      "id": "world-action-cue",
+      "method": "deliberately-styled-code-native-ui",
+      "output": "game/main.gd",
+      "outputSha256": "ba0d0ca84d78036e5839f2cd8cfa50e415b44b5387a57f2c40a434ed31738a3c",
+      "nativeSize": {
+        "width": 50,
+        "height": 19
+      },
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 25,
+        "y": 18
+      },
+      "layer": {
+        "name": "interface-world-signage",
+        "order": 46
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "states": [
+        "pre-disclosure",
+        "need-disclosed",
+        "mix-feedback",
+        "followup-selection"
+      ]
+    },
+    {
+      "id": "reaction-label",
+      "method": "deliberately-styled-code-native-ui",
+      "output": "game/main.gd",
+      "outputSha256": "ba0d0ca84d78036e5839f2cd8cfa50e415b44b5387a57f2c40a434ed31738a3c",
+      "nativeSize": {
+        "width": 72,
+        "height": 24
+      },
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 36,
+        "y": 23
+      },
+      "layer": {
+        "name": "temporary-feedback",
+        "order": 82
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "states": [
+        "satisfied-delivery",
+        "imperfect-recovery"
+      ]
+    },
+    {
+      "id": "sunmill-pennant",
+      "method": "direct-authored-native-raster",
+      "output": "game/assets/production/first-delivery/interface/sunmill-pennant.png",
+      "outputSha256": "1f1fb34b6244349ff112c04d80158e3a879ca0c9d3e6f0344a5077404c27d2da",
+      "nativeSize": {
+        "width": 16,
+        "height": 24
+      },
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 8,
+        "y": 23
+      },
+      "layer": {
+        "name": "interface-world-signage",
+        "order": 25
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "states": [
+        "followup-selection"
+      ]
+    },
+    {
+      "id": "herbalist-pennant",
+      "method": "direct-authored-native-raster",
+      "output": "game/assets/production/first-delivery/interface/herbalist-pennant.png",
+      "outputSha256": "6f8870452fd1ffb4796c6e89c6565f7546e40eebb4fc9e31420ebd481a82d73e",
+      "nativeSize": {
+        "width": 16,
+        "height": 24
+      },
+      "pivot": {
+        "mode": "bottom-center",
+        "x": 8,
+        "y": 23
+      },
+      "layer": {
+        "name": "interface-world-signage",
+        "order": 25
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "states": [
+        "followup-selection"
+      ]
+    },
+    {
+      "id": "sunmill-info-sign",
+      "method": "deliberately-styled-code-native-ui",
+      "output": "game/main.gd",
+      "outputSha256": "ba0d0ca84d78036e5839f2cd8cfa50e415b44b5387a57f2c40a434ed31738a3c",
+      "nativeSize": {
+        "width": 58,
+        "height": 34
+      },
+      "pivot": {
+        "mode": "center",
+        "x": 29,
+        "y": 17
+      },
+      "layer": {
+        "name": "interface-world-signage",
+        "order": 45
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "states": [
+        "followup-selection"
+      ]
+    },
+    {
+      "id": "herbalist-info-sign",
+      "method": "deliberately-styled-code-native-ui",
+      "output": "game/main.gd",
+      "outputSha256": "ba0d0ca84d78036e5839f2cd8cfa50e415b44b5387a57f2c40a434ed31738a3c",
+      "nativeSize": {
+        "width": 67,
+        "height": 34
+      },
+      "pivot": {
+        "mode": "center",
+        "x": 33,
+        "y": 17
+      },
+      "layer": {
+        "name": "interface-world-signage",
+        "order": 45
+      },
+      "runtimeConsumer": "AlchemyDeliveryBoys._draw",
+      "states": [
+        "followup-selection"
+      ]
+    }
+  ],
+  "runtimeConsumers": {
+    "scene": "game/main.tscn",
+    "renderer": "AlchemyDeliveryBoys._draw in game/main.gd",
+    "directRasterComponents": 14,
+    "codeNativeComponents": 11,
+    "allRequiredFamiliesLive": [
+      "interface",
+      "characters",
+      "feedback"
+    ]
+  },
+  "importSettings": {
+    "source": "Godot .png.import sidecars plus project texture defaults",
+    "compression": "lossless compress/mode=0",
+    "mipmaps": false,
+    "filter": "nearest-neighbor",
+    "nativeGeometry": "480x270, whole-pixel positions",
+    "shippingGeometry": "1440x810, integer 3x",
+    "font": "Bundled DejaVu Sans regular and bold with license"
+  },
+  "removedFallbacks": [
+    "PROTOTYPE GRAYBOX banner",
+    "generic region rectangles",
+    "circular debug markers",
+    "generic bottom log strip",
+    "fallback-font debug labels",
+    "detached route explanation strings"
+  ],
+  "stateCoverage": {
+    "screenStates": [
+      "pre-disclosure",
+      "need-disclosed",
+      "mix-feedback",
+      "route-pending",
+      "exposed-conversion",
+      "sheltered-preservation",
+      "satisfied-delivery",
+      "imperfect-recovery",
+      "followup-selection"
+    ],
+    "interface": {
+      "normal": "opening/request/carried surfaces",
+      "focus": "proximity cue and selected pennant border",
+      "pressed": "one-pixel context-cue compression",
+      "disabled": "not applicable before follow-up selection; unavailable actions are absent rather than presented as enabled",
+      "feedback": "ingredient, exposed, and sheltered lower strips",
+      "resolved": "exact/imperfect comparison and selected follow-up"
+    }
+  },
+  "provenance": {
+    "approvedTarget": {
+      "path": "design/scene-targets/scene-target.json",
+      "sha256": "6ab0ae4aa69831fb640e8506ca6ec7b75570110eb5fd49eae068223ec2626952"
+    },
+    "assetLane": {
+      "path": "design/asset-lanes/decision.json",
+      "sha256": "b31dda11dda3d7c371d7f8567675f9b938d44836bbee832949962b24d7366c02"
+    },
+    "productionInventory": {
+      "path": "design/production-assets/first-delivery/inventory.json",
+      "sha256": "e0f6a089ee4c04234722c26c7b06244fe9608e184ed7565eb62c5e501cf83a2a"
+    },
+    "method": "Direct authored native pixels and deterministic code-native UI; generated whole scenes remain reference-only and are not loaded by the runtime."
+  },
+  "captures": [
+    {
+      "path": "evidence/production-run/first-session/01-need_disclosed.png",
+      "sha256": "87ad2a8a96e2e9d1cce0d92d49ea0aa499e624f9b41d51bdc47c9a98517475c2",
+      "kind": "engine-still",
+      "event": "need_disclosed"
+    },
+    {
+      "path": "evidence/production-run/first-session/02-brew_committed.png",
+      "sha256": "6627fb350f864389fd198be56f54e0ac63487131f661dfc7ff78279410524392",
+      "kind": "engine-still",
+      "event": "brew_committed"
+    },
+    {
+      "path": "evidence/production-run/first-session/03-route_selected.png",
+      "sha256": "5eef6c6263e3ca7cb73deaf89fee1c3ad708d8ba619b7f65fb848499cd858a71",
+      "kind": "engine-still",
+      "event": "route_selected"
+    },
+    {
+      "path": "evidence/production-run/first-session/04-delivery_resolved.png",
+      "sha256": "d5be7fdc3968f0ae1015cc75e7137f72661b3bcd2eaab6ab24c1f908b3808543",
+      "kind": "engine-still",
+      "event": "delivery_resolved"
+    },
+    {
+      "path": "evidence/production-run/first-session/05-followup_selected.png",
+      "sha256": "dbf6fbc9be21c8320fde0d482b7d6c84ebb1a61035dbe79153cba30b48fbc16d",
+      "kind": "engine-still",
+      "event": "followup_selected"
+    },
+    {
+      "path": "evidence/production-run/returning-player/01-need_disclosed.png",
+      "sha256": "48b0d57ab7217bf8ba2895e7c684f571cdaabb187e0ec9b5f6170a6d5eae6f77",
+      "kind": "engine-still",
+      "event": "need_disclosed"
+    },
+    {
+      "path": "evidence/production-run/returning-player/02-brew_committed.png",
+      "sha256": "b8ec1a05741ff844aa8e4640a5918c9a1a6144c53224744a45f8c9b1d50b9616",
+      "kind": "engine-still",
+      "event": "brew_committed"
+    },
+    {
+      "path": "evidence/production-run/returning-player/03-route_selected.png",
+      "sha256": "1ec07ccb31cd85cf47fa80e48c0354fbe8bd942550ffa81d38df9024d9eff820",
+      "kind": "engine-still",
+      "event": "route_selected"
+    },
+    {
+      "path": "evidence/production-run/returning-player/04-delivery_resolved.png",
+      "sha256": "d1bc750ebb6123634b77ad725d08f59a6f1b9e28df1d830a89072baee5a86053",
+      "kind": "engine-still",
+      "event": "delivery_resolved"
+    },
+    {
+      "path": "evidence/production-run/returning-player/05-followup_selected.png",
+      "sha256": "6393eae5876b9cb680e06d1b0525186010c1a0b1ced1c7ce3daa94a509441a51",
+      "kind": "engine-still",
+      "event": "followup_selected"
+    },
+    {
+      "path": "evidence/production-run/native-first-session/01-need_disclosed.png",
+      "sha256": "402e17de70b213613b68f496e2e2e1f93ff46bdeb2b766a3cc2a7e605f4ee35c",
+      "kind": "engine-still",
+      "event": "need_disclosed"
+    },
+    {
+      "path": "evidence/production-run/native-first-session/02-brew_committed.png",
+      "sha256": "b745c4196661cbb8dcc459a994b175e3eca046205f6515a929805f54ae5ec73d",
+      "kind": "engine-still",
+      "event": "brew_committed"
+    },
+    {
+      "path": "evidence/production-run/native-first-session/03-route_selected.png",
+      "sha256": "16519f61b58b0c0f7d223c8804ec64a3f3bcd8a8d17c48f2476415d1792d10c4",
+      "kind": "engine-still",
+      "event": "route_selected"
+    },
+    {
+      "path": "evidence/production-run/native-first-session/04-delivery_resolved.png",
+      "sha256": "9b8121871c6fe4fdf0f1f2707a468e69889963246f638bb27f5cdf59c006ff4f",
+      "kind": "engine-still",
+      "event": "delivery_resolved"
+    },
+    {
+      "path": "evidence/production-run/native-first-session/05-followup_selected.png",
+      "sha256": "6f3b496d32b0cf3cf0b41591f1b9a9ec543fea9baf9ef50342ceed32c863ac17",
+      "kind": "engine-still",
+      "event": "followup_selected"
+    }
+  ],
+  "violations": [],
+  "runtimeWarnings": [
+    "The managed sandbox denied Godot certificate-store and shader-cache persistence. Both real-renderer runs exited 0, captured every required frame, and reported no scenario violations."
+  ],
+  "regressionChecks": {
+    "firstSession": {
+      "scenario": "first-session",
+      "status": "pass",
+      "metrics": {
+        "causal_events": 21,
+        "clean_start_loop_complete": 1,
+        "completion": 1,
+        "concept_defined": 1,
+        "consequential_choices": 3,
+        "delivered_state_trace_grounded": 1,
+        "followup_choice_trace_grounded": 1,
+        "invalid_transitions": 0,
+        "meaningful_interactions": 3,
+        "mechanic_proven": 1,
+        "motion_frames_captured": 150,
+        "navigation_is_agency": 1,
+        "reaction_trace_grounded": 1,
+        "returning_loop_complete": 0,
+        "simulated_seconds": 15.0,
+        "ticks_completed": 900
+      },
+      "violations": [],
+      "result": {
+        "path": "evidence/production-run/first-session/runner/result.json",
+        "sha256": "78e6fe1c2835e0730e5549a4adab8af3258be2b90acd4db9d266ea23223188c2"
+      },
+      "interactionTrace": {
+        "path": "evidence/production-run/first-session/scenario-review.json",
+        "sha256": "38ede58530d2c4cabeb25fc534d5e0098e24d1b8041ea1c601284a119291226b"
+      }
+    },
+    "returningPlayer": {
+      "scenario": "returning-player",
+      "status": "pass",
+      "metrics": {
+        "causal_events": 21,
+        "clean_start_loop_complete": 0,
+        "completion": 1,
+        "concept_defined": 1,
+        "consequential_choices": 3,
+        "delivered_state_trace_grounded": 1,
+        "followup_choice_trace_grounded": 1,
+        "invalid_transitions": 0,
+        "meaningful_interactions": 3,
+        "mechanic_proven": 1,
+        "motion_frames_captured": 150,
+        "navigation_is_agency": 1,
+        "reaction_trace_grounded": 1,
+        "returning_loop_complete": 1,
+        "simulated_seconds": 15.0,
+        "ticks_completed": 900
+      },
+      "violations": [],
+      "result": {
+        "path": "evidence/production-run/returning-player/runner/result.json",
+        "sha256": "c9249b5678595d3b7c9513553bb8143c2e12fd33631bc52216084f8279fe833b"
+      },
+      "interactionTrace": {
+        "path": "evidence/production-run/returning-player/scenario-review.json",
+        "sha256": "af639758ad136dc7956c2789ece4eb04e2a5353b291d753766c17abac991dcae"
+      }
+    },
+    "nativeFirstSession": {
+      "scenario": "native-first-session",
+      "status": "pass",
+      "metrics": {
+        "causal_events": 21,
+        "clean_start_loop_complete": 1,
+        "completion": 1,
+        "concept_defined": 1,
+        "consequential_choices": 3,
+        "delivered_state_trace_grounded": 1,
+        "followup_choice_trace_grounded": 1,
+        "invalid_transitions": 0,
+        "meaningful_interactions": 3,
+        "mechanic_proven": 1,
+        "motion_frames_captured": 150,
+        "navigation_is_agency": 1,
+        "reaction_trace_grounded": 1,
+        "returning_loop_complete": 0,
+        "simulated_seconds": 15.0,
+        "ticks_completed": 900
+      },
+      "violations": [],
+      "result": {
+        "path": "evidence/production-run/native-first-session/runner/result.json",
+        "sha256": "83417a8734304d7a96abe987b9b93d2ace24a6a38231dfb367e205adfbdb6de9"
+      },
+      "interactionTrace": {
+        "path": "evidence/production-run/native-first-session/scenario-review.json",
+        "sha256": "549aeccd66af33a98590b9701b35290a709ae6d049667411d460148c7041e166"
+      }
+    },
+    "allComponentsMapped": true,
+    "allDirectOutputsExist": true,
+    "shippingCaptureDimensions": [
+      1440,
+      810
+    ],
+    "nativeCaptureDimensions": [
+      480,
+      270
+    ]
+  }
+}

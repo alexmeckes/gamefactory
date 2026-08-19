@@ -1,6 +1,6 @@
 {
   "apiVersion": "gamefactory.dev/v1",
-  "id": "alchemy-delivery-boys-v2-slice-v6",
+  "id": "alchemy-delivery-boys-v2-slice-v7",
   "objective": "Execute the authoritative projectSlice contract against the frozen GameSpec: prove and repair one player-complete Godot graybox, approve coherent whole-scene targets, then integrate one visually production-ready encounter with state-linked motion and artifact-backed evidence. Use a separate tournament campaign only for a named unresolved fork. Do not present graybox, concept, generated source, extracted source, or engine-ready assets as production.",
   "projectRoot": ".",
   "workflow": "autoresearch",
@@ -39,15 +39,15 @@
         ],
         "nodes": [
           {
-            "id": "scene-target-repair",
-            "skills": ["direct-game-screens"],
+            "id": "recovery-preflight",
+            "skills": ["audit-game-build", "prove-godot-gameplay"],
             "adapter": "codex-app-server",
             "role": "implementer",
             "permissions": "write",
             "model": "gpt-5.6-sol",
-            "reasoningEffort": "xhigh",
+            "reasoningEffort": "high",
             "timeoutSeconds": 3600,
-            "instructions": "Repair the selected continuous-causal-village whole-scene target in response to the slice-v5 review without reopening the approved camera, world topology, visual identity, or production direction. The current sequence starts after the player's first required interaction. Add and validate one explicit pre-disclosure opening state that shows the player in the continuous world before that interaction, makes the partner/disclosure affordance spatially readable, and does not reveal the request or carried potion early. Preserve exact native 480x270 geometry, integer 3x review output, persistent landmark anchors, text-safe regions, code-native typography policy, and the existing state sequence. Update scene-target.json, native/reference/review views, validation.json, hashes, component map, continuity checks, and experience-contract/state-transition coverage as needed. Set the target approval back to proposed/unapproved while creative evidence changes. Do not produce isolated assets, alter Godot runtime code, change the selected primary route-pending direction, or replace the existing screens wholesale. On a repair invocation, consume the gate findings and make only the smallest evidence-backed correction required for pass.",
+            "instructions": "Perform a fail-closed recovery preflight over the SHA-verified slice-v6 source imported into this candidate. Read design/recovery/slice-v6-preserved-import.json, the approved scene target, its validation manifest, production inventory and reports, design system, and game/main.gd. Verify scene-target.json and validation.json bind the identical approved status, reviewer, selected target id, selected primary-view hash, and approvedAt; repair only approval metadata if inconsistent. Validate every declared source and runtime component hash that can be recomputed. Run Godot import plus the clean-start and returning-player deterministic scenarios against the recovered source. Do not reopen the visual direction, regenerate targets or assets, or claim stale candidate evidence as current. Remove or replace stale evidence and record exact remaining gaps for downstream refresh. On a repair invocation, consume the reviewer findings and make the smallest bounded correction.",
             "dependsOn": []
           },
           {
@@ -62,8 +62,8 @@
             "requiredOutputFields": ["findings.selectedTargetId", "findings.selectedTargetSha256"],
             "requiredOutputFieldsOn": ["pass"],
             "instructions": "Review the recovered full-scene targets at the shipping camera before component production resumes. Verify actual gameplay, interaction hierarchy, required states, text zones, relative scale, navigation, and engine feasibility from design/scene-targets/scene-target.json, validation.json, the rendered views, and the current Godot implementation. Audit declared peer regions, typography, and the restrained motion plan. Reject concept art, nonsensical controls, frozen tableaux, decorative clutter, inconsistent scale, or a target that cannot be decomposed. Do not regenerate or revise target files in this recovery gate. On pass, the structured result MUST use this exact shape at minimum: {\"outcome\":\"pass\",\"summary\":\"...\",\"findings\":{\"selectedTargetId\":\"...\",\"selectedTargetSha256\":\"64 lowercase hex characters\"}}. Do not nest selectedTargetId or selectedTargetSha256 under approval or another object. Return revise with prioritized scene-level changes if the recovered target no longer passes.",
-            "dependsOn": ["scene-target-repair"],
-            "repair": { "target": "scene-target-repair", "outcomes": ["revise"], "maximumAttempts": 2, "allowedPaths": ["design/scene-targets/**"] }
+            "dependsOn": ["recovery-preflight"],
+            "repair": { "target": "recovery-preflight", "outcomes": ["revise"], "maximumAttempts": 2, "allowedPaths": ["design/scene-targets/scene-target.json", "design/scene-targets/validation.json", "design/recovery/**", "evidence/**"] }
           },
           {
             "id": "scene-target-approval-recorder",
@@ -72,7 +72,7 @@
             "permissions": "write",
             "model": "gpt-5.6-luna",
             "reasoningEffort": "high",
-            "instructions": "Record the passed scene-target-gate decision without changing its creative work. Read the gate's selected target id, selected primary-view hash, and findings. Update only the approval object in design/scene-targets/scene-target.json: status approved, reviewer scene-target-gate, selectedTargetSha256 equal to the gate-approved primary-view hash, findings copied from the review, and approvedAt as the current ISO timestamp. Validate the file as gamefactory.scene-target/v1. Do not alter candidates, prompts, geometry, component maps, hashes, or any asset; fail if the gate output and manifest disagree.",
+            "instructions": "Record the passed scene-target-gate decision without changing its creative work. Read the gate's selected target id, selected primary-view hash, and findings. Atomically bind the decision into both design/scene-targets/scene-target.json and design/scene-targets/validation.json. In scene-target.json update only approval: status approved, reviewer scene-target-gate, selectedTargetSha256 equal to the gate-approved primary-view hash, findings copied from the review, and approvedAt as the current ISO timestamp. In validation.json mirror status, reviewer, selectedTargetId, selectedTargetSha256, and the identical approvedAt without changing measured checks. Validate scene-target.json as gamefactory.scene-target/v1 and fail if either manifest disagrees with the gate, selected view, or each other. Do not alter candidates, prompts, geometry, component maps, hashes, assets, or non-approval validation results.",
             "dependsOn": ["scene-target-gate"]
           },
           {
@@ -135,7 +135,7 @@
             "model": "gpt-5.6-sol",
             "reasoningEffort": "xhigh",
             "timeoutSeconds": 7200,
-            "instructions": "Turn exactly one proven encounter into a coherent production slice derived from the approved gamefactory.scene-target/v1 target, experience contract, and state variants. Do not substitute a different direction. Consume the asset-lane outputs as provenance-bearing source material and distinguish skipped, failed, and usable lanes. Preserve the target's native geometry, peer-region ownership, declared overlaps, typography roles, and component footprints. Treat undeclared collisions, clipping, and competing layers as scene failures. Implement the chosen pixel, hybrid, or non-pixel typography strategy by information role; do not use tiny pixel type as a universal default. For every component retain target lineage, crop, states, production method, hashes, native/render sizes, scaling, and recomposition evidence. Code-native structural UI is valid only when intentionally authored to the target; generic procedural rectangles, repeated arbitrary brackets, and engine defaults are not production surfaces. Implement the motion plan as a coherent living scene: appropriate ambient continuity, immediate interaction response, readable gameplay consequence, and transitions between important states, while preserving identity, scale, anchors, and causal clarity. Produce current real-engine stills and a representative motion recording at the shipping camera. Record and evidence polish gates for layout-integrity, typography-system, interface-system, component-fidelity, motion-choreography, and scene-life. Generated or segmented assets must be cleaned, anchored, and promoted deliberately. If any required surface remains provisional, report visual-prototype instead of overstating maturity.",
+            "instructions": "Recovery continuation: read design/recovery/runtime-bootstrap.json before doing anything else. The recovered game logic and licensed fonts are valid, but fourteen lost slice-v6 rasters are explicitly compile-only bootstraps and MUST NOT survive production acceptance. Re-author or target-link every mismatched raster from the approved whole-screen scene system, using SAM 3 or another configured lane when it materially improves coherent extraction; do not replace them with procedural geometry or transparent shims. Update the production inventory and integration provenance to the actual accepted files, mark the bootstrap superseded, and preserve the target's native geometry, peer-region ownership, typography roles, component footprints, runtime consumers, and state-linked motion. Then regenerate current real-engine first-session and returning-player scenarios, shipping-camera stills, representative motion recordings, capture index, integration report, motion report, polish report, and production-readiness hashes. Repair runtime code only when current engine evidence demonstrates a concrete mismatch. Treat any bootstrap asset, undeclared collision, clipping, stale evidence, missing consumer, hash drift, static actor, generic fallback, or absent causal motion as a blocker. Return every runtime source file named by the accepted production inventory—including rasters, fonts, license, and game/main.gd—as a structured artifact in addition to the manifests and current evidence, so a rejected candidate remains recoverable. Do not substitute a different visual direction or inherit the discarded candidate's captures as current evidence. If any required surface remains provisional, report visual-prototype rather than overstating maturity.",
             "dependsOn": ["scene-target-approval-recorder", "asset-lane-planner", "sam3-component-extraction", "omni-motion-study", "sam3-motion-tracking", "pixel-motion-compiler"],
             "when": [
               { "node": "sam3-component-extraction", "outcomes": ["segmented", "no_instances", "skipped"] },
@@ -152,9 +152,10 @@
             "permissions": "read",
             "model": "gpt-5.6-luna",
             "reasoningEffort": "high",
-            "instructions": "Inspect the current engine stills and motion recording, design-system hashes, polish manifest, runtime asset imports, interface-kit inventory and states, pixel-grid compliance, and deterministic scenario. Verify that motion evidence comes from the running engine and covers action causality rather than a reconstructed promo. Return pass only when evidence is current and internally consistent; otherwise return revise with exact stale, missing, or overstated claims.",
+            "instructions": "Inspect the current engine stills and motion recording, design-system hashes, polish manifest, runtime asset imports, interface-kit inventory and states, pixel-grid compliance, and both deterministic scenarios. Read design/recovery/runtime-bootstrap.json and return revise if it is not explicitly superseded, if any compile-only raster remains, or if any accepted production-inventory output is absent from the production-slice-builder's structured artifact list. Recompute runtime hashes from files rather than trusting candidate-authored manifest values. Verify that motion evidence comes from the running engine, includes moving actors and state-linked feedback, and covers action causality rather than a reconstructed promo or changing text over a static plate. Return pass only when evidence is current, complete, preserved, and internally consistent; otherwise return revise with exact stale, missing, unpreserved, or overstated claims.",
             "dependsOn": ["production-slice-builder"],
             "refreshAfterRepair": true,
+            "repair": { "target": "production-slice-builder", "outcomes": ["revise"], "maximumAttempts": 2, "allowedPaths": ["**"] },
             "advisor": { "model": "gpt-5.6-sol", "reasoningEffort": "high", "outcomes": ["needs_advisor"], "onFailure": true, "maximumAttempts": 1 }
           },
           {

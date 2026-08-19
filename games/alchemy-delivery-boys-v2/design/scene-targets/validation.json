@@ -1,9 +1,23 @@
 {
   "schema": "gamefactory.scene-target-validation/v1",
   "result": "pass",
-  "hypothesis": "The accepted persistent 480x270 village remains coherent and decomposable when authoritative primary-view identity, semantic runtime pivots, and anchor-reconstructed placements are enforced independently from the mutation-sensitive complete-target fingerprint.",
+  "hypothesis": "A world-anchored partner talk cue plus non-disclosing opening status makes the first required interaction legible while preserving the accepted persistent 480x270 village and its existing causal sequence.",
   "checks": {
     "views": [
+      {
+        "viewId": "continuous-pre-disclosure",
+        "nativeSize": {
+          "width": 480,
+          "height": 270
+        },
+        "nativeSha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507",
+        "review3xSize": {
+          "width": 1440,
+          "height": 810
+        },
+        "review3xSha256": "ed032a67dc28737f692b64d907e8301fe60ef317961cc8c681bae14879353d30",
+        "integerScaleVerified": true
+      },
       {
         "viewId": "continuous-route-pending",
         "nativeSize": {
@@ -133,7 +147,7 @@
     ],
     "directions": {
       "completeDirectionsAtRoutePending": 2,
-      "selectedStateVariants": 8,
+      "selectedStateVariants": 9,
       "selectedCandidateId": "continuous-causal-village"
     },
     "typography": {
@@ -143,10 +157,57 @@
       "lineHeightPx": 16,
       "minimumContrastRatio": 4.5,
       "measuredMinimumContrastRatio": 11.5,
-      "surfacesChecked": 28,
+      "surfacesChecked": 30,
       "clippedSurfaces": 0,
       "undersizedReadingSurfaces": 0,
       "longestCopyChecks": [
+        {
+          "role": "opening-status",
+          "rect": {
+            "x": 6,
+            "y": 3,
+            "width": 142,
+            "height": 65
+          },
+          "texts": [
+            "Morning round",
+            "Talk to your partner"
+          ],
+          "insetPx": 6,
+          "fontSizesPx": [
+            11,
+            12
+          ],
+          "lineHeightPx": 16,
+          "longestText": "Talk to your partner",
+          "longestTextWidthPx": 104,
+          "innerWidthPx": 130,
+          "clipped": false,
+          "contrastRatio": 13.35
+        },
+        {
+          "role": "world-action",
+          "rect": {
+            "x": 102,
+            "y": 82,
+            "width": 50,
+            "height": 19
+          },
+          "texts": [
+            "E  TALK"
+          ],
+          "insetPx": 5,
+          "fontSizesPx": [
+            11
+          ],
+          "lineHeightPx": 16,
+          "longestText": "E  TALK",
+          "longestTextWidthPx": 40,
+          "innerWidthPx": 40,
+          "clipped": false,
+          "contrastRatio": 13.35,
+          "targetId": "partner"
+        },
         {
           "role": "request-status",
           "rect": {
@@ -155,6 +216,11 @@
             "width": 142,
             "height": 65
           },
+          "texts": [
+            "Mira needs",
+            "2 Warmth",
+            "1 Soothing"
+          ],
           "insetPx": 6,
           "fontSizesPx": [
             11,
@@ -176,6 +242,11 @@
             "width": 136,
             "height": 66
           },
+          "texts": [
+            "Bottled",
+            "1 Warmth",
+            "2 Soothing"
+          ],
           "insetPx": 6,
           "fontSizesPx": [
             11,
@@ -197,6 +268,11 @@
             "width": 142,
             "height": 65
           },
+          "texts": [
+            "Mira needs",
+            "2 Warmth",
+            "1 Soothing"
+          ],
           "insetPx": 6,
           "fontSizesPx": [
             11,
@@ -218,6 +294,9 @@
             "width": 48,
             "height": 18
           },
+          "texts": [
+            "EMBER"
+          ],
           "insetPx": 5,
           "fontSizesPx": [
             11
@@ -237,6 +316,9 @@
             "width": 41,
             "height": 18
           },
+          "texts": [
+            "MOSS"
+          ],
           "insetPx": 5,
           "fontSizesPx": [
             11
@@ -256,6 +338,9 @@
             "width": 46,
             "height": 19
           },
+          "texts": [
+            "E  ADD"
+          ],
           "insetPx": 5,
           "fontSizesPx": [
             11
@@ -275,6 +360,11 @@
             "width": 142,
             "height": 65
           },
+          "texts": [
+            "Mira needs",
+            "2 Warmth",
+            "1 Soothing"
+          ],
           "insetPx": 6,
           "fontSizesPx": [
             11,
@@ -296,6 +386,9 @@
             "width": 41,
             "height": 18
           },
+          "texts": [
+            "MOSS"
+          ],
           "insetPx": 5,
           "fontSizesPx": [
             11
@@ -315,6 +408,9 @@
             "width": 46,
             "height": 19
           },
+          "texts": [
+            "E  ADD"
+          ],
           "insetPx": 5,
           "fontSizesPx": [
             11
@@ -334,6 +430,10 @@
             "width": 286,
             "height": 43
           },
+          "texts": [
+            "Moss added",
+            "Brew: 1 Warmth  ·  2 Soothing"
+          ],
           "insetPx": 6,
           "fontSizesPx": [
             11,
@@ -354,6 +454,11 @@
             "width": 142,
             "height": 65
           },
+          "texts": [
+            "Mira needs",
+            "2 Warmth",
+            "1 Soothing"
+          ],
           "insetPx": 6,
           "fontSizesPx": [
             11,
@@ -375,6 +480,11 @@
             "width": 136,
             "height": 66
           },
+          "texts": [
+            "Carried",
+            "2 Warmth",
+            "1 Soothing"
+          ],
           "insetPx": 6,
           "fontSizesPx": [
             11,
@@ -396,6 +506,10 @@
             "width": 286,
             "height": 43
           },
+          "texts": [
+            "Gust changed the bottle",
+            "+1 Warmth  ·  −1 Soothing"
+          ],
           "insetPx": 6,
           "fontSizesPx": [
             11,
@@ -416,6 +530,11 @@
             "width": 142,
             "height": 65
           },
+          "texts": [
+            "Mira needs",
+            "2 Warmth",
+            "1 Soothing"
+          ],
           "insetPx": 6,
           "fontSizesPx": [
             11,
@@ -437,6 +556,11 @@
             "width": 136,
             "height": 66
           },
+          "texts": [
+            "Carried",
+            "1 Warmth",
+            "2 Soothing"
+          ],
           "insetPx": 6,
           "fontSizesPx": [
             11,
@@ -458,6 +582,10 @@
             "width": 254,
             "height": 43
           },
+          "texts": [
+            "Shelter preserved",
+            "1 Warmth  ·  2 Soothing"
+          ],
           "insetPx": 6,
           "fontSizesPx": [
             11,
@@ -478,6 +606,11 @@
             "width": 142,
             "height": 65
           },
+          "texts": [
+            "Mira needed",
+            "2 Warmth",
+            "1 Soothing"
+          ],
           "insetPx": 6,
           "fontSizesPx": [
             11,
@@ -499,6 +632,12 @@
             "width": 228,
             "height": 60
           },
+          "texts": [
+            "Arrived",
+            "2 Warmth",
+            "1 Soothing",
+            "Exact match"
+          ],
           "insetPx": 6,
           "fontSizesPx": [
             11,
@@ -521,6 +660,9 @@
             "width": 72,
             "height": 24
           },
+          "texts": [
+            "RELIEF"
+          ],
           "insetPx": 4,
           "fontSizesPx": [
             12
@@ -540,6 +682,11 @@
             "width": 142,
             "height": 65
           },
+          "texts": [
+            "Mira needed",
+            "2 Warmth",
+            "1 Soothing"
+          ],
           "insetPx": 6,
           "fontSizesPx": [
             11,
@@ -561,6 +708,12 @@
             "width": 228,
             "height": 60
           },
+          "texts": [
+            "Arrived",
+            "1 Warmth",
+            "2 Soothing",
+            "Imperfect — recoverable"
+          ],
           "insetPx": 6,
           "fontSizesPx": [
             11,
@@ -583,6 +736,9 @@
             "width": 72,
             "height": 24
           },
+          "texts": [
+            "SHIVER"
+          ],
           "insetPx": 4,
           "fontSizesPx": [
             12
@@ -602,6 +758,11 @@
             "width": 142,
             "height": 65
           },
+          "texts": [
+            "Next delivery",
+            "Walk to a pennant",
+            "Gust shifts • shelter holds"
+          ],
           "insetPx": 6,
           "fontSizesPx": [
             12,
@@ -623,6 +784,10 @@
             "width": 58,
             "height": 34
           },
+          "texts": [
+            "Sunmill",
+            "3W · 0S"
+          ],
           "insetPx": 6,
           "fontSizesPx": [
             11,
@@ -643,6 +808,10 @@
             "width": 67,
             "height": 34
           },
+          "texts": [
+            "Herbalist",
+            "1W · 2S"
+          ],
           "insetPx": 6,
           "fontSizesPx": [
             11,
@@ -663,6 +832,9 @@
             "width": 38,
             "height": 19
           },
+          "texts": [
+            "E  GO"
+          ],
           "insetPx": 5,
           "fontSizesPx": [
             11
@@ -682,6 +854,11 @@
             "width": 142,
             "height": 65
           },
+          "texts": [
+            "Mira needs",
+            "2 Warmth",
+            "1 Soothing"
+          ],
           "insetPx": 6,
           "fontSizesPx": [
             11,
@@ -703,6 +880,11 @@
             "width": 136,
             "height": 66
           },
+          "texts": [
+            "Bottled",
+            "1 Warmth",
+            "2 Soothing"
+          ],
           "insetPx": 6,
           "fontSizesPx": [
             11,
@@ -736,11 +918,36 @@
       "detachedLowerRightLabelRemovedByPersistentBasis": true,
       "reachableActionCue": "E ADD"
     },
+    "openingDisclosure": {
+      "viewId": "continuous-pre-disclosure",
+      "stateId": "pre-disclosure",
+      "informationSurfaceRoles": [
+        "opening-status",
+        "world-action"
+      ],
+      "openingCopy": [
+        "Morning round",
+        "Talk to your partner"
+      ],
+      "actionCopy": [
+        "E  TALK"
+      ],
+      "actionTargetId": "partner",
+      "partnerBounds": {
+        "x": 91,
+        "y": 105,
+        "width": 30,
+        "height": 50
+      },
+      "carriedStatusSafeRegionMatchesPersistentWorld": true,
+      "earlyDisclosureComponents": [],
+      "requestAndPotionWithheld": true
+    },
     "components": [
       {
         "componentId": "village-environment",
         "category": "environment",
-        "sourceViews": 8,
+        "sourceViews": 9,
         "sourceHashesVerified": true,
         "nativeRenderSize": {
           "width": 480,
@@ -770,7 +977,7 @@
       {
         "componentId": "cauldron",
         "category": "environment-interactable",
-        "sourceViews": 3,
+        "sourceViews": 4,
         "sourceHashesVerified": true,
         "nativeRenderSize": {
           "width": 32,
@@ -800,7 +1007,7 @@
       {
         "componentId": "ember-ingredient",
         "category": "environment-interactable",
-        "sourceViews": 3,
+        "sourceViews": 4,
         "sourceHashesVerified": true,
         "nativeRenderSize": {
           "width": 16,
@@ -830,7 +1037,7 @@
       {
         "componentId": "moss-ingredient",
         "category": "environment-interactable",
-        "sourceViews": 3,
+        "sourceViews": 4,
         "sourceHashesVerified": true,
         "nativeRenderSize": {
           "width": 16,
@@ -860,7 +1067,7 @@
       {
         "componentId": "courier",
         "category": "actor",
-        "sourceViews": 8,
+        "sourceViews": 9,
         "sourceHashesVerified": true,
         "nativeRenderSize": {
           "width": 24,
@@ -890,7 +1097,7 @@
       {
         "componentId": "partner",
         "category": "actor",
-        "sourceViews": 8,
+        "sourceViews": 9,
         "sourceHashesVerified": true,
         "nativeRenderSize": {
           "width": 24,
@@ -920,7 +1127,7 @@
       {
         "componentId": "mira",
         "category": "actor",
-        "sourceViews": 8,
+        "sourceViews": 9,
         "sourceHashesVerified": true,
         "nativeRenderSize": {
           "width": 24,
@@ -980,7 +1187,7 @@
       {
         "componentId": "gust-sign",
         "category": "interface-world",
-        "sourceViews": 8,
+        "sourceViews": 9,
         "sourceHashesVerified": true,
         "nativeRenderSize": {
           "width": 32,
@@ -1010,7 +1217,7 @@
       {
         "componentId": "shelter-sign",
         "category": "interface-world",
-        "sourceViews": 8,
+        "sourceViews": 9,
         "sourceHashesVerified": true,
         "nativeRenderSize": {
           "width": 48,
@@ -1095,6 +1302,36 @@
         "semanticPivotVerified": true,
         "viewportAnchorReconstructionVerified": true,
         "runtimeSizeSeparatedFromPlacement": true,
+        "productionAbsent": true
+      },
+      {
+        "componentId": "opening-status",
+        "category": "interface",
+        "sourceViews": 1,
+        "sourceHashesVerified": true,
+        "nativeRenderSize": {
+          "width": 142,
+          "height": 65
+        },
+        "primaryPlacementBounds": {
+          "x": 6,
+          "y": 3,
+          "width": 142,
+          "height": 65
+        },
+        "runtimePivot": {
+          "mode": "top-left",
+          "x": 0,
+          "y": 0
+        },
+        "semanticPivot": {
+          "mode": "top-left",
+          "x": 0,
+          "y": 0
+        },
+        "semanticPivotVerified": true,
+        "viewportAnchorReconstructionVerified": true,
+        "runtimeSizeSeparatedFromPlacement": false,
         "productionAbsent": true
       },
       {
@@ -1280,26 +1517,26 @@
       {
         "componentId": "world-action-cue",
         "category": "interface-world",
-        "sourceViews": 3,
+        "sourceViews": 4,
         "sourceHashesVerified": true,
         "nativeRenderSize": {
-          "width": 46,
+          "width": 50,
           "height": 19
         },
         "primaryPlacementBounds": {
-          "x": 104,
-          "y": 170,
-          "width": 46,
+          "x": 102,
+          "y": 82,
+          "width": 50,
           "height": 19
         },
         "runtimePivot": {
           "mode": "bottom-center",
-          "x": 23,
+          "x": 25,
           "y": 18
         },
         "semanticPivot": {
           "mode": "bottom-center",
-          "x": 23,
+          "x": 25,
           "y": 18
         },
         "semanticPivotVerified": true,
@@ -1460,6 +1697,345 @@
     ],
     "componentBounds": {
       "selectedStateOverlays": [
+        {
+          "viewId": "continuous-pre-disclosure",
+          "path": "design/scene-targets/component-overlays/continuous-pre-disclosure.png",
+          "sha256": "138a23acc689988a4e6c8a2a9ef940bd7f5107ffcb7580d232e3eb2c5d19190a",
+          "review3xPath": "design/scene-targets/component-overlays-3x/continuous-pre-disclosure.png",
+          "review3xSha256": "0dcdadf37bf5cd115eb48cbba60b9d8f2349951e86b84aa51ba2f7d60b721c96",
+          "components": [
+            {
+              "componentId": "village-environment",
+              "viewportPlacementBounds": {
+                "x": 0,
+                "y": 0,
+                "width": 480,
+                "height": 270
+              },
+              "viewportAnchor": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 0,
+                "y": 0,
+                "width": 480,
+                "height": 270
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 480,
+                "height": 270
+              },
+              "runtimePivot": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "componentId": "cauldron",
+              "viewportPlacementBounds": {
+                "x": 45,
+                "y": 86,
+                "width": 48,
+                "height": 53
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 69,
+                "y": 139
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 45,
+                "y": 86,
+                "width": 48,
+                "height": 53
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 32,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 16,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "ember-ingredient",
+              "viewportPlacementBounds": {
+                "x": 59,
+                "y": 180,
+                "width": 25,
+                "height": 21
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 71,
+                "y": 201
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 59,
+                "y": 180,
+                "width": 25,
+                "height": 21
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 16,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 8,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "moss-ingredient",
+              "viewportPlacementBounds": {
+                "x": 69,
+                "y": 200,
+                "width": 28,
+                "height": 23
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 83,
+                "y": 223
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 69,
+                "y": 200,
+                "width": 28,
+                "height": 23
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 16,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 8,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "courier",
+              "viewportPlacementBounds": {
+                "x": 117,
+                "y": 116,
+                "width": 27,
+                "height": 49
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 130,
+                "y": 165
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 117,
+                "y": 116,
+                "width": 27,
+                "height": 49
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 24,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 12,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "partner",
+              "viewportPlacementBounds": {
+                "x": 91,
+                "y": 105,
+                "width": 30,
+                "height": 50
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 106,
+                "y": 155
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 91,
+                "y": 105,
+                "width": 30,
+                "height": 50
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 24,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 12,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "mira",
+              "viewportPlacementBounds": {
+                "x": 388,
+                "y": 101,
+                "width": 34,
+                "height": 55
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 405,
+                "y": 156
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 388,
+                "y": 101,
+                "width": 34,
+                "height": 55
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 24,
+                "height": 32
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 12,
+                "y": 31
+              }
+            },
+            {
+              "componentId": "gust-sign",
+              "viewportPlacementBounds": {
+                "x": 188,
+                "y": 67,
+                "width": 42,
+                "height": 33
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 209,
+                "y": 100
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 188,
+                "y": 67,
+                "width": 42,
+                "height": 33
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 32,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 16,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "shelter-sign",
+              "viewportPlacementBounds": {
+                "x": 208,
+                "y": 173,
+                "width": 56,
+                "height": 34
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 236,
+                "y": 207
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 208,
+                "y": 173,
+                "width": 56,
+                "height": 34
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 48,
+                "height": 16
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 24,
+                "y": 15
+              }
+            },
+            {
+              "componentId": "opening-status",
+              "viewportPlacementBounds": {
+                "x": 6,
+                "y": 3,
+                "width": 142,
+                "height": 65
+              },
+              "viewportAnchor": {
+                "mode": "top-left",
+                "x": 6,
+                "y": 3
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 6,
+                "y": 3,
+                "width": 142,
+                "height": 65
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 142,
+                "height": 65
+              },
+              "runtimePivot": {
+                "mode": "top-left",
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "componentId": "world-action-cue",
+              "viewportPlacementBounds": {
+                "x": 102,
+                "y": 82,
+                "width": 50,
+                "height": 19
+              },
+              "viewportAnchor": {
+                "mode": "bottom-center",
+                "x": 127,
+                "y": 101
+              },
+              "placementReconstructedFromViewportAnchor": {
+                "x": 102,
+                "y": 82,
+                "width": 50,
+                "height": 19
+              },
+              "placementReconstructionExact": true,
+              "nativeRenderSize": {
+                "width": 50,
+                "height": 19
+              },
+              "runtimePivot": {
+                "mode": "bottom-center",
+                "x": 25,
+                "y": 18
+              }
+            }
+          ]
+        },
         {
           "viewId": "continuous-route-pending",
           "path": "design/scene-targets/component-overlays/continuous-route-pending.png",
@@ -2217,12 +2793,12 @@
               },
               "placementReconstructionExact": true,
               "nativeRenderSize": {
-                "width": 46,
+                "width": 50,
                 "height": 19
               },
               "runtimePivot": {
                 "mode": "bottom-center",
-                "x": 23,
+                "x": 25,
                 "y": 18
               }
             }
@@ -2616,12 +3192,12 @@
               },
               "placementReconstructionExact": true,
               "nativeRenderSize": {
-                "width": 46,
+                "width": 50,
                 "height": 19
               },
               "runtimePivot": {
                 "mode": "bottom-center",
-                "x": 23,
+                "x": 25,
                 "y": 18
               }
             }
@@ -4221,12 +4797,12 @@
               },
               "placementReconstructionExact": true,
               "nativeRenderSize": {
-                "width": 46,
+                "width": 50,
                 "height": 19
               },
               "runtimePivot": {
                 "mode": "bottom-center",
-                "x": 23,
+                "x": 25,
                 "y": 18
               }
             },
@@ -4360,6 +4936,68 @@
       "persistentWorldBasisPath": "design/scene-targets/continuity-source/continuous-world-basis.png",
       "persistentWorldBasisSha256": "a316f5c631e39293c3280e55c4af92ddebc1fd5ffefae260e03a07e6611bffa1",
       "transitionMasks": [
+        {
+          "startViewId": "continuous-pre-disclosure",
+          "endViewId": "continuous-need-disclosed",
+          "path": "design/scene-targets/continuity-masks/continuous-pre-disclosure--to--continuous-need-disclosed.png",
+          "sha256": "6bfd41dd8bf56332c70f1f7e9e1d756d82f40b73f66c939b9b69d0c288d70b27",
+          "unexpectedEnvironmentPixelChanges": 0,
+          "allowedCausalAndUiRectangles": [
+            {
+              "x": 85,
+              "y": 96,
+              "width": 67,
+              "height": 74
+            },
+            {
+              "x": 36,
+              "y": 82,
+              "width": 116,
+              "height": 150
+            },
+            {
+              "x": 6,
+              "y": 3,
+              "width": 144,
+              "height": 67
+            },
+            {
+              "x": 102,
+              "y": 82,
+              "width": 52,
+              "height": 21
+            },
+            {
+              "x": 6,
+              "y": 3,
+              "width": 144,
+              "height": 67
+            },
+            {
+              "x": 45,
+              "y": 168,
+              "width": 50,
+              "height": 20
+            },
+            {
+              "x": 47,
+              "y": 190,
+              "width": 43,
+              "height": 20
+            },
+            {
+              "x": 104,
+              "y": 170,
+              "width": 48,
+              "height": 21
+            }
+          ],
+          "legend": {
+            "unchangedEnvironment": "#1B1A24",
+            "excludedCausalOrUiRegion": "#2A3341",
+            "unexpectedEnvironmentChange": "#FF00FF"
+          }
+        },
         {
           "startViewId": "continuous-need-disclosed",
           "endViewId": "continuous-mix-feedback",
@@ -4872,7 +5510,7 @@
       "allUnexpectedEnvironmentPixelChanges": 0
     },
     "protectedGeometry": {
-      "viewsChecked": 8,
+      "viewsChecked": 9,
       "uiProtectedIntersections": [],
       "intersectionCount": 0
     },
@@ -4882,9 +5520,9 @@
       "selectedPrimaryViewSha256": "92c31af3c13f2872853d5e1fa773120a40bbe385805a8cd55cf0190a41556520",
       "approvalMatchesSelectedPrimaryView": true,
       "componentPrimaryViewLineageVerified": true,
-      "componentPrimaryViewLineageCount": 24,
-      "componentCount": 24,
-      "completeTargetSha256": "b5f820db9b72579404f1a09568e45bd202fc5e10ab4ee5310dd1bc266314ae45",
+      "componentPrimaryViewLineageCount": 25,
+      "componentCount": 25,
+      "completeTargetSha256": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
       "selectedTargetFingerprintMatchesCompleteTarget": true,
       "fingerprintMutationSensitivity": {
         "selectedViewMutationChangesFingerprint": true,
@@ -4901,8 +5539,8 @@
         "selectedPrimaryViewId": "continuous-route-pending",
         "selectedPrimaryViewSha256": "92c31af3c13f2872853d5e1fa773120a40bbe385805a8cd55cf0190a41556520",
         "approvalSelectedTargetSha256": "92c31af3c13f2872853d5e1fa773120a40bbe385805a8cd55cf0190a41556520",
-        "componentLineageCount": 24,
-        "componentCount": 24
+        "componentLineageCount": 25,
+        "componentCount": 25
       },
       "componentProductionAbsent": true
     },
@@ -4915,6 +5553,7 @@
           "imperfect-recovery",
           "mix-feedback",
           "need-disclosed",
+          "pre-disclosure",
           "route-pending",
           "satisfied-delivery",
           "sheltered-preservation"
@@ -4963,7 +5602,8 @@
         "right": "brew-context",
         "sharedStates": [
           "mix-feedback",
-          "need-disclosed"
+          "need-disclosed",
+          "pre-disclosure"
         ],
         "mutuallyAllowed": true
       },
@@ -4996,8 +5636,11 @@
       }
     ],
     "approval": {
-      "status": "needs-revision",
-      "reviewer": "pending-scene-target-gate"
+      "status": "approved",
+      "reviewer": "scene-target-gate",
+      "selectedTargetId": "continuous-causal-village",
+      "selectedTargetSha256": "92c31af3c13f2872853d5e1fa773120a40bbe385805a8cd55cf0190a41556520",
+      "approvedAt": "2026-08-19T09:15:03.0223636-04:00"
     }
   },
   "errors": [],

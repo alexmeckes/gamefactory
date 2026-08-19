@@ -1112,6 +1112,15 @@ test("agent graph emits live topology, bounded progress, and attempt completion 
 test("polished Godot preset has a valid gated agent graph", async () => {
   const campaign = JSON.parse(await readFile(resolve(process.cwd(), "presets/godot-polished/campaign.template.json"), "utf8")) as Campaign;
   assert.doesNotThrow(() => validateAgentTeamConfiguration(campaign));
+  const presetGraph = (campaign.parameters?.agentTeam as { graph?: { nodes?: Array<{ id: string; instructions?: string; repair?: { target?: string; outcomes?: string[] } }> } }).graph;
+  const approvalRecorder = presetGraph?.nodes?.find((node) => node.id === "scene-target-approval-recorder");
+  assert.match(approvalRecorder?.instructions ?? "", /validation\.json.*mirror status/s);
+  const productionBuilder = presetGraph?.nodes?.find((node) => node.id === "production-slice-builder");
+  assert.match(productionBuilder?.instructions ?? "", /every runtime source file.*structured artifact/s);
+  const evidenceAuditor = presetGraph?.nodes?.find((node) => node.id === "evidence-auditor");
+  assert.equal(evidenceAuditor?.repair?.target, "production-slice-builder");
+  assert.deepEqual(evidenceAuditor?.repair?.outcomes, ["revise"]);
+  assert.match(evidenceAuditor?.instructions ?? "", /Recompute runtime hashes.*structured artifact list/s);
   const specCampaign = JSON.parse(await readFile(resolve(process.cwd(), "presets/godot-polished/spec-campaign.template.json"), "utf8")) as Campaign;
   assert.doesNotThrow(() => validateAgentTeamConfiguration(specCampaign));
 });

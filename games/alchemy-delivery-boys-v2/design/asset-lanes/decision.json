@@ -1,0 +1,242 @@
+{
+  "apiVersion": "gamefactory.asset-lane-decision/v1",
+  "selectedOutcome": "direct",
+  "hypothesis": "Authoring the small native raster components directly and building dynamic interface surfaces code-native will preserve the approved target's silhouettes, pixel grid, causal state changes, and text clarity more faithfully than extracting baked whole-screen pixels or deriving runtime motion from generated video.",
+  "assumptions": [
+    "The approved scene-target component map remains the authoritative production inventory; this decision locks it by complete-target fingerprint instead of restating mutable geometry.",
+    "The downstream production-slice builder can author native pixel sprites and engine-native state choreography without an external motion study.",
+    "Generated and normalized whole-screen views remain production targets and references, not runtime assets.",
+    "The bundled production typeface must be license-compatible and measured against the declared 11-12px humanist typography roles; the preview Segoe UI face is not a runtime asset."
+  ],
+  "rationale": {
+    "smallestFaithfulMethod": "The target already supplies exact native geometry, source crops, render sizes, pivots, layers, state coverage, and animation responsibilities for 25 components. Its raster component contracts explicitly call for reconstruction after approval, while its data-, text-, focus-, and accessibility-sensitive surfaces explicitly call for deterministic code-native UI. Direct production consumes those contracts without adding an extraction or generated-motion dependency.",
+    "whyNotSegment": "The approved views are complete composites with actors, props, effects, and UI baked over the environment. Segmentation could recover only visible pixels, not the actor-free background behind them, and would not supply the courier's four-direction walk, carry, interaction, gust-brace, and handoff frames. The declared extraction strategies therefore favor reconstruction over cutout reuse.",
+    "whyNotMotionStudy": "The required motion grammar consists of short state-linked pixel beats at declared native sizes. A generated video would be reference-only and would add identity, framing, palette, and cleanup risk without resolving a named motion uncertainty.",
+    "whyNotPixelMotion": "No generated motion study is justified, so there is no temporal source that should be tracked or palette-compiled. The approved still variants define causal endpoints, while frame timing and transition choreography belong in the runtime integration node.",
+    "providerBoundary": "Direct has no provider request path, credential, paid call, or external prerequisite. The campaign config names sam3.request.json, video.request.json, and pixel-motion.request.json for conditional provider lanes, but selecting direct intentionally leaves those requests absent.",
+    "productionBoundary": "This is a production-method decision only. It does not generate, extract, integrate, or promote any asset and makes no runtime or production-readiness claim."
+  },
+  "approvedTarget": {
+    "manifestPath": "design/scene-targets/scene-target.json",
+    "manifestApiVersion": "gamefactory.scene-target/v1",
+    "manifestId": "alchemy-delivery-boys-v2-first-delivery",
+    "candidateId": "continuous-causal-village",
+    "primaryViewId": "continuous-route-pending",
+    "primaryViewPath": "design/scene-targets/views/continuous-route-pending.png",
+    "primaryViewSha256": "92c31af3c13f2872853d5e1fa773120a40bbe385805a8cd55cf0190a41556520",
+    "candidateSha256": "51c19ca13d41ec2df548e9d832daaafd613483883899508a62b127db1bdafd9f",
+    "completeTargetSha256": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+    "approvalStatus": "approved",
+    "approvalReviewer": "scene-target-gate",
+    "componentCount": 25
+  },
+  "productionGrammar": {
+    "nativeViewport": {
+      "width": 480,
+      "height": 270
+    },
+    "shippingPresentation": {
+      "width": 1440,
+      "height": 810,
+      "integerScale": 3,
+      "filter": "nearest-neighbor"
+    },
+    "baseUnitPx": 4,
+    "borderWidthsPx": [1, 2],
+    "insetsPx": {
+      "compact": 4,
+      "reading": 6
+    },
+    "palettePolicy": {
+      "mode": "target-locked-role-palette",
+      "colors": {
+        "ink": "#1B1A24",
+        "deepSlate": "#2A3341",
+        "plumShadow": "#44354E",
+        "wood": "#6B4638",
+        "clay": "#A85D43",
+        "ember": "#E66A3C",
+        "warmth": "#F3B94E",
+        "paper": "#F4E1B5",
+        "mossDark": "#345B43",
+        "moss": "#69A35C",
+        "soothing": "#83C9A0",
+        "roofBlue": "#4D6D7A",
+        "wind": "#B7DCE1",
+        "alchemyViolet": "#8467A8",
+        "specular": "#FFF3CE"
+      },
+      "rule": "Preserve semantic icon shape plus number for warmth and soothing; color may reinforce but never carry potion state alone."
+    },
+    "contrastRoles": {
+      "world": "Warm golden-afternoon midtones with deep ink/slate silhouettes and clear traversable paths.",
+      "hazards": "Pale wind ribbons and animated vane or pennant anticipation remain behind actors and bottle.",
+      "interface": "Paper and cork surfaces use dark ink text at at least 4.5:1; target checks currently range from 11.5 to 13.35.",
+      "selection": "Tight authored gold or mint emphasis at the world anchor; never a modal route-choice surface."
+    },
+    "outlineLanguage": "Crisp one-pixel ink or deep-slate clusters at native resolution; two-pixel structure only where declared; no anti-aliasing or mixed pixel density.",
+    "lightingDirection": "Late golden afternoon with warm upper-left sky and lamp/specular accents; preserve the selected fixed high three-quarter camera and continuous village topology.",
+    "materialTreatment": "Peculiar handmade wood, clay, stone, moss cloth, blue roof tile, parchment, and cork expressed as restrained clustered texture; paths and actor silhouettes outrank decorative detail.",
+    "silhouetteScale": "Courier, partner, and Mira use exact 24x32 runtime frames with bottom-center pivots. Do not reduce them below the already lower-bound approved scale; target placement rectangles may include shadows, carried props, or pose arcs and are not sprite frame sizes.",
+    "typography": {
+      "displayPx": 10,
+      "bodyPx": 12,
+      "feedbackPx": 12,
+      "numeralPx": 12,
+      "captionPx": 11,
+      "actionPx": 11,
+      "policy": "Use expressive pixel display treatment only for short place identity. Use a bundled calm humanist sans for sustained status, feedback, numbers, and comparison copy."
+    },
+    "scalingRules": [
+      "Author and inspect at exact 480x270.",
+      "Snap camera, sprites, effects, and UI bounds to whole native pixels.",
+      "Render raster motifs 1:1; use only declared integer scaling or authored nine-slice geometry that preserves corners.",
+      "Never ship target-rendered lettering as raster copy."
+    ]
+  },
+  "sourceScenes": [
+    {
+      "id": "continuous-pre-disclosure",
+      "state": "pre-disclosure",
+      "path": "design/scene-targets/views/continuous-pre-disclosure.png",
+      "sha256": "909277180250c328ce2cab2e2d05bab057bcd9cfc8c71c9bfb5f3b43981dd507"
+    },
+    {
+      "id": "continuous-need-disclosed",
+      "state": "need-disclosed",
+      "path": "design/scene-targets/views/continuous-need-disclosed.png",
+      "sha256": "b7356abc5ce7a15217b18db239cf309b4c553c53c4aa202844f40a3a70a446d7"
+    },
+    {
+      "id": "continuous-mix-feedback",
+      "state": "mix-feedback",
+      "path": "design/scene-targets/views/continuous-mix-feedback.png",
+      "sha256": "27d5713bb9788ea2768d21b7b885eb64f1c1ad570571e81fb13f641070c7c382"
+    },
+    {
+      "id": "continuous-route-pending",
+      "state": "route-pending",
+      "path": "design/scene-targets/views/continuous-route-pending.png",
+      "sha256": "92c31af3c13f2872853d5e1fa773120a40bbe385805a8cd55cf0190a41556520"
+    },
+    {
+      "id": "continuous-exposed-conversion",
+      "state": "exposed-conversion",
+      "path": "design/scene-targets/views/continuous-exposed-conversion.png",
+      "sha256": "94e441a5f7af311889914e5c111f35bfa0d3b1e64c782435aeae421b47a8a739"
+    },
+    {
+      "id": "continuous-sheltered-preservation",
+      "state": "sheltered-preservation",
+      "path": "design/scene-targets/views/continuous-sheltered-preservation.png",
+      "sha256": "0d76f4a8117026047f8d773de1683fa6a9ae2849ddd6a8c84ece3bf765f05e25"
+    },
+    {
+      "id": "continuous-satisfied-delivery",
+      "state": "satisfied-delivery",
+      "path": "design/scene-targets/views/continuous-satisfied-delivery.png",
+      "sha256": "be5a6b2de84a4859dd6611ee00a6a019352702f4b580840b06ec903f832c1532"
+    },
+    {
+      "id": "continuous-imperfect-recovery",
+      "state": "imperfect-recovery",
+      "path": "design/scene-targets/views/continuous-imperfect-recovery.png",
+      "sha256": "a177557002041844c22aad51f98746d66fa6b1c1ece86bc13463282d4cdfd5bb"
+    },
+    {
+      "id": "continuous-followup-selection",
+      "state": "followup-selection",
+      "path": "design/scene-targets/views/continuous-followup-selection.png",
+      "sha256": "1115df518c2b94d950c2403c515afedbc1fa4b2184e200cbe27c5c5a42126450"
+    }
+  ],
+  "assetInventory": {
+    "authority": {
+      "path": "design/scene-targets/scene-target.json",
+      "jsonPointer": "/components",
+      "completeTargetSha256": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+      "lockedFields": [
+        "id",
+        "category",
+        "sourceViewId",
+        "sourceViewSha256",
+        "sourceViews",
+        "crop",
+        "placementBounds",
+        "stateIds",
+        "derivedFromSceneTargetSha256",
+        "nativeRenderSize",
+        "runtimeGeometry",
+        "anchor",
+        "layer",
+        "stateVariants",
+        "typographyRoles",
+        "animationNeed",
+        "sourcePromptPointer",
+        "extractionStrategy"
+      ]
+    },
+    "requiredComponents": [
+      {"id": "village-environment", "method": "direct-raster", "outputFamily": "environment"},
+      {"id": "cauldron", "method": "direct-raster", "outputFamily": "interactables"},
+      {"id": "ember-ingredient", "method": "direct-raster", "outputFamily": "interactables"},
+      {"id": "moss-ingredient", "method": "direct-raster", "outputFamily": "interactables"},
+      {"id": "courier", "method": "direct-raster-sprite-sheet", "outputFamily": "characters"},
+      {"id": "partner", "method": "direct-raster-sprite-sheet", "outputFamily": "characters"},
+      {"id": "mira", "method": "direct-raster-sprite-sheet", "outputFamily": "characters"},
+      {"id": "bottle", "method": "direct-raster-sprite-sheet", "outputFamily": "props"},
+      {"id": "gust-sign", "method": "direct-raster", "outputFamily": "world-signage"},
+      {"id": "shelter-sign", "method": "direct-raster", "outputFamily": "world-signage"},
+      {"id": "route-effects", "method": "direct-raster-effect-sheet", "outputFamily": "effects"},
+      {"id": "reaction-effects", "method": "direct-raster-effect-sheet", "outputFamily": "effects"},
+      {"id": "opening-status", "method": "code-native-ui", "outputFamily": "interface"},
+      {"id": "request-status", "method": "code-native-ui", "outputFamily": "interface"},
+      {"id": "carried-status", "method": "code-native-ui", "outputFamily": "interface"},
+      {"id": "causal-feedback", "method": "code-native-nine-slice-ui", "outputFamily": "feedback"},
+      {"id": "delivery-comparison", "method": "code-native-ui", "outputFamily": "feedback"},
+      {"id": "ember-context-label", "method": "code-native-ui", "outputFamily": "world-interface"},
+      {"id": "moss-context-label", "method": "code-native-ui", "outputFamily": "world-interface"},
+      {"id": "world-action-cue", "method": "code-native-nine-slice-ui", "outputFamily": "world-interface"},
+      {"id": "reaction-label", "method": "code-native-ui", "outputFamily": "world-interface"},
+      {"id": "sunmill-pennant", "method": "direct-raster-sprite-sheet", "outputFamily": "world-signage"},
+      {"id": "herbalist-pennant", "method": "direct-raster-sprite-sheet", "outputFamily": "world-signage"},
+      {"id": "sunmill-info-sign", "method": "code-native-ui", "outputFamily": "world-interface"},
+      {"id": "herbalist-info-sign", "method": "code-native-ui", "outputFamily": "world-interface"}
+    ],
+    "codeNativePolicy": "Dynamic text, numeric potion state, proximity cues, selection or focus states, feedback sequencing, and accessibility-sensitive surfaces remain deliberately styled engine-native UI. Raster motifs may support their authored surfaces, but engine defaults and generic rectangles are not acceptable outputs.",
+    "animationPolicy": "Author native frames directly from the approved state silhouettes, then choreograph them against real gameplay transitions. Preserve all animationNeed beats and timing in the pinned component contracts; no ambient quota and no effect may obscure an actor, bottle, threshold, or action cue."
+  },
+  "expectedOutputs": {
+    "containedDirectories": [
+      "game/assets/production/first-delivery/environment/",
+      "game/assets/production/first-delivery/interactables/",
+      "game/assets/production/first-delivery/characters/",
+      "game/assets/production/first-delivery/props/",
+      "game/assets/production/first-delivery/effects/",
+      "game/assets/production/first-delivery/interface/",
+      "game/ui/production/first-delivery/",
+      "design/production-assets/first-delivery/"
+    ],
+    "handoffManifest": "design/production-assets/first-delivery/inventory.json",
+    "requirements": [
+      "Lossless native PNG assets or sprite sheets for every direct-raster component, with declared frame sizes, pivots, state or animation names, frame timing, and hashes.",
+      "Deliberately styled code-native UI components for normal, focus or selected, disabled when applicable, feedback, and resolved states, with any raster motifs rendered 1:1 or through declared nine-slice regions.",
+      "Per-component provenance linking the approved target fingerprint, source view and hash, crop, prompt pointer, native and render sizes, runtime consumer, and resulting artifact hash.",
+      "Recomposition evidence at exact 480x270 and integer 3x showing that required components recover the approved screen hierarchy without clipping, undeclared overlap, or mixed pixel density.",
+      "Runtime engine captures and motion evidence remain downstream integration obligations and are not outputs of this planning node."
+    ]
+  },
+  "providerRequests": {
+    "required": false,
+    "files": [],
+    "reason": "The direct lane has no SAM 3, video, tracking, or pixel-motion job. Creating an unused provider request would misroute downstream conditional nodes and imply unjustified provider work."
+  },
+  "verification": {
+    "sceneTargetValidationPath": "design/scene-targets/validation.json",
+    "sceneTargetValidationResult": "pass",
+    "selectedViewHashesVerified": 9,
+    "componentLineageVerified": true,
+    "componentCountVerified": 25,
+    "componentProductionIntentionallyAbsent": true
+  }
+}

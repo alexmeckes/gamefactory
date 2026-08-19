@@ -1,0 +1,307 @@
+{
+  "apiVersion": "gamefactory.design-system/v1",
+  "id": "alchemy-delivery-boys-continuous-causal-village",
+  "version": "1.0.0",
+  "title": "Alchemy Delivery Boys \u2014 Continuous Causal Village",
+  "maturity": "production-slice",
+  "identity": {
+    "intent": "Keep brewing, both route counterfactuals, the carried potion, and Mira's reaction visible as one warm peculiar village rather than a dashboard or panel sequence.",
+    "toneWords": [
+      "warm",
+      "peculiar",
+      "handmade",
+      "embodied",
+      "causal"
+    ],
+    "avoidWords": [
+      "dashboard",
+      "generic purple cards",
+      "procedural graybox",
+      "painterly blur",
+      "mixed pixel density",
+      "passive travel"
+    ]
+  },
+  "principles": [
+    {
+      "id": "world-first-causality",
+      "statement": "Player, bottle, route, and recipient remain in one continuous fixed-camera place.",
+      "rationale": "The delivery reads as an embodied chain rather than automatic travel.",
+      "priority": 1
+    },
+    {
+      "id": "state-before-copy",
+      "statement": "Physical bottle, route response, and Mira pose begin before explanatory interface copy.",
+      "rationale": "Consequences stay attributable to world actions.",
+      "priority": 2
+    },
+    {
+      "id": "one-native-grid",
+      "statement": "Raster, effects, anchors, UI, and camera resolve on the 480x270 grid.",
+      "rationale": "One density protects silhouette and material coherence at integer 3x.",
+      "priority": 3
+    },
+    {
+      "id": "shape-plus-number",
+      "statement": "Warmth and soothing always pair angular sun and rounded leaf shapes with words or quantities.",
+      "rationale": "Hue reinforces state but never carries it alone.",
+      "priority": 4
+    },
+    {
+      "id": "few-causal-beats",
+      "statement": "Use bounded interaction and consequence beats plus quiet offset ambient motion.",
+      "rationale": "The scene feels inhabited without unrelated looping noise.",
+      "priority": 5
+    }
+  ],
+  "tokens": {
+    "color": {
+      "ink": "#1B1A24",
+      "deep_slate": "#2A3341",
+      "plum_shadow": "#44354E",
+      "wood": "#6B4638",
+      "clay": "#A85D43",
+      "ember": "#E66A3C",
+      "warmth": "#F3B94E",
+      "paper": "#F4E1B5",
+      "moss_dark": "#345B43",
+      "moss": "#69A35C",
+      "soothing": "#83C9A0",
+      "roof_blue": "#4D6D7A",
+      "wind": "#B7DCE1",
+      "alchemy_violet": "#8467A8",
+      "specular": "#FFF3CE",
+      "stone": "#9A7652",
+      "stone_light": "#C49A68",
+      "grass": "#526B38",
+      "sky": "#E5A45F",
+      "rose": "#C97878"
+    },
+    "typography": {
+      "family": "DejaVu Sans",
+      "license": "DejaVu permissive license; bundled verbatim",
+      "sizesNativePx": {
+        "display": 10,
+        "body": 12,
+        "feedback": 12,
+        "numeral": 12,
+        "caption": 11,
+        "action": 11
+      },
+      "rule": "Short place identity may use the 10 px pixel treatment; sustained reading remains 11-12 px humanist sans."
+    },
+    "layout": {
+      "nativeViewport": "480x270",
+      "shippingViewport": "1440x810",
+      "presentationScale": 3,
+      "baseUnitPx": 4,
+      "borderPx": [
+        1,
+        2
+      ],
+      "insetsPx": {
+        "compact": 4,
+        "reading": 6
+      },
+      "rule": "Status owns quiet upper corners; feedback owns a temporary lower strip; action cues remain at their world anchor."
+    },
+    "motion": {
+      "ingredientArcMs": 450,
+      "bottleRiseMs": 450,
+      "handoffTransferMs": 420,
+      "reactionHoldMs": 1150,
+      "rule": "Every non-ambient beat is bound to a real gameplay event and interruption leaves authoritative state visible."
+    }
+  },
+  "patterns": [
+    {
+      "id": "authored-status-slip",
+      "intent": "Keep request or carried state readable without dashboard ownership.",
+      "rules": [
+        "Use target-measured upper corners.",
+        "Use one-pixel clipped corners and two-pixel shadow.",
+        "Pair potion values with icons and words."
+      ],
+      "avoid": [
+        "Generic rectangles",
+        "Persistent log",
+        "Tiny pixel body copy"
+      ],
+      "examples": [
+        "Mira request",
+        "Bottled/Carried badge"
+      ]
+    },
+    {
+      "id": "world-context-action",
+      "intent": "Make one context verb belong to a nearby world object.",
+      "rules": [
+        "Appear only in range.",
+        "Use authored focus accent.",
+        "Compress one pixel on action."
+      ],
+      "avoid": [
+        "Modal choice cards",
+        "Detached controls",
+        "Always-on prompts"
+      ],
+      "examples": [
+        "E TALK",
+        "E ADD",
+        "E GIVE",
+        "E GO"
+      ]
+    },
+    {
+      "id": "causal-consequence",
+      "intent": "Show which world event changed or preserved potion state.",
+      "rules": [
+        "World effect starts first.",
+        "Bottle marks remain visible.",
+        "Feedback stays two lines or fewer.",
+        "Settle without hiding state."
+      ],
+      "avoid": [
+        "Particles without state change",
+        "Color-only feedback",
+        "Camera cuts"
+      ],
+      "examples": [
+        "Gust +1 Warmth/\u22121 Soothing",
+        "Shelter preserved"
+      ]
+    },
+    {
+      "id": "physical-reaction",
+      "intent": "Let Mira care visibly about what arrived.",
+      "rules": [
+        "Transfer bottle before pose.",
+        "Pose before label.",
+        "Comparison after 400 ms.",
+        "Activate next choice after reaction settles."
+      ],
+      "avoid": [
+        "Text-only verdict",
+        "Immediate results modal",
+        "Follow-up cue during reaction"
+      ],
+      "examples": [
+        "Relief exact match",
+        "Shiver recoverable mismatch"
+      ]
+    }
+  ],
+  "references": [
+    {
+      "path": "design/scene-targets/views/continuous-route-pending.png",
+      "sha256": "92c31af3c13f2872853d5e1fa773120a40bbe385805a8cd55cf0190a41556520",
+      "role": "Approved whole-screen route-pending target; never loaded by runtime",
+      "purpose": "gameplay",
+      "authority": "approved-target",
+      "source": "imagegen-normalized-whole-screen-reference",
+      "prompt": "Use case: stylized-concept\nAsset type: complete gameplay-screen target, proposed design target only, not runtime production art\nPrimary request: Create a shippable-looking 16:9 pixel-art gameplay screen for \u2018Alchemy Delivery Boys\u2019 in the route-pending state. The young courier has just bottled a potion with 1 warmth and 2 soothing and stands at a physical fork, deciding by direct movement between an exposed wind crossing and a sheltered awning lane before delivering to Mira. Preserve the causal layout facts from the reference graybox but completely replace its programmer panels and labels with an authored inhabited village.\nInput images: Image 1 and Image 2 are graybox layout-and-state references only; do not copy their art, rectangles, prototype banner, or typography.\nScene/backdrop: One continuous compact peculiar village at a fixed high 3/4 top-down shipping camera. Brew yard and partner on the left, cauldron and ingredient planters nearby; fork and both traversable routes through the center; Mira waiting at her cottage doorway on the right. Exposed upper route is visibly wind-prone with a turning vane, loose pennants, and pale gust streamers. Sheltered lower route runs under timber awnings and mossy cloth. Both routes are simultaneously visible, plausibly walkable, and reconnect before Mira.\nSubject: One readable 24x32-style courier silhouette with satchel and visibly carried bottle; partner near brew yard; Mira at destination. Bottle contents use an angular amber sun mark for warmth and rounded mint leaf marks for soothing, not color alone.\nStyle/medium: authored production-quality pixel art, crisp nearest-neighbor pixel clusters, 16x16 tile rhythm, warm peculiar storybook village, strong silhouettes, no painterly blur, no mixed pixel density.\nComposition/framing: Exact 16:9 whole viewport. World fills the canvas and is dominant. Keep a clear movement corridor around the courier and both route thresholds. Place a compact parchment request slip over quiet upper-left roof/sky scenery and a compact cork-tag carried-potion badge over quiet upper-right roof/sky scenery. A tiny world-anchored action glyph may appear near the courier; no dashboard frame.\nLighting/mood: late golden afternoon, welcoming but windswept, lived-in clutter kept away from paths.\nColor palette: ink #1B1A24, deep slate #2A3341, plum shadow #44354E, wood #6B4638, clay #A85D43, ember #E66A3C, warmth #F3B94E, paper #F4E1B5, moss dark #345B43, moss #69A35C, soothing #83C9A0, roof blue #4D6D7A, wind #B7DCE1, alchemy violet #8467A8, specular #FFF3CE.\nText (verbatim): parchment slip \u2018MIRA NEEDS 2 WARMTH + 1 SOOTHING\u2019; cork tag \u2018BOTTLED 1 WARMTH + 2 SOOTHING\u2019; short sign labels only \u2018GUST\u2019 and \u2018SHELTER\u2019.\nTypography: short place labels use expressive pixel display type; request and carried-state copy use a calm readable humanist sans. All copy is legible, correctly spelled, and high contrast.\nConstraints: direct movement chooses the route; no route-choice buttons or cards; no UI covers any character, path, route threshold, hazard tell, destination, bottle, or prompt; no accidental overlap; no extra meters; no extra characters; no logos; no watermark. This is a complete gameplay viewport, not a mood board or concept-art vignette.\nAvoid: generic purple cards, arbitrary rounded panels, nested borders, inventory grids, cinematic close-up, side-scrolling composition, isometric cutaway diorama, decorative frame, painterly anti-aliasing, text gibberish, prototype graybox labels."
+    },
+    {
+      "path": "design/production-assets/first-delivery/inventory.json",
+      "sha256": "e0f6a089ee4c04234722c26c7b06244fe9608e184ed7565eb62c5e501cf83a2a",
+      "role": "Target-linked production inventory",
+      "purpose": "provenance",
+      "authority": "production-input",
+      "source": "direct"
+    },
+    {
+      "path": "evidence/production-run/native-first-session/04-delivery_resolved.png",
+      "sha256": "9b8121871c6fe4fdf0f1f2707a468e69889963246f638bb27f5cdf59c006ff4f",
+      "role": "Current native exact-match reaction",
+      "purpose": "gameplay",
+      "authority": "production-target",
+      "source": "captured"
+    },
+    {
+      "path": "evidence/production-run/first-session/03-route_selected.png",
+      "sha256": "5eef6c6263e3ca7cb73deaf89fee1c3ad708d8ba619b7f65fb848499cd858a71",
+      "role": "Current shipping exposed-route consequence",
+      "purpose": "interaction",
+      "authority": "production-target",
+      "source": "captured"
+    },
+    {
+      "path": "evidence/production-run/returning-player/03-route_selected.png",
+      "sha256": "1ec07ccb31cd85cf47fa80e48c0354fbe8bd942550ffa81d38df9024d9eff820",
+      "role": "Current shipping sheltered-route consequence",
+      "purpose": "interaction",
+      "authority": "production-target",
+      "source": "captured"
+    },
+    {
+      "path": "evidence/production-run/first-session/shipping-motion.mp4",
+      "sha256": "40d9ec46a41b27636f15b85017970140f31e383e5161d1ef16e899f0e61a46b1",
+      "role": "Current full first-session engine recording",
+      "purpose": "motion",
+      "authority": "production-target",
+      "source": "captured"
+    },
+    {
+      "path": "evidence/production-run/returning-player/shipping-motion.mp4",
+      "sha256": "7b2f72040a3d5335bbfd593d92e272018a9bb7055a48c4e2b1bdffe0ef3b8089",
+      "role": "Current returning-player engine recording",
+      "purpose": "motion",
+      "authority": "production-target",
+      "source": "captured"
+    }
+  ],
+  "implementations": [
+    {
+      "path": "game/main.gd",
+      "sha256": "ba0d0ca84d78036e5839f2cd8cfa50e415b44b5387a57f2c40a434ed31738a3c",
+      "id": "runtime",
+      "adapter": "godot-script"
+    },
+    {
+      "path": "game/main.tscn",
+      "sha256": "15abe35af6148de9073e403007c73549bfbd7cd36d1fa6839d3cd30ad6fdfb54",
+      "id": "scene",
+      "adapter": "godot-scene"
+    },
+    {
+      "path": "design/production-assets/first-delivery/inventory.json",
+      "sha256": "e0f6a089ee4c04234722c26c7b06244fe9608e184ed7565eb62c5e501cf83a2a",
+      "id": "assets",
+      "adapter": "production-asset-inventory"
+    },
+    {
+      "path": "design/production-assets/first-delivery/integration-report.json",
+      "sha256": "f1234b51d6da8be143aadb0cc82f16d3b6e5c1ceaf0b5691e3d88dfcc22fdbfd",
+      "id": "integration",
+      "adapter": "gamefactory-integration-report"
+    },
+    {
+      "path": "design/production-assets/first-delivery/motion-report.json",
+      "sha256": "903260ec9e2a8c1e63254ced97ab4d400d94e9d730383454e4c81991fb263e7a",
+      "id": "motion",
+      "adapter": "gamefactory-motion-report"
+    },
+    {
+      "path": "design/production-assets/first-delivery/polish-report.json",
+      "sha256": "0a9e2ab55f70f82101702cd77662d5f2b4b1238b57d20bd33a606a9cc6fe1d2a",
+      "id": "polish",
+      "adapter": "production-readiness"
+    }
+  ],
+  "metadata": {
+    "hypothesis": "A direct authored native-pixel set plus target-measured code-native UI preserves the continuous causal village more faithfully than cutout extraction from baked whole-screen targets.",
+    "targetFingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+    "sourcePipeline": [
+      "approved normalized ImageGen whole-screen target",
+      "direct native-pixel reconstruction",
+      "bundled humanist type",
+      "Godot lossless import",
+      "state-linked engine choreography",
+      "real-renderer scenario replay",
+      "native and shipping capture review"
+    ],
+    "scope": "One player-complete first-delivery encounter",
+    "humanFunEvidence": false,
+    "evidenceBoundary": "Deterministic scenarios and real-engine captures establish contract completion and production integration, not human evidence of fun."
+  }
+}

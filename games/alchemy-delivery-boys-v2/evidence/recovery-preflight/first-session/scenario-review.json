@@ -1,0 +1,1038 @@
+{
+  "artifact_paths": [
+    "res://evidence/recovery-preflight/first-session/01-need_disclosed.png",
+    "res://evidence/recovery-preflight/first-session/02-brew_committed.png",
+    "res://evidence/recovery-preflight/first-session/03-route_selected.png",
+    "res://evidence/recovery-preflight/first-session/04-delivery_resolved.png",
+    "res://evidence/recovery-preflight/first-session/05-followup_selected.png"
+  ],
+  "carried_state": {
+    "committed": {
+      "soothing": 2,
+      "warm": 1
+    },
+    "consumed_by_reaction": true,
+    "delivered": {
+      "soothing": 1,
+      "warm": 2
+    },
+    "route_delta": {
+      "soothing": -1,
+      "warm": 1
+    }
+  },
+  "causal_events": [
+    {
+      "event": "clean_start_reset",
+      "gameplay_state_seeded": false,
+      "index": 0,
+      "input": {
+        "action": "reset",
+        "kind": "fixture_setup",
+        "x": 0.0,
+        "y": 0.0
+      },
+      "need_active": false,
+      "position": {
+        "x": 130.0,
+        "y": 165.0
+      },
+      "retained_knowledge": "",
+      "scenario": "first-session",
+      "seed": 314159,
+      "tick": 0,
+      "time": 0.0
+    },
+    {
+      "available_world_choices": [
+        "ember",
+        "moss",
+        "exposed",
+        "sheltered"
+      ],
+      "carrying": false,
+      "contributions": [],
+      "event": "initial_state",
+      "index": 1,
+      "input": {
+        "action": "reset",
+        "kind": "fixture_setup",
+        "x": 0.0,
+        "y": 0.0
+      },
+      "mode": "first-session",
+      "need_active": false,
+      "position": {
+        "x": 130.0,
+        "y": 165.0
+      },
+      "reaction": "",
+      "route": "",
+      "scenario": "first-session",
+      "seed": 314159,
+      "tick": 0,
+      "time": 0.0
+    },
+    {
+      "alternatives": [
+        "ember adds warm",
+        "moss adds soothing"
+      ],
+      "event": "need_disclosed",
+      "index": 2,
+      "input": {
+        "action": "interact",
+        "kind": "replayed_shipping_context_action",
+        "x": 0.0,
+        "y": 0.0
+      },
+      "need": {
+        "soothing": 1,
+        "warm": 2
+      },
+      "need_active": true,
+      "position": {
+        "x": 106.0,
+        "y": 155.0
+      },
+      "scenario": "first-session",
+      "seed": 314159,
+      "target": "partner",
+      "tick": 13,
+      "time": 0.217
+    },
+    {
+      "alternative": "moss",
+      "event": "ingredient_added",
+      "index": 3,
+      "ingredient": "ember",
+      "input": {
+        "action": "interact",
+        "kind": "replayed_shipping_context_action",
+        "x": 0.0,
+        "y": 0.0
+      },
+      "need_active": true,
+      "position": {
+        "x": 71.0,
+        "y": 201.0
+      },
+      "preview": {
+        "soothing": 0,
+        "warm": 1
+      },
+      "scenario": "first-session",
+      "seed": 314159,
+      "sequence": [
+        "ember"
+      ],
+      "tick": 43,
+      "time": 0.717
+    },
+    {
+      "alternative": "ember",
+      "event": "ingredient_added",
+      "index": 4,
+      "ingredient": "moss",
+      "input": {
+        "action": "interact",
+        "kind": "replayed_shipping_context_action",
+        "x": 0.0,
+        "y": 0.0
+      },
+      "need_active": true,
+      "position": {
+        "x": 83.0,
+        "y": 223.0
+      },
+      "preview": {
+        "soothing": 1,
+        "warm": 1
+      },
+      "scenario": "first-session",
+      "seed": 314159,
+      "sequence": [
+        "ember",
+        "moss"
+      ],
+      "tick": 56,
+      "time": 0.933
+    },
+    {
+      "alternative": "ember",
+      "event": "ingredient_added",
+      "index": 5,
+      "ingredient": "moss",
+      "input": {
+        "action": "interact",
+        "kind": "replayed_shipping_context_action",
+        "x": 0.0,
+        "y": 0.0
+      },
+      "need_active": true,
+      "position": {
+        "x": 83.0,
+        "y": 223.0
+      },
+      "preview": {
+        "soothing": 2,
+        "warm": 1
+      },
+      "scenario": "first-session",
+      "seed": 314159,
+      "sequence": [
+        "ember",
+        "moss",
+        "moss"
+      ],
+      "tick": 57,
+      "time": 0.95
+    },
+    {
+      "bottled_state": {
+        "soothing": 2,
+        "warm": 1
+      },
+      "contributions": [
+        "ember",
+        "moss",
+        "moss"
+      ],
+      "event": "brew_committed",
+      "index": 6,
+      "input": {
+        "action": "interact",
+        "kind": "replayed_shipping_context_action",
+        "x": 0.0,
+        "y": 0.0
+      },
+      "need_active": true,
+      "position": {
+        "x": 69.0,
+        "y": 139.0
+      },
+      "route_alternatives": {
+        "exposed": "convert one soothing to warm",
+        "sheltered": "preserve bottled state"
+      },
+      "scenario": "first-session",
+      "seed": 314159,
+      "tick": 101,
+      "time": 1.683
+    },
+    {
+      "available_routes": [
+        "exposed",
+        "sheltered"
+      ],
+      "carried_state": {
+        "soothing": 2,
+        "warm": 1
+      },
+      "event": "route_navigation_sample",
+      "index": 7,
+      "input": {
+        "action": "move",
+        "kind": "replayed_shipping_axis",
+        "x": 0.961,
+        "y": -0.277
+      },
+      "need_active": true,
+      "position": {
+        "x": 70.89,
+        "y": 138.45
+      },
+      "position_causes_route": true,
+      "scenario": "first-session",
+      "seed": 314159,
+      "tick": 102,
+      "time": 1.7
+    },
+    {
+      "available_routes": [
+        "exposed",
+        "sheltered"
+      ],
+      "carried_state": {
+        "soothing": 2,
+        "warm": 1
+      },
+      "event": "route_navigation_sample",
+      "index": 8,
+      "input": {
+        "action": "move",
+        "kind": "replayed_shipping_axis",
+        "x": 0.961,
+        "y": -0.277
+      },
+      "need_active": true,
+      "position": {
+        "x": 97.34,
+        "y": 130.82
+      },
+      "position_causes_route": true,
+      "scenario": "first-session",
+      "seed": 314159,
+      "tick": 116,
+      "time": 1.933
+    },
+    {
+      "available_routes": [
+        "exposed",
+        "sheltered"
+      ],
+      "carried_state": {
+        "soothing": 2,
+        "warm": 1
+      },
+      "event": "route_navigation_sample",
+      "index": 9,
+      "input": {
+        "action": "move",
+        "kind": "replayed_shipping_axis",
+        "x": 0.961,
+        "y": -0.277
+      },
+      "need_active": true,
+      "position": {
+        "x": 129.47,
+        "y": 121.55
+      },
+      "position_causes_route": true,
+      "scenario": "first-session",
+      "seed": 314159,
+      "tick": 133,
+      "time": 2.217
+    },
+    {
+      "available_routes": [
+        "exposed",
+        "sheltered"
+      ],
+      "carried_state": {
+        "soothing": 2,
+        "warm": 1
+      },
+      "event": "route_navigation_sample",
+      "index": 10,
+      "input": {
+        "action": "move",
+        "kind": "replayed_shipping_axis",
+        "x": 0.961,
+        "y": -0.277
+      },
+      "need_active": true,
+      "position": {
+        "x": 161.59,
+        "y": 112.28
+      },
+      "position_causes_route": true,
+      "scenario": "first-session",
+      "seed": 314159,
+      "tick": 150,
+      "time": 2.5
+    },
+    {
+      "available_routes": [
+        "exposed",
+        "sheltered"
+      ],
+      "carried_state": {
+        "soothing": 2,
+        "warm": 1
+      },
+      "event": "route_navigation_sample",
+      "index": 11,
+      "input": {
+        "action": "move",
+        "kind": "replayed_shipping_axis",
+        "x": 0.961,
+        "y": -0.277
+      },
+      "need_active": true,
+      "position": {
+        "x": 193.71,
+        "y": 103.01
+      },
+      "position_causes_route": true,
+      "scenario": "first-session",
+      "seed": 314159,
+      "tick": 167,
+      "time": 2.783
+    },
+    {
+      "checkpoint": "approach_exposed",
+      "event": "navigation_checkpoint",
+      "index": 12,
+      "input": {
+        "action": "waypoint_reached",
+        "kind": "replayed_shipping_axis",
+        "x": 0.0,
+        "y": 0.0
+      },
+      "need_active": true,
+      "position": {
+        "x": 218.0,
+        "y": 96.0
+      },
+      "scenario": "first-session",
+      "seed": 314159,
+      "tick": 180,
+      "time": 3.0
+    },
+    {
+      "available_routes": [
+        "exposed",
+        "sheltered"
+      ],
+      "carried_state": {
+        "soothing": 2,
+        "warm": 1
+      },
+      "event": "route_navigation_sample",
+      "index": 13,
+      "input": {
+        "action": "move",
+        "kind": "replayed_shipping_axis",
+        "x": 1.0,
+        "y": 0.0
+      },
+      "need_active": true,
+      "position": {
+        "x": 225.87,
+        "y": 96.0
+      },
+      "position_causes_route": true,
+      "scenario": "first-session",
+      "seed": 314159,
+      "tick": 184,
+      "time": 3.067
+    },
+    {
+      "available_routes": [
+        "exposed",
+        "sheltered"
+      ],
+      "carried_state": {
+        "soothing": 2,
+        "warm": 1
+      },
+      "event": "route_navigation_sample",
+      "index": 14,
+      "input": {
+        "action": "move",
+        "kind": "replayed_shipping_axis",
+        "x": 1.0,
+        "y": 0.0
+      },
+      "need_active": true,
+      "position": {
+        "x": 257.33,
+        "y": 96.0
+      },
+      "position_causes_route": true,
+      "scenario": "first-session",
+      "seed": 314159,
+      "tick": 200,
+      "time": 3.333
+    },
+    {
+      "alternative": "sheltered",
+      "delta": {
+        "soothing": -1,
+        "warm": 1
+      },
+      "event": "route_selected",
+      "index": 15,
+      "input": {
+        "action": "move",
+        "kind": "replayed_shipping_axis",
+        "x": 1.0,
+        "y": 0.0
+      },
+      "need_active": true,
+      "position": {
+        "x": 277.0,
+        "y": 96.0
+      },
+      "post_route": {
+        "soothing": 1,
+        "warm": 2
+      },
+      "pre_route": {
+        "soothing": 2,
+        "warm": 1
+      },
+      "route": "exposed",
+      "scenario": "first-session",
+      "seed": 314159,
+      "tick": 210,
+      "time": 3.5
+    },
+    {
+      "checkpoint": "cross_exposed",
+      "event": "navigation_checkpoint",
+      "index": 16,
+      "input": {
+        "action": "waypoint_reached",
+        "kind": "replayed_shipping_axis",
+        "x": 0.0,
+        "y": 0.0
+      },
+      "need_active": true,
+      "position": {
+        "x": 306.0,
+        "y": 96.0
+      },
+      "scenario": "first-session",
+      "seed": 314159,
+      "tick": 225,
+      "time": 3.75
+    },
+    {
+      "bottled_state": {
+        "soothing": 2,
+        "warm": 1
+      },
+      "delivered_state": {
+        "soothing": 1,
+        "warm": 2
+      },
+      "event": "delivery_resolved",
+      "followup_alternatives": [
+        "sunmill_cough",
+        "herbalist_chill"
+      ],
+      "index": 17,
+      "input": {
+        "action": "interact",
+        "kind": "replayed_shipping_context_action",
+        "x": 0.0,
+        "y": 0.0
+      },
+      "need": {
+        "soothing": 1,
+        "warm": 2
+      },
+      "need_active": true,
+      "position": {
+        "x": 405.0,
+        "y": 160.0
+      },
+      "reaction": "satisfied",
+      "reaction_cause": "Mira is relieved: delivered W2 / S1 exactly matches her need.",
+      "retained_knowledge": "The exposed gust can correct a soothing-heavy brew.",
+      "route": "exposed",
+      "route_delta": {
+        "soothing": -1,
+        "warm": 1
+      },
+      "scenario": "first-session",
+      "seed": 314159,
+      "tick": 285,
+      "time": 4.75
+    },
+    {
+      "event": "followup_requests_disclosed",
+      "index": 18,
+      "input": {
+        "action": "interact",
+        "kind": "replayed_shipping_context_action",
+        "x": 0.0,
+        "y": 0.0
+      },
+      "need_active": true,
+      "position": {
+        "x": 405.0,
+        "y": 160.0
+      },
+      "prior_reaction": "satisfied",
+      "requests": {
+        "herbalist_chill": {
+          "consequence": "Protect soothing from the gust for the herbalist's chill.",
+          "journey_effect": "Shelter preserves a soothing-heavy bottle.",
+          "need": {
+            "soothing": 2,
+            "warm": 1
+          },
+          "requester": "Herbalist",
+          "route_plan": "sheltered"
+        },
+        "sunmill_cough": {
+          "consequence": "Trade soothing for the extra warmth the cough needs.",
+          "journey_effect": "Exposed gust can add warmth when the bottle contains soothing.",
+          "need": {
+            "soothing": 0,
+            "warm": 3
+          },
+          "requester": "Sunmill baker",
+          "route_plan": "exposed"
+        }
+      },
+      "retained_knowledge": "The exposed gust can correct a soothing-heavy brew.",
+      "scenario": "first-session",
+      "seed": 314159,
+      "tick": 285,
+      "time": 4.75
+    },
+    {
+      "available_requests": [
+        "sunmill_cough",
+        "herbalist_chill"
+      ],
+      "event": "followup_navigation_sample",
+      "index": 19,
+      "input": {
+        "action": "move",
+        "kind": "replayed_shipping_axis",
+        "x": -0.739,
+        "y": 0.674
+      },
+      "need_active": true,
+      "position": {
+        "x": 403.55,
+        "y": 161.33
+      },
+      "retained_knowledge": "The exposed gust can correct a soothing-heavy brew.",
+      "scenario": "first-session",
+      "seed": 314159,
+      "tick": 354,
+      "time": 5.9
+    },
+    {
+      "alternatives": [
+        "sunmill_cough",
+        "herbalist_chill"
+      ],
+      "choice": "sunmill_cough",
+      "contrasted_request": {
+        "consequence": "Protect soothing from the gust for the herbalist's chill.",
+        "journey_effect": "Shelter preserves a soothing-heavy bottle.",
+        "need": {
+          "soothing": 2,
+          "warm": 1
+        },
+        "requester": "Herbalist",
+        "route_plan": "sheltered"
+      },
+      "event": "followup_selected",
+      "index": 20,
+      "informed_by": "The exposed gust can correct a soothing-heavy brew.",
+      "input": {
+        "action": "interact",
+        "kind": "replayed_shipping_context_action",
+        "x": 0.0,
+        "y": 0.0
+      },
+      "need_active": true,
+      "position": {
+        "x": 348.0,
+        "y": 212.0
+      },
+      "prior_reaction": "satisfied",
+      "resulting_consequence": "Trade soothing for the extra warmth the cough needs.",
+      "resulting_plan": "exposed",
+      "scenario": "first-session",
+      "seed": 314159,
+      "selected_request": {
+        "consequence": "Trade soothing for the extra warmth the cough needs.",
+        "journey_effect": "Exposed gust can add warmth when the bottle contains soothing.",
+        "need": {
+          "soothing": 0,
+          "warm": 3
+        },
+        "requester": "Sunmill baker",
+        "route_plan": "exposed"
+      },
+      "tick": 393,
+      "time": 6.55
+    }
+  ],
+  "decisions_and_alternatives": {
+    "brew": {
+      "bottled_state": {
+        "soothing": 2,
+        "warm": 1
+      },
+      "contributions": [
+        "ember",
+        "moss",
+        "moss"
+      ],
+      "event": "brew_committed",
+      "index": 6,
+      "input": {
+        "action": "interact",
+        "kind": "replayed_shipping_context_action",
+        "x": 0.0,
+        "y": 0.0
+      },
+      "need_active": true,
+      "position": {
+        "x": 69.0,
+        "y": 139.0
+      },
+      "route_alternatives": {
+        "exposed": "convert one soothing to warm",
+        "sheltered": "preserve bottled state"
+      },
+      "scenario": "first-session",
+      "seed": 314159,
+      "tick": 101,
+      "time": 1.683
+    },
+    "followup_disclosure": {
+      "event": "followup_requests_disclosed",
+      "index": 18,
+      "input": {
+        "action": "interact",
+        "kind": "replayed_shipping_context_action",
+        "x": 0.0,
+        "y": 0.0
+      },
+      "need_active": true,
+      "position": {
+        "x": 405.0,
+        "y": 160.0
+      },
+      "prior_reaction": "satisfied",
+      "requests": {
+        "herbalist_chill": {
+          "consequence": "Protect soothing from the gust for the herbalist's chill.",
+          "journey_effect": "Shelter preserves a soothing-heavy bottle.",
+          "need": {
+            "soothing": 2,
+            "warm": 1
+          },
+          "requester": "Herbalist",
+          "route_plan": "sheltered"
+        },
+        "sunmill_cough": {
+          "consequence": "Trade soothing for the extra warmth the cough needs.",
+          "journey_effect": "Exposed gust can add warmth when the bottle contains soothing.",
+          "need": {
+            "soothing": 0,
+            "warm": 3
+          },
+          "requester": "Sunmill baker",
+          "route_plan": "exposed"
+        }
+      },
+      "retained_knowledge": "The exposed gust can correct a soothing-heavy brew.",
+      "scenario": "first-session",
+      "seed": 314159,
+      "tick": 285,
+      "time": 4.75
+    },
+    "followup_selection": {
+      "alternatives": [
+        "sunmill_cough",
+        "herbalist_chill"
+      ],
+      "choice": "sunmill_cough",
+      "contrasted_request": {
+        "consequence": "Protect soothing from the gust for the herbalist's chill.",
+        "journey_effect": "Shelter preserves a soothing-heavy bottle.",
+        "need": {
+          "soothing": 2,
+          "warm": 1
+        },
+        "requester": "Herbalist",
+        "route_plan": "sheltered"
+      },
+      "event": "followup_selected",
+      "index": 20,
+      "informed_by": "The exposed gust can correct a soothing-heavy brew.",
+      "input": {
+        "action": "interact",
+        "kind": "replayed_shipping_context_action",
+        "x": 0.0,
+        "y": 0.0
+      },
+      "need_active": true,
+      "position": {
+        "x": 348.0,
+        "y": 212.0
+      },
+      "prior_reaction": "satisfied",
+      "resulting_consequence": "Trade soothing for the extra warmth the cough needs.",
+      "resulting_plan": "exposed",
+      "scenario": "first-session",
+      "seed": 314159,
+      "selected_request": {
+        "consequence": "Trade soothing for the extra warmth the cough needs.",
+        "journey_effect": "Exposed gust can add warmth when the bottle contains soothing.",
+        "need": {
+          "soothing": 0,
+          "warm": 3
+        },
+        "requester": "Sunmill baker",
+        "route_plan": "exposed"
+      },
+      "tick": 393,
+      "time": 6.55
+    },
+    "route": {
+      "alternative": "sheltered",
+      "delta": {
+        "soothing": -1,
+        "warm": 1
+      },
+      "event": "route_selected",
+      "index": 15,
+      "input": {
+        "action": "move",
+        "kind": "replayed_shipping_axis",
+        "x": 1.0,
+        "y": 0.0
+      },
+      "need_active": true,
+      "position": {
+        "x": 277.0,
+        "y": 96.0
+      },
+      "post_route": {
+        "soothing": 1,
+        "warm": 2
+      },
+      "pre_route": {
+        "soothing": 2,
+        "warm": 1
+      },
+      "route": "exposed",
+      "scenario": "first-session",
+      "seed": 314159,
+      "tick": 210,
+      "time": 3.5
+    }
+  },
+  "engine_errors": [],
+  "initial_state": {
+    "available_world_choices": [
+      "ember",
+      "moss",
+      "exposed",
+      "sheltered"
+    ],
+    "carrying": false,
+    "contributions": [],
+    "event": "initial_state",
+    "index": 1,
+    "input": {
+      "action": "reset",
+      "kind": "fixture_setup",
+      "x": 0.0,
+      "y": 0.0
+    },
+    "mode": "first-session",
+    "need_active": false,
+    "position": {
+      "x": 130.0,
+      "y": 165.0
+    },
+    "reaction": "",
+    "route": "",
+    "scenario": "first-session",
+    "seed": 314159,
+    "tick": 0,
+    "time": 0.0
+  },
+  "metric_trace_sources": {
+    "completion": "ordered causal events plus zero violations",
+    "consequential_choices": "brew_committed + route_selected + followup_selected",
+    "followup_choice_trace_grounded": "delivery_resolved + followup_requests_disclosed + followup_navigation_sample + followup_selected",
+    "navigation_is_agency": "brew_committed.route_alternatives + route_navigation_sample.input + route_selected position/pre/delta/post"
+  },
+  "metrics": {
+    "causal_events": 21,
+    "clean_start_loop_complete": 1,
+    "completion": 1,
+    "concept_defined": 1,
+    "consequential_choices": 3,
+    "delivered_state_trace_grounded": 1,
+    "followup_choice_trace_grounded": 1,
+    "invalid_transitions": 0,
+    "meaningful_interactions": 3,
+    "mechanic_proven": 1,
+    "motion_frames_captured": 150,
+    "navigation_is_agency": 1,
+    "reaction_trace_grounded": 1,
+    "returning_loop_complete": 0
+  },
+  "mode_setup": {
+    "event": "clean_start_reset",
+    "gameplay_state_seeded": false,
+    "index": 0,
+    "input": {
+      "action": "reset",
+      "kind": "fixture_setup",
+      "x": 0.0,
+      "y": 0.0
+    },
+    "need_active": false,
+    "position": {
+      "x": 130.0,
+      "y": 165.0
+    },
+    "retained_knowledge": "",
+    "scenario": "first-session",
+    "seed": 314159,
+    "tick": 0,
+    "time": 0.0
+  },
+  "motion_frame_paths": [
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0000.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0006.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0012.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0018.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0024.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0030.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0036.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0042.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0048.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0054.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0060.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0066.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0072.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0078.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0084.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0090.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0096.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0102.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0108.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0114.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0120.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0126.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0132.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0138.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0144.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0150.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0156.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0162.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0168.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0174.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0180.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0186.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0192.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0198.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0204.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0210.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0216.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0222.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0228.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0234.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0240.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0246.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0252.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0258.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0264.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0270.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0276.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0282.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0288.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0294.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0300.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0306.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0312.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0318.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0324.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0330.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0336.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0342.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0348.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0354.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0360.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0366.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0372.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0378.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0384.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0390.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0396.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0402.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0408.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0414.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0420.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0426.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0432.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0438.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0444.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0450.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0456.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0462.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0468.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0474.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0480.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0486.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0492.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0498.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0504.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0510.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0516.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0522.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0528.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0534.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0540.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0546.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0552.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0558.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0564.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0570.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0576.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0582.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0588.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0594.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0600.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0606.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0612.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0618.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0624.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0630.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0636.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0642.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0648.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0654.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0660.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0666.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0672.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0678.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0684.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0690.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0696.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0702.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0708.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0714.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0720.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0726.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0732.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0738.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0744.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0750.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0756.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0762.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0768.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0774.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0780.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0786.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0792.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0798.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0804.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0810.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0816.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0822.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0828.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0834.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0840.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0846.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0852.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0858.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0864.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0870.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0876.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0882.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0888.png",
+    "res://evidence/recovery-preflight/first-session/motion-frames/frame-0894.png"
+  ],
+  "scenario": "first-session",
+  "seed": 314159,
+  "violations": []
+}

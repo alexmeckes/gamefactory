@@ -1,0 +1,39 @@
+{
+  "apiVersion": "gamefactory.polish-report/v1",
+  "status": "pass",
+  "sliceId": "first-delivery",
+  "targetFingerprint": "5752d7577e9b46db9c05d8ecb43ecd9e0ed813f74c3deffb901c0e21f6643245",
+  "gates": {
+    "layout-integrity": {
+      "status": "pass",
+      "evidence": "Native and integer-3x captures preserve the fixed camera, peer regions, protected actor/corridor areas, and declared overlaps; post-capture label repair removed clipped short labels."
+    },
+    "typography-system": {
+      "status": "pass",
+      "evidence": "Bundled licensed DejaVu Sans serves 11-12 px body/numeral/action roles; 10 px treatment is limited to short place identity; icon plus number prevents hue-only potion state."
+    },
+    "interface-system": {
+      "status": "pass",
+      "evidence": "Authored clipped-corner surfaces cover normal, focus/selected, pressed, feedback, and resolved states; unavailable actions remain absent rather than falsely enabled."
+    },
+    "component-fidelity": {
+      "status": "pass",
+      "evidence": "25/25 target components have lineage, production method, hash, native size, pivot, layer, state coverage, and one named runtime consumer."
+    },
+    "motion-choreography": {
+      "status": "pass",
+      "evidence": "Eight real gameplay bindings are present across both route counterfactuals and both delivery reactions; 300 shipping frames plus two MP4 recordings are trace-linked."
+    },
+    "scene-life": {
+      "status": "pass",
+      "evidence": "Offset simmer, breath, wind, and pennant loops keep the village inhabited while route and reaction effects remain causal and bounded."
+    }
+  },
+  "provisionalSurfaces": [],
+  "deliberateOmissions": [
+    "Audio: no audio component or acceptance claim exists in the approved 25-component scene contract.",
+    "Content breadth beyond the first delivery remains a declared non-goal."
+  ],
+  "humanFunEvidence": false,
+  "violations": []
+}

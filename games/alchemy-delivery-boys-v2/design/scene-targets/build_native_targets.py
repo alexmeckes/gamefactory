@@ -65,6 +65,7 @@ FONT_DISPLAY = ImageFont.truetype(str(SEMIBOLD_FONT_PATH), 10)
 FONT_ACTION = ImageFont.truetype(str(SEMIBOLD_FONT_PATH), 11)
 
 VIEW_IDS = [
+    "continuous-pre-disclosure",
     "continuous-route-pending",
     "continuous-need-disclosed",
     "continuous-mix-feedback",
@@ -77,6 +78,7 @@ VIEW_IDS = [
 ]
 
 STATE_BY_VIEW = {
+    "continuous-pre-disclosure": "pre-disclosure",
     "continuous-route-pending": "route-pending",
     "continuous-need-disclosed": "need-disclosed",
     "continuous-mix-feedback": "mix-feedback",
@@ -88,9 +90,19 @@ STATE_BY_VIEW = {
     "following-rooms-route-pending": "route-pending",
 }
 
-SELECTED_VIEW_IDS = VIEW_IDS[:8]
+SELECTED_VIEW_IDS = VIEW_IDS[:9]
+
+PRE_DISCLOSURE_PROMPT = """Repair prompt (verbatim):
+Use case: precise-object-edit
+Asset type: whole-screen gameplay state variant, proposed design target only, not runtime production art
+Input images: the selected continuous-causal-village target and its canonical persistent-world basis.
+Primary request: Add one explicit opening state before request disclosure. Preserve the exact 480x270 fixed camera, continuous village geography, route topology, architecture, palette, lighting, pixel density, actor identity and scale, landmark anchors, and quiet upper-corner text-safe regions. Place the empty-handed courier beside the brew-yard partner and keep both future routes plus Mira visible. Show a compact code-native MORNING ROUND status in the existing upper-left safe region and one world-anchored E TALK cue pointing to the partner.
+Text (verbatim): status heading 'Morning round'; status instruction 'Talk to your partner'; action prompt 'E TALK'.
+Disclosure constraint: do not show Mira's request, potion quantities, ingredient instructions, a physical bottle, or a carried-potion badge before the player talks to the partner.
+Global constraints: world-first hierarchy; direct movement plus one context action; no modal cards, route-choice controls, dashboard frame, extra meters, extra characters, decorative border, camera change, topology change, hidden path, logo, watermark, painterly blur, or mixed pixel density. This is a complete gameplay viewport, not an isolated asset or concept vignette."""
 
 PAINTOVER_PROMPTS = {
+    "continuous-pre-disclosure": "At exact native 480x270, preserve the selected continuous-village camera and persistent-world basis. Show the empty-handed courier facing the brew-yard partner, keep both routes and Mira visible, cover the old disclosure copy with the measured MORNING ROUND status in the existing upper-left safe region, and place E TALK beside the partner. Reveal no request, potion quantity, ingredient instruction, bottle, or carried badge.",
     "continuous-route-pending": "At exact native 480x270, preserve the reviewed continuous-village camera and world art. Recompose the request and bottled-state surfaces with 12px humanist body type, 11px headings, 15px line rhythm, 6px insets, icon-plus-number potion language, and one-pixel authored borders. Keep both routes, the courier, bottle, and Mira unobscured.",
     "continuous-need-disclosed": "At exact native 480x270, preserve the reviewed continuous-village camera and the canonical persistent-world basis. Remove the detached lower-right MOSS cue by retaining the same detailed foreground roof and sign geometry used in adjacent states. Place EMBER and MOSS identity cues beside their actual brew-yard planters, reserve E ADD for the reachable brew object, and recompose the request surface with measured humanist type. No bottle badge exists.",
     "continuous-mix-feedback": "At exact native 480x270, preserve the reviewed continuous-village camera and world art. Anchor MOSS and E ADD inside the brew yard, keep both ingredient silhouettes readable, and recompose request plus two-line moss-added feedback with measured humanist type. No bottle badge exists.",
@@ -110,6 +122,7 @@ def box(x: int, y: int, width: int, height: int) -> dict[str, int]:
 # Every selected view begins from one persistent environment basis. Only these
 # causal actor/effect regions are taken from the generated state reference.
 DYNAMIC_PATCHES = {
+    "continuous-pre-disclosure": [box(85, 96, 67, 74)],
     "continuous-need-disclosed": [box(36, 82, 116, 150)],
     "continuous-mix-feedback": [box(36, 82, 116, 150)],
     "continuous-route-pending": [box(160, 120, 76, 84)],
@@ -122,6 +135,11 @@ DYNAMIC_PATCHES = {
 
 
 PROTECTED_GEOMETRY = {
+    "continuous-pre-disclosure": [
+        {"id": "courier", "kind": "actor", "rect": box(117, 116, 27, 49)},
+        {"id": "partner", "kind": "actor", "rect": box(91, 105, 30, 50)},
+        {"id": "cauldron", "kind": "landmark", "rect": box(45, 86, 48, 53)},
+    ],
     "continuous-need-disclosed": [
         {"id": "courier", "kind": "actor", "rect": box(117, 116, 27, 49)},
         {"id": "partner", "kind": "actor", "rect": box(91, 105, 30, 50)},
@@ -164,6 +182,7 @@ PROTECTED_GEOMETRY = {
 
 
 CONTINUITY_TRANSITIONS = [
+    ("continuous-pre-disclosure", "continuous-need-disclosed"),
     ("continuous-need-disclosed", "continuous-mix-feedback"),
     ("continuous-mix-feedback", "continuous-route-pending"),
     ("continuous-route-pending", "continuous-exposed-conversion"),
@@ -249,6 +268,20 @@ def draw_request(draw: ImageDraw.ImageDraw, past_tense: bool = False) -> dict[st
     draw.text((12, 8), heading, font=FONT_CAPTION_BOLD, fill=PALETTE["ink"])
     draw_potion_rows(draw, 12, 27, 2, 1)
     return typography_check(rect, [heading, "2 Warmth", "1 Soothing"], [FONT_CAPTION_BOLD, FONT_BODY, FONT_BODY], 6, "request-status")
+
+
+def draw_opening_status(draw: ImageDraw.ImageDraw) -> dict[str, Any]:
+    rect = (6, 3, 142, 65)
+    draw_panel(draw, rect)
+    draw.text((12, 8), "Morning round", font=FONT_CAPTION_BOLD, fill=PALETTE["ink"])
+    draw.text((12, 27), "Talk to your partner", font=FONT_BODY, fill=PALETTE["ink"])
+    return typography_check(
+        rect,
+        ["Morning round", "Talk to your partner"],
+        [FONT_CAPTION_BOLD, FONT_BODY],
+        6,
+        "opening-status",
+    )
 
 
 def draw_carried(draw: ImageDraw.ImageDraw, heading: str, warmth: int, soothing: int) -> dict[str, Any]:
@@ -416,6 +449,7 @@ def typography_check(
     return {
         "role": role,
         "rect": {"x": rect[0], "y": rect[1], "width": rect[2], "height": rect[3]},
+        "texts": texts,
         "insetPx": inset,
         "fontSizesPx": [font.size for font in fonts],
         "lineHeightPx": 16,
@@ -442,10 +476,16 @@ def render_view(view_id: str, source: Path, destination: Path, persistent_basis:
     checks: list[dict[str, Any]] = []
 
     state = STATE_BY_VIEW[view_id]
-    if state != "followup-selection":
+    if state == "pre-disclosure":
+        checks.append(draw_opening_status(draw))
+    elif state != "followup-selection":
         checks.append(draw_request(draw, past_tense=state in {"satisfied-delivery", "imperfect-recovery"}))
 
-    if state == "route-pending":
+    if state == "pre-disclosure":
+        talk_check = draw_action_tag(draw, (102, 82), "TALK", target=(106, 108))
+        talk_check["targetId"] = "partner"
+        checks.append(talk_check)
+    elif state == "route-pending":
         checks.append(draw_carried(draw, "Bottled", 1, 2))
     elif state == "need-disclosed":
         checks.append(draw_world_label(draw, (45, 168), "EMBER", (72, 191)))
@@ -583,26 +623,28 @@ def placements(rect: tuple[int, int, int, int], view_ids: list[str] | None = Non
 def build_components(hashes: dict[str, str]) -> list[dict[str, Any]]:
     reconstruct = "Reconstruct after scene approval using the declared runtime geometry; the full-screen proposed target is not an isolated or production asset."
     code_ui = "Build after scene approval as deterministic code-native UI using the declared measured bounds, type roles, and one-pixel structural geometry."
+    disclosed_view_ids = [view_id for view_id in SELECTED_VIEW_IDS if view_id != "continuous-pre-disclosure"]
     return [
         component(component_id="village-environment", label="Persistent continuous village basis", category="environment", placements=placements((0, 0, 480, 270)), hashes=hashes, native_size=(480, 270), pivot=(0, 0), pivot_mode="top-left", layer_name="environment", layer_order=0, typography_roles=[], animation={"required": True, "beats": ["vane anticipation", "awning response", "offset ambient cloth"], "timing": "state-linked; no synchronized ambient quota"}, runtime_method="raster-after-approval", geometry_note="One actor-free and UI-free 480x270 environment layer; causal overlays are separate.", extraction=reconstruct),
-        component(component_id="cauldron", label="Brew cauldron", category="environment-interactable", placements=placements((45, 86, 48, 53), ["continuous-need-disclosed", "continuous-mix-feedback", "continuous-route-pending"]), hashes=hashes, native_size=(32, 32), pivot=(16, 31), pivot_mode="bottom-center", layer_name="environment-interactable", layer_order=20, typography_roles=[], animation={"required": True, "beats": ["idle simmer", "ingredient response", "brew commit", "bottle produced"], "timing": "context action and commit"}, runtime_method="raster-sprite-after-approval", geometry_note="48x53 target placement includes generated shadow and steam; runtime frame is exactly 32x32.", extraction=reconstruct),
-        component(component_id="ember-ingredient", label="Angular Ember planter pickup", category="environment-interactable", placements=placements((59, 180, 25, 21), ["continuous-need-disclosed", "continuous-mix-feedback", "continuous-route-pending"]), hashes=hashes, native_size=(16, 16), pivot=(8, 15), pivot_mode="bottom-center", layer_name="environment-interactable", layer_order=20, typography_roles=[], animation={"required": True, "beats": ["idle", "proximity", "picked", "added"], "timing": "context action"}, runtime_method="raster-sprite-after-approval", geometry_note="25x21 target placement includes planter shadow; runtime ingredient frame is 16x16.", extraction=reconstruct),
-        component(component_id="moss-ingredient", label="Rounded Moss planter pickup", category="environment-interactable", placements=placements((69, 200, 28, 23), ["continuous-need-disclosed", "continuous-mix-feedback", "continuous-route-pending"]), hashes=hashes, native_size=(16, 16), pivot=(8, 15), pivot_mode="bottom-center", layer_name="environment-interactable", layer_order=20, typography_roles=[], animation={"required": True, "beats": ["idle", "proximity", "picked", "added"], "timing": "context action"}, runtime_method="raster-sprite-after-approval", geometry_note="28x23 target placement includes planter shadow; runtime ingredient frame is 16x16.", extraction=reconstruct),
-        component(component_id="courier", label="Courier silhouette, satchel, and carry poses", category="actor", placements={"continuous-need-disclosed": (117, 116, 27, 49), "continuous-mix-feedback": (85, 98, 30, 50), "continuous-route-pending": (174, 141, 29, 50), "continuous-exposed-conversion": (234, 57, 40, 55), "continuous-sheltered-preservation": (260, 150, 43, 61), "continuous-satisfied-delivery": (348, 105, 44, 58), "continuous-imperfect-recovery": (352, 105, 42, 58), "continuous-followup-selection": (310, 169, 32, 52)}, hashes=hashes, native_size=(24, 32), pivot=(12, 31), pivot_mode="bottom-center", layer_name="courier", layer_order=40, typography_roles=[], animation={"required": True, "beats": ["four-direction idle/walk", "carry idle/walk", "interact", "gust brace", "handoff"], "timing": "player movement and causal transitions"}, runtime_method="raster-sprite-sheet-after-approval", geometry_note="Per-state target bounds include generated shadow, carried prop, or pose arc; every runtime character frame remains exactly 24x32.", extraction=reconstruct),
+        component(component_id="cauldron", label="Brew cauldron", category="environment-interactable", placements=placements((45, 86, 48, 53), ["continuous-pre-disclosure", "continuous-need-disclosed", "continuous-mix-feedback", "continuous-route-pending"]), hashes=hashes, native_size=(32, 32), pivot=(16, 31), pivot_mode="bottom-center", layer_name="environment-interactable", layer_order=20, typography_roles=[], animation={"required": True, "beats": ["idle simmer", "ingredient response", "brew commit", "bottle produced"], "timing": "context action and commit"}, runtime_method="raster-sprite-after-approval", geometry_note="48x53 target placement includes generated shadow and steam; runtime frame is exactly 32x32.", extraction=reconstruct),
+        component(component_id="ember-ingredient", label="Angular Ember planter pickup", category="environment-interactable", placements=placements((59, 180, 25, 21), ["continuous-pre-disclosure", "continuous-need-disclosed", "continuous-mix-feedback", "continuous-route-pending"]), hashes=hashes, native_size=(16, 16), pivot=(8, 15), pivot_mode="bottom-center", layer_name="environment-interactable", layer_order=20, typography_roles=[], animation={"required": True, "beats": ["idle", "proximity", "picked", "added"], "timing": "context action"}, runtime_method="raster-sprite-after-approval", geometry_note="25x21 target placement includes planter shadow; runtime ingredient frame is 16x16.", extraction=reconstruct),
+        component(component_id="moss-ingredient", label="Rounded Moss planter pickup", category="environment-interactable", placements=placements((69, 200, 28, 23), ["continuous-pre-disclosure", "continuous-need-disclosed", "continuous-mix-feedback", "continuous-route-pending"]), hashes=hashes, native_size=(16, 16), pivot=(8, 15), pivot_mode="bottom-center", layer_name="environment-interactable", layer_order=20, typography_roles=[], animation={"required": True, "beats": ["idle", "proximity", "picked", "added"], "timing": "context action"}, runtime_method="raster-sprite-after-approval", geometry_note="28x23 target placement includes planter shadow; runtime ingredient frame is 16x16.", extraction=reconstruct),
+        component(component_id="courier", label="Courier silhouette, satchel, and carry poses", category="actor", placements={"continuous-pre-disclosure": (117, 116, 27, 49), "continuous-need-disclosed": (117, 116, 27, 49), "continuous-mix-feedback": (85, 98, 30, 50), "continuous-route-pending": (174, 141, 29, 50), "continuous-exposed-conversion": (234, 57, 40, 55), "continuous-sheltered-preservation": (260, 150, 43, 61), "continuous-satisfied-delivery": (348, 105, 44, 58), "continuous-imperfect-recovery": (352, 105, 42, 58), "continuous-followup-selection": (310, 169, 32, 52)}, hashes=hashes, native_size=(24, 32), pivot=(12, 31), pivot_mode="bottom-center", layer_name="courier", layer_order=40, typography_roles=[], animation={"required": True, "beats": ["four-direction idle/walk", "talk", "carry idle/walk", "interact", "gust brace", "handoff"], "timing": "player movement and causal transitions"}, runtime_method="raster-sprite-sheet-after-approval", geometry_note="Per-state target bounds include generated shadow, carried prop, or pose arc; every runtime character frame remains exactly 24x32.", extraction=reconstruct),
         component(component_id="partner", label="Brew-yard partner", category="actor", placements=placements((91, 105, 30, 50)), hashes=hashes, native_size=(24, 32), pivot=(12, 31), pivot_mode="bottom-center", layer_name="supporting-actors", layer_order=39, typography_roles=[], animation={"required": True, "beats": ["offset idle", "need disclosure"], "timing": "ambient and disclosure"}, runtime_method="raster-sprite-sheet-after-approval", geometry_note="30x50 target bounds include generated shadow; runtime frame is exactly 24x32.", extraction=reconstruct),
-        component(component_id="mira", label="Mira recipient and reaction poses", category="actor", placements={"continuous-need-disclosed": (388, 101, 34, 55), "continuous-mix-feedback": (388, 101, 34, 55), "continuous-route-pending": (388, 101, 34, 55), "continuous-exposed-conversion": (388, 101, 34, 55), "continuous-sheltered-preservation": (388, 101, 34, 55), "continuous-satisfied-delivery": (383, 99, 44, 61), "continuous-imperfect-recovery": (383, 99, 44, 61), "continuous-followup-selection": (388, 101, 34, 55)}, hashes=hashes, native_size=(24, 32), pivot=(12, 31), pivot_mode="bottom-center", layer_name="recipient", layer_order=41, typography_roles=[], animation={"required": True, "beats": ["idle", "receive", "relief", "shiver", "settle"], "timing": "handoff precedes reaction copy"}, runtime_method="raster-sprite-sheet-after-approval", geometry_note="Reaction placement includes pose arc; the runtime frame remains exactly 24x32.", extraction=reconstruct),
+        component(component_id="mira", label="Mira recipient and reaction poses", category="actor", placements={"continuous-pre-disclosure": (388, 101, 34, 55), "continuous-need-disclosed": (388, 101, 34, 55), "continuous-mix-feedback": (388, 101, 34, 55), "continuous-route-pending": (388, 101, 34, 55), "continuous-exposed-conversion": (388, 101, 34, 55), "continuous-sheltered-preservation": (388, 101, 34, 55), "continuous-satisfied-delivery": (383, 99, 44, 61), "continuous-imperfect-recovery": (383, 99, 44, 61), "continuous-followup-selection": (388, 101, 34, 55)}, hashes=hashes, native_size=(24, 32), pivot=(12, 31), pivot_mode="bottom-center", layer_name="recipient", layer_order=41, typography_roles=[], animation={"required": True, "beats": ["idle", "receive", "relief", "shiver", "settle"], "timing": "handoff precedes reaction copy"}, runtime_method="raster-sprite-sheet-after-approval", geometry_note="Reaction placement includes pose arc; the runtime frame remains exactly 24x32.", extraction=reconstruct),
         component(component_id="bottle", label="Persistent potion bottle and state glyphs", category="prop", placements={"continuous-route-pending": (194, 144, 14, 31), "continuous-exposed-conversion": (257, 72, 14, 28), "continuous-sheltered-preservation": (281, 163, 14, 28), "continuous-satisfied-delivery": (378, 124, 14, 22), "continuous-imperfect-recovery": (380, 124, 14, 22)}, hashes=hashes, native_size=(12, 16), pivot=(6, 15), pivot_mode="bottom-center", layer_name="courier-prop", layer_order=42, typography_roles=[], animation={"required": True, "beats": ["W1/S2", "exchange to W2/S1", "handoff", "consumed"], "timing": "brew commit, route consequence, delivery"}, runtime_method="raster-sprite-sheet-after-approval", geometry_note="Target placement includes state marks and glints; runtime bottle frame is exactly 12x16.", extraction=reconstruct),
         component(component_id="gust-sign", label="Physical Gust route sign", category="interface-world", placements=placements((188, 67, 42, 33)), hashes=hashes, native_size=(32, 16), pivot=(16, 15), pivot_mode="bottom-center", layer_name="interface-world-signage", layer_order=25, typography_roles=["display"], animation={"required": False, "beats": [], "timing": "static identity"}, runtime_method="raster-sprite-after-approval", geometry_note="42x33 target placement includes post and shadow; sign face is 32x16.", extraction=reconstruct),
         component(component_id="shelter-sign", label="Physical Shelter route sign", category="interface-world", placements=placements((208, 173, 56, 34)), hashes=hashes, native_size=(48, 16), pivot=(24, 15), pivot_mode="bottom-center", layer_name="interface-world-signage", layer_order=25, typography_roles=["display"], animation={"required": False, "beats": [], "timing": "static identity"}, runtime_method="raster-sprite-after-approval", geometry_note="56x34 target placement includes post and shadow; sign face is 48x16.", extraction=reconstruct),
         component(component_id="route-effects", label="Gust conversion and shelter preservation effects", category="effect", placements={"continuous-exposed-conversion": (205, 35, 125, 100), "continuous-sheltered-preservation": (242, 128, 105, 93)}, hashes=hashes, native_size=(32, 32), pivot=(16, 16), pivot_mode="center", layer_name="route-effects", layer_order=50, typography_roles=[], animation={"required": True, "beats": ["anticipation", "impact", "state change", "confirmation", "settle"], "timing": "effect never obscures courier or bottle"}, runtime_method="modular-raster-effect-after-approval", geometry_note="Large placement bounds contain multiple 16-32px modules; each runtime effect frame is 32x32, not the scene region.", extraction=reconstruct),
         component(component_id="reaction-effects", label="Relief and shiver effect language", category="effect", placements={"continuous-satisfied-delivery": (376, 72, 82, 91), "continuous-imperfect-recovery": (376, 72, 82, 91)}, hashes=hashes, native_size=(32, 32), pivot=(16, 16), pivot_mode="center", layer_name="reaction-effects-behind-copy", layer_order=49, typography_roles=[], animation={"required": True, "beats": ["handoff", "pose anticipation", "reaction", "settle"], "timing": "pose reads before copy"}, runtime_method="modular-raster-effect-after-approval", geometry_note="Effect placement is distinct from Mira's actor bounds; runtime modules are 32x32.", extraction=reconstruct),
-        component(component_id="request-status", label="Request and next-delivery status surface", category="interface", placements=placements((6, 3, 142, 65)), hashes=hashes, native_size=(142, 65), pivot=(0, 0), pivot_mode="top-left", layer_name="request-status", layer_order=80, typography_roles=["body", "caption", "numbers"], animation={"required": True, "beats": ["need reveal", "copy update", "followup transition"], "timing": "temporary compact reminder"}, runtime_method="code-native-ui", geometry_note="Exact maximum code-native footprint; target and runtime footprint match.", extraction=code_ui),
+        component(component_id="opening-status", label="Pre-disclosure opening status surface", category="interface", placements={"continuous-pre-disclosure": (6, 3, 142, 65)}, hashes=hashes, native_size=(142, 65), pivot=(0, 0), pivot_mode="top-left", layer_name="request-status", layer_order=80, typography_roles=["body", "caption"], animation={"required": True, "beats": ["opening hold", "withdraw on partner talk"], "timing": "present only before disclosure"}, runtime_method="code-native-ui", geometry_note="Uses the established upper-left safe region without request or potion content.", extraction=code_ui),
+        component(component_id="request-status", label="Request and next-delivery status surface", category="interface", placements=placements((6, 3, 142, 65), disclosed_view_ids), hashes=hashes, native_size=(142, 65), pivot=(0, 0), pivot_mode="top-left", layer_name="request-status", layer_order=80, typography_roles=["body", "caption", "numbers"], animation={"required": True, "beats": ["need reveal", "copy update", "followup transition"], "timing": "temporary compact reminder after disclosure"}, runtime_method="code-native-ui", geometry_note="Exact maximum code-native footprint; target and runtime footprint match.", extraction=code_ui),
         component(component_id="carried-status", label="Conditional bottle-state badge", category="interface", placements=placements((340, 3, 136, 66), ["continuous-route-pending", "continuous-exposed-conversion", "continuous-sheltered-preservation"]), hashes=hashes, native_size=(136, 66), pivot=(0, 0), pivot_mode="top-left", layer_name="carried-status", layer_order=81, typography_roles=["body", "caption", "numbers"], animation={"required": True, "beats": ["appear after bottle", "state exchange", "withdraw after handoff"], "timing": "mirrors physical bottle"}, runtime_method="code-native-ui", geometry_note="Exact code-native footprint.", extraction=code_ui),
         component(component_id="causal-feedback", label="Temporary causal feedback strip", category="interface", placements={"continuous-mix-feedback": (6, 222, 286, 43), "continuous-exposed-conversion": (6, 222, 286, 43), "continuous-sheltered-preservation": (6, 222, 254, 43)}, hashes=hashes, native_size=(286, 43), pivot=(0, 0), pivot_mode="top-left", layer_name="temporary-feedback", layer_order=82, typography_roles=["body", "caption", "numbers"], animation={"required": True, "beats": ["slide in", "hold", "withdraw"], "timing": "after physical response"}, runtime_method="code-native-nine-slice-ui", geometry_note="286x43 is the maximum footprint; sheltered state contracts to 254x43 with preserved corners.", extraction=code_ui),
         component(component_id="delivery-comparison", label="Arrived-state comparison surface", category="interface", placements=placements((6, 205, 228, 60), ["continuous-satisfied-delivery", "continuous-imperfect-recovery"]), hashes=hashes, native_size=(228, 60), pivot=(0, 0), pivot_mode="top-left", layer_name="temporary-feedback", layer_order=82, typography_roles=["body", "caption", "numbers"], animation={"required": True, "beats": ["appear after reaction", "hold", "withdraw"], "timing": "physical reaction precedes explanation"}, runtime_method="code-native-ui", geometry_note="Exact code-native footprint.", extraction=code_ui),
         component(component_id="ember-context-label", label="Ember world label", category="interface-world", placements={"continuous-need-disclosed": (45, 168, 48, 18)}, hashes=hashes, native_size=(48, 18), pivot=(24, 17), pivot_mode="bottom-center", layer_name="interface-world-signage", layer_order=45, typography_roles=["caption"], animation={"required": False, "beats": [], "timing": "need disclosure"}, runtime_method="code-native-ui", geometry_note="Exact code-native footprint attached to Ember planter.", extraction=code_ui),
         component(component_id="moss-context-label", label="Moss world label", category="interface-world", placements={"continuous-need-disclosed": (47, 190, 41, 18), "continuous-mix-feedback": (66, 191, 41, 18)}, hashes=hashes, native_size=(41, 18), pivot=(20, 17), pivot_mode="bottom-center", layer_name="interface-world-signage", layer_order=45, typography_roles=["caption"], animation={"required": False, "beats": [], "timing": "need and proximity"}, runtime_method="code-native-ui", geometry_note="Exact code-native footprint attached to Moss planter.", extraction=code_ui),
-        component(component_id="world-action-cue", label="World-anchored context action cue", category="interface-world", placements={"continuous-need-disclosed": (104, 170, 46, 19), "continuous-mix-feedback": (96, 74, 46, 19), "continuous-followup-selection": (270, 190, 38, 19)}, hashes=hashes, native_size=(46, 19), pivot=(23, 18), pivot_mode="bottom-center", layer_name="interface-world-signage", layer_order=46, typography_roles=["action"], animation={"required": True, "beats": ["appear in proximity", "tighten", "resolve"], "timing": "context proximity"}, runtime_method="code-native-nine-slice-ui", geometry_note="46x19 is the maximum footprint; E GO contracts to 38x19.", extraction=code_ui),
+        component(component_id="world-action-cue", label="World-anchored context action cue", category="interface-world", placements={"continuous-pre-disclosure": (102, 82, 50, 19), "continuous-need-disclosed": (104, 170, 46, 19), "continuous-mix-feedback": (96, 74, 46, 19), "continuous-followup-selection": (270, 190, 38, 19)}, hashes=hashes, native_size=(50, 19), pivot=(25, 18), pivot_mode="bottom-center", layer_name="interface-world-signage", layer_order=46, typography_roles=["action"], animation={"required": True, "beats": ["appear in proximity", "tighten", "resolve"], "timing": "context proximity"}, runtime_method="code-native-nine-slice-ui", geometry_note="50x19 is the maximum footprint for E TALK; E ADD and E GO contract with preserved corners.", extraction=code_ui),
         component(component_id="reaction-label", label="World-adjacent reaction label", category="interface-world", placements=placements((382, 73, 72, 24), ["continuous-satisfied-delivery", "continuous-imperfect-recovery"]), hashes=hashes, native_size=(72, 24), pivot=(36, 23), pivot_mode="bottom-center", layer_name="temporary-feedback", layer_order=82, typography_roles=["body"], animation={"required": True, "beats": ["appear after pose", "withdraw"], "timing": "pose precedes label"}, runtime_method="code-native-ui", geometry_note="Exact code-native footprint separate from Mira and reaction effects.", extraction=code_ui),
         component(component_id="sunmill-pennant", label="Physical Sunmill follow-up pennant", category="interface-world", placements={"continuous-followup-selection": (329, 156, 39, 56)}, hashes=hashes, native_size=(16, 24), pivot=(8, 23), pivot_mode="bottom-center", layer_name="interface-world-signage", layer_order=25, typography_roles=["display"], animation={"required": True, "beats": ["available", "proximity", "selected", "transition"], "timing": "movement selection"}, runtime_method="raster-sprite-sheet-after-approval", geometry_note="39x56 target placement includes post, label, and glow; runtime pennant frame is 16x24.", extraction=reconstruct),
         component(component_id="herbalist-pennant", label="Physical Herbalist follow-up pennant", category="interface-world", placements={"continuous-followup-selection": (365, 174, 40, 41)}, hashes=hashes, native_size=(16, 24), pivot=(8, 23), pivot_mode="bottom-center", layer_name="interface-world-signage", layer_order=25, typography_roles=["display"], animation={"required": True, "beats": ["available", "proximity", "selected", "dimmed alternative"], "timing": "movement selection"}, runtime_method="raster-sprite-sheet-after-approval", geometry_note="40x41 target placement includes post and label; runtime pennant frame is 16x24.", extraction=reconstruct),
@@ -618,6 +660,7 @@ def canonical_sha256(value: Any) -> str:
 
 def build_state_contracts() -> list[dict[str, Any]]:
     return [
+        {"id": "pre-disclosure", "viewId": "continuous-pre-disclosure", "playerQuestion": "Who should I speak to before the delivery begins?", "primaryAction": "Move to the brew-yard partner and use E TALK.", "essentialInformation": ["The partner is the disclosure affordance", "The request has not been disclosed", "The courier is empty-handed"], "actors": ["courier", "partner", "Mira", "cauldron", "future route landmarks"], "persistentContext": "The navigable village, both future routes, and Mira are visible before any request or bottle exists."},
         {"id": "need-disclosed", "viewId": "continuous-need-disclosed", "playerQuestion": "What does Mira need, and what can change the potion?", "primaryAction": "Move among Ember, Moss, and the cauldron.", "essentialInformation": ["Mira needs 2 Warmth and 1 Soothing", "Ember adds warmth", "Moss adds soothing"], "actors": ["courier", "partner", "Mira", "ingredient stations", "cauldron"], "persistentContext": "The navigable village, both routes, and Mira remain visible."},
         {"id": "mix-feedback", "viewId": "continuous-mix-feedback", "playerQuestion": "What did this ingredient add, and should I add another?", "primaryAction": "Add Ember or Moss at the reachable brew object.", "essentialInformation": ["Moss was added", "Brew is now 1 Warmth and 2 Soothing", "Mira's need remains visible"], "actors": ["courier", "partner", "ingredient station", "cauldron"], "persistentContext": "The fixed village and future delivery route remain present."},
         {"id": "route-pending", "viewId": "continuous-route-pending", "playerQuestion": "What is in the bottle, and which physical route should I take?", "primaryAction": "Carry 1 Warmth and 2 Soothing toward the exposed or sheltered path.", "essentialInformation": ["Bottle is 1 Warmth and 2 Soothing", "Gust route can change it", "Shelter route can preserve it"], "actors": ["courier with bottle", "partner", "Mira", "route landmarks"], "persistentContext": "Both route counterfactuals and Mira are simultaneously visible."},
@@ -660,7 +703,18 @@ def target_fingerprint_payload(manifest: dict[str, Any]) -> dict[str, Any]:
 
 def update_manifest(hashes: dict[str, str], typography_checks: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-    manifest["version"] = "1.2.1"
+    manifest["version"] = "1.3.0"
+    selected_candidate = next(candidate for candidate in manifest["candidates"] if candidate["id"] == manifest["selectedCandidateId"])
+    if not any(view["id"] == "continuous-pre-disclosure" for view in selected_candidate["views"]):
+        selected_candidate["views"].insert(0, {
+            "id": "continuous-pre-disclosure",
+            "label": "Opening before partner disclosure",
+            "state": "pre-disclosure",
+            "path": "design/scene-targets/views/continuous-pre-disclosure.png",
+            "sha256": hashes["continuous-pre-disclosure"],
+            "prompt": PRE_DISCLOSURE_PROMPT,
+            "required": True,
+        })
     for candidate in manifest["candidates"]:
         for view in candidate["views"]:
             view_id = view["id"]
@@ -698,6 +752,35 @@ def update_manifest(hashes: dict[str, str], typography_checks: dict[str, list[di
     for region in manifest["experience"]["composition"]["regions"]:
         if region["id"] in region_repairs:
             region["rect"] = region_repairs[region["id"]]
+        if region["id"] in {"playfield", "request-status", "brew-context"} and "pre-disclosure" not in region["stateIds"]:
+            region["stateIds"].insert(0, "pre-disclosure")
+        if region["id"] == "request-status":
+            region["label"] = "Compact opening or request reminder"
+        if region["id"] == "brew-context":
+            region["label"] = "World-anchored brew-yard interaction context"
+    composition_rules = manifest["experience"]["composition"]["rules"]
+    opening_rule = "Before partner interaction, the upper-left safe region contains only opening guidance and E TALK remains world-anchored beside the partner; request, potion quantities, ingredient instructions, bottle, and carried status are absent."
+    if opening_rule not in composition_rules:
+        composition_rules.append(opening_rule)
+    motion_beats = manifest["experience"]["motion"]["beats"]
+    ambient = next(beat for beat in motion_beats if beat["id"] == "ambient-brew-and-weather")
+    if "pre-disclosure" not in ambient["stateIds"]:
+        ambient["stateIds"].insert(0, "pre-disclosure")
+    disclosure_beat = {
+        "id": "partner-disclosure",
+        "label": "Partner discloses the first request",
+        "kind": "interaction",
+        "stateIds": ["pre-disclosure", "need-disclosed"],
+        "trigger": "The empty-handed courier reaches the partner and uses E TALK.",
+        "visibleResponse": "The partner gives a short disclosure gesture, the MORNING ROUND surface resolves into Mira's request, ingredient cues activate, and no bottle appears.",
+        "startViewId": "continuous-pre-disclosure",
+        "endViewId": "continuous-need-disclosed",
+    }
+    existing_disclosure = next((beat for beat in motion_beats if beat["id"] == disclosure_beat["id"]), None)
+    if existing_disclosure is None:
+        motion_beats.insert(1, disclosure_beat)
+    else:
+        existing_disclosure.update(disclosure_beat)
     manifest["experience"]["states"] = build_state_contracts()
     manifest["experience"]["composition"]["protectedGeometryByView"] = [
         {"viewId": view_id, "stateId": STATE_BY_VIEW[view_id], "items": items}
@@ -781,22 +864,23 @@ def update_manifest(hashes: dict[str, str], typography_checks: dict[str, list[di
     metadata["generationTool"] = "built-in image_gen references plus deterministic Pillow native-spec recomposition"
     metadata["nativeSpecBuilder"] = "design/scene-targets/build_native_targets.py"
     metadata["revision"] = {
-        "version": "1.2.1",
-        "hypothesis": "The accepted fixed-camera direction remains decomposable when authoritative primary-view identity, semantically exact pivots, and anchor-reconstructed placement evidence are enforced without reopening its camera or topology.",
-        "scope": ["authoritative-primary-view-identity", "semantic-runtime-pivots", "authoritative-parser-validation", "anchor-derived-overlay-regression"],
+        "version": "1.3.0",
+        "hypothesis": "A world-anchored partner talk cue plus non-disclosing opening status can make the first required interaction spatially legible without changing the selected fixed-camera village, revealing the request early, or weakening the existing causal sequence.",
+        "scope": ["pre-disclosure-opening-state", "partner-disclosure-affordance", "opening-to-need-continuity", "state-and-component-contract-coverage"],
     }
     for review in metadata.get("candidateReviews", []):
         if review.get("candidateId") == "continuous-causal-village":
             surface_count = sum(len(checks) for view_id, checks in typography_checks.items() if view_id in SELECTED_VIEW_IDS)
             review["legibility"] = f"Pass for proposal: {surface_count} selected-state reading surfaces use declared 11-12px roles with measured contrast and zero clipping in native captures."
             review["overlaps"] = "Pass for proposal: measured UI rectangles have zero intersections with protected actor, landmark, and movement-corridor geometry; playfield overlap is not treated as blanket permission."
+            review["stateComprehension"] = "Pass for proposal: the partner-targeted opening interaction precedes request disclosure; need, brew, both route consequences, arrived state, distinct reactions, and follow-up remain reconstructable across the preserved sequence."
         elif review.get("candidateId") == "courier-following-village-rooms":
             review["legibility"] = "Pass for comparison: the same measured native request and carried-state system is demonstrated at 480x270 and exact 3x presentation."
     metadata["referenceViews"] = [
         {
             "path": f"design/scene-targets/reference-views/{view_id}.png",
             "sha256": sha256_file(REFERENCE_VIEWS / f"{view_id}.png"),
-            "classification": "generated-normalized-whole-screen-reference",
+            "classification": "deterministic-derived-whole-screen-repair-reference" if view_id == "continuous-pre-disclosure" else "generated-normalized-whole-screen-reference",
         }
         for view_id in VIEW_IDS
     ]
@@ -805,13 +889,14 @@ def update_manifest(hashes: dict[str, str], typography_checks: dict[str, list[di
         "generatedSourceSize": {"width": 1672, "height": 941},
         "earlierReviewSize": {"width": 480, "height": 270},
         "nonIntegerReduction": True,
-        "repair": "The generated sources now serve only as complete-scene composition references. Every selected state starts from one persistent 480x270 world basis, then admits only declared causal actor/effect patches and measured UI; 3x review files are exact nearest-neighbor presentations.",
+        "repair": "The generated sources serve only as complete-scene composition references. Every selected state, including the deterministic pre-disclosure repair, starts from one persistent 480x270 world basis, then admits only declared causal actor/effect patches and measured UI; 3x review files are exact nearest-neighbor presentations.",
     }
     metadata["selectedViewReviews"] = [
         {
             "viewId": view_id,
             "result": "proposed-after-native-repair",
             "finding": {
+                "continuous-pre-disclosure": "The empty-handed courier and partner share the brew yard before disclosure; MORNING ROUND uses the existing text-safe region, E TALK points to the partner, and request, potion values, ingredient instructions, bottle, and carried status are absent.",
                 "continuous-need-disclosed": "Both ingredient cues stay at the brew yard, and the detailed lower-right roof geometry is inherited unchanged from the persistent world basis.",
                 "continuous-mix-feedback": "Moss identity, a relocated unobscuring E ADD cue, cauldron response, and two-line causal feedback share one readable brew context.",
                 "continuous-route-pending": "Measured request/carried surfaces leave both embodied route counterfactuals unobscured.",
@@ -824,15 +909,27 @@ def update_manifest(hashes: dict[str, str], typography_checks: dict[str, list[di
         }
         for view_id in SELECTED_VIEW_IDS
     ]
+    existing_inventory = [entry for entry in metadata.get("stateInventory", []) if entry.get("state") != "pre-disclosure"]
+    metadata["stateInventory"] = [
+        {
+            "state": "pre-disclosure",
+            "playerQuestion": "Who should I speak to before the delivery begins?",
+            "primaryAction": "Walk to the brew-yard partner and use E TALK.",
+            "essentialInformation": "The partner is ready to disclose the job; no request, potion value, ingredient instruction, bottle, or carried state is shown.",
+            "actors": ["courier", "partner", "Mira"],
+            "persistentContext": "Brew yard, cauldron, fork, both future routes, and destination share the unchanged viewport.",
+        },
+        *existing_inventory,
+    ]
     metadata["limitations"] = [
         "Deterministic engine captures prove causal execution, not human comprehension or fun.",
         "These files are proposed whole-screen targets and native geometry specifications, not running Godot captures or production assets.",
+        "The repaired pre-disclosure state is whole-screen target evidence only; this bounded repair does not alter or recapture Godot runtime behavior.",
         "The generated village imagery remains a composition reference; downstream art must be reconstructed at native or declared integer scale after approval.",
         "Segoe UI is used only to measure and demonstrate the humanist typography role in these target files; production integration must bundle a license-compatible matched font.",
         "No isolated, extracted, engine-ready, or production component exists before scene-target approval.",
     ]
 
-    selected_candidate = next(candidate for candidate in manifest["candidates"] if candidate["id"] == manifest["selectedCandidateId"])
     selected_primary = selected_candidate["primaryViewId"]
     selected_primary_sha = hashes[selected_primary]
     complete_target_sha = canonical_sha256(target_fingerprint_payload(manifest))
@@ -854,13 +951,14 @@ def update_manifest(hashes: dict[str, str], typography_checks: dict[str, list[di
         "selectedTargetSha256": selected_primary_sha,
         "findings": [
             "Proposed selection remains continuous-causal-village because both embodied route counterfactuals and the recipient remain attributable in one fixed view.",
-            "All eight selected views share one persistent world basis, admit only declared causal patches, and have exact native plus integer-3x review presentations.",
+            "The new pre-disclosure view shows the empty-handed courier beside the partner with E TALK while withholding Mira's request, ingredient instructions, potion values, bottle, and carried status.",
+            "All nine selected views share one persistent world basis, admit only declared causal patches, and have exact native plus integer-3x review presentations.",
             "Follow-up need tags flank protected geometry; the courier, both physical pennants, selection differentiation, E GO cue, and walking corridor remain simultaneously visible.",
             "Every component separates tight per-state target placement from expected runtime frame size and uses a pivot that exactly matches its declared top-left, center, or bottom-center semantics.",
             "Authoritative contract identity and all component lineage use the selected primary-view SHA-256; a separate complete-target fingerprint covers all required view hashes, prompt identities, experience rules, native geometry, and the component map.",
-            "All eight component overlays are rebuilt from declared viewport anchors and checked for exact placement reconstruction, clipping, protected-geometry intersections, and off-viewport bounds.",
+            "All nine component overlays are rebuilt from declared viewport anchors and checked for exact placement reconstruction, clipping, protected-geometry intersections, and off-viewport bounds.",
             "Generated scenes and native paintovers remain proposed whole-screen targets only; component.production is absent and no production asset claim is made.",
-            "Approval remains pending scene-target-gate review.",
+            "Approval is unapproved (needs-revision) while the repaired creative evidence awaits scene-target-gate review.",
         ],
     }
     return manifest
@@ -997,7 +1095,10 @@ def write_continuity_masks(typography_checks: dict[str, list[dict[str, Any]]]) -
 
 def invoke_authoritative_scene_target_parser() -> dict[str, Any]:
     contract_source = ROOT.parents[3] / "packages" / "design-sdk" / "src" / "scene-target.ts"
-    parser_candidates = [contract_source.parent.parent / "dist" / "scene-target.js"]
+    parser_candidates = [
+        contract_source.parent.parent / "dist" / "scene-target.js",
+        ROOT.parents[5] / "repo" / "packages" / "design-sdk" / "dist" / "scene-target.js",
+    ]
     tsc_command = shutil.which("tsc")
     if tsc_command:
         tool_repo = Path(tsc_command).parent.parent.parent
@@ -1102,8 +1203,8 @@ def validate(manifest: dict[str, Any], hashes: dict[str, str], typography_checks
         selected_primary_hash = selected_primary["sha256"] if selected_primary else ""
         if selected_primary is None:
             errors.append("selected primary view does not exist")
-        if len(selected_candidate.get("views", [])) != 8:
-            errors.append("selected candidate must contain all eight required state variants")
+        if len(selected_candidate.get("views", [])) != len(SELECTED_VIEW_IDS):
+            errors.append(f"selected candidate must contain all {len(SELECTED_VIEW_IDS)} required state variants")
     if len(manifest.get("candidates", [])) < 2:
         errors.append("fewer than two complete route-pending directions are preserved")
 
@@ -1141,6 +1242,30 @@ def validate(manifest: dict[str, Any], hashes: dict[str, str], typography_checks
     errors.extend(f"Typography clipped in {check['role']}: {check['longestText']}" for check in clipped)
     errors.extend(f"Typography contrast below 4.5:1 in {check['role']}" for check in low_contrast)
     errors.extend(f"Typography below 11px in {check['role']}" for check in undersized)
+
+    opening_checks = typography_checks["continuous-pre-disclosure"]
+    opening_roles = [check["role"] for check in opening_checks]
+    opening_action = next((check for check in opening_checks if check["role"] == "world-action"), None)
+    opening_status = next((check for check in opening_checks if check["role"] == "opening-status"), None)
+    if opening_roles != ["opening-status", "world-action"]:
+        errors.append(f"pre-disclosure view has unexpected information surfaces: {opening_roles}")
+    if opening_status is None or opening_status.get("texts") != ["Morning round", "Talk to your partner"]:
+        errors.append("pre-disclosure opening status does not preserve the non-disclosing copy contract")
+    if opening_action is None or opening_action.get("texts") != ["E  TALK"] or opening_action.get("targetId") != "partner":
+        errors.append("pre-disclosure world action is not an explicit partner-targeted E TALK cue")
+    partner_rect = next(item["rect"] for item in PROTECTED_GEOMETRY["continuous-pre-disclosure"] if item["id"] == "partner")
+    if opening_action is not None:
+        cue_rect = opening_action["rect"]
+        cue_center = (cue_rect["x"] + cue_rect["width"] / 2, cue_rect["y"] + cue_rect["height"] / 2)
+        partner_center = (partner_rect["x"] + partner_rect["width"] / 2, partner_rect["y"] + partner_rect["height"] / 2)
+        if math.dist(cue_center, partner_center) > 64:
+            errors.append("pre-disclosure E TALK cue is not spatially adjacent to the partner")
+    opening_image = Image.open(VIEWS / "continuous-pre-disclosure.png").convert("RGB")
+    persistent_basis = Image.open(CONTINUITY_SOURCE).convert("RGB")
+    carried_safe_rect = (340, 3, 476, 69)
+    opening_carried_difference = ImageChops.difference(opening_image.crop(carried_safe_rect), persistent_basis.crop(carried_safe_rect)).getbbox()
+    if opening_carried_difference is not None:
+        errors.append("pre-disclosure view changes the carried-status safe region before a bottle exists")
 
     component_required = {"category", "sourceViewId", "sourceViewSha256", "sourceViews", "crop", "placementBounds", "stateIds", "derivedFromSceneTargetSha256", "nativeRenderSize", "runtimeGeometry", "anchor", "layer", "stateVariants", "typographyRoles", "animationNeed", "sourcePromptPointer"}
     component_findings = []
@@ -1184,6 +1309,11 @@ def validate(manifest: dict[str, Any], hashes: dict[str, str], typography_checks
                 errors.append(f"{entry['id']}: viewport anchor drifts placement in {source_view['viewId']}")
         placement_differs = entry["nativeRenderSize"] != {"width": entry["placementBounds"]["width"], "height": entry["placementBounds"]["height"]}
         component_findings.append({"componentId": entry["id"], "category": entry["category"], "sourceViews": len(entry["sourceViews"]), "sourceHashesVerified": True, "nativeRenderSize": entry["nativeRenderSize"], "primaryPlacementBounds": entry["placementBounds"], "runtimePivot": runtime_pivot, "semanticPivot": expected_pivot, "semanticPivotVerified": runtime_pivot == expected_pivot and entry.get("anchor") == expected_pivot, "viewportAnchorReconstructionVerified": anchor_reconstructions_exact, "runtimeSizeSeparatedFromPlacement": placement_differs, "productionAbsent": "production" not in entry})
+
+    pre_disclosure_component_ids = sorted(entry["id"] for entry in manifest["components"] if "pre-disclosure" in entry["stateIds"])
+    early_disclosure_components = sorted(set(pre_disclosure_component_ids) & {"request-status", "carried-status", "bottle", "ember-context-label", "moss-context-label"})
+    if early_disclosure_components:
+        errors.append(f"pre-disclosure component map reveals early state: {early_disclosure_components}")
 
     regions = manifest["experience"]["composition"]["regions"]
     region_by_id = {entry["id"]: entry for entry in regions}
@@ -1239,9 +1369,12 @@ def validate(manifest: dict[str, Any], hashes: dict[str, str], typography_checks
         errors.append("component-bound overlays do not cover all selected states")
 
     if manifest["approval"].get("status") != "needs-revision" or manifest["approval"].get("reviewer") != "pending-scene-target-gate":
-        errors.append("approval must remain needs-revision with pending-scene-target-gate")
-    if len(manifest["experience"].get("states", [])) != 8:
-        errors.append("experience contract must define all eight screen states")
+        errors.append("approval must remain unapproved as needs-revision with pending-scene-target-gate")
+    if len(manifest["experience"].get("states", [])) != len(SELECTED_VIEW_IDS):
+        errors.append(f"experience contract must define all {len(SELECTED_VIEW_IDS)} screen states")
+    disclosure_beat = next((beat for beat in manifest["experience"]["motion"]["beats"] if beat["id"] == "partner-disclosure"), None)
+    if disclosure_beat is None or disclosure_beat.get("startViewId") != "continuous-pre-disclosure" or disclosure_beat.get("endViewId") != "continuous-need-disclosed":
+        errors.append("motion contract does not cover the opening partner-disclosure transition")
 
     brew_region = box(36, 82, 116, 150)
     ember = manifest["nativeGeometry"]["landmarkAnchors"]["emberPlanter"]
@@ -1253,12 +1386,13 @@ def validate(manifest: dict[str, Any], hashes: dict[str, str], typography_checks
     return {
         "schema": "gamefactory.scene-target-validation/v1",
         "result": "pass" if not errors else "fail",
-        "hypothesis": "The accepted persistent 480x270 village remains coherent and decomposable when authoritative primary-view identity, semantic runtime pivots, and anchor-reconstructed placements are enforced independently from the mutation-sensitive complete-target fingerprint.",
+        "hypothesis": "A world-anchored partner talk cue plus non-disclosing opening status makes the first required interaction legible while preserving the accepted persistent 480x270 village and its existing causal sequence.",
         "checks": {
             "views": view_findings,
             "directions": {"completeDirectionsAtRoutePending": len(manifest["candidates"]), "selectedStateVariants": len(selected_candidate["views"]) if selected_candidate else 0, "selectedCandidateId": manifest.get("selectedCandidateId")},
             "typography": {"previewFont": "Segoe UI host preview only", "bodySizePx": 12, "captionSizePx": 11, "lineHeightPx": 16, "minimumContrastRatio": 4.5, "measuredMinimumContrastRatio": min(check["contrastRatio"] for check in flat_checks), "surfacesChecked": len(flat_checks), "clippedSurfaces": len(clipped), "undersizedReadingSurfaces": len(undersized), "longestCopyChecks": flat_checks},
             "brewCue": {"region": brew_region, "emberPlanterAnchor": ember, "mossPlanterAnchor": moss, "detachedLowerRightLabelRemovedByPersistentBasis": True, "reachableActionCue": "E ADD"},
+            "openingDisclosure": {"viewId": "continuous-pre-disclosure", "stateId": "pre-disclosure", "informationSurfaceRoles": opening_roles, "openingCopy": opening_status.get("texts", []) if opening_status else [], "actionCopy": opening_action.get("texts", []) if opening_action else [], "actionTargetId": opening_action.get("targetId") if opening_action else None, "partnerBounds": partner_rect, "carriedStatusSafeRegionMatchesPersistentWorld": opening_carried_difference is None, "earlyDisclosureComponents": early_disclosure_components, "requestAndPotionWithheld": not early_disclosure_components},
             "components": component_findings,
             "componentBounds": {"selectedStateOverlays": overlay_records, "allSelectedStatesCovered": len(overlay_records) == len(SELECTED_VIEW_IDS), "allPlacementsReconstructedFromViewportAnchors": all(component.get("placementReconstructionExact") for record in overlay_records for component in record.get("components", []))},
             "environmentContinuity": {"persistentWorldBasisPath": manifest["experience"]["continuity"]["persistentWorldBasisPath"], "persistentWorldBasisSha256": manifest["experience"]["continuity"]["persistentWorldBasisSha256"], "transitionMasks": continuity_records, "allUnexpectedEnvironmentPixelChanges": sum(record["unexpectedEnvironmentPixelChanges"] for record in continuity_records)},
@@ -1278,12 +1412,24 @@ def main() -> None:
 
     # Preserve the attempt-1 full-screen target views before the first repair run.
     for view_id in VIEW_IDS:
+        if view_id == "continuous-pre-disclosure":
+            continue
         source = VIEWS / f"{view_id}.png"
         reference = REFERENCE_VIEWS / f"{view_id}.png"
         if not reference.exists():
             shutil.copy2(source, reference)
 
     persistent_basis = build_persistent_world_basis()
+    opening_reference = persistent_basis.copy()
+    opening_actor_source = Image.open(REFERENCE_VIEWS / "continuous-need-disclosed.png").convert("RGB")
+    for patch in DYNAMIC_PATCHES["continuous-pre-disclosure"]:
+        crop = rect_tuple(patch)
+        opening_reference.paste(opening_actor_source.crop(crop), crop[:2])
+    opening_draw = ImageDraw.Draw(opening_reference)
+    draw_opening_status(opening_draw)
+    draw_action_tag(opening_draw, (102, 82), "TALK", target=(106, 108))
+    opening_reference.save(REFERENCE_VIEWS / "continuous-pre-disclosure.png", format="PNG", optimize=False)
+
     typography_checks: dict[str, list[dict[str, Any]]] = {}
     for view_id in VIEW_IDS:
         source = REFERENCE_VIEWS / f"{view_id}.png"
