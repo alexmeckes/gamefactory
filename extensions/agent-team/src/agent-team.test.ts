@@ -139,6 +139,12 @@ if (["alpha", "beta"].includes(request.nodeId)) {
 } else if (request.nodeId === "conditional") {
   assert.equal(request.inputs[0].outcome, "pass");
   console.log(JSON.stringify({ summary: "conditional branch ran", outcome: "complete" }));
+} else if (request.nodeId === "blocked-reviewer") {
+  console.log(JSON.stringify({
+    summary: "runtime evidence is missing",
+    outcome: "blocked_missing_runtime_evidence",
+    findings: [{ issue: "no engine capture was supplied" }]
+  }));
 } else if (request.nodeId === "downstream") {
   assert.equal(await readFile("value.txt", "utf8"), "repaired\\n", "downstream must not run against work rejected by its gate");
   const review = request.inputs.find((input) => input.nodeId === "reviewer");
@@ -441,7 +447,12 @@ test("explicit reviewer authority accepts claim-linked nested blocker findings",
     const result = await new AgentTeam().run({
       campaign: graphCampaign(root, [
         graphCommand("nested-blocker-reviewer", { role: "planner", permissions: "read", authority: "propose", required: false }),
-        graphCommand("nested-plan-consumer", { role: "implementer", permissions: "write", dependsOn: ["nested-blocker-reviewer"] })
+        graphCommand("nested-plan-consumer", {
+          role: "implementer",
+          permissions: "write",
+          dependsOn: ["nested-blocker-reviewer"],
+          when: { node: "nested-blocker-reviewer", outcomes: ["revise"] }
+        })
       ], { claimIds: ["loop.first-errand"] }),
       candidate: { id: "candidate", root, metadata: {} }, experimentId: "exp-nested-claimed-blocker", history: [], signal: new AbortController().signal
     });
@@ -974,6 +985,33 @@ test("agent graph fails when a required node is dependency-blocked", async () =>
       history: [],
       signal: new AbortController().signal
     }), /required nodes failed.*writer/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("agent graph canonicalizes qualified blocked outcomes and prevents downstream execution", async () => {
+  const root = await repository();
+  try {
+    await assert.rejects(() => new AgentTeam().run({
+      campaign: graphCampaign(root, [
+        graphCommand("blocked-reviewer", { role: "critic", permissions: "read" }),
+        graphCommand("writer", { role: "implementer", permissions: "write", dependsOn: ["blocked-reviewer"] })
+      ]),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-qualified-blocked",
+      history: [],
+      signal: new AbortController().signal
+    }), (error: unknown) => {
+      assert.ok(error instanceof AgentTeamExecutionError);
+      assert.doesNotMatch(error.message, /unknown control outcome/);
+      assert.match(error.message, /required nodes failed.*blocked-reviewer.*writer/);
+      const blockedRun = error.runs.find((run) => run.provenance.contributorId === "blocked-reviewer");
+      assert.equal(blockedRun?.provenance.outcome, "blocked");
+      assert.equal(blockedRun?.provenance.reportedOutcome, "blocked_missing_runtime_evidence");
+      assert.equal(error.runs.some((run) => run.provenance.contributorId === "writer"), false);
+      return true;
+    });
   } finally {
     await rm(root, { recursive: true, force: true });
   }

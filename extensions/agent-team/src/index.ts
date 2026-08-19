@@ -320,6 +320,11 @@ const POSITIVE_CONTROL_OUTCOMES = new Set(["pass", "complete", "ready"]);
 
 function canonicalControlOutcome(outcome: string): string {
   const key = outcome.toLowerCase().replaceAll("-", "_").replaceAll(".", "_");
+  // Agents often qualify a blocked result with the concrete reason so that the
+  // handoff remains useful (for example, blocked_missing_runtime_evidence).
+  // The reason belongs in reportedOutcome/summary; control flow must still see
+  // the stable fail-closed outcome.
+  if (key.startsWith("blocked_")) return "blocked";
   return CONTROL_OUTCOME_ALIASES.get(key) ?? outcome;
 }
 const candidateQueues = new Map<string, Promise<void>>();
@@ -1916,7 +1921,11 @@ function conditionAllows(node: GraphNodeConfig, states: Map<string, GraphNodeSta
 
 function dependencyAllows(node: GraphNodeConfig, states: Map<string, GraphNodeState>): boolean {
   const conditioned = new Set(node.when.map((condition) => condition.node));
-  return node.dependsOn.every((dependency) => conditioned.has(dependency) || states.get(dependency)!.status === "complete");
+  return node.dependsOn.every((dependency) => {
+    if (conditioned.has(dependency)) return true;
+    const state = states.get(dependency)!;
+    return state.status === "complete" && !REJECTING_CONTROL_OUTCOMES.has(state.outcome.toLowerCase());
+  });
 }
 
 function graphInputs(node: GraphNodeConfig, states: Map<string, GraphNodeState>, maximum: number): PriorOutput[] {

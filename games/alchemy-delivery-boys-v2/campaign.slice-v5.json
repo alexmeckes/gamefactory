@@ -1,6 +1,6 @@
 {
   "apiVersion": "gamefactory.dev/v1",
-  "id": "alchemy-delivery-boys-v2-slice-v6",
+  "id": "alchemy-delivery-boys-v2-slice-v5",
   "objective": "Execute the authoritative projectSlice contract against the frozen GameSpec: prove and repair one player-complete Godot graybox, approve coherent whole-scene targets, then integrate one visually production-ready encounter with state-linked motion and artifact-backed evidence. Use a separate tournament campaign only for a named unresolved fork. Do not present graybox, concept, generated source, extracted source, or engine-ready assets as production.",
   "projectRoot": ".",
   "workflow": "autoresearch",
@@ -39,18 +39,6 @@
         ],
         "nodes": [
           {
-            "id": "scene-target-repair",
-            "skills": ["direct-game-screens"],
-            "adapter": "codex-app-server",
-            "role": "implementer",
-            "permissions": "write",
-            "model": "gpt-5.6-sol",
-            "reasoningEffort": "xhigh",
-            "timeoutSeconds": 3600,
-            "instructions": "Repair the selected continuous-causal-village whole-scene target in response to the slice-v5 review without reopening the approved camera, world topology, visual identity, or production direction. The current sequence starts after the player's first required interaction. Add and validate one explicit pre-disclosure opening state that shows the player in the continuous world before that interaction, makes the partner/disclosure affordance spatially readable, and does not reveal the request or carried potion early. Preserve exact native 480x270 geometry, integer 3x review output, persistent landmark anchors, text-safe regions, code-native typography policy, and the existing state sequence. Update scene-target.json, native/reference/review views, validation.json, hashes, component map, continuity checks, and experience-contract/state-transition coverage as needed. Set the target approval back to proposed/unapproved while creative evidence changes. Do not produce isolated assets, alter Godot runtime code, change the selected primary route-pending direction, or replace the existing screens wholesale. On a repair invocation, consume the gate findings and make only the smallest evidence-backed correction required for pass.",
-            "dependsOn": []
-          },
-          {
             "id": "scene-target-gate",
             "skills": ["direct-game-screens", "audit-game-build"],
             "adapter": "codex-app-server",
@@ -62,8 +50,7 @@
             "requiredOutputFields": ["findings.selectedTargetId", "findings.selectedTargetSha256"],
             "requiredOutputFieldsOn": ["pass"],
             "instructions": "Review the recovered full-scene targets at the shipping camera before component production resumes. Verify actual gameplay, interaction hierarchy, required states, text zones, relative scale, navigation, and engine feasibility from design/scene-targets/scene-target.json, validation.json, the rendered views, and the current Godot implementation. Audit declared peer regions, typography, and the restrained motion plan. Reject concept art, nonsensical controls, frozen tableaux, decorative clutter, inconsistent scale, or a target that cannot be decomposed. Do not regenerate or revise target files in this recovery gate. On pass, the structured result MUST use this exact shape at minimum: {\"outcome\":\"pass\",\"summary\":\"...\",\"findings\":{\"selectedTargetId\":\"...\",\"selectedTargetSha256\":\"64 lowercase hex characters\"}}. Do not nest selectedTargetId or selectedTargetSha256 under approval or another object. Return revise with prioritized scene-level changes if the recovered target no longer passes.",
-            "dependsOn": ["scene-target-repair"],
-            "repair": { "target": "scene-target-repair", "outcomes": ["revise"], "maximumAttempts": 2, "allowedPaths": ["design/scene-targets/**"] }
+            "dependsOn": []
           },
           {
             "id": "scene-target-approval-recorder",
