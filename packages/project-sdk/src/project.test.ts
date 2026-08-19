@@ -89,6 +89,31 @@ test("SQLite index mirrors idempotent project events for local querying", async 
   }
 });
 
+test("SQLite index reconciles a stale project lineage from the authoritative journal snapshot", async () => {
+  const root = await mkdtemp(join(tmpdir(), "gamefactory-project-sqlite-reconcile-"));
+  const index = await SqliteProjectJourneyIndex.open(join(root, "factory.sqlite"));
+  try {
+    const base = {
+      projectId: "fixture",
+      manifestFingerprint: "a".repeat(64),
+      actor: { kind: "factory" as const },
+      version: 1 as const,
+    };
+    await index.put({ ...base, projectRunId: "stale", type: "project-started", idempotencyKey: "stale:start", sequence: 1, timestamp: "2026-01-01T00:00:00.000Z" });
+    const authoritative = [
+      { ...base, projectRunId: "current", type: "project-started" as const, idempotencyKey: "current:start", sequence: 1, timestamp: "2026-02-01T00:00:00.000Z" },
+      { ...base, projectRunId: "current", type: "project-finished" as const, idempotencyKey: "current:finish", sequence: 2, timestamp: "2026-02-01T00:01:00.000Z" },
+    ];
+
+    await index.sync(authoritative);
+
+    assert.deepEqual(await index.read("fixture"), authoritative);
+  } finally {
+    index.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("project runner records a gated campaign and advances durably", async () => {
   const { root, manifestPath } = await fixture();
   try {

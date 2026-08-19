@@ -9,6 +9,14 @@ interface StoredEvent {
   payload_json: string;
 }
 
+const insertProjectEventSql = `
+  INSERT INTO project_events (
+    project_id, project_run_id, sequence, timestamp, event_type,
+    phase_id, phase_attempt_id, campaign_id, run_id, experiment_id,
+    idempotency_key, manifest_fingerprint, payload_json
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`;
+
 export interface SqliteIndexStats {
   schemaVersion: number;
   projectEvents: number;
@@ -120,13 +128,7 @@ export class SqliteProjectJourneyIndex implements ProjectJourneyIndex {
       if (!isDeepStrictEqual(value, event)) throw new Error(`SQLite project event conflict for ${event.projectId}/${event.idempotencyKey}`);
       return;
     }
-    this.database.prepare(`
-      INSERT INTO project_events (
-        project_id, project_run_id, sequence, timestamp, event_type,
-        phase_id, phase_attempt_id, campaign_id, run_id, experiment_id,
-        idempotency_key, manifest_fingerprint, payload_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    this.database.prepare(insertProjectEventSql).run(
       event.projectId,
       event.projectRunId,
       event.sequence,
@@ -145,22 +147,23 @@ export class SqliteProjectJourneyIndex implements ProjectJourneyIndex {
 
   async sync(events: ProjectJourneyEvent[]): Promise<void> {
     const transaction = this.database.transaction((values: ProjectJourneyEvent[]) => {
+      const projectIds = new Set(values.map((event) => event.projectId));
+      const seenSequences = new Set<string>();
+      const seenKeys = new Set<string>();
+      for (const event of values) {
+        const sequenceKey = `${event.projectId}\0${event.sequence}`;
+        const idempotencyKey = `${event.projectId}\0${event.idempotencyKey}`;
+        if (seenSequences.has(sequenceKey)) throw new Error(`Duplicate project event sequence in journal snapshot: ${event.projectId}/${event.sequence}`);
+        if (seenKeys.has(idempotencyKey)) throw new Error(`Duplicate project event idempotency key in journal snapshot: ${event.projectId}/${event.idempotencyKey}`);
+        seenSequences.add(sequenceKey);
+        seenKeys.add(idempotencyKey);
+      }
+      const removeProject = this.database.prepare("DELETE FROM project_events WHERE project_id = ?");
+      for (const projectId of projectIds) removeProject.run(projectId);
+      const insert = this.database.prepare(insertProjectEventSql);
       for (const event of values) {
         const payload = JSON.stringify(event);
-        const existing = this.database.prepare(
-          "SELECT payload_json FROM project_events WHERE project_id = ? AND idempotency_key = ?",
-        ).get(event.projectId, event.idempotencyKey) as StoredEvent | undefined;
-        if (existing) {
-          if (!isDeepStrictEqual(JSON.parse(existing.payload_json), event)) throw new Error(`SQLite project event conflict for ${event.projectId}/${event.idempotencyKey}`);
-          continue;
-        }
-        this.database.prepare(`
-          INSERT INTO project_events (
-            project_id, project_run_id, sequence, timestamp, event_type,
-            phase_id, phase_attempt_id, campaign_id, run_id, experiment_id,
-            idempotency_key, manifest_fingerprint, payload_json
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(event.projectId, event.projectRunId, event.sequence, event.timestamp, event.type,
+        insert.run(event.projectId, event.projectRunId, event.sequence, event.timestamp, event.type,
           event.phaseId ?? null, event.phaseAttemptId ?? null, event.campaignId ?? null,
           event.runId ?? null, event.experimentId ?? null, event.idempotencyKey,
           event.manifestFingerprint, payload);
