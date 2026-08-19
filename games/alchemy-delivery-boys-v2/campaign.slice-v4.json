@@ -1,6 +1,6 @@
 {
   "apiVersion": "gamefactory.dev/v1",
-  "id": "alchemy-delivery-boys-v2-slice-v5",
+  "id": "alchemy-delivery-boys-v2-slice-v4",
   "objective": "Execute the authoritative projectSlice contract against the frozen GameSpec: prove and repair one player-complete Godot graybox, approve coherent whole-scene targets, then integrate one visually production-ready encounter with state-linked motion and artifact-backed evidence. Use a separate tournament campaign only for a named unresolved fork. Do not present graybox, concept, generated source, extracted source, or engine-ready assets as production.",
   "projectRoot": ".",
   "workflow": "autoresearch",
@@ -39,6 +39,103 @@
         ],
         "nodes": [
           {
+            "id": "core-game-director",
+            "skills": ["plan-playable-slice"],
+            "adapter": "codex-app-server",
+            "role": "planner",
+            "permissions": "read",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "instructions": "Read the authoritative projectSlice contract and frozen GameSpec. Produce one bounded, player-complete vertical-slice plan from input through state change, feedback, consequence, and next decision. Preserve its claim IDs, primary risk, non-goals, evidence gates, and mutable paths. Do not redesign the whole game or widen scope. Identify an evidence-backed spec amendment only if the frozen claim itself is falsified.",
+            "maximumAttempts": 1
+          },
+          {
+            "id": "mechanics-scout",
+            "skills": ["plan-playable-slice"],
+            "adapter": "codex-app-server",
+            "role": "scout",
+            "permissions": "read",
+            "model": "gpt-5.6-luna",
+            "reasoningEffort": "high",
+            "instructions": "Audit the slice plan against the authoritative projectSlice contract. Find the smallest real interaction and deterministic scenarios that can falsify its consumed claims. Treat new ideas as opportunities, not blockers. Request a spec amendment only with a cited consumed claim and preserved runtime evidence; use needs_advisor only for a material capability gap.",
+            "dependsOn": ["core-game-director"],
+            "advisor": { "model": "gpt-5.6-sol", "reasoningEffort": "high", "outcomes": ["needs_advisor"], "onFailure": true, "maximumAttempts": 1 }
+          },
+          {
+            "id": "visual-director",
+            "skills": ["direct-game-screens"],
+            "adapter": "codex-app-server",
+            "role": "planner",
+            "permissions": "read",
+            "required": false,
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "high",
+            "instructions": "After the first-session experience and mechanics pass, define a feasible engine-native visual system for one representative encounter. Specify the rendering grid, palette, typography roles, sprite and animation contracts, peer layout regions, UI surface families, anti-patterns, and engine evidence. Do not assume pixel art requires pixel typography for every role; choose pixel, hybrid, or non-pixel type deliberately. Plan controlled scene life across ambient continuity, interaction response, gameplay consequence, and state transition. ImageGen outputs are reference or source only. Return a structured production plan without prescribing a single composition. Missing targets and production assets are expected at this planning stage and are not blockers by themselves; return pass when the handoff is sufficient for scene-target-builder, and reserve revise for contradictory or insufficient upstream gameplay evidence.",
+            "dependsOn": ["gameplay-gate", "first-session-experience-gate"]
+          },
+          {
+            "id": "graybox-builder",
+            "skills": ["prove-godot-gameplay"],
+            "adapter": "codex-app-server",
+            "role": "implementer",
+            "permissions": "write",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "medium",
+            "timeoutSeconds": 2400,
+            "instructions": "Build only the smallest honest Godot graybox. Implement the configured first-session and returning-player scenario modes as separate deterministic evidence paths. The first-session result must expose explicit completion and consequential-choice metrics grounded in a clean-start decision-and-feedback trace; the returning-player result must expose the longer-loop contract. Do not fake either path with hard-coded interaction counts. Label every visual surface and asset as prototype. Do not spend time manufacturing polish or claim production maturity.",
+            "dependsOn": ["mechanics-scout"]
+          },
+          {
+            "id": "gameplay-evidence",
+            "adapter": "agent-driver",
+            "driver": "godot.evidence",
+            "role": "worker",
+            "permissions": "read",
+            "driverWritePaths": ["evidence/**"],
+            "timeoutSeconds": 600,
+            "instructions": "Refresh the configured Godot import and deterministic scenario evidence after the graybox and after every repair. Write only factory evidence; do not make creative changes.",
+            "dependsOn": ["graybox-builder"],
+            "refreshAfterRepair": true
+          },
+          {
+            "id": "first-session-experience-gate",
+            "skills": ["prove-godot-gameplay"],
+            "adapter": "codex-app-server",
+            "role": "critic",
+            "permissions": "read",
+            "model": "gpt-5.6-luna",
+            "reasoningEffort": "high",
+            "instructions": "Review the clean-start engine evidence as a fresh player, separately from correctness and visual polish. Require a distinct passing first-session scenario and inspect its trace and metrics rather than inferring the opening from the returning-player fixture. Return pass only when the player can discover and complete a brief wait-free decision-and-feedback loop before idle, offline, or long-running progression becomes primary. Require evidence that inputs change a visible outcome or future choice; interaction counts, navigation, timer configuration, and reward collection are not sufficient. Report what the player is trying to decide, what information supports the decision, what feedback attributes the result, and what motivates the next action. Preserve creative latitude: judge the experience contract, not a prescribed mechanic. Return revise with the smallest gameplay-level gap when the opening is inert, confusing, or consequence-free.",
+            "dependsOn": ["graybox-builder", "gameplay-evidence"],
+            "repair": { "target": "graybox-builder", "outcomes": ["revise"], "maximumAttempts": 2, "allowedPaths": ["**"] },
+            "advisor": { "model": "gpt-5.6-sol", "reasoningEffort": "high", "outcomes": ["needs_advisor"], "onFailure": true, "maximumAttempts": 1 }
+          },
+          {
+            "id": "gameplay-gate",
+            "skills": ["prove-godot-gameplay"],
+            "adapter": "codex-app-server",
+            "role": "critic",
+            "permissions": "read",
+            "model": "gpt-5.6-luna",
+            "reasoningEffort": "high",
+            "instructions": "Inspect the fresh upstream Godot evidence and causal feedback; do not launch the host engine yourself. Return pass only when both configured scenario modes pass: the clean-start loop proves immediate agency and the returning-player loop proves the longer contract. Keep this gate focused on mechanical correctness and causal state; the first-session experience critic owns experiential judgment. Return revise with concrete defects and do not judge visual polish here.",
+            "dependsOn": ["graybox-builder", "gameplay-evidence", "first-session-experience-gate"],
+            "repair": { "target": "graybox-builder", "outcomes": ["revise"], "maximumAttempts": 2, "allowedPaths": ["**"] },
+            "advisor": { "model": "gpt-5.6-sol", "reasoningEffort": "high", "outcomes": ["needs_advisor"], "onFailure": true, "maximumAttempts": 1 }
+          },
+          {
+            "id": "scene-target-builder",
+            "skills": ["direct-game-screens"],
+            "adapter": "codex-app-server",
+            "role": "implementer",
+            "permissions": "write",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "timeoutSeconds": 3600,
+            "instructions": "Create whole-screen visual targets before any individual production asset is generated. Use the proven graybox at the shipping camera and the visual-director handoff to generate multiple coherent full-scene candidates, then propose one selected direction plus required state variants that show interaction, action, feedback, and resolution. Review the complete viewport for gameplay clarity, hierarchy, legibility, plausible controls, state comprehension, engine feasibility, character-to-UI balance, and absence of contradictory or decorative nonsense. Explicitly map peer composition regions and declare any intentional overlap; accidental collisions or a layout that works only in one state are blockers. Choose and justify pixel, hybrid, or non-pixel typography by information role rather than assuming pixel art requires pixel text everywhere. Define a restrained motion plan spanning ambient continuity, interaction response, gameplay consequence, and state transition without turning it into an animation quota. Write a valid gamefactory.scene-target/v1 manifest to design/scene-targets/scene-target.json with the experience contract, hashed candidates and views, exact prompts, selected target, nativeGeometry, and component map. Leave component.production absent, set approval to needs-revision with the pending reviewer, and do not generate isolated assets yet. Return revise yourself if no complete scene is strong enough to propose.",
+            "dependsOn": ["gameplay-gate", "visual-director"]
+          },
+          {
             "id": "scene-target-gate",
             "skills": ["direct-game-screens", "audit-game-build"],
             "adapter": "codex-app-server",
@@ -47,10 +144,11 @@
             "model": "gpt-5.6-sol",
             "reasoningEffort": "xhigh",
             "timeoutSeconds": 3600,
+            "instructions": "Review every proposed full-scene target at the shipping camera before component production begins. Verify actual gameplay, interaction hierarchy, required states, text zones, relative scale, navigation, and engine feasibility. Audit the declared peer regions across every state; reject accidental overlaps, clipped copy, competing layers, or decorative frames that obscure controls or actors. Audit typography as an information system and reject tiny or overused pixel type when it weakens hierarchy or sustained reading. Review the motion plan for controlled life: ambient continuity, interaction response, gameplay consequence, and state transition should be appropriate and mutually coherent, without requiring constant motion. Reject concept art, nonsensical controls, frozen tableaux, decorative clutter, inconsistent scale, or a target that cannot be decomposed. Return pass only with one approved target id and hash, approved state variants, experience contract, and component map; otherwise return revise with prioritized scene-level changes. On pass, the structured result MUST use this exact shape at minimum: {\"outcome\":\"pass\",\"summary\":\"...\",\"findings\":{\"selectedTargetId\":\"...\",\"selectedTargetSha256\":\"64 lowercase hex characters\"}}. Do not nest selectedTargetId or selectedTargetSha256 under approval or another object.",
             "requiredOutputFields": ["findings.selectedTargetId", "findings.selectedTargetSha256"],
             "requiredOutputFieldsOn": ["pass"],
-            "instructions": "Review the recovered full-scene targets at the shipping camera before component production resumes. Verify actual gameplay, interaction hierarchy, required states, text zones, relative scale, navigation, and engine feasibility from design/scene-targets/scene-target.json, validation.json, the rendered views, and the current Godot implementation. Audit declared peer regions, typography, and the restrained motion plan. Reject concept art, nonsensical controls, frozen tableaux, decorative clutter, inconsistent scale, or a target that cannot be decomposed. Do not regenerate or revise target files in this recovery gate. On pass, the structured result MUST use this exact shape at minimum: {\"outcome\":\"pass\",\"summary\":\"...\",\"findings\":{\"selectedTargetId\":\"...\",\"selectedTargetSha256\":\"64 lowercase hex characters\"}}. Do not nest selectedTargetId or selectedTargetSha256 under approval or another object. Return revise with prioritized scene-level changes if the recovered target no longer passes.",
-            "dependsOn": []
+            "dependsOn": ["scene-target-builder", "gameplay-gate"],
+            "repair": { "target": "scene-target-builder", "outcomes": ["revise"], "maximumAttempts": 3, "allowedPaths": ["design/scene-targets/**"] }
           },
           {
             "id": "scene-target-approval-recorder",
@@ -71,7 +169,7 @@
             "model": "gpt-5.6-sol",
             "reasoningEffort": "high",
             "instructions": "Choose the smallest production method that can faithfully realize the approved scene target. Preserve creative latitude: return exactly one outcome from direct, segment, motion_study, pixel_motion, or segment_pixel_motion. Use direct for code-native work or assets that need neither segmentation nor generated motion. Use segment only when approved whole-scene imagery should be decomposed with SAM 3. Use motion_study only when an external generated video is useful as non-runtime motion reference. Use pixel_motion when a generated motion study should be tracked and compiled into palette-locked runtime frames; add segmentation only when static scene components also need extraction. Before selecting a provider lane, verify its configured request path and prerequisites are available; never select a paid or credentialed provider merely because it exists. Write design/asset-lanes/decision.json with rationale, selected outcome, required components, source scene ids and hashes, and expected outputs. For every selected lane, also write its valid candidate-local request: sam3.request.json, video.request.json, sam3.video.request.json, and/or pixel-motion.request.json. Pin the approved scene images as references and choose contained output directories. Do not generate or integrate assets in this node.",
-            "dependsOn": ["scene-target-approval-recorder"]
+            "dependsOn": ["scene-target-approval-recorder", "visual-director"]
           },
           {
             "id": "sam3-component-extraction",
@@ -123,7 +221,7 @@
             "reasoningEffort": "xhigh",
             "timeoutSeconds": 7200,
             "instructions": "Turn exactly one proven encounter into a coherent production slice derived from the approved gamefactory.scene-target/v1 target, experience contract, and state variants. Do not substitute a different direction. Consume the asset-lane outputs as provenance-bearing source material and distinguish skipped, failed, and usable lanes. Preserve the target's native geometry, peer-region ownership, declared overlaps, typography roles, and component footprints. Treat undeclared collisions, clipping, and competing layers as scene failures. Implement the chosen pixel, hybrid, or non-pixel typography strategy by information role; do not use tiny pixel type as a universal default. For every component retain target lineage, crop, states, production method, hashes, native/render sizes, scaling, and recomposition evidence. Code-native structural UI is valid only when intentionally authored to the target; generic procedural rectangles, repeated arbitrary brackets, and engine defaults are not production surfaces. Implement the motion plan as a coherent living scene: appropriate ambient continuity, immediate interaction response, readable gameplay consequence, and transitions between important states, while preserving identity, scale, anchors, and causal clarity. Produce current real-engine stills and a representative motion recording at the shipping camera. Record and evidence polish gates for layout-integrity, typography-system, interface-system, component-fidelity, motion-choreography, and scene-life. Generated or segmented assets must be cleaned, anchored, and promoted deliberately. If any required surface remains provisional, report visual-prototype instead of overstating maturity.",
-            "dependsOn": ["scene-target-approval-recorder", "asset-lane-planner", "sam3-component-extraction", "omni-motion-study", "sam3-motion-tracking", "pixel-motion-compiler"],
+            "dependsOn": ["gameplay-gate", "visual-director", "scene-target-approval-recorder", "asset-lane-planner", "sam3-component-extraction", "omni-motion-study", "sam3-motion-tracking", "pixel-motion-compiler"],
             "when": [
               { "node": "sam3-component-extraction", "outcomes": ["segmented", "no_instances", "skipped"] },
               { "node": "omni-motion-study", "outcomes": ["complete", "skipped"] },
