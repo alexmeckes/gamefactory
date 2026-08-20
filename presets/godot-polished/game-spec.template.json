@@ -17,9 +17,15 @@
   ],
   "slices": [
     {
-      "id": "first-playable",
+      "id": "core-experience",
       "playerOutcome": "Replace with what the player can complete end to end.",
       "primaryRisk": "Replace with the one most important uncertainty.",
+      "claimIds": ["loop.core"]
+    },
+    {
+      "id": "production-encounter",
+      "playerOutcome": "Preserve the accepted core experience in one authored production encounter.",
+      "primaryRisk": "Visual production replaces the embodied game with a static presentation.",
       "claimIds": ["loop.core"]
     }
   ],

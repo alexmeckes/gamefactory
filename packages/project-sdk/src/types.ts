@@ -39,6 +39,8 @@ export interface ProjectSpecAmendmentRequest {
 export interface ProjectEvidenceGate {
   scenarios?: string[];
   requireInteractionTrace?: boolean;
+  /** Require evaluator-verified shipping input, visible actor motion, and spatial consequence evidence. */
+  requireEmbodiedGameplay?: boolean;
   requireEngineCapture?: boolean;
   requireMotionEvidence?: boolean;
   requireRuntimeAssets?: string[];

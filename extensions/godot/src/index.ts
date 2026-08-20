@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, readdir, realpath, writeFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { AgentDriver, AgentResult, ArtifactReference, Campaign, Candidate, DoctorResult, EngineDriver, Evaluation, Evaluator, ExecutionResult, ScenarioReference, ScenarioResult, ScenarioRunner } from "@gamefactory/core";
 import { combineDisposables, defineExtension } from "@gamefactory/extension-sdk";
 
@@ -11,6 +12,17 @@ interface GodotConfig {
   timeoutSeconds: number;
   rendered: boolean;
   scenarios: Array<{ id: string; reference: ScenarioReference }>;
+  embodiedProof?: EmbodiedProofConfig;
+  embodiedProbe?: Record<string, unknown>;
+}
+
+export interface EmbodiedProofConfig {
+  minimumDurationSeconds: number;
+  minimumShippingInputEvents: number;
+  minimumDisplacementPixels: number;
+  minimumSpatialInteractions: number;
+  minimumStateConsequences: number;
+  minimumDistinctFrames: number;
 }
 
 interface VisualViewConfig {
@@ -41,6 +53,164 @@ interface ProcessResult { exitCode: number | null; stdout: string; stderr: strin
 const ARTIFACT_KINDS = new Set<ArtifactReference["kind"]>([
   "image", "video", "audio", "replay", "telemetry", "profile", "test-report", "log", "build", "crash-dump", "other"
 ]);
+
+const EMBODIED_TRACE_PROTOCOL = "gamefactory.embodied-trace/v1";
+const EMBODIED_PROBE_PRODUCER = "factory-owned-godot-probe";
+
+export function embodiedProbeScriptPath(): string {
+  return resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "runtime", "embodied_probe.gd");
+}
+
+function hasEmbodiedProbe(probe: unknown): probe is Record<string, unknown> {
+  if (!probe || typeof probe !== "object" || Array.isArray(probe)) return false;
+  const value = probe as Record<string, unknown>;
+  return typeof value.actorPath === "string"
+    && value.actorPath.length > 0
+    && Array.isArray(value.steps)
+    && value.steps.length > 0
+    && Array.isArray(value.stateObservations)
+    && value.stateObservations.length > 0;
+}
+
+function hasTemplatePlaceholder(value: unknown): boolean {
+  if (typeof value === "string") return /^__REPLACE_[A-Z0-9_]+__$/.test(value);
+  if (Array.isArray(value)) return value.some(hasTemplatePlaceholder);
+  if (!value || typeof value !== "object") return false;
+  return Object.values(value as Record<string, unknown>).some(hasTemplatePlaceholder);
+}
+
+function finiteNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function position(value: unknown): { x: number; y: number } | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const record = value as Record<string, unknown>;
+  const x = finiteNumber(record.x);
+  const y = finiteNumber(record.y);
+  return x === undefined || y === undefined ? undefined : { x, y };
+}
+
+export async function verifyEmbodiedScenarioArtifacts(
+  artifacts: ArtifactReference[],
+  requirements: EmbodiedProofConfig,
+  requiredProducer?: string
+): Promise<{ verified: boolean; metrics: Record<string, number>; violations: ScenarioResult["violations"] }> {
+  const violations: ScenarioResult["violations"] = [];
+  const traceArtifact = artifacts.find((artifact) =>
+    (artifact.kind === "replay" || artifact.kind === "telemetry")
+    && artifact.metadata?.protocol === EMBODIED_TRACE_PROTOCOL);
+  if (!traceArtifact) return {
+    verified: false,
+    metrics: { embodied_proof: 0 },
+    violations: [{ code: "godot.embodied.trace-missing", message: `Embodied proof requires a replay or telemetry artifact using ${EMBODIED_TRACE_PROTOCOL}.`, severity: "error" }]
+  };
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(await readFile(traceArtifact.path, "utf8"));
+  } catch {
+    return {
+      verified: false,
+      metrics: { embodied_proof: 0 },
+      violations: [{ code: "godot.embodied.trace-invalid", message: "Embodied gameplay trace is missing or malformed JSON.", severity: "error" }]
+    };
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || (parsed as Record<string, unknown>).apiVersion !== EMBODIED_TRACE_PROTOCOL) {
+    return {
+      verified: false,
+      metrics: { embodied_proof: 0 },
+      violations: [{ code: "godot.embodied.trace-protocol", message: `Embodied gameplay trace must declare ${EMBODIED_TRACE_PROTOCOL}.`, severity: "error" }]
+    };
+  }
+  if (requiredProducer && (
+    traceArtifact.metadata?.producer !== requiredProducer
+    || (parsed as Record<string, unknown>).producer !== requiredProducer
+  )) {
+    return {
+      verified: false,
+      metrics: { embodied_proof: 0 },
+      violations: [{ code: "godot.embodied.untrusted-producer", message: "Embodied gameplay evidence was not produced by the factory-owned Godot probe.", severity: "error" }]
+    };
+  }
+  const samples = (parsed as Record<string, unknown>).samples;
+  if (!Array.isArray(samples) || samples.length < 2) {
+    return {
+      verified: false,
+      metrics: { embodied_proof: 0 },
+      violations: [{ code: "godot.embodied.samples", message: "Embodied gameplay trace must contain at least two chronological samples.", severity: "error" }]
+    };
+  }
+
+  let firstTime: number | undefined;
+  let lastTime: number | undefined;
+  let origin: { x: number; y: number } | undefined;
+  let maximumDisplacement = 0;
+  let shippingInputs = 0;
+  let visibleSamples = 0;
+  let spatialInteractions = 0;
+  let stateConsequences = 0;
+  let chronological = true;
+  for (const item of samples) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const sample = item as Record<string, unknown>;
+    const time = finiteNumber(sample.time);
+    if (time !== undefined) {
+      if (lastTime !== undefined && time < lastTime) chronological = false;
+      firstTime ??= time;
+      lastTime = time;
+    }
+    const actor = sample.actor && typeof sample.actor === "object" && !Array.isArray(sample.actor) ? sample.actor as Record<string, unknown> : undefined;
+    const actorPosition = position(actor?.position);
+    if (actor?.visible === true) visibleSamples += 1;
+    if (actorPosition) {
+      origin ??= actorPosition;
+      maximumDisplacement = Math.max(maximumDisplacement, Math.hypot(actorPosition.x - origin.x, actorPosition.y - origin.y));
+    }
+    const input = sample.input && typeof sample.input === "object" && !Array.isArray(sample.input) ? sample.input as Record<string, unknown> : undefined;
+    if (input?.delivery === "godot-input-event" && (input.kind === "axis" || input.kind === "action")) shippingInputs += 1;
+    if (Array.isArray(sample.events)) for (const rawEvent of sample.events) {
+      if (!rawEvent || typeof rawEvent !== "object" || Array.isArray(rawEvent)) continue;
+      const event = rawEvent as Record<string, unknown>;
+      if (event.kind === "spatial-interaction") {
+        const distance = finiteNumber(event.distance);
+        const range = finiteNumber(event.range);
+        if (typeof event.targetId === "string" && distance !== undefined && range !== undefined && distance <= range && event.outcome === "applied") spatialInteractions += 1;
+      }
+      if (event.kind === "state-change" && event.cause === "player-input" && typeof event.state === "string") stateConsequences += 1;
+    }
+  }
+  const duration = firstTime === undefined || lastTime === undefined ? 0 : lastTime - firstTime;
+  const frameArtifacts = artifacts.filter((artifact) => artifact.kind === "image" && artifact.metadata?.evidenceRole === "continuous-frame");
+  const frameHashes = new Set<string>();
+  for (const artifact of frameArtifacts) {
+    try { frameHashes.add(createHash("sha256").update(await readFile(artifact.path)).digest("hex")); } catch { /* normalized artifacts should exist; fail through count below */ }
+  }
+
+  if (!chronological) violations.push({ code: "godot.embodied.chronology", message: "Embodied gameplay samples are not chronological.", severity: "error" });
+  if (duration < requirements.minimumDurationSeconds) violations.push({ code: "godot.embodied.duration", message: `Embodied capture lasts ${duration.toFixed(2)}s; expected at least ${requirements.minimumDurationSeconds}s.`, severity: "error" });
+  if (shippingInputs < requirements.minimumShippingInputEvents) violations.push({ code: "godot.embodied.shipping-input", message: `Only ${shippingInputs} shipping InputEvent samples were observed; direct function replay is not acceptable.`, severity: "error" });
+  if (visibleSamples === 0) violations.push({ code: "godot.embodied.actor-visible", message: "No trace sample establishes a visible player-controlled runtime actor.", severity: "error" });
+  if (maximumDisplacement < requirements.minimumDisplacementPixels) violations.push({ code: "godot.embodied.displacement", message: `Visible actor displacement was ${maximumDisplacement.toFixed(2)}px; expected at least ${requirements.minimumDisplacementPixels}px.`, severity: "error" });
+  if (spatialInteractions < requirements.minimumSpatialInteractions) violations.push({ code: "godot.embodied.spatial-interaction", message: `Only ${spatialInteractions} in-range runtime interactions were traced; expected ${requirements.minimumSpatialInteractions}.`, severity: "error" });
+  if (stateConsequences < requirements.minimumStateConsequences) violations.push({ code: "godot.embodied.consequence", message: `Only ${stateConsequences} player-caused state consequences were traced; expected ${requirements.minimumStateConsequences}.`, severity: "error" });
+  if (frameHashes.size < requirements.minimumDistinctFrames) violations.push({ code: "godot.embodied.visible-motion", message: `Continuous engine evidence contains ${frameHashes.size} distinct frame(s); expected at least ${requirements.minimumDistinctFrames}.`, severity: "error" });
+  const verified = !violations.some((violation) => violation.severity === "error");
+  return {
+    verified,
+    metrics: {
+      embodied_proof: verified ? 1 : 0,
+      embodied_duration_seconds: duration,
+      embodied_shipping_inputs: shippingInputs,
+      embodied_visible_samples: visibleSamples,
+      embodied_displacement_pixels: maximumDisplacement,
+      embodied_spatial_interactions: spatialInteractions,
+      embodied_state_consequences: stateConsequences,
+      embodied_distinct_frames: frameHashes.size
+    },
+    violations
+  };
+}
 
 export async function normalizeScenarioArtifacts(value: unknown, allowedRoot?: string): Promise<{ artifacts: ArtifactReference[]; violations: ScenarioResult["violations"] }> {
   if (value === undefined) return { artifacts: [], violations: [] };
@@ -142,12 +312,48 @@ function config(campaign: Campaign): GodotConfig {
   } else {
     scenarios = [{ id: "primary", reference: scenarioReference(scenarioRaw) }];
   }
+  let embodiedProof: EmbodiedProofConfig | undefined;
+  if (value.embodiedProof !== undefined) {
+    if (!value.embodiedProof || typeof value.embodiedProof !== "object" || Array.isArray(value.embodiedProof)) throw new Error("parameters.godot.embodiedProof must be an object");
+    const proof = value.embodiedProof as Record<string, unknown>;
+    const number = (key: keyof EmbodiedProofConfig, fallback: number, minimum: number): number => {
+      const raw = proof[key];
+      const parsed = raw === undefined ? fallback : raw;
+      if (typeof parsed !== "number" || !Number.isFinite(parsed) || parsed < minimum) throw new Error(`parameters.godot.embodiedProof.${key} must be a finite number at least ${minimum}`);
+      return parsed;
+    };
+    embodiedProof = {
+      minimumDurationSeconds: number("minimumDurationSeconds", 1, 0),
+      minimumShippingInputEvents: number("minimumShippingInputEvents", 2, 1),
+      minimumDisplacementPixels: number("minimumDisplacementPixels", 12, 0),
+      minimumSpatialInteractions: number("minimumSpatialInteractions", 1, 1),
+      minimumStateConsequences: number("minimumStateConsequences", 1, 1),
+      minimumDistinctFrames: number("minimumDistinctFrames", 3, 2)
+    };
+  }
+  const embodiedProbe = value.embodiedProbe && typeof value.embodiedProbe === "object" && !Array.isArray(value.embodiedProbe)
+    ? value.embodiedProbe as Record<string, unknown>
+    : undefined;
+  if (embodiedProbe && hasTemplatePlaceholder(embodiedProbe)) {
+    throw new Error("parameters.godot.embodiedProbe contains unresolved __REPLACE_*__ template values");
+  }
+  for (const scenario of scenarios) {
+    const override = scenario.reference.parameters?.embodiedProbe;
+    if (override && hasTemplatePlaceholder(override)) {
+      throw new Error(`parameters.godot.scenarios.${scenario.id}.embodiedProbe contains unresolved __REPLACE_*__ template values`);
+    }
+  }
   return {
     binary: typeof value.binary === "string" ? value.binary : process.env.GODOT_BINARY ?? "godot",
     importCheck: value.importCheck !== false,
     timeoutSeconds: typeof value.timeoutSeconds === "number" ? value.timeoutSeconds : 90,
-    rendered: value.rendered === true,
-    scenarios
+    // Continuous viewport evidence is part of the embodied contract. Godot's
+    // headless renderer does not emit frame_post_draw reliably, so enable the
+    // normal renderer automatically whenever the trusted probe is active.
+    rendered: value.rendered === true || embodiedProof !== undefined,
+    scenarios,
+    ...(embodiedProof ? { embodiedProof } : {}),
+    ...(embodiedProbe ? { embodiedProbe } : {})
   };
 }
 
@@ -309,15 +515,32 @@ export class GodotScenarioRunner implements ScenarioRunner {
 
   async run(input: Parameters<ScenarioRunner["run"]>[0]): Promise<ScenarioResult> {
     const settings = config(input.campaign);
+    const useEmbodiedProbe = settings.embodiedProof !== undefined;
+    const scenarioProbe = input.scenario.parameters?.embodiedProbe ?? settings.embodiedProbe;
+    if (useEmbodiedProbe && !hasEmbodiedProbe(scenarioProbe)) {
+      return {
+        status: "fail",
+        metrics: { embodied_proof: 0 },
+        artifacts: [],
+        violations: [{
+          code: "godot.embodied.probe-config",
+          message: "An embodiedProof campaign must configure godot.embodiedProbe (or a scenario override) with actorPath, input steps, and stateObservations.",
+          severity: "error"
+        }]
+      };
+    }
     const output = resolve(input.candidate.root, ".factory", "runs", input.experimentId, "scenario");
     await mkdir(output, { recursive: true });
     const requestPath = resolve(output, "request.json");
-    await writeFile(requestPath, `${JSON.stringify(input.scenario, null, 2)}\n`, "utf8");
+    const scenarioRequest = useEmbodiedProbe
+      ? { ...input.scenario, parameters: { ...(input.scenario.parameters ?? {}), embodiedProbe: scenarioProbe } }
+      : input.scenario;
+    await writeFile(requestPath, `${JSON.stringify(scenarioRequest, null, 2)}\n`, "utf8");
     const args = [
       "--disable-crash-handler",
       ...(settings.rendered ? [] : ["--headless"]),
       "--path", input.candidate.root,
-      "--script", "res://addons/gamefactory/scenario_runner.gd",
+      "--script", useEmbodiedProbe ? embodiedProbeScriptPath() : "res://addons/gamefactory/scenario_runner.gd",
       "--", "--request", requestPath, "--output", output
     ];
     let processResult: ProcessResult;
@@ -332,18 +555,31 @@ export class GodotScenarioRunner implements ScenarioRunner {
     const resultPath = resolve(output, "result.json");
     try {
       const raw = JSON.parse(await readFile(resultPath, "utf8")) as Partial<ScenarioResult>;
-      artifacts.push({ kind: "test-report", path: resultPath, mediaType: "application/json", label: "Godot scenario result" });
+      const resultArtifact: ArtifactReference = { kind: "test-report", path: resultPath, mediaType: "application/json", label: "Godot scenario result" };
+      artifacts.push(resultArtifact);
       const normalized = await normalizeScenarioArtifacts(raw.artifacts, output);
       artifacts.push(...normalized.artifacts);
+      const embodied = settings.embodiedProof
+        ? await verifyEmbodiedScenarioArtifacts(normalized.artifacts, settings.embodiedProof, EMBODIED_PROBE_PRODUCER)
+        : { verified: false, metrics: {}, violations: [] as ScenarioResult["violations"] };
+      if (settings.embodiedProof && embodied.verified) {
+        const verification = { evidenceClass: "embodied-gameplay", verified: true, protocol: EMBODIED_TRACE_PROTOCOL };
+        resultArtifact.metadata = verification;
+        const traceArtifact = normalized.artifacts.find((artifact) =>
+          (artifact.kind === "replay" || artifact.kind === "telemetry")
+          && artifact.metadata?.protocol === EMBODIED_TRACE_PROTOCOL);
+        if (traceArtifact) traceArtifact.metadata = { ...(traceArtifact.metadata ?? {}), ...verification };
+      }
       const resultViolations = [
         ...(!processSucceeded ? [{ code: "godot.process", message: `Godot reported an engine or script error with exit code ${processResult.exitCode}.`, severity: "error" as const }] : []),
         ...(raw.violations ?? []),
-        ...normalized.violations
+        ...normalized.violations,
+        ...embodied.violations
       ];
-      const invalidArtifacts = normalized.violations.some((violation) => violation.severity === "error");
+      const invalidArtifacts = [...normalized.violations, ...embodied.violations].some((violation) => violation.severity === "error");
       return {
         status: !processSucceeded ? "crash" : invalidArtifacts ? "fail" : raw.status ?? "pass",
-        metrics: raw.metrics ?? {},
+        metrics: { ...(raw.metrics ?? {}), ...embodied.metrics },
         artifacts,
         violations: resultViolations,
         ...(raw.metadata ? { metadata: raw.metadata } : {})
@@ -558,9 +794,16 @@ export class GodotVisualEvaluator implements Evaluator {
     const findings = review.value.findings && typeof review.value.findings === "object" && !Array.isArray(review.value.findings)
       ? review.value.findings as Record<string, unknown>
       : {};
-    const rawScorecard = findings.scorecard && typeof findings.scorecard === "object" && !Array.isArray(findings.scorecard)
+    const geminiScores = review.value.scores && typeof review.value.scores === "object" && !Array.isArray(review.value.scores)
+      ? review.value.scores as Record<string, unknown>
+      : undefined;
+    const rawScorecard = geminiScores ?? (findings.scorecard && typeof findings.scorecard === "object" && !Array.isArray(findings.scorecard)
       ? findings.scorecard as Record<string, unknown>
-      : {};
+      : {});
+    const geminiReview = Array.isArray(review.value.findings) && geminiScores !== undefined;
+    if (geminiReview && (!Array.isArray(review.value.evidence) || review.value.evidence.length === 0)) {
+      violations.push({ code: "godot.visual.review-evidence", message: "Gemini visual review did not preserve its reviewed evidence inventory.", severity: "error" });
+    }
     const scores: number[] = [];
     for (const dimension of settings.requiredDimensions) {
       const score = rawScorecard[dimension];
@@ -618,7 +861,7 @@ export class GodotVisualEvaluator implements Evaluator {
       } catch (error) {
         violations.push({ code: `godot.visual.capture.${view.id}`, message: `Missing required ${view.id} capture: ${error instanceof Error ? error.message : String(error)}`, severity: "error" });
       }
-      if (!citesEvidence("view", view.id)) violations.push({ code: `godot.visual.evidence.${view.id}`, message: `Visual review did not record an observation for ${view.id}.`, severity: "error" });
+      if (!geminiReview && !citesEvidence("view", view.id)) violations.push({ code: `godot.visual.evidence.${view.id}`, message: `Visual review did not record an observation for ${view.id}.`, severity: "error" });
     }
     for (const sequence of settings.requiredSequences) {
       const hashes = new Set<string>();
@@ -643,7 +886,7 @@ export class GodotVisualEvaluator implements Evaluator {
       if (hashes.size < 2) {
         violations.push({ code: `godot.visual.sequence.${sequence.id}.motion`, message: `${sequence.id} does not demonstrate visible change across frames.`, severity: "error" });
       }
-      if (!citesEvidence("sequence", sequence.id)) violations.push({ code: `godot.visual.evidence.${sequence.id}`, message: `Visual review did not record an observation for sequence ${sequence.id}.`, severity: "error" });
+      if (!geminiReview && !citesEvidence("sequence", sequence.id)) violations.push({ code: `godot.visual.evidence.${sequence.id}`, message: `Visual review did not record an observation for sequence ${sequence.id}.`, severity: "error" });
     }
     if (review.value.outcome !== "pass") {
       violations.push({ code: "godot.visual.judgment", message: `Visual critic returned ${String(review.value.outcome ?? "no outcome")} instead of pass.`, severity: "error" });

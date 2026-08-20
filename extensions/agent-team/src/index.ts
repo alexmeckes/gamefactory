@@ -315,7 +315,7 @@ const CONTROL_OUTCOME_ALIASES = new Map<string, string>([
   ["passed", "pass"],
   ["approved", "pass"]
 ]);
-const REJECTING_CONTROL_OUTCOMES = new Set(["revise", "reject", "fail", "failed", "blocked", "crash", "error"]);
+const REJECTING_CONTROL_OUTCOMES = new Set(["revise", "reject", "fail", "failed", "blocked", "target_revision", "spec_amendment", "crash", "error"]);
 const POSITIVE_CONTROL_OUTCOMES = new Set(["pass", "complete", "ready"]);
 
 function canonicalControlOutcome(outcome: string): string {
@@ -1422,6 +1422,9 @@ async function invokeContributor(
           outcome: delegatedOutcome,
           artifacts: agentDriverArtifacts,
           ...(delegated.usage ? { usage: delegated.usage } : {}),
+          ...(delegated.metadata?.structured && typeof delegated.metadata.structured === "object" && !Array.isArray(delegated.metadata.structured)
+            ? delegated.metadata.structured as Record<string, unknown>
+            : {}),
           context: {
             driver: config.driver,
             metadata: delegated.metadata ?? {},

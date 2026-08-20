@@ -12,7 +12,7 @@ Plan the smallest experience that tests the selected claims in play. Preserve cr
 1. Read the current frozen GameSpec revision and select the smallest coherent claim set.
 2. State one player-visible outcome and one primary uncertainty the slice must retire.
 3. Walk through the complete causal chain: `input -> understandable state change -> feedback -> consequence -> next decision`.
-4. Include the shipping camera and input mode. Do not substitute menus, debug controls, timers, narration, or test harness shortcuts for the promised interaction.
+4. Include the shipping camera and input mode. Scenario automation must cross the shipping input boundary; direct helper calls, menus, debug controls, timers, narration, or test harness shortcuts cannot substitute for the promised interaction.
 5. State the entry state, exit state, carried state, failure or recovery path, and explicit non-goals.
 6. Keep solution space open. Specify what evidence must demonstrate, not the exact code structure, layout, art composition, or tuning values unless they are consumed claims.
 
@@ -20,7 +20,7 @@ Plan the smallest experience that tests the selected claims in play. Preserve cr
 
 1. Give the writer narrow `mutablePaths` and list immutable concept, spec, evidence, and accepted-slice surfaces.
 2. Name deterministic real-engine scenarios that exercise meaningful alternatives, not just the happy path.
-3. Require a chronological interaction trace, engine capture sequence, and motion evidence when player comprehension depends on time.
+3. Require a chronological shipping-input trace, visible runtime actor displacement, spatial interaction evidence, a continuous engine capture sequence, and motion evidence when player comprehension depends on time.
 4. Name every required runtime asset by consumer and state. An asset file without a live consumer is not slice evidence.
 5. Define metrics as trace-derived diagnostics. Never optimize a proxy as if it proved fun.
 6. Define the acceptance decision and regression evidence required after repair.

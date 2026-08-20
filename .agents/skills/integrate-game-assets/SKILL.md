@@ -20,8 +20,9 @@ Treat the running scene as the deliverable. Asset files are inputs, not proof of
 2. Preserve native pixel geometry, integer scaling, stable pivots, declared nine-slice regions, and compatible coordinate spaces where applicable.
 3. Implement all slice-relevant interaction states: default, hover or focus, pressed, disabled, selected, feedback, failure, and transition states as required by the input mode.
 4. Align authored UI with deterministic layout constraints. Do not bake dynamic text, live data, focus logic, or accessibility states into static images.
-5. Remove replaced placeholders and generic procedural chrome rather than leaving two competing systems.
-6. Keep generated source, extraction, cleanup, compilation, import, and runtime capture attributable.
+5. Keep environment layers, player and NPC actors, interactive props, effects, and UI in independent runtime consumers. Never replace a working scene with a whole-screen generated plate or bake moving/stateful entities into its background.
+6. Remove replaced placeholders and generic procedural chrome rather than leaving two competing systems.
+7. Keep generated source, extraction, cleanup, compilation, import, and runtime capture attributable.
 
 ## Verify in the engine
 

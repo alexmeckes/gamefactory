@@ -237,10 +237,23 @@ function evidenceReasons(phase: LoadedProjectPhase, result: CampaignResult, froz
   const evidence = metadata && typeof metadata === "object" && !Array.isArray(metadata) ? metadata as Record<string, unknown> : {};
   const artifacts = trustedFactoryArtifacts(result);
   const artifactByHash = new Map(artifacts.filter((entry) => entry.artifact.sha256).map((entry) => [entry.artifact.sha256!, entry]));
+  const scenarioEvaluators = new Set(["evaluator:godot.scenario", "agent-driver:godot.evidence"]);
+  const captureEvaluators = new Set(["evaluator:godot.scenario", "evaluator:godot.visual", "agent-driver:godot.evidence"]);
   const hasReference = (value: unknown, kinds?: Set<string>, producers?: Set<string>): boolean => {
     const sha256 = evidenceReference(value);
     const entry = sha256 ? artifactByHash.get(sha256) : undefined;
     return Boolean(entry && (!kinds || kinds.has(entry.artifact.kind)) && (!producers || producers.has(entry.producer)));
+  };
+  const hasVerifiedEmbodiedReference = (value: unknown): boolean => {
+    const sha256 = evidenceReference(value);
+    const entry = sha256 ? artifactByHash.get(sha256) : undefined;
+    return Boolean(
+      entry
+      && scenarioEvaluators.has(entry.producer)
+      && (entry.artifact.kind === "test-report" || entry.artifact.kind === "replay" || entry.artifact.kind === "telemetry")
+      && entry.artifact.metadata?.evidenceClass === "embodied-gameplay"
+      && entry.artifact.metadata?.verified === true
+    );
   };
   const reasons: string[] = [];
   if (!frozenSpec || evidence.specRevision !== frozenSpec.spec.revision || evidence.specFingerprint !== frozenSpec.fingerprint) reasons.push("Slice evidence is not bound to the current frozen GameSpec revision and fingerprint.");
@@ -248,12 +261,11 @@ function evidenceReasons(phase: LoadedProjectPhase, result: CampaignResult, froz
   if (Array.isArray(evidence.scenarios)) for (const item of evidence.scenarios) {
     if (item && typeof item === "object" && !Array.isArray(item) && typeof (item as Record<string, unknown>).id === "string") scenarioEvidence.set((item as Record<string, unknown>).id as string, item);
   }
-  const scenarioEvaluators = new Set(["evaluator:godot.scenario", "agent-driver:godot.evidence"]);
-  const captureEvaluators = new Set(["evaluator:godot.scenario", "evaluator:godot.visual", "agent-driver:godot.evidence"]);
   for (const scenario of phase.evidence.scenarios ?? []) if (!hasReference(scenarioEvidence.get(scenario), new Set(["replay", "telemetry", "test-report", "log"]), scenarioEvaluators)) reasons.push(`Required slice scenario ${scenario} is not linked to a trusted engine scenario artifact.`);
   if (phase.evidence.requireInteractionTrace && !hasReference(evidence.interactionTrace, new Set(["replay", "telemetry"]), scenarioEvaluators)) reasons.push("Slice requires a trusted real interaction trace artifact.");
+  if (phase.evidence.requireEmbodiedGameplay && !hasVerifiedEmbodiedReference(evidence.embodiedGameplay)) reasons.push("Slice requires evaluator-verified embodied gameplay evidence from shipping input through visible motion and spatial consequence.");
   if (phase.evidence.requireEngineCapture && !hasReference(evidence.engineCapture, new Set(["image", "video"]), captureEvaluators)) reasons.push("Slice requires a trusted current engine capture artifact.");
-  if (phase.evidence.requireEngineCapture && !hasReference(evidence.targetSha256, new Set(["image"]), new Set(["evaluator:design.system"]))) reasons.push("Slice engine evidence is not bound to a design-system-verified target image hash.");
+  if (phase.evidence.targetApprovalNode && !hasReference(evidence.targetSha256, new Set(["image"]), new Set(["evaluator:design.system"]))) reasons.push("Slice engine evidence is not bound to a design-system-verified target image hash.");
   if (phase.evidence.targetApprovalNode) {
     const targetHash = evidenceReference(evidence.targetSha256);
     const approval = keptRecord(result)?.agent?.contributors.find((contributor) => contributor.metadata?.nodeId === phase.evidence!.targetApprovalNode && contributor.status === "complete" && contributor.metadata?.outcome === "pass");

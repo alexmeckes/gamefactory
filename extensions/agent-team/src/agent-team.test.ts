@@ -145,6 +145,13 @@ if (["alpha", "beta"].includes(request.nodeId)) {
     outcome: "blocked_missing_runtime_evidence",
     findings: [{ issue: "no engine capture was supplied" }]
   }));
+} else if (["target-owner-reviewer", "spec-owner-reviewer"].includes(request.nodeId)) {
+  const owner = request.nodeId === "target-owner-reviewer" ? "target" : "spec";
+  console.log(JSON.stringify({
+    summary: owner + " contract must be revised outside implementation",
+    outcome: owner === "target" ? "target_revision" : "spec_amendment",
+    findings: [{ owner, issue: "the controlling contract is incoherent" }]
+  }));
 } else if (request.nodeId === "downstream") {
   assert.equal(await readFile("value.txt", "utf8"), "repaired\\n", "downstream must not run against work rejected by its gate");
   const review = request.inputs.find((input) => input.nodeId === "reviewer");
@@ -1017,6 +1024,33 @@ test("agent graph canonicalizes qualified blocked outcomes and prevents downstre
   }
 });
 
+test("agent graph blocks target and spec return edges instead of treating them as successful implementation reviews", async () => {
+  for (const [reviewer, outcome] of [["target-owner-reviewer", "target_revision"], ["spec-owner-reviewer", "spec_amendment"]] as const) {
+    const root = await repository();
+    try {
+      await assert.rejects(() => new AgentTeam().run({
+        campaign: graphCampaign(root, [
+          graphCommand(reviewer, { role: "critic", permissions: "read" }),
+          graphCommand("writer", { role: "implementer", permissions: "write", dependsOn: [reviewer] })
+        ]),
+        candidate: { id: "candidate", root, metadata: {} },
+        experimentId: `exp-${reviewer}`,
+        history: [],
+        signal: new AbortController().signal
+      }), (error: unknown) => {
+        assert.ok(error instanceof AgentTeamExecutionError);
+        assert.match(error.message, new RegExp(`required nodes failed.*${reviewer}.*writer`));
+        const review = error.runs.find((run) => run.provenance.contributorId === reviewer);
+        assert.equal(review?.provenance.outcome, outcome);
+        assert.equal(error.runs.some((run) => run.provenance.contributorId === "writer"), false);
+        return true;
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }
+});
+
 test("agent graph preserves successful upstream evidence when a downstream required node fails", async () => {
   const root = await repository();
   try {
@@ -1112,17 +1146,39 @@ test("agent graph emits live topology, bounded progress, and attempt completion 
 test("polished Godot preset has a valid gated agent graph", async () => {
   const campaign = JSON.parse(await readFile(resolve(process.cwd(), "presets/godot-polished/campaign.template.json"), "utf8")) as Campaign;
   assert.doesNotThrow(() => validateAgentTeamConfiguration(campaign));
-  const presetGraph = (campaign.parameters?.agentTeam as { graph?: { nodes?: Array<{ id: string; instructions?: string; repair?: { target?: string; outcomes?: string[] } }> } }).graph;
+  const presetGraph = (campaign.parameters?.agentTeam as { graph?: { nodes?: Array<{ id: string; instructions?: string; driver?: string; dependsOn?: string[]; when?: { node?: string; outcomes?: string[] } | Array<{ node?: string; outcomes?: string[] }>; repair?: { target?: string; outcomes?: string[] } }> } }).graph;
   const approvalRecorder = presetGraph?.nodes?.find((node) => node.id === "scene-target-approval-recorder");
   assert.match(approvalRecorder?.instructions ?? "", /validation\.json.*mirror status/s);
   const productionBuilder = presetGraph?.nodes?.find((node) => node.id === "production-slice-builder");
   assert.match(productionBuilder?.instructions ?? "", /every runtime source file.*structured artifact/s);
-  const evidenceAuditor = presetGraph?.nodes?.find((node) => node.id === "evidence-auditor");
-  assert.equal(evidenceAuditor?.repair?.target, "production-slice-builder");
-  assert.deepEqual(evidenceAuditor?.repair?.outcomes, ["revise"]);
-  assert.match(evidenceAuditor?.instructions ?? "", /Recompute runtime hashes.*structured artifact list/s);
+  assert.equal(presetGraph?.nodes?.some((node) => node.id === "core-game-director"), false);
+  assert.equal(presetGraph?.nodes?.some((node) => node.id === "embodied-prototype-builder"), false);
+  assert.equal(presetGraph?.nodes?.some((node) => node.id === "evidence-auditor"), false);
+  assert.equal(presetGraph?.nodes?.some((node) => node.id === "component-fidelity-gate"), false);
+  assert.equal(presetGraph?.nodes?.some((node) => node.id === "art-director-gate"), false);
+  assert.ok(presetGraph?.nodes?.some((node) => node.id === "accepted-core-evidence" && node.driver === "godot.evidence"));
+  const productionEvidence = presetGraph?.nodes?.find((node) => node.id === "production-gameplay-evidence");
+  assert.equal(productionEvidence?.driver, "godot.evidence");
+  assert.ok(productionEvidence?.dependsOn?.includes("production-slice-builder"));
+  const productionGemini = presetGraph?.nodes?.find((node) => node.id === "gemini-production-review");
+  assert.equal(productionGemini?.driver, "gemini.visual-production");
+  assert.equal(productionGemini?.repair?.target, "production-slice-builder");
+  assert.ok(productionGemini?.dependsOn?.includes("production-gameplay-evidence"));
+  assert.ok(presetGraph?.nodes?.find((node) => node.id === "production-judge")?.dependsOn?.includes("gemini-production-review"));
+  assert.equal((campaign.parameters?.godot as { visualReview?: { reviewNode?: string } })?.visualReview?.reviewNode, "gemini-production-review");
+  assert.deepEqual(presetGraph?.nodes?.find((node) => node.id === "sam3-component-extraction")?.when, { node: "asset-lane-planner", outcomes: ["segment", "segment_pixel_motion"] });
+  assert.deepEqual(presetGraph?.nodes?.find((node) => node.id === "omni-motion-study")?.when, { node: "asset-lane-planner", outcomes: ["motion_study", "pixel_motion", "segment_pixel_motion"] });
   const specCampaign = JSON.parse(await readFile(resolve(process.cwd(), "presets/godot-polished/spec-campaign.template.json"), "utf8")) as Campaign;
   assert.doesNotThrow(() => validateAgentTeamConfiguration(specCampaign));
+  const embodiedCampaign = JSON.parse(await readFile(resolve(process.cwd(), "presets/godot-polished/embodied-campaign.template.json"), "utf8")) as Campaign;
+  assert.doesNotThrow(() => validateAgentTeamConfiguration(embodiedCampaign));
+  const embodiedGraph = (embodiedCampaign.parameters?.agentTeam as { graph?: { nodes?: Array<{ id: string; instructions?: string; driver?: string; dependsOn?: string[]; repair?: { target?: string } }> } }).graph;
+  assert.ok(embodiedGraph?.nodes?.some((node) => node.id === "embodied-prototype-builder"));
+  assert.match(embodiedGraph?.nodes?.find((node) => node.id === "embodied-prototype-builder")?.instructions ?? "", /factory-owned probe.*shipping InputEvents/s);
+  const embodiedGemini = embodiedGraph?.nodes?.find((node) => node.id === "gemini-embodied-review");
+  assert.equal(embodiedGemini?.driver, "gemini.visual-embodied");
+  assert.equal(embodiedGemini?.repair?.target, "embodied-prototype-builder");
+  assert.ok(embodiedGraph?.nodes?.find((node) => node.id === "embodied-judge")?.dependsOn?.includes("gemini-embodied-review"));
 });
 
 test("agent graph validates structured output field contracts before launch", () => {
@@ -1201,7 +1257,7 @@ test("agent graph can invoke a lazily activated extension agent driver", async (
         return {
           summary: "extension produced a candidate artifact",
           artifacts: [{ kind: "image", path: output, mediaType: "text/plain", label: "extension output" }],
-          metadata: { provider: "fixture", operation: "segment", outcome: "segmented" }
+          metadata: { provider: "fixture", operation: "segment", outcome: "segmented", structured: { findings: [{ id: "edge-halo", severity: "minor" }] } }
         };
       }
     };
@@ -1227,6 +1283,7 @@ test("agent graph can invoke a lazily activated extension agent driver", async (
     const contribution = result.contributors?.[0];
     assert.equal(contribution?.status, "complete");
     assert.equal(contribution?.metadata?.outcome, "segmented");
+    assert.deepEqual((contribution?.metadata?.structured as { findings?: unknown[] })?.findings, [{ id: "edge-halo", severity: "minor" }]);
     assert.ok(contribution?.artifacts.some((item) => item.label === "extension output"));
     const manifest = contribution?.metadata?.promptManifest as { adapter?: string };
     assert.equal(manifest.adapter, "agent:fixture.extension");
@@ -1271,6 +1328,38 @@ test("read-only extension drivers may refresh only explicitly declared candidate
     assert.equal(await readFile(resolve(root, "evidence", "result.json"), "utf8"), "{}\n");
     assert.match(result.summary, /evidence refreshed/);
     assert.deepEqual((result.metadata as { nodes: Record<string, { driverWritePaths?: string[] }> }).nodes["refresh-evidence"]?.driverWritePaths, ["evidence/**"]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("read-only extension critics may write factory run evidence and forward structured findings", async () => {
+  const root = await repository();
+  try {
+    const extensionDriver: AgentDriver = {
+      id: "fixture.multimodal-review",
+      async run(request) {
+        const output = resolve(request.candidate.root, ".factory", "runs", request.experimentId, "multimodal-review", "review.json");
+        await mkdir(resolve(output, ".."), { recursive: true });
+        await writeFile(output, "{}\n", "utf8");
+        return {
+          summary: "multimodal evidence passed",
+          artifacts: [{ kind: "test-report", path: output, mediaType: "application/json", label: "multimodal review" }],
+          metadata: { outcome: "pass", structured: { findings: [{ id: "small-type", severity: "minor", evidenceIds: ["runtime-image-001"] }] } }
+        };
+      }
+    };
+    const result = await new AgentTeam(() => extensionDriver).run({
+      campaign: graphCampaign(root, [{ id: "multimodal-review", adapter: "agent-driver", driver: "fixture.multimodal-review", role: "critic", permissions: "read" }]),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-multimodal-review",
+      history: [],
+      signal: new AbortController().signal
+    });
+    const contribution = result.contributors?.find((item) => item.agentId === "multimodal-review");
+    const structured = contribution?.metadata?.structured as { findings?: Array<{ id?: string }> };
+    assert.equal(structured.findings?.[0]?.id, "small-type");
+    assert.ok(contribution?.artifacts.some((item) => item.label === "multimodal review"));
   } finally {
     await rm(root, { recursive: true, force: true });
   }

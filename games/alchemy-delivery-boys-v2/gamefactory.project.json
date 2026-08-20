@@ -28,6 +28,7 @@
       "evidence": {
         "scenarios": ["first-session", "returning-player"],
         "requireInteractionTrace": true,
+        "requireEmbodiedGameplay": true,
         "requireEngineCapture": true,
         "requireMotionEvidence": true,
         "targetApprovalNode": "scene-target-gate",

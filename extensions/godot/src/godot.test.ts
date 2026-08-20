@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
 import type { Campaign, EngineDriver, ScenarioRunner } from "@gamefactory/core";
-import { automationArgs, godotProcessSucceeded, GodotEvidenceAgent, GodotVisualEvaluator, normalizeScenarioArtifacts } from "./index.js";
+import { automationArgs, embodiedProbeScriptPath, godotProcessSucceeded, GodotEvidenceAgent, GodotScenarioRunner, GodotVisualEvaluator, normalizeScenarioArtifacts, verifyEmbodiedScenarioArtifacts } from "./index.js";
 
 test("Godot automation disables the interactive native crash handler", () => {
   assert.deepEqual(
@@ -23,6 +23,137 @@ test("Godot automation rejects exit-zero runs that contain engine errors", () =>
     stderr: "ERROR: Failed to read the root certificate store.\n   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2582)\n",
     timedOut: false
   }), true);
+});
+
+test("embodied campaigns use a factory-owned probe outside candidate projects", async () => {
+  const path = embodiedProbeScriptPath();
+  const source = await readFile(path, "utf8");
+  assert.match(source, /factory-owned-godot-probe/);
+  assert.match(source, /Input\.parse_input_event/);
+  assert.doesNotMatch(path, /test-fixtures/);
+});
+
+test("embodied campaigns fail closed before Godot launch when probe configuration is absent", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "gamefactory-godot-probe-config-"));
+  try {
+    const campaign: Campaign = {
+      apiVersion: "gamefactory.dev/v1",
+      id: "probe-config-test",
+      objective: "prove embodied play",
+      projectRoot: root,
+      workflow: "autoresearch",
+      requires: [],
+      mutablePaths: ["**"],
+      acceptance: { primaryMetric: "embodied_proof", direction: "maximize" },
+      parameters: { godot: { embodiedProof: {}, scenario: { path: "res://main.tscn" } } }
+    };
+    const result = await new GodotScenarioRunner().run({
+      campaign,
+      projectRoot: root,
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "probe-config",
+      scenario: { provider: "godot.factory/v1", version: "1", path: "res://main.tscn" },
+      signal: new AbortController().signal
+    });
+    assert.equal(result.status, "fail");
+    assert.equal(result.violations[0]?.code, "godot.embodied.probe-config");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("embodied campaigns reject unresolved probe template bindings before engine work", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "gamefactory-godot-probe-placeholder-"));
+  try {
+    const engine: EngineDriver = {
+      id: "fixture.engine",
+      async doctor() { return { ok: true, checks: [] }; },
+      async build() { throw new Error("engine must not run with unresolved probe bindings"); }
+    };
+    const scenarios: ScenarioRunner = {
+      id: "fixture.scenario",
+      async run() { throw new Error("scenario must not run with unresolved probe bindings"); }
+    };
+    const campaign: Campaign = {
+      apiVersion: "gamefactory.dev/v1",
+      id: "probe-placeholder-test",
+      objective: "fail before expensive work",
+      projectRoot: root,
+      workflow: "autoresearch",
+      requires: [],
+      mutablePaths: ["**"],
+      acceptance: { primaryMetric: "embodied_proof", direction: "maximize" },
+      parameters: { godot: {
+        embodiedProof: {},
+        embodiedProbe: {
+          actorPath: "__REPLACE_WITH_RUNTIME_ACTOR_NODE_PATH__",
+          stateObservations: [{ id: "state", nodePath: "Target", property: "active" }],
+          steps: [{ action: "interact", kind: "action", pressed: true, frames: 1 }]
+        }
+      } }
+    };
+    await assert.rejects(() => new GodotEvidenceAgent(engine, scenarios).run({
+      campaign,
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "placeholder",
+      history: [],
+      signal: new AbortController().signal
+    }), /unresolved __REPLACE_\*__ template values/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("factory-owned probe drives a real Godot scene through its shipping InputMap", { skip: !process.env.GODOT_BINARY }, async () => {
+  const projectRoot = resolve("extensions", "godot", "test-fixtures", "embodied-probe");
+  const campaign: Campaign = {
+    apiVersion: "gamefactory.dev/v1",
+    id: "probe-smoke-test",
+    objective: "drive a visible actor into a spatial consequence",
+    projectRoot,
+    workflow: "autoresearch",
+    requires: [],
+    mutablePaths: ["**"],
+    acceptance: { primaryMetric: "embodied_proof", direction: "maximize" },
+    parameters: { godot: {
+      binary: process.env.GODOT_BINARY,
+      rendered: true,
+      timeoutSeconds: 30,
+      embodiedProof: {
+        minimumDurationSeconds: 2,
+        minimumShippingInputEvents: 4,
+        minimumDisplacementPixels: 120,
+        minimumSpatialInteractions: 1,
+        minimumStateConsequences: 1,
+        minimumDistinctFrames: 3
+      }
+    } }
+  };
+  const result = await new GodotScenarioRunner().run({
+    campaign,
+    projectRoot,
+    candidate: { id: "fixture", root: projectRoot, metadata: {} },
+    experimentId: "probe-smoke",
+    scenario: {
+      provider: "godot.factory/v1",
+      version: "1",
+      path: "res://main.tscn",
+      parameters: { physics_hz: 60, embodiedProbe: {
+        actorPath: "Player",
+        targetPath: "Target",
+        interactionAction: "interact",
+        interactionRange: 24,
+        captureEveryFrames: 20,
+        stateObservations: [{ id: "activated", nodePath: "Target", property: "activated", state: "target-activated" }],
+        steps: [
+          { action: "move_right", kind: "axis", pressed: true, frames: 120 },
+          { action: "move_right", kind: "axis", pressed: false, frames: 1 },
+          { action: "interact", kind: "action", pressed: true, frames: 2 },
+          { action: "interact", kind: "action", pressed: false, frames: 10 }
+        ]
+      } }
+    },
+    signal: new AbortController().signal
+  });
+  assert.equal(result.status, "pass", JSON.stringify(result.violations));
+  assert.equal(result.metrics.embodied_proof, 1);
+  assert.ok(result.artifacts.some((artifact) => artifact.metadata?.producer === "factory-owned-godot-probe"));
 });
 
 test("Godot scenario artifacts normalize candidate-defined kinds before crossing adapter boundaries", async () => {
@@ -52,6 +183,99 @@ test("Godot scenario artifacts cannot escape the factory-owned output directory"
     const normalized = await normalizeScenarioArtifacts([{ kind: "test-report", path: outside }], output);
     assert.equal(normalized.artifacts.length, 0);
     assert.equal(normalized.violations[0]?.code, "godot.artifact.0.containment");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("embodied proof requires shipping InputEvents, visible displacement, spatial interaction, consequence, and changing engine frames", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "gamefactory-godot-embodied-"));
+  try {
+    const tracePath = resolve(root, "trace.json");
+    const frames = [0, 1, 2].map((index) => resolve(root, `frame-${index}.png`));
+    await writeFile(tracePath, JSON.stringify({
+      apiVersion: "gamefactory.embodied-trace/v1",
+      samples: [
+        { time: 0, input: { delivery: "godot-input-event", kind: "axis", action: "move_right" }, actor: { id: "player", visible: true, position: { x: 10, y: 20 } }, events: [] },
+        { time: 1, input: { delivery: "godot-input-event", kind: "axis", action: "move_right" }, actor: { id: "player", visible: true, position: { x: 30, y: 20 } }, events: [] },
+        { time: 2, input: { delivery: "godot-input-event", kind: "action", action: "interact" }, actor: { id: "player", visible: true, position: { x: 34, y: 20 } }, events: [
+          { kind: "spatial-interaction", targetId: "villager", distance: 8, range: 12, outcome: "applied" },
+          { kind: "state-change", cause: "player-input", state: "delivery-complete" }
+        ] }
+      ]
+    }), "utf8");
+    await Promise.all(frames.map((path, index) => writeFile(path, png(32, 32, index + 1))));
+    const artifacts = [
+      { kind: "replay" as const, path: tracePath, metadata: { protocol: "gamefactory.embodied-trace/v1" } },
+      ...frames.map((path) => ({ kind: "image" as const, path, metadata: { evidenceRole: "continuous-frame" } }))
+    ];
+    const result = await verifyEmbodiedScenarioArtifacts(artifacts, {
+      minimumDurationSeconds: 2,
+      minimumShippingInputEvents: 3,
+      minimumDisplacementPixels: 20,
+      minimumSpatialInteractions: 1,
+      minimumStateConsequences: 1,
+      minimumDistinctFrames: 3
+    });
+    assert.equal(result.verified, true);
+    assert.equal(result.metrics.embodied_proof, 1);
+    assert.equal(result.metrics.embodied_displacement_pixels, 24);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("embodied proof rejects direct function replay over a static plate", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "gamefactory-godot-static-"));
+  try {
+    const tracePath = resolve(root, "trace.json");
+    const still = resolve(root, "still.png");
+    await writeFile(tracePath, JSON.stringify({
+      apiVersion: "gamefactory.embodied-trace/v1",
+      samples: [
+        { time: 0, input: { delivery: "direct-call", kind: "axis" }, actor: { visible: false, position: { x: 0, y: 0 } }, events: [] },
+        { time: 2, input: { delivery: "direct-call", kind: "action" }, actor: { visible: false, position: { x: 40, y: 0 } }, events: [] }
+      ]
+    }), "utf8");
+    await writeFile(still, png(32, 32, 9));
+    const result = await verifyEmbodiedScenarioArtifacts([
+      { kind: "replay", path: tracePath, metadata: { protocol: "gamefactory.embodied-trace/v1" } },
+      { kind: "image", path: still, metadata: { evidenceRole: "continuous-frame" } },
+      { kind: "image", path: still, metadata: { evidenceRole: "continuous-frame" } }
+    ], {
+      minimumDurationSeconds: 1,
+      minimumShippingInputEvents: 2,
+      minimumDisplacementPixels: 12,
+      minimumSpatialInteractions: 1,
+      minimumStateConsequences: 1,
+      minimumDistinctFrames: 2
+    });
+    assert.equal(result.verified, false);
+    assert.ok(result.violations.some((violation) => violation.code === "godot.embodied.shipping-input"));
+    assert.ok(result.violations.some((violation) => violation.code === "godot.embodied.actor-visible"));
+    assert.ok(result.violations.some((violation) => violation.code === "godot.embodied.visible-motion"));
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("factory-owned embodied verification rejects a candidate-authored producer claim mismatch", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "gamefactory-godot-untrusted-probe-"));
+  try {
+    const tracePath = resolve(root, "trace.json");
+    await writeFile(tracePath, JSON.stringify({
+      apiVersion: "gamefactory.embodied-trace/v1",
+      producer: "candidate",
+      samples: [{ time: 0 }, { time: 1 }]
+    }), "utf8");
+    const result = await verifyEmbodiedScenarioArtifacts([{
+      kind: "replay",
+      path: tracePath,
+      metadata: { protocol: "gamefactory.embodied-trace/v1", producer: "candidate" }
+    }], {
+      minimumDurationSeconds: 0,
+      minimumShippingInputEvents: 1,
+      minimumDisplacementPixels: 0,
+      minimumSpatialInteractions: 1,
+      minimumStateConsequences: 1,
+      minimumDistinctFrames: 2
+    }, "factory-owned-godot-probe");
+    assert.equal(result.verified, false);
+    assert.equal(result.violations[0]?.code, "godot.embodied.untrusted-producer");
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -276,6 +500,36 @@ test("Godot visual evaluator accepts keyed semantic evidence from model critics"
     });
     assert.equal(result.status, "pass");
     assert.equal(result.metrics.visual_quality, 78);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("Godot visual evaluator accepts trusted Gemini graph output without a duplicate art-director schema", async () => {
+  const { root } = await fixture();
+  try {
+    const value = campaign(root);
+    const godot = value.parameters!.godot as Record<string, unknown>;
+    const visualReview = godot.visualReview as Record<string, unknown>;
+    visualReview.requiredDimensions = ["gameplayLegibility", "focalHierarchy"];
+    const reviewPath = resolve(root, ".factory", "agent-team", "exp-visual", "graph", "visual-critic", "attempt-2", "output.json");
+    await writeFile(reviewPath, `${JSON.stringify({
+      summary: "Gemini reviewed the current post-integration engine sequence.",
+      outcome: "pass",
+      verdict: "pass",
+      scores: { gameplayLegibility: 82, focalHierarchy: 78 },
+      findings: [],
+      evidence: [{ id: "runtime-image-001", role: "runtime", kind: "image", label: "Factory-owned Godot frame" }]
+    }, null, 2)}\n`, "utf8");
+    const result = await new GodotVisualEvaluator().evaluate({
+      campaign: value,
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-visual",
+      priorEvaluations: [],
+      signal: new AbortController().signal
+    });
+    assert.equal(result.status, "pass");
+    assert.equal(result.metrics.visual_quality, 80);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

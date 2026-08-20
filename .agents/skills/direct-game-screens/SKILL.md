@@ -5,7 +5,7 @@ description: Design and review coherent whole-screen gameplay targets before pro
 
 # Direct Game Screens
 
-Start from proven gameplay states at the shipping camera and native aspect ratio. Treat ImageGen outputs as proposed targets, not production game screens.
+Start from a passing embodied gameplay sequence at the shipping camera and native aspect ratio. Treat ImageGen outputs as proposed targets, never as monolithic production game screens.
 
 ## Establish the screen problem
 
@@ -28,6 +28,6 @@ Specify meaningful ambient continuity, interaction response, gameplay consequenc
 
 ## Decompose after approval
 
-For the selected target define exact component bounds, native sizes, states, layering, anchors, typography roles, animation needs, source prompts, and target hashes. Write or update `gamefactory.scene-target/v1` when writes are permitted.
+For the selected target define exact component bounds, native sizes, states, layering, anchors, typography roles, animation needs, source prompts, and target hashes. Keep environment layers, player and NPC actors, interactive props, effects, and UI independently renderable and animatable. Reject any decomposition that would bake interactive actors, stateful UI, collision cues, or gameplay feedback into a background plate. Write or update `gamefactory.scene-target/v1` when writes are permitted.
 
 Return `pass` only when a complete direction and required variants are coherent and decomposable. Return `revise` with prioritized scene-level changes before requesting individual assets.

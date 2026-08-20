@@ -12,17 +12,39 @@
   },
   "slices": [
     {
-      "id": "first-playable",
-      "title": "First player-complete slice",
+      "id": "core-experience",
+      "title": "Embodied core experience",
       "order": 10,
       "consumesClaims": ["loop.core"],
       "playerOutcome": "Replace with one end-to-end outcome.",
       "primaryRisk": "Replace with the most important uncertainty.",
+      "nonGoals": ["Production art", "Content breadth", "Meta progression", "Unproven secondary systems"],
+      "mutablePaths": ["game/**", "evidence/**"],
+      "evidence": {
+        "scenarios": ["first-session"],
+        "requireInteractionTrace": true,
+        "requireEmbodiedGameplay": true,
+        "requireEngineCapture": true,
+        "requireMotionEvidence": true
+      },
+      "attemptPolicy": { "executionRetries": 2, "creativeRepairs": 2, "specAmendments": 1, "advisorEscalations": 1 },
+      "gate": { "requireAcceptedRevision": true },
+      "attempts": [{ "id": "embodied-v1", "campaign": "embodied-campaign.json", "config": "factory.json" }]
+    },
+    {
+      "id": "production-encounter",
+      "title": "Production encounter",
+      "order": 20,
+      "dependsOn": ["core-experience"],
+      "consumesClaims": ["loop.core"],
+      "playerOutcome": "Preserve the accepted core experience in one authored production encounter.",
+      "primaryRisk": "Visual production obscures or replaces the embodied game with a static presentation.",
       "nonGoals": ["Content breadth", "Meta progression", "Unproven secondary systems"],
       "mutablePaths": ["game/**", "design/**", "evidence/**", "design-system.json", "sam3.request.json", "sam3.video.request.json", "video.request.json", "pixel-motion.request.json"],
       "evidence": {
         "scenarios": ["first-session", "returning-player"],
         "requireInteractionTrace": true,
+        "requireEmbodiedGameplay": true,
         "requireEngineCapture": true,
         "requireMotionEvidence": true,
         "targetApprovalNode": "scene-target-gate",
@@ -30,7 +52,7 @@
       },
       "attemptPolicy": { "executionRetries": 2, "creativeRepairs": 3, "specAmendments": 1, "advisorEscalations": 2 },
       "gate": { "requireAcceptedRevision": true },
-      "attempts": [{ "id": "slice-v1", "campaign": "campaign.json", "config": "factory.json" }]
+      "attempts": [{ "id": "production-v1", "campaign": "campaign.json", "config": "factory.json" }]
     }
   ]
 }

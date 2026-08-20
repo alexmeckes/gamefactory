@@ -33,6 +33,8 @@ Break implementation into the smallest dependency-ordered slices that each deliv
 
 `input -> understandable state change -> feedback -> consequence -> another decision`
 
+When movement, tactility, timing, or spatial interaction is part of the thesis, make the first acceptance boundary an embodied experience slice using shipping input and continuous engine evidence. Put whole-screen direction and production assets in a dependent slice; do not let a state-machine proof authorize visual production.
+
 For every slice, declare:
 
 - consumed spec claim IDs;

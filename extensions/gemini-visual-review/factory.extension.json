@@ -1,0 +1,13 @@
+{
+  "name": "gamefactory.gemini-visual-review",
+  "version": "0.1.0",
+  "apiVersion": "1.0",
+  "entry": "dist/index.js",
+  "activation": ["agent:gemini.visual-embodied", "agent:gemini.visual-production", "evaluator:gemini.visual"],
+  "contributes": {
+    "agent": ["gemini.visual-embodied", "gemini.visual-production"],
+    "evaluator": ["gemini.visual"]
+  },
+  "permissions": ["network:google-gemini", "credential:google.gemini", "filesystem:artifacts"],
+  "description": "Independent Gemini Flash multimodal review of trusted engine frames, motion, traces, and visual contracts."
+}

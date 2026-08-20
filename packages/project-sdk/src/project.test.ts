@@ -250,7 +250,7 @@ async function v2Fixture(): Promise<{ root: string; manifestPath: string; specPa
   await writeFile(manifestPath, JSON.stringify({
     apiVersion: "gamefactory.dev/v2", kind: "Project", id: "v2-project", title: "V2", projectRoot: ".",
     preproduction: { concept: "concept.md", spec: "game-spec.json", maximumConvergencePasses: 3, attempts: [{ id: "spec-v1", campaign: "spec-campaign.json", config: "factory.json" }] },
-    slices: [{ id: "first-errand", title: "First errand", order: 10, consumesClaims: ["loop.first-errand"], playerOutcome: "Complete one delivery through direct world interaction.", primaryRisk: "The game becomes a static menu.", mutablePaths: ["game/**"], attemptPolicy: { executionRetries: 2, creativeRepairs: 1, specAmendments: 1, advisorEscalations: 1 }, evidence: { scenarios: ["first-errand"], requireInteractionTrace: true, requireEngineCapture: true, requireMotionEvidence: true }, attempts: [{ id: "slice-v1", campaign: "slice-campaign.json", config: "factory.json" }] }]
+    slices: [{ id: "first-errand", title: "First errand", order: 10, consumesClaims: ["loop.first-errand"], playerOutcome: "Complete one delivery through direct world interaction.", primaryRisk: "The game becomes a static menu.", mutablePaths: ["game/**"], attemptPolicy: { executionRetries: 2, creativeRepairs: 1, specAmendments: 1, advisorEscalations: 1 }, evidence: { scenarios: ["first-errand"], requireInteractionTrace: true, requireEmbodiedGameplay: true, requireEngineCapture: true, requireMotionEvidence: true }, attempts: [{ id: "slice-v1", campaign: "slice-campaign.json", config: "factory.json" }] }]
   }), "utf8");
   return { root, manifestPath, specPath: join(root, "game-spec.json") };
 }
@@ -265,6 +265,7 @@ function evidencedResult(campaign: Campaign, revision: string): CampaignResult {
   const captureSha = "d".repeat(64);
   const targetSha = "a".repeat(64);
   const motionSha = "b".repeat(64);
+  const embodiedSha = "c".repeat(64);
   const contract = campaign.parameters?.projectSlice as Record<string, unknown>;
   const result = acceptedResult(campaign.id, revision, { projectEvidence: {
     scenarios: [{ id: "first-errand", artifactSha256: scenarioSha }],
@@ -272,6 +273,7 @@ function evidencedResult(campaign: Campaign, revision: string): CampaignResult {
     engineCapture: { artifactSha256: captureSha },
     targetSha256: { artifactSha256: targetSha },
     motionEvidence: { artifactSha256: motionSha },
+    embodiedGameplay: { artifactSha256: embodiedSha },
     specRevision: contract.specRevision,
     specFingerprint: contract.specFingerprint
   } });
@@ -279,7 +281,8 @@ function evidencedResult(campaign: Campaign, revision: string): CampaignResult {
   result.experiments[0]!.evaluations = [
     { evaluator: "godot.scenario", version: "1", status: "pass", metrics: {}, violations: [], artifacts: [
       { kind: "test-report", path: "evidence/first-errand-report.json", sha256: scenarioSha },
-      { kind: "replay", path: "evidence/first-errand-trace.json", sha256: interactionSha }
+      { kind: "replay", path: "evidence/first-errand-trace.json", sha256: interactionSha },
+      { kind: "test-report", path: "evidence/embodied-proof.json", sha256: embodiedSha, metadata: { evidenceClass: "embodied-gameplay", verified: true } }
     ] },
     { evaluator: "godot.scenario", version: "1", status: "pass", metrics: {}, violations: [], artifacts: [
       { kind: "image", path: "evidence/current-engine.png", sha256: captureSha },
@@ -320,6 +323,22 @@ test("v2 validates a frozen claim-addressed spec and advances player-complete sl
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test("an embodied core slice can require engine capture before any visual target exists", async () => {
+  const { root, manifestPath, specPath } = await v2Fixture();
+  try {
+    const spec = { apiVersion: "gamefactory.game-spec/v1", kind: "GameSpec", projectId: "v2-project", revision: 1, status: "frozen", concept: "A courier brews potions and walks them to villagers.", thesis: "Walking, brewing, and delivery are one causal loop.", claims: [{ id: "loop.first-errand", category: "loop", status: "required", statement: "The player walks, brews, and delivers one potion." }], slices: [{ id: "first-errand", playerOutcome: "Complete one delivery through direct world interaction.", primaryRisk: "The game becomes a static menu.", claimIds: ["loop.first-errand"] }], change: { kind: "initial", rationale: "Initial bounded thesis." } };
+    const runner = new ProjectRunner(await loadProject(manifestPath), { cwd: root, logger: new MemoryLogger(), executeCampaign: async ({ campaign }) => {
+      if (campaign.id === "spec-campaign") { await writeFile(specPath, JSON.stringify(spec), "utf8"); return acceptedResult(campaign.id, "a".repeat(40)); }
+      const result = evidencedResult(campaign, "b".repeat(40));
+      const metadata = result.experiments[0]!.metadata!.projectEvidence as Record<string, unknown>;
+      delete metadata.targetSha256;
+      result.experiments[0]!.evaluations = result.experiments[0]!.evaluations.filter((evaluation) => evaluation.evaluator !== "design.system");
+      return result;
+    } });
+    assert.equal((await runner.run()).status, "complete");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("v2 fails closed when runtime slice evidence is missing", async () => {
   const { root, manifestPath, specPath } = await v2Fixture();
   try {
@@ -354,6 +373,24 @@ test("v2 does not accept candidate-declared artifact kinds as engine evidence", 
     const result = await runner.run();
     assert.equal(result.status, "blocked");
     assert.match(result.phases.at(-1)?.reasons?.join(" ") ?? "", /trusted real interaction trace/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("v2 rejects ordinary scenario reports when embodied gameplay proof is required", async () => {
+  const { root, manifestPath, specPath } = await v2Fixture();
+  try {
+    await writeFile(specPath, JSON.stringify({ apiVersion: "gamefactory.game-spec/v1", kind: "GameSpec", projectId: "v2-project", revision: 1, status: "frozen", concept: "A courier brews potions and walks them to villagers.", thesis: "A causal loop.", claims: [{ id: "loop.first-errand", category: "loop", status: "required", statement: "Complete an errand." }], slices: [{ id: "first-errand", playerOutcome: "Complete one delivery through direct world interaction.", primaryRisk: "The game becomes a static menu.", claimIds: ["loop.first-errand"] }], change: { kind: "initial", rationale: "Initial bounded thesis." } }), "utf8");
+    const runner = new ProjectRunner(await loadProject(manifestPath), { cwd: root, logger: new MemoryLogger(), executeCampaign: async ({ campaign }) => {
+      if (campaign.id === "spec-campaign") return acceptedResult(campaign.id, "a".repeat(40));
+      const result = evidencedResult(campaign, "b".repeat(40));
+      const embodied = result.experiments[0]!.evaluations.flatMap((evaluation) => evaluation.artifacts).find((artifact) => artifact.metadata?.evidenceClass === "embodied-gameplay");
+      assert.ok(embodied);
+      delete embodied.metadata;
+      return result;
+    } });
+    const result = await runner.run();
+    assert.equal(result.status, "blocked");
+    assert.match(result.phases.at(-1)?.reasons?.join(" ") ?? "", /evaluator-verified embodied gameplay/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 

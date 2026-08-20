@@ -19,6 +19,7 @@
     { "path": "./extensions/asset-foundry" },
     { "path": "./extensions/sam3" },
     { "path": "./extensions/video-foundry" },
+    { "path": "./extensions/gemini-visual-review" },
     { "path": "./extensions/pixel-motion" },
     { "path": "./extensions/design-intake" },
     { "path": "./extensions/design-lab" },

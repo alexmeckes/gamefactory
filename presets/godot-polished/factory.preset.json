@@ -9,6 +9,7 @@
     "../../extensions/design-lab",
     "../../extensions/asset-foundry",
     "../../extensions/video-foundry",
+    "../../extensions/gemini-visual-review",
     "../../extensions/sam3",
     "../../extensions/pixel-motion",
     "../../extensions/godot"
@@ -24,6 +25,9 @@
     "evaluator:asset.technical",
     "evaluator:asset.style",
     "agent:video.google-omni",
+    "agent:gemini.visual-embodied",
+    "agent:gemini.visual-production",
+    "evaluator:gemini.visual",
     "agent:animation.compile",
     "agent:sam3.segment",
     "agent:sam3.track",
