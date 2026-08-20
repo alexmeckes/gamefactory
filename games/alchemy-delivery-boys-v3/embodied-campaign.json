@@ -218,6 +218,7 @@
       ]
     },
     "godot": {
+      "binary": "C:/Users/alexm/OneDrive/Documents/New project/oldschool-mmo-godot/tools/godot/Godot_v4.7.1-stable_win64_console.exe",
       "importCheck": true,
       "rendered": true,
       "timeoutSeconds": 300,
