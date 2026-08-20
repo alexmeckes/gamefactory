@@ -1,0 +1,108 @@
+{
+  "apiVersion": "gamefactory.game-spec/v1",
+  "kind": "GameSpec",
+  "projectId": "alchemy-delivery-boys-v3",
+  "revision": 1,
+  "status": "frozen",
+  "concept": "alchemy delivery boys, you mix potions and bring them to villagers\n",
+  "thesis": "Each order is one readable prediction: the player reads a villager's need, commits to a potion mix and delivery approach whose qualities interact, directly carries it through a compact place, and uses the villager's causal reaction to make a better next delivery choice.",
+  "claims": [
+    {
+      "id": "loop.core",
+      "category": "loop",
+      "statement": "Within the opening session, the player reads a villager need and travel-relevant cues, chooses between distinguishable mix-and-delivery plans with different plausible consequences, personally mixes a potion, directly navigates a compact place while their delivery approach visibly changes or preserves relevant potion qualities, and receives a villager reaction that attributes the outcome to the need and the potion that actually arrived before presenting another delivery choice informed by that result.",
+      "status": "required",
+      "falsifiers": [
+        "The same successful villager outcome is available while bypassing either hands-on mixing or direct traversal, making part of the supplied concept decorative.",
+        "The presented alternatives do not support different plausible predictions, or one plan is an obvious answer regardless of the villager need and travel cues.",
+        "The carried potion does not visibly preserve the mix or respond to the player's delivery approach during the journey, disconnecting travel from alchemy.",
+        "The villager provides only an opaque score, success label, or unrelated reaction, so the player cannot connect the need, starting mix, journey effect, and delivered state.",
+        "The next delivery choice is unchanged by knowledge or consequence from the completed delivery, leaving no reason to apply what was learned.",
+        "Unsignaled randomness dominates the result strongly enough that a deterministic first-session trace cannot attribute outcome changes to counterfactual player choices."
+      ]
+    }
+  ],
+  "decisions": [
+    {
+      "id": "core.one-causal-delivery",
+      "status": "accepted",
+      "question": "What is the smallest distinctive playable interpretation of mixing potions and bringing them to villagers?",
+      "resolution": "Treat need-reading, hands-on mixing, direct travel with the potion, delivered state, and villager reaction as one causal loop; no stage may be replaceable by a passive transition without changing the outcome.",
+      "affectedClaims": [
+        "loop.core"
+      ]
+    },
+    {
+      "id": "core.joint-plan",
+      "status": "accepted",
+      "question": "What repeated consequential decision joins alchemy to delivery?",
+      "resolution": "The player commits to a mix-and-delivery plan whose parts interact: a mix suitable in the workshop is not necessarily suitable after the journey, and a delivery approach is evaluated by what it does to that particular potion for that particular need.",
+      "affectedClaims": [
+        "loop.core"
+      ]
+    },
+    {
+      "id": "core.readable-uncertainty",
+      "status": "accepted",
+      "question": "How much should the player know before committing?",
+      "resolution": "Show enough directional information about the need, potion qualities, and travel pressure to support a prediction, while allowing an exact interaction to be learned through immediate causal feedback; the opening outcome must not depend on opaque randomness.",
+      "affectedClaims": [
+        "loop.core"
+      ]
+    },
+    {
+      "id": "future.delivery-boys-structure",
+      "status": "deferred",
+      "question": "Does delivery boys require team control, character switching, companion behavior, or multiplayer?",
+      "resolution": "Do not require a team mechanic in the first player-complete slice; revisit the plural identity after one embodied alchemy-delivery loop is proven."
+    }
+  ],
+  "slices": [
+    {
+      "id": "first-playable",
+      "playerOutcome": "Personally mix one potion, carry it through a compact navigable place, deliver it to a villager, understand the consequence, and immediately face another meaningful choice.",
+      "primaryRisk": "The concept degenerates into text panels, static screen states, menu-only crafting, passive travel, or a visually attractive scene with no embodied play.",
+      "claimIds": [
+        "loop.core"
+      ]
+    },
+    {
+      "id": "production-encounter",
+      "playerOutcome": "Play the accepted delivery loop as a coherent, animated, readable production encounter whose world, characters, potion state, villager response, and interface feel intentionally authored.",
+      "primaryRisk": "Visual production replaces the proven world with static plates, introduces incoherent scale or UI, or leaves the scene lifeless and procedurally provisional.",
+      "claimIds": [
+        "loop.core"
+      ]
+    }
+  ],
+  "assumptions": [
+    "One directly controlled courier can represent the supplied concept in the first slice without deciding the eventual structure of the delivery boys.",
+    "A small set of perceptibly different potion qualities can make the joint plan legible without a broad recipe catalog.",
+    "A compact journey can create one meaningful preserve-or-change pressure through route, handling, environmental exposure, opportunistic modification, or another direct interaction without requiring combat, a timer, or a large map.",
+    "Villager needs and causal reactions can be communicated through concise world, character, potion, interface, motion, or audio cues without explanation-heavy panels."
+  ],
+  "openQuestions": [
+    "Which direct journey pressure best joins delivery to alchemy: route choice, handling, environmental exposure, opportunistic modification, or another equally falsifiable interaction?",
+    "Should the opening uncertainty come mainly from partially learned ingredient interactions, partially learned travel interactions, or visible tradeoffs with uncertain magnitude?",
+    "Which potion qualities and villager needs are most immediately readable in engine while allowing more than one plausible plan?",
+    "What persistent consequence, if any, should imperfect deliveries carry beyond the player's newly learned causal knowledge?",
+    "How should multiple delivery boys, broader village relationships, recipes, and progression shape later rounds if the core loop is accepted?",
+    "Which visual, audio, motion, camera, and interface language should communicate potion state and villager reaction during the later production encounter?"
+  ],
+  "change": {
+    "kind": "initial",
+    "rationale": "Initial frozen revision. No earlier GameSpec exists in this project lineage, so there is no supersedes entry. This revision freezes only the causal loop required by the contracted slices and leaves team structure, exact journey pressure, content, progression, and presentation unresolved.",
+    "evidence": [
+      "The supplied concept verbatim requires alchemy delivery boys who mix potions and bring them to villagers.",
+      "The project contract requires first-playable to include personal mixing, direct carrying through a compact navigable place, delivery, understandable consequence, and an immediate next meaningful choice while consuming loop.core.",
+      "An explicitly synthetic counterfactual walkthrough with illustrative warmth and fizz values produced one attributable successful plan and distinct failures when either its mix or journey was changed; this supports falsifiability but is not human evidence of fun."
+    ],
+    "affectedClaims": [
+      "loop.core"
+    ],
+    "affectedSlices": [
+      "first-playable",
+      "production-encounter"
+    ]
+  }
+}
