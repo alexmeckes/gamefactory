@@ -1,0 +1,314 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "id": "alchemy-delivery-boys-v3-embodied-v1",
+  "objective": "Prove one small player-complete embodied Godot experience through shipping input before visual production. Require a visible runtime actor, spatial interaction, player-caused consequence, and another decision. Reject direct helper replay, invisible state, static scene plates, and presentation-only prototypes.",
+  "projectRoot": ".",
+  "workflow": "autoresearch",
+  "requires": [
+    "workflow:autoresearch",
+    "workspace:git.worktree",
+    "agent:agent.team",
+    "agent:godot.evidence",
+    "agent:gemini.visual-embodied",
+    "engine:godot.engine",
+    "evaluator:godot.scenario"
+  ],
+  "mutablePaths": [
+    "game/**",
+    "evidence/**"
+  ],
+  "parameters": {
+    "workspace": "git.worktree",
+    "agent": "agent.team",
+    "evaluators": [
+      "godot.scenario"
+    ],
+    "agentTeam": {
+      "context": [],
+      "graph": {
+        "maximumConcurrency": 2,
+        "maximumTotalAttempts": 11,
+        "nodes": [
+          {
+            "id": "core-game-director",
+            "skills": [
+              "plan-playable-slice"
+            ],
+            "adapter": "codex-app-server",
+            "role": "planner",
+            "permissions": "read",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "maximumAttempts": 1,
+            "instructions": "Read the frozen GameSpec and authoritative projectSlice. Define the smallest embodied experience that reaches one complete outcome through shipping input, visible runtime action, understandable consequence, and another decision. State the player actor, camera, controls, spatial model, interactive targets, feedback, failure recovery, and evidence contract. Preserve creative latitude inside those boundaries."
+          },
+          {
+            "id": "mechanics-scout",
+            "skills": [
+              "plan-playable-slice"
+            ],
+            "adapter": "codex-app-server",
+            "role": "scout",
+            "permissions": "read",
+            "model": "gpt-5.6-luna",
+            "reasoningEffort": "high",
+            "dependsOn": [
+              "core-game-director"
+            ],
+            "advisor": {
+              "model": "gpt-5.6-sol",
+              "reasoningEffort": "high",
+              "outcomes": [
+                "needs_advisor"
+              ],
+              "onFailure": true,
+              "maximumAttempts": 1
+            },
+            "instructions": "Stress-test the plan for embodied agency. Reject plans that can pass by changing text, waiting, navigating menus, moving an invisible coordinate, or directly invoking gameplay helpers. Identify the smallest real input-event scenario that could falsify the core claim."
+          },
+          {
+            "id": "embodied-prototype-builder",
+            "skills": [
+              "prove-godot-gameplay"
+            ],
+            "adapter": "codex-app-server",
+            "role": "implementer",
+            "permissions": "write",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "high",
+            "timeoutSeconds": 3600,
+            "dependsOn": [
+              "mechanics-scout"
+            ],
+            "instructions": "Implement one small but experiential Godot slice. Use a visible player-controlled runtime actor, shipping InputMap controls, collision or spatial constraints, separately addressable world entities, readable provisional visuals, locomotion, interaction feedback, and one player-caused consequence that creates another decision. Do not use a whole-screen generated image as the runtime world. Keep node paths, actions, and the observable consequence compatible with the campaign's small embodiedProbe contract; do not create a candidate-owned proof runner or call movement, interaction, resolution, or state-transition helpers from test code. The factory-owned probe will inject shipping InputEvents and capture evidence. Keep the solution bounded and do not begin production art. Use the exact runtime node contract World/Player for the controlled CharacterBody2D, World/BrewStation for the first spatial interaction target and consequence owner, and expose a boolean brew_committed property on BrewStation. Place the station at the endpoint of the configured probe route. Keep the project entry scene at res://game/main.tscn."
+          },
+          {
+            "id": "gameplay-evidence",
+            "adapter": "agent-driver",
+            "driver": "godot.evidence",
+            "role": "worker",
+            "permissions": "read",
+            "driverWritePaths": [
+              "evidence/**"
+            ],
+            "timeoutSeconds": 900,
+            "dependsOn": [
+              "embodied-prototype-builder"
+            ],
+            "refreshAfterRepair": true,
+            "instructions": "Refresh Godot import, embodied input-event replay, causal trace, and continuous engine evidence."
+          },
+          {
+            "id": "gemini-embodied-review",
+            "adapter": "agent-driver",
+            "driver": "gemini.visual-embodied",
+            "role": "critic",
+            "permissions": "read",
+            "timeoutSeconds": 300,
+            "dependsOn": [
+              "embodied-prototype-builder",
+              "gameplay-evidence"
+            ],
+            "refreshAfterRepair": true,
+            "repair": {
+              "target": "embodied-prototype-builder",
+              "outcomes": [
+                "revise"
+              ],
+              "maximumAttempts": 2,
+              "allowedPaths": [
+                "**"
+              ]
+            },
+            "instructions": "Independently review the trusted engine frame sequence and causal trace for embodied readability. Block static plates, invisible or illegible actors, unclear spatial action, missing visual consequence, or non-causal motion. Do not demand production polish."
+          },
+          {
+            "id": "experience-gate",
+            "skills": [
+              "prove-godot-gameplay"
+            ],
+            "adapter": "codex-app-server",
+            "role": "critic",
+            "permissions": "read",
+            "model": "gpt-5.6-luna",
+            "reasoningEffort": "high",
+            "dependsOn": [
+              "embodied-prototype-builder",
+              "gameplay-evidence",
+              "gemini-embodied-review"
+            ],
+            "refreshAfterRepair": true,
+            "repair": {
+              "target": "embodied-prototype-builder",
+              "outcomes": [
+                "revise"
+              ],
+              "maximumAttempts": 2,
+              "allowedPaths": [
+                "**"
+              ]
+            },
+            "advisor": {
+              "model": "gpt-5.6-sol",
+              "reasoningEffort": "high",
+              "outcomes": [
+                "needs_advisor"
+              ],
+              "onFailure": true,
+              "maximumAttempts": 1
+            },
+            "instructions": "Inspect the verified embodied trace and continuous engine sequence. Return pass only when shipping input visibly moves an actor, an in-range interaction produces understandable feedback and a state consequence, and the result creates another decision. Reject direct replay, static plates, text-only changes, debug controls, and telemetry-only gameplay. Do not judge production polish."
+          },
+          {
+            "id": "embodied-judge",
+            "skills": [
+              "prove-godot-gameplay"
+            ],
+            "adapter": "codex-app-server",
+            "role": "judge",
+            "permissions": "read",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "dependsOn": [
+              "embodied-prototype-builder",
+              "gameplay-evidence",
+              "gemini-embodied-review",
+              "experience-gate"
+            ],
+            "requiredOutputFields": [
+              "projectEvidence.scenarios",
+              "projectEvidence.interactionTrace",
+              "projectEvidence.embodiedGameplay",
+              "projectEvidence.engineCapture",
+              "projectEvidence.motionEvidence"
+            ],
+            "requiredOutputFieldsOn": [
+              "pass"
+            ],
+            "repair": {
+              "target": "embodied-prototype-builder",
+              "outcomes": [
+                "revise"
+              ],
+              "maximumAttempts": 1,
+              "allowedPaths": [
+                "**"
+              ]
+            },
+            "instructions": "Make the core-experience decision from the authoritative projectSlice, frozen claim, evaluator-verified embodied gameplay report, trace, and continuous engine captures. Return pass only if the experience is genuinely playable through shipping input and its complete causal loop exists visibly in the running engine. On pass, bind projectEvidence to the current specRevision and specFingerprint and cite preserved evaluator artifacts for every scenario, interactionTrace, embodiedGameplay, engineCapture, and motionEvidence. Do not claim fun without human evidence."
+          }
+        ]
+      }
+    },
+    "geminiVisualReview": {
+      "checkpoint": "embodied",
+      "model": "gemini-3.6-flash",
+      "credentialName": "google.gemini",
+      "apiKeyEnvironment": "GEMINI_API_KEY",
+      "minimumImages": 5,
+      "maximumImages": 10,
+      "minimumScore": 60,
+      "failureSeverities": [
+        "blocker"
+      ],
+      "requireEmbodiedTrace": true,
+      "maximumReviews": 3,
+      "contractPaths": [
+        "game-spec.json"
+      ]
+    },
+    "godot": {
+      "importCheck": true,
+      "rendered": true,
+      "timeoutSeconds": 300,
+      "embodiedProof": {
+        "minimumDurationSeconds": 4,
+        "minimumShippingInputEvents": 6,
+        "minimumDisplacementPixels": 32,
+        "minimumSpatialInteractions": 1,
+        "minimumStateConsequences": 1,
+        "minimumDistinctFrames": 5
+      },
+      "scenarios": [
+        {
+          "id": "first-session",
+          "provider": "godot.factory/v1",
+          "version": "1",
+          "path": "res://game/main.tscn",
+          "parameters": {
+            "mode": "first-session",
+            "seed": 314159,
+            "physics_hz": 60,
+            "embodiedProbe": {
+              "actorPath": "World/Player",
+              "targetPath": "World/BrewStation",
+              "interactionAction": "interact",
+              "interactionRange": 64,
+              "captureEveryFrames": 12,
+              "stateObservations": [
+                {
+                  "id": "core-consequence",
+                  "nodePath": "World/BrewStation",
+                  "property": "brew_committed",
+                  "state": "core-consequence"
+                }
+              ],
+              "steps": [
+                {
+                  "action": "move_right",
+                  "kind": "axis",
+                  "pressed": true,
+                  "frames": 120
+                },
+                {
+                  "action": "move_right",
+                  "kind": "axis",
+                  "pressed": false,
+                  "frames": 1
+                },
+                {
+                  "action": "move_down",
+                  "kind": "axis",
+                  "pressed": true,
+                  "frames": 90
+                },
+                {
+                  "action": "move_down",
+                  "kind": "axis",
+                  "pressed": false,
+                  "frames": 1
+                },
+                {
+                  "action": "interact",
+                  "kind": "action",
+                  "pressed": true,
+                  "frames": 2
+                },
+                {
+                  "action": "interact",
+                  "kind": "action",
+                  "pressed": false,
+                  "frames": 30
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
+  "acceptance": {
+    "primaryMetric": "embodied_proof",
+    "direction": "maximize",
+    "minimumDelta": 1,
+    "comparison": "at-least",
+    "hardGates": [
+      "godot.scenario"
+    ]
+  },
+  "budget": {
+    "maximumExperiments": 1,
+    "maximumConsecutiveCrashes": 2,
+    "wallTimeMinutes": 180
+  }
+}
