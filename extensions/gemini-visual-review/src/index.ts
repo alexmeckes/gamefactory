@@ -17,6 +17,7 @@ import {
 import { defineExtension } from "@gamefactory/extension-sdk";
 
 const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/interactions";
+const API_REVISION = "2026-05-20";
 const DEFAULT_MODEL = "gemini-3.6-flash";
 const REPORT_VERSION = "gamefactory.gemini-visual-review/v1";
 const TRACE_PROTOCOL = "gamefactory.embodied-trace/v1";
@@ -34,6 +35,16 @@ const DIMENSIONS = [
 ] as const;
 type Dimension = typeof DIMENSIONS[number];
 type Severity = "blocker" | "major" | "minor" | "opportunity";
+
+export class GeminiVisualReviewUnavailableError extends Error {
+  readonly artifacts: ArtifactReference[];
+
+  constructor(message: string, artifacts: ArtifactReference[]) {
+    super(message);
+    this.name = "GeminiVisualReviewUnavailableError";
+    this.artifacts = artifacts;
+  }
+}
 
 interface Settings {
   checkpoint: "embodied" | "production";
@@ -416,6 +427,28 @@ function violationsFor(review: GeminiReview, config: Settings, score: number): V
   return violations;
 }
 
+async function providerFailureMessage(response: Response): Promise<string> {
+  let detail = "provider returned no structured error detail";
+  try {
+    const body = await response.text();
+    if (body) {
+      try {
+        const parsed = JSON.parse(body) as unknown;
+        const root = record(parsed, "Gemini error response");
+        const error = root.error && typeof root.error === "object" && !Array.isArray(root.error)
+          ? root.error as Record<string, unknown>
+          : root;
+        const status = typeof error.status === "string" ? error.status.trim() : "";
+        const message = typeof error.message === "string" ? error.message.trim() : "";
+        detail = [status, message].filter(Boolean).join(": ") || detail;
+      } catch {
+        detail = body.replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim() || detail;
+      }
+    }
+  } catch { /* the status code remains actionable even if the body cannot be read */ }
+  return detail.slice(0, 1024);
+}
+
 export class GeminiVisualEvaluator implements Evaluator {
   readonly id = "gemini.visual";
   readonly version = "1.0.0";
@@ -448,11 +481,11 @@ export class GeminiVisualEvaluator implements Evaluator {
       const providerInput: Array<Record<string, unknown>> = [{ type: "text", text: prompt }];
       for (const item of evidence.media) {
         providerInput.push({ type: "text", text: `Evidence ${item.id}: ${item.role} ${item.kind}; ${item.label}; sha256 ${item.sha256}` });
-        providerInput.push({ type: item.kind, data: item.bytes.toString("base64"), mime_type: item.mediaType });
+        providerInput.push({ type: item.kind, data: item.bytes.toString("base64"), mime_type: item.mediaType, resolution: config.mediaResolution });
       }
-      const body = { model: config.model, input: providerInput, response_format: { type: "text", mime_type: "application/json", schema: responseSchema }, generation_config: { temperature: 0.2, media_resolution: config.mediaResolution } };
-      const response = await (this.dependencies.fetchImpl ?? fetch)(ENDPOINT, { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": credential.value }, body: JSON.stringify(body), signal: AbortSignal.any([input.signal, AbortSignal.timeout(config.timeoutSeconds * 1000)]) });
-      if (!response.ok) throw new Error(`Gemini visual review request failed with HTTP ${response.status}`);
+      const body = { model: config.model, input: providerInput, response_format: { type: "text", mime_type: "application/json", schema: responseSchema } };
+      const response = await (this.dependencies.fetchImpl ?? fetch)(ENDPOINT, { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": credential.value, "Api-Revision": API_REVISION }, body: JSON.stringify(body), signal: AbortSignal.any([input.signal, AbortSignal.timeout(config.timeoutSeconds * 1000)]) });
+      if (!response.ok) throw new Error(`Gemini visual review request failed with HTTP ${response.status}: ${await providerFailureMessage(response)}`);
       const rawResponse = await response.json() as unknown;
       const review = parseReview(JSON.parse(responseText(rawResponse)) as unknown, new Set(evidence.media.map((item) => item.id)), evidence.media.some((item) => item.role === "target"));
       const applicable = DIMENSIONS.filter((id) => !review.notApplicable.includes(id));
@@ -519,6 +552,12 @@ export class GeminiVisualReviewAgent implements AgentDriver {
       } catch { /* the evaluation already carries the fail-closed violation */ }
     }
     const unavailable = evaluation.violations.some((violation) => violation.code === "gemini.visual.unavailable");
+    if (unavailable) {
+      throw new GeminiVisualReviewUnavailableError(
+        evaluation.summary ?? `${this.checkpoint} Gemini visual review was unavailable`,
+        evaluation.artifacts
+      );
+    }
     const configuredFailureSeverities = new Set(settings(campaign).failureSeverities);
     const ownedFailures = Array.isArray(structured.findings)
       ? structured.findings.filter((finding): finding is Finding => Boolean(
@@ -530,9 +569,7 @@ export class GeminiVisualReviewAgent implements AgentDriver {
       : [];
     const outcome = evaluation.status === "pass"
       ? "pass"
-      : unavailable
-        ? "blocked"
-        : ownedFailures.some((finding) => finding.owner === "spec")
+      : ownedFailures.some((finding) => finding.owner === "spec")
           ? "spec_amendment"
           : ownedFailures.some((finding) => finding.owner === "target")
             ? "target_revision"
@@ -541,7 +578,7 @@ export class GeminiVisualReviewAgent implements AgentDriver {
     const contributor: AgentContribution = {
       agentId: `google:${settings(campaign).model}`,
       role: "critic",
-      status: evaluation.status === "pass" ? "complete" : unavailable ? "failed" : "complete",
+      status: "complete",
       startedAt,
       finishedAt,
       summary: evaluation.summary ?? `${this.checkpoint} visual review ${evaluation.status}`,

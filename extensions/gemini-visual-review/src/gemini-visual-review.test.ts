@@ -97,9 +97,11 @@ test("Gemini visual evaluator sends ordered multimodal evidence, enforces struct
   const prior = await evidence(root);
   let requestBody: Record<string, unknown> | undefined;
   let apiKey = "";
+  let apiRevision = "";
   const fetchImpl: typeof fetch = async (_url, init) => {
     requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
     apiKey = new Headers(init?.headers).get("x-goog-api-key") ?? "";
+    apiRevision = new Headers(init?.headers).get("api-revision") ?? "";
     return new Response(JSON.stringify({ output_text: JSON.stringify(review()), usage: { input_tokens: 1200, output_tokens: 240, total_tokens: 1440 } }), { status: 200, headers: { "content-type": "application/json" } });
   };
   try {
@@ -109,9 +111,12 @@ test("Gemini visual evaluator sends ordered multimodal evidence, enforces struct
     assert.equal(result.usage?.model, "gemini-3.6-flash");
     assert.equal(result.usage?.totalTokens, 1440);
     assert.equal(apiKey, credentials.secret);
+    assert.equal(apiRevision, "2026-05-20");
     assert.equal(requestBody?.model, "gemini-3.6-flash");
+    assert.equal("generation_config" in (requestBody ?? {}), false);
     const inputs = requestBody?.input as Array<Record<string, unknown>>;
     assert.equal(inputs.filter((item) => item.type === "image").length, 3);
+    assert.ok(inputs.filter((item) => item.type === "image").every((item) => item.resolution === "high"));
     assert.deepEqual((requestBody?.response_format as Record<string, unknown>).mime_type, "application/json");
     const stored = await readFile(resolve(root, ".factory", "runs", "exp-review", "gemini-visual-review", "review.json"), "utf8");
     assert.doesNotMatch(stored, new RegExp(credentials.secret));
@@ -180,6 +185,34 @@ test("Gemini visual review fails before network I/O without evaluator-verified e
     assert.equal(result.status, "fail");
     assert.equal(calls, 0);
     assert.match(result.violations[0]?.message ?? "", /evaluator-verified embodied gameplay trace/);
+  } finally { await rm(root, { recursive: true, force: true }); await rm(credentials.root, { recursive: true, force: true }); }
+});
+
+test("Gemini graph driver makes provider failures retryable and preserves bounded diagnostics", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "gamefactory-gemini-provider-failure-"));
+  const credentials = await credentialStore();
+  const prior = await evidence(root);
+  const experimentId = "exp-provider-failure";
+  const manifestDirectory = resolve(root, ".factory", "runs", experimentId, "godot-evidence");
+  await mkdir(manifestDirectory, { recursive: true });
+  await writeFile(resolve(manifestDirectory, "result.json"), JSON.stringify({ status: "pass", artifacts: prior.artifacts }));
+  const fetchImpl: typeof fetch = async () => new Response(JSON.stringify({ error: { code: 400, status: "INVALID_ARGUMENT", message: "temperature is not supported for this model" } }), { status: 400 });
+  try {
+    const driver = new GeminiVisualReviewAgent("embodied", new GeminiVisualEvaluator({ fetchImpl, credentialStore: credentials.store }));
+    await assert.rejects(
+      driver.run({ campaign: campaign(root), candidate: { id: "candidate", root, metadata: {} }, experimentId, history: [], signal: new AbortController().signal }),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.match(error.message, /HTTP 400: INVALID_ARGUMENT: temperature is not supported/);
+        const artifacts = (error as Error & { artifacts?: ArtifactReference[] }).artifacts ?? [];
+        assert.ok(artifacts.some((artifact) => artifact.label === "Gemini multimodal visual review"));
+        return true;
+      }
+    );
+    const report = await readFile(resolve(root, ".factory", "runs", experimentId, "gemini-visual-review", "review.json"), "utf8");
+    assert.match(report, /INVALID_ARGUMENT/);
+    assert.ok(report.length < 4096);
+    assert.doesNotMatch(report, new RegExp(credentials.secret));
   } finally { await rm(root, { recursive: true, force: true }); await rm(credentials.root, { recursive: true, force: true }); }
 });
 

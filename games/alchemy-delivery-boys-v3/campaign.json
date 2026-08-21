@@ -302,6 +302,7 @@
             "role": "critic",
             "permissions": "read",
             "timeoutSeconds": 300,
+            "maximumAttempts": 3,
             "instructions": "Independently audit the post-integration factory-owned shipping-camera frames and causal trace together with the approved scene target and configured production captures. Return revise for blocker or major hierarchy, overlap, scaling, typography, style-consistency, target-fidelity, motion-feedback, scene-life, or embodied-regression defects. Classify each finding as implementation, target, or spec ownership; prescribe the smallest coherent repair and do not send target or spec contradictions through endless implementation churn.",
             "dependsOn": [
               "production-slice-builder",

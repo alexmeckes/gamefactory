@@ -78,6 +78,7 @@
             "role": "critic",
             "permissions": "read",
             "timeoutSeconds": 300,
+            "maximumAttempts": 3,
             "dependsOn": ["embodied-prototype-builder", "gameplay-evidence"],
             "refreshAfterRepair": true,
             "repair": { "target": "embodied-prototype-builder", "outcomes": ["revise"], "maximumAttempts": 2, "allowedPaths": ["**"] },

@@ -105,6 +105,7 @@
             "role": "critic",
             "permissions": "read",
             "timeoutSeconds": 300,
+            "maximumAttempts": 3,
             "dependsOn": [
               "embodied-prototype-builder",
               "gameplay-evidence"
