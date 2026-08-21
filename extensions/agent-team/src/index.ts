@@ -1755,13 +1755,9 @@ async function gitSnapshot(request: AgentRequest, allowedPatterns: string[] = []
     "-c", "status.relativePaths=true",
     "status", "--porcelain=v1", "--untracked-files=all"
   ], "status");
-  const managedPathspec = `:(exclude)**/.factory/agent-team/${request.experimentId}/**`;
-  const allowedPathspecs = allowedPatterns.map((pattern) => `:(exclude)${pattern}`);
-  const trackedDiff = await gitOutput(request, ["diff", "--no-ext-diff", "--binary", "HEAD", "--", ".", managedPathspec, ...allowedPathspecs], "diff");
-  const rawUntracked = await gitOutput(request, ["ls-files", "--others", "--exclude-standard", "-z"], "untracked files");
-  const untrackedPaths = rawUntracked.split("\0").filter((path) => path && !ignoredSnapshotPath(path, request.experimentId, allowedPatterns)).sort();
-  const untracked = await Promise.all(untrackedPaths.map(async (path) => `${path}:${await fingerprint(resolve(request.candidate.root, path))}`));
-  return JSON.stringify({ status: meaningfulStatus(rawStatus, request.experimentId, allowedPatterns), trackedDiff, untracked });
+  const paths = [...new Set(meaningfulStatusPaths(rawStatus, request.experimentId, allowedPatterns))].sort();
+  const files = await Promise.all(paths.map(async (path) => `${path}:${await fingerprint(resolve(request.candidate.root, path))}`));
+  return JSON.stringify({ status: meaningfulStatus(rawStatus, request.experimentId, allowedPatterns), files });
 }
 
 function assertRunsSucceeded(stage: TeamStage, runs: ContributorRun[]): void {

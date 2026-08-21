@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
@@ -365,6 +366,28 @@ test("agent team detects a critic changing a file that was already dirty", async
       signal: new AbortController().signal
     }), /read-only critic stage modified meaningful candidate files/);
     assert.equal(await readFile(resolve(root, "value.txt"), "utf8"), "critic mutation\n");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("agent team snapshots a large dirty binary without materializing its Git patch", async () => {
+  const root = await repository();
+  try {
+    await writeFile(resolve(root, "large.bin"), randomBytes(5 * 1024 * 1024));
+    await exec("git", ["add", "large.bin"], { cwd: root });
+    await exec("git", ["-c", "user.name=Test", "-c", "user.email=test@localhost", "commit", "-qm", "large binary"], { cwd: root });
+    await writeFile(resolve(root, "large.bin"), randomBytes(5 * 1024 * 1024));
+
+    const result = await new AgentTeam().run({
+      campaign: campaign(root),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-large-binary",
+      history: [],
+      signal: new AbortController().signal
+    });
+
+    assert.match(result.summary, /implementation complete/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
