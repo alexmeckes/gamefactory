@@ -1,6 +1,6 @@
 {
   "apiVersion": "gamefactory.dev/v1",
-  "id": "alchemy-delivery-boys-v3-production-v2",
+  "id": "alchemy-delivery-boys-v3-production-v3",
   "objective": "Promote the already accepted embodied core revision into one visually production-ready Godot encounter. Re-verify the accepted core with factory-owned shipping-input evidence, approve coherent whole-scene targets derived from that live scene, activate only the asset lanes required by the selected target, integrate production assets and state-linked motion, then refresh trusted runtime evidence before multimodal and Sol judgment. Use a separate tournament campaign only for a named unresolved fork. Do not rebuild the core game, present proxy state logic, use static scene plates as runtime worlds, or describe concept art, generated source, extracted source, or engine-ready assets as production.",
   "projectRoot": ".",
   "workflow": "autoresearch",
@@ -27,7 +27,7 @@
     ".factory/**"
   ],
   "parameters": {
-    "productionContractRevision": 2,
+    "productionContractRevision": 3,
     "workspace": "git.worktree",
     "agent": "agent.team",
     "evaluators": [
@@ -442,25 +442,49 @@
       "rendered": true,
       "timeoutSeconds": 300,
       "embodiedProof": {
-        "minimumDurationSeconds": 4,
-        "minimumShippingInputEvents": 6,
-        "minimumDisplacementPixels": 32,
-        "minimumSpatialInteractions": 1,
-        "minimumStateConsequences": 1,
-        "minimumDistinctFrames": 5
+        "minimumDurationSeconds": 9,
+        "minimumShippingInputEvents": 15,
+        "minimumDisplacementPixels": 250,
+        "minimumSpatialInteractions": 3,
+        "minimumStateConsequences": 5,
+        "minimumDistinctFrames": 12
       },
       "embodiedProbe": {
         "actorPath": "World/Player",
         "targetPath": "World/BrewStation",
         "interactionAction": "interact",
         "interactionRange": 64,
-        "captureEveryFrames": 12,
+        "captureEveryFrames": 15,
         "stateObservations": [
           {
-            "id": "core-consequence",
+            "id": "brew",
             "nodePath": "World/BrewStation",
             "property": "brew_committed",
-            "state": "core-consequence"
+            "state": "potion-brewed"
+          },
+          {
+            "id": "route",
+            "nodePath": "World/Player",
+            "property": "route_effect",
+            "state": "potion-changed-by-route"
+          },
+          {
+            "id": "delivery",
+            "nodePath": "World",
+            "property": "delivery_complete",
+            "state": "potion-delivered"
+          },
+          {
+            "id": "reaction",
+            "nodePath": "World",
+            "property": "last_reaction",
+            "state": "villager-reacted"
+          },
+          {
+            "id": "next-choice",
+            "nodePath": "World",
+            "property": "follow_up_choice",
+            "state": "next-plan-committed"
           }
         ],
         "steps": [
@@ -492,13 +516,88 @@
             "action": "interact",
             "kind": "action",
             "pressed": true,
-            "frames": 2
+            "frames": 2,
+            "targetPath": "World/BrewStation"
           },
           {
             "action": "interact",
             "kind": "action",
             "pressed": false,
-            "frames": 30
+            "frames": 12
+          },
+          {
+            "action": "move_up",
+            "kind": "axis",
+            "pressed": true,
+            "frames": 20
+          },
+          {
+            "action": "move_up",
+            "kind": "axis",
+            "pressed": false,
+            "frames": 1
+          },
+          {
+            "action": "move_right",
+            "kind": "axis",
+            "pressed": true,
+            "frames": 90
+          },
+          {
+            "action": "move_right",
+            "kind": "axis",
+            "pressed": false,
+            "frames": 1
+          },
+          {
+            "action": "move_up",
+            "kind": "axis",
+            "pressed": true,
+            "frames": 20
+          },
+          {
+            "action": "move_up",
+            "kind": "axis",
+            "pressed": false,
+            "frames": 1
+          },
+          {
+            "action": "interact",
+            "kind": "action",
+            "pressed": true,
+            "frames": 2,
+            "targetPath": "World/Villager"
+          },
+          {
+            "action": "interact",
+            "kind": "action",
+            "pressed": false,
+            "frames": 18
+          },
+          {
+            "action": "move_down",
+            "kind": "axis",
+            "pressed": true,
+            "frames": 60
+          },
+          {
+            "action": "move_down",
+            "kind": "axis",
+            "pressed": false,
+            "frames": 1
+          },
+          {
+            "action": "interact",
+            "kind": "action",
+            "pressed": true,
+            "frames": 2,
+            "targetPath": "World/FollowWarmCooling"
+          },
+          {
+            "action": "interact",
+            "kind": "action",
+            "pressed": false,
+            "frames": 100
           }
         ]
       },
