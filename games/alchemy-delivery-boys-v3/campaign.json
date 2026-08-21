@@ -27,6 +27,7 @@
     ".factory/**"
   ],
   "parameters": {
+    "productionContractRevision": 2,
     "workspace": "git.worktree",
     "agent": "agent.team",
     "evaluators": [
@@ -609,7 +610,7 @@
     ]
   },
   "budget": {
-    "maximumExperiments": 1,
+    "maximumExperiments": 2,
     "maximumConsecutiveCrashes": 2,
     "wallTimeMinutes": 240
   }
