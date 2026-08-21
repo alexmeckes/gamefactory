@@ -367,7 +367,7 @@
     },
     "geminiVisualReview": {
       "checkpoint": "production",
-      "model": "gemini-3.6-flash",
+      "model": "gemini-3.7-flash",
       "credentialName": "google.gemini",
       "apiKeyEnvironment": "GEMINI_API_KEY",
       "minimumImages": 5,

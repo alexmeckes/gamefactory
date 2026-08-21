@@ -6,7 +6,7 @@
 {
   "geminiVisualReview": {
     "checkpoint": "production",
-    "model": "gemini-3.6-flash",
+    "model": "gemini-3.7-flash",
     "credentialName": "google.gemini",
     "minimumImages": 5,
     "maximumImages": 8,

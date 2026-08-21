@@ -1,7 +1,7 @@
 {
   "apiVersion": "gamefactory.dev/v1",
-  "id": "alchemy-delivery-boys-v3-embodied-v1",
-  "objective": "Prove one small player-complete embodied Godot experience through shipping input before visual production. Require a visible runtime actor, spatial interaction, player-caused consequence, and another decision. Reject direct helper replay, invisible state, static scene plates, and presentation-only prototypes.",
+  "id": "alchemy-delivery-boys-v3-embodied-v4-recovery",
+  "objective": "Recover the already-built Alchemy Delivery Boys embodied slice from preserved content-addressed artifacts, then rerun only trusted Godot proof, Gemini 3.7 Flash multimodal review with a bounded compatibility fallback, the experience gate, and final evidence binding. Do not rebuild or redesign the game in this recovery attempt.",
   "projectRoot": ".",
   "workflow": "autoresearch",
   "requires": [
@@ -27,60 +27,21 @@
       "context": [],
       "graph": {
         "maximumConcurrency": 2,
-        "maximumTotalAttempts": 11,
+        "maximumTotalAttempts": 8,
         "nodes": [
           {
-            "id": "core-game-director",
-            "skills": [
-              "plan-playable-slice"
+            "id": "recovery-checkpoint",
+            "adapter": "command",
+            "command": [
+              "node",
+              "-e",
+              "const fs=require('node:fs'),crypto=require('node:crypto');const expected={\"game/main.tscn\":\"fd305421f42a5497c89a07920ed293fdaed7b926bbf52fb13a20f9848cf1cf22\",\"game/world.gd\":\"7e2a65b0678f204541daae43b4a795f6f0724841b1c751ab7f69ab278e62cc2b\",\"game/player.gd\":\"d80ea31451a764ae0ed3ae037161bbbc7d6436e37d892e9963bb3ebb8019606a\",\"game/brew_station.gd\":\"1183a544f3a715807ec4a049ba3144c5bf3570d3145c6f97258fc4e660e19699\",\"game/mix_pedestal.gd\":\"a8b94ee1eac17f1d5203cc7f244a9cc248113ee9b45c7ee7addf897473656fd8\",\"game/route_lane.gd\":\"d53d49c6e56a860324674f8f5e909723ea1f1387cfb3de38748a0f103c943ff3\",\"game/villager.gd\":\"cb673f28dc1bb899f247f8f2f4a6a3cefa55e228d9d09b335b01e80cc6f8f34d\",\"game/follow_up.gd\":\"8938b4120e303482da0a8edac1b50426b10ce1eadd9a49df0cdc3486f5c96f27\"};for(const [path,hash] of Object.entries(expected)){const actual=crypto.createHash('sha256').update(fs.readFileSync(path)).digest('hex');if(actual!==hash)throw new Error(`Recovered source hash mismatch: ${path}`);}fs.mkdirSync('evidence',{recursive:true});fs.writeFileSync('evidence/recovery-checkpoint.json',JSON.stringify({apiVersion:'gamefactory.recovery-checkpoint/v1',source:'content-addressed-artifact-store',validation:'sha256-exact',files:expected},null,2)+'\\n');process.stdout.write(JSON.stringify({summary:'Recovered source hashes verified; ready for trusted runtime validation.',outcome:'pass'}));"
             ],
-            "adapter": "codex-app-server",
-            "role": "planner",
-            "permissions": "read",
-            "model": "gpt-5.6-sol",
-            "reasoningEffort": "xhigh",
-            "maximumAttempts": 1,
-            "instructions": "Read the frozen GameSpec and authoritative projectSlice. Define the smallest embodied experience that reaches one complete outcome through shipping input, visible runtime action, understandable consequence, and another decision. State the player actor, camera, controls, spatial model, interactive targets, feedback, failure recovery, and evidence contract. Preserve creative latitude inside those boundaries."
-          },
-          {
-            "id": "mechanics-scout",
-            "skills": [
-              "plan-playable-slice"
-            ],
-            "adapter": "codex-app-server",
-            "role": "scout",
-            "permissions": "read",
-            "model": "gpt-5.6-luna",
-            "reasoningEffort": "high",
-            "dependsOn": [
-              "core-game-director"
-            ],
-            "advisor": {
-              "model": "gpt-5.6-sol",
-              "reasoningEffort": "high",
-              "outcomes": [
-                "needs_advisor"
-              ],
-              "onFailure": true,
-              "maximumAttempts": 1
-            },
-            "instructions": "Stress-test the plan for embodied agency. Reject plans that can pass by changing text, waiting, navigating menus, moving an invisible coordinate, or directly invoking gameplay helpers. Identify the smallest real input-event scenario that could falsify the core claim."
-          },
-          {
-            "id": "embodied-prototype-builder",
-            "skills": [
-              "prove-godot-gameplay"
-            ],
-            "adapter": "codex-app-server",
-            "role": "implementer",
+            "role": "worker",
             "permissions": "write",
-            "model": "gpt-5.6-sol",
-            "reasoningEffort": "high",
-            "timeoutSeconds": 3600,
-            "dependsOn": [
-              "mechanics-scout"
-            ],
-            "instructions": "Implement one small but experiential Godot slice. Use a visible player-controlled runtime actor, shipping InputMap controls, collision or spatial constraints, separately addressable world entities, readable provisional visuals, locomotion, interaction feedback, and one player-caused consequence that creates another decision. Do not use a whole-screen generated image as the runtime world. Keep node paths, actions, and the observable consequence compatible with the campaign's small embodiedProbe contract; do not create a candidate-owned proof runner or call movement, interaction, resolution, or state-transition helpers from test code. The factory-owned probe will inject shipping InputEvents and capture evidence. Keep the solution bounded and do not begin production art. Use the exact runtime node contract World/Player for the controlled CharacterBody2D, World/BrewStation for the first spatial interaction target and consequence owner, and expose a boolean brew_committed property on BrewStation. Place the station at the endpoint of the configured probe route. Keep the project entry scene at res://game/main.tscn."
+            "timeoutSeconds": 60,
+            "maximumAttempts": 1,
+            "instructions": "Verify that each restored Godot source file exactly matches the preserved artifact hash and write a transparent recovery checkpoint. This marker is provenance only and is never gameplay evidence."
           },
           {
             "id": "gameplay-evidence",
@@ -93,7 +54,7 @@
             ],
             "timeoutSeconds": 900,
             "dependsOn": [
-              "embodied-prototype-builder"
+              "recovery-checkpoint"
             ],
             "refreshAfterRepair": true,
             "instructions": "Refresh Godot import, embodied input-event replay, causal trace, and continuous engine evidence."
@@ -107,20 +68,8 @@
             "timeoutSeconds": 300,
             "maximumAttempts": 3,
             "dependsOn": [
-              "embodied-prototype-builder",
               "gameplay-evidence"
             ],
-            "refreshAfterRepair": true,
-            "repair": {
-              "target": "embodied-prototype-builder",
-              "outcomes": [
-                "revise"
-              ],
-              "maximumAttempts": 2,
-              "allowedPaths": [
-                "**"
-              ]
-            },
             "instructions": "Independently review the trusted engine frame sequence and causal trace for embodied readability. Block static plates, invisible or illegible actors, unclear spatial action, missing visual consequence, or non-causal motion. Do not demand production polish."
           },
           {
@@ -134,21 +83,9 @@
             "model": "gpt-5.6-luna",
             "reasoningEffort": "high",
             "dependsOn": [
-              "embodied-prototype-builder",
               "gameplay-evidence",
               "gemini-embodied-review"
             ],
-            "refreshAfterRepair": true,
-            "repair": {
-              "target": "embodied-prototype-builder",
-              "outcomes": [
-                "revise"
-              ],
-              "maximumAttempts": 2,
-              "allowedPaths": [
-                "**"
-              ]
-            },
             "advisor": {
               "model": "gpt-5.6-sol",
               "reasoningEffort": "high",
@@ -171,7 +108,6 @@
             "model": "gpt-5.6-sol",
             "reasoningEffort": "xhigh",
             "dependsOn": [
-              "embodied-prototype-builder",
               "gameplay-evidence",
               "gemini-embodied-review",
               "experience-gate"
@@ -186,16 +122,6 @@
             "requiredOutputFieldsOn": [
               "pass"
             ],
-            "repair": {
-              "target": "embodied-prototype-builder",
-              "outcomes": [
-                "revise"
-              ],
-              "maximumAttempts": 1,
-              "allowedPaths": [
-                "**"
-              ]
-            },
             "instructions": "Make the core-experience decision from the authoritative projectSlice, frozen claim, evaluator-verified embodied gameplay report, trace, and continuous engine captures. Return pass only if the experience is genuinely playable through shipping input and its complete causal loop exists visibly in the running engine. On pass, bind projectEvidence to the current specRevision and specFingerprint and cite preserved evaluator artifacts for every scenario, interactionTrace, embodiedGameplay, engineCapture, and motionEvidence. Do not claim fun without human evidence."
           }
         ]
@@ -302,7 +228,7 @@
   "acceptance": {
     "primaryMetric": "embodied_proof",
     "direction": "maximize",
-    "minimumDelta": 1,
+    "minimumDelta": 0,
     "comparison": "at-least",
     "hardGates": [
       "godot.scenario"
@@ -311,6 +237,6 @@
   "budget": {
     "maximumExperiments": 1,
     "maximumConsecutiveCrashes": 2,
-    "wallTimeMinutes": 180
+    "wallTimeMinutes": 90
   }
 }

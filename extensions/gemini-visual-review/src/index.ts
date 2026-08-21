@@ -18,7 +18,7 @@ import { defineExtension } from "@gamefactory/extension-sdk";
 
 const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/interactions";
 const API_REVISION = "2026-05-20";
-const DEFAULT_MODEL = "gemini-3.6-flash";
+const DEFAULT_MODEL = "gemini-3.7-flash";
 const REPORT_VERSION = "gamefactory.gemini-visual-review/v1";
 const TRACE_PROTOCOL = "gamefactory.embodied-trace/v1";
 const PNG = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
@@ -340,7 +340,8 @@ function reviewPrompt(campaign: Campaign, config: Settings, media: EvidenceInput
     `Checkpoint: ${config.checkpoint}`,
     `Evidence inventory: ${JSON.stringify(inventory)}`,
     `Verified embodied trace: ${trace || "not required at this checkpoint"}`,
-    `Approved contracts:\n${contracts || "No additional contract files supplied."}`
+    `Approved contracts:\n${contracts || "No additional contract files supplied."}`,
+    `Return only JSON matching this schema: ${JSON.stringify(responseSchema)}`
   ].join("\n\n");
 }
 
@@ -483,9 +484,24 @@ export class GeminiVisualEvaluator implements Evaluator {
         providerInput.push({ type: "text", text: `Evidence ${item.id}: ${item.role} ${item.kind}; ${item.label}; sha256 ${item.sha256}` });
         providerInput.push({ type: item.kind, data: item.bytes.toString("base64"), mime_type: item.mediaType, resolution: config.mediaResolution });
       }
+      const send = (body: Record<string, unknown>) => (this.dependencies.fetchImpl ?? fetch)(ENDPOINT, { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": credential.value, "Api-Revision": API_REVISION }, body: JSON.stringify(body), signal: AbortSignal.any([input.signal, AbortSignal.timeout(config.timeoutSeconds * 1000)]) });
       const body = { model: config.model, input: providerInput, response_format: { type: "text", mime_type: "application/json", schema: responseSchema } };
-      const response = await (this.dependencies.fetchImpl ?? fetch)(ENDPOINT, { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": credential.value, "Api-Revision": API_REVISION }, body: JSON.stringify(body), signal: AbortSignal.any([input.signal, AbortSignal.timeout(config.timeoutSeconds * 1000)]) });
-      if (!response.ok) throw new Error(`Gemini visual review request failed with HTTP ${response.status}: ${await providerFailureMessage(response)}`);
+      let response = await send(body);
+      let compatibilityFallback = false;
+      let primaryFailure = "";
+      if (response.status === 400) {
+        primaryFailure = await providerFailureMessage(response);
+        compatibilityFallback = true;
+        const minimalInput = providerInput.map((item) => {
+          const { resolution: _resolution, ...content } = item;
+          return content;
+        });
+        response = await send({ model: config.model, input: minimalInput });
+      }
+      if (!response.ok) {
+        const fallbackFailure = await providerFailureMessage(response);
+        throw new Error(`Gemini visual review request failed with HTTP ${response.status}: ${fallbackFailure}${primaryFailure ? `; structured request also failed: ${primaryFailure}` : ""}`);
+      }
       const rawResponse = await response.json() as unknown;
       const review = parseReview(JSON.parse(responseText(rawResponse)) as unknown, new Set(evidence.media.map((item) => item.id)), evidence.media.some((item) => item.role === "target"));
       const applicable = DIMENSIONS.filter((id) => !review.notApplicable.includes(id));
@@ -493,7 +509,7 @@ export class GeminiVisualEvaluator implements Evaluator {
       const violations = violationsFor(review, config, score);
       const status = violations.some((item) => item.severity === "error") ? "fail" : "pass";
       const usage = providerUsage(rawResponse, config.model);
-      await writeFile(reportPath, `${JSON.stringify({ apiVersion: REPORT_VERSION, status, checkpoint: config.checkpoint, configuredModel: config.model, credentialSource: credential.source, score, review, usage, evidence: evidence.media.map(({ id, role, kind, mediaType, label, sha256, metadata }) => ({ id, role, kind, mediaType, label, sha256, metadata })) }, null, 2)}\n`, "utf8");
+      await writeFile(reportPath, `${JSON.stringify({ apiVersion: REPORT_VERSION, status, checkpoint: config.checkpoint, configuredModel: config.model, credentialSource: credential.source, compatibilityFallback, score, review, usage, evidence: evidence.media.map(({ id, role, kind, mediaType, label, sha256, metadata }) => ({ id, role, kind, mediaType, label, sha256, metadata })) }, null, 2)}\n`, "utf8");
       return { evaluator: this.id, version: this.version, status, metrics: { gemini_visual_review: 1, gemini_visual_score: score, gemini_visual_findings: review.findings.length, gemini_visual_blockers: review.findings.filter((item) => item.severity === "blocker").length, gemini_visual_majors: review.findings.filter((item) => item.severity === "major").length, ...Object.fromEntries(DIMENSIONS.map((id) => [`gemini_visual_${id}`, review.scores[id]])) }, violations, artifacts, confidence: review.confidence, summary: review.summary, usage };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

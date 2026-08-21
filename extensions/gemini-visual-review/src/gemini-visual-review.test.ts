@@ -108,11 +108,11 @@ test("Gemini visual evaluator sends ordered multimodal evidence, enforces struct
     const result = await new GeminiVisualEvaluator({ fetchImpl, credentialStore: credentials.store }).evaluate({ campaign: campaign(root), candidate: { id: "candidate", root, metadata: {} }, experimentId: "exp-review", priorEvaluations: [prior.evaluation], signal: new AbortController().signal });
     assert.equal(result.status, "pass");
     assert.equal(result.metrics.gemini_visual_review, 1);
-    assert.equal(result.usage?.model, "gemini-3.6-flash");
+    assert.equal(result.usage?.model, "gemini-3.7-flash");
     assert.equal(result.usage?.totalTokens, 1440);
     assert.equal(apiKey, credentials.secret);
     assert.equal(apiRevision, "2026-05-20");
-    assert.equal(requestBody?.model, "gemini-3.6-flash");
+    assert.equal(requestBody?.model, "gemini-3.7-flash");
     assert.equal("generation_config" in (requestBody ?? {}), false);
     const inputs = requestBody?.input as Array<Record<string, unknown>>;
     assert.equal(inputs.filter((item) => item.type === "image").length, 3);
@@ -216,6 +216,28 @@ test("Gemini graph driver makes provider failures retryable and preserves bounde
   } finally { await rm(root, { recursive: true, force: true }); await rm(credentials.root, { recursive: true, force: true }); }
 });
 
+test("Gemini visual evaluator falls back to locally validated JSON on a structured-request 400", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "gamefactory-gemini-compatibility-"));
+  const credentials = await credentialStore();
+  const prior = await evidence(root);
+  const bodies: Array<Record<string, unknown>> = [];
+  const fetchImpl: typeof fetch = async (_url, init) => {
+    bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+    if (bodies.length === 1) return new Response(JSON.stringify({ error: { code: 400, message: "Request contains an invalid argument." } }), { status: 400 });
+    return new Response(JSON.stringify({ output_text: JSON.stringify(review()) }), { status: 200 });
+  };
+  try {
+    const result = await new GeminiVisualEvaluator({ fetchImpl, credentialStore: credentials.store }).evaluate({ campaign: campaign(root), candidate: { id: "candidate", root, metadata: {} }, experimentId: "exp-compatibility", priorEvaluations: [prior.evaluation], signal: new AbortController().signal });
+    assert.equal(result.status, "pass", JSON.stringify(result.violations));
+    assert.equal(bodies.length, 2);
+    assert.ok("response_format" in bodies[0]!);
+    assert.equal("response_format" in bodies[1]!, false);
+    assert.ok((bodies[1]!.input as Array<Record<string, unknown>>).filter((item) => item.type === "image").every((item) => !("resolution" in item)));
+    const report = JSON.parse(await readFile(resolve(root, ".factory", "runs", "exp-compatibility", "gemini-visual-review", "review.json"), "utf8")) as Record<string, unknown>;
+    assert.equal(report.compatibilityFallback, true);
+  } finally { await rm(root, { recursive: true, force: true }); await rm(credentials.root, { recursive: true, force: true }); }
+});
+
 test("Gemini graph driver reads factory Godot evidence and exposes structured findings to repair orchestration", async () => {
   const root = await mkdtemp(resolve(tmpdir(), "gamefactory-gemini-driver-"));
   const credentials = await credentialStore();
@@ -244,7 +266,7 @@ test("Gemini graph driver reads factory Godot evidence and exposes structured fi
     assert.equal((structured.findings as Array<Record<string, unknown>>)[0]?.owner, "implementation");
     assert.ok(Array.isArray(structured.evidence));
     assert.equal((structured.findings as unknown[]).length, 1);
-    assert.equal(result.contributors?.[0]?.usage?.model, "gemini-3.6-flash");
+    assert.equal(result.contributors?.[0]?.usage?.model, "gemini-3.7-flash");
   } finally { await rm(root, { recursive: true, force: true }); await rm(credentials.root, { recursive: true, force: true }); }
 });
 
