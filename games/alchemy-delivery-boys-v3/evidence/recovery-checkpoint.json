@@ -1,0 +1,15 @@
+{
+  "apiVersion": "gamefactory.recovery-checkpoint/v1",
+  "source": "accepted-v5-restoration",
+  "validation": "sha256-current",
+  "files": {
+    "game/main.tscn": "fd305421f42a5497c89a07920ed293fdaed7b926bbf52fb13a20f9848cf1cf22",
+    "game/world.gd": "7e2a65b0678f204541daae43b4a795f6f0724841b1c751ab7f69ab278e62cc2b",
+    "game/player.gd": "d80ea31451a764ae0ed3ae037161bbbc7d6436e37d892e9963bb3ebb8019606a",
+    "game/brew_station.gd": "1183a544f3a715807ec4a049ba3144c5bf3570d3145c6f97258fc4e660e19699",
+    "game/mix_pedestal.gd": "a8b94ee1eac17f1d5203cc7f244a9cc248113ee9b45c7ee7addf897473656fd8",
+    "game/route_lane.gd": "d53d49c6e56a860324674f8f5e909723ea1f1387cfb3de38748a0f103c943ff3",
+    "game/villager.gd": "cb673f28dc1bb899f247f8f2f4a6a3cefa55e228d9d09b335b01e80cc6f8f34d",
+    "game/follow_up.gd": "8938b4120e303482da0a8edac1b50426b10ce1eadd9a49df0cdc3486f5c96f27"
+  }
+}
