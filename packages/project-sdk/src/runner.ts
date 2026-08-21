@@ -104,6 +104,11 @@ function campaignForPhase(campaign: Campaign, phase: LoadedProjectPhase, project
     ...(!manifestRelative.startsWith("../") && manifestRelative !== ".." ? [manifestRelative] : []),
     ...(project.preproduction ? [projectPath(project, project.preproduction.conceptPath), projectPath(project, project.preproduction.specPath)] : [])
   ])];
+  // Promotion policy belongs to the project runner, not the campaign execution
+  // contract. Keeping it out of projectSlice lets a completed bounded campaign
+  // be re-evaluated under a corrected promotion policy without invalidating its
+  // run identity and replaying expensive agent/evaluator work.
+  const { allowBudgetExhaustedAfterAcceptance: _allowBudgetExhaustedAfterAcceptance, ...executionGate } = phase.gate ?? {};
   const sliceContract = {
     projectId: project.id,
     sliceId: phase.id,
@@ -114,7 +119,7 @@ function campaignForPhase(campaign: Campaign, phase: LoadedProjectPhase, project
     nonGoals: phase.nonGoals ?? [],
     mutablePaths: phase.mutablePaths,
     evidence: phase.evidence ?? {},
-    gate: phase.gate ?? {},
+    gate: executionGate,
     attemptPolicy: phase.attemptPolicy ?? {},
     ...(frozenSpec ? { specRevision: frozenSpec.spec.revision, specFingerprint: frozenSpec.fingerprint } : {})
   };

@@ -323,6 +323,24 @@ test("v2 validates a frozen claim-addressed spec and advances player-complete sl
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test("v2 promotion-only budget policy does not invalidate the campaign execution contract", async () => {
+  const { root, manifestPath, specPath } = await v2Fixture();
+  try {
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Record<string, any>;
+    manifest.slices[0].gate = { requireAcceptedRevision: true, allowBudgetExhaustedAfterAcceptance: true };
+    await writeFile(manifestPath, JSON.stringify(manifest), "utf8");
+    const spec = { apiVersion: "gamefactory.game-spec/v1", kind: "GameSpec", projectId: "v2-project", revision: 1, status: "frozen", concept: "A courier brews potions and walks them to villagers.", thesis: "Walking, brewing, and delivery are one causal loop.", claims: [{ id: "loop.first-errand", category: "loop", status: "required", statement: "The player walks, brews, and delivers one potion." }], slices: [{ id: "first-errand", playerOutcome: "Complete one delivery through direct world interaction.", primaryRisk: "The game becomes a static menu.", claimIds: ["loop.first-errand"] }], change: { kind: "initial", rationale: "Initial bounded thesis." } };
+    const runner = new ProjectRunner(await loadProject(manifestPath), { cwd: root, logger: new MemoryLogger(), executeCampaign: async ({ campaign }) => {
+      if (campaign.id === "spec-campaign") { await writeFile(specPath, JSON.stringify(spec), "utf8"); return acceptedResult(campaign.id, "a".repeat(40)); }
+      assert.deepEqual((campaign.parameters?.projectSlice as Record<string, unknown>).gate, { requireAcceptedRevision: true });
+      const result = evidencedResult(campaign, "b".repeat(40));
+      result.status = "budget-exhausted";
+      return result;
+    } });
+    assert.equal((await runner.run()).status, "complete");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("an embodied core slice can require engine capture before any visual target exists", async () => {
   const { root, manifestPath, specPath } = await v2Fixture();
   try {
