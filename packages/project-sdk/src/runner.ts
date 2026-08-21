@@ -523,7 +523,11 @@ export class ProjectRunner {
     let startedAt = latestStart?.projectRunId === projectRunId ? latestStart.timestamp : new Date().toISOString();
     const baseRevision = await gitRevision(this.project.root);
     if (latestStart?.projectRunId === projectRunId) {
-      const latestRevision = [...events].reverse().find((event) => event.projectRunId === projectRunId && event.resultingRevision)?.resultingRevision ?? latestStart.sourceRevision;
+      const latestRevision = [...events].reverse().find((event) => {
+        if (event.projectRunId !== projectRunId || !event.resultingRevision) return false;
+        const data = event.data && typeof event.data === "object" && !Array.isArray(event.data) ? event.data as Record<string, unknown> : undefined;
+        return data?.reused !== true;
+      })?.resultingRevision ?? latestStart.sourceRevision;
       if (latestRevision && baseRevision && latestRevision !== baseRevision) {
         const runEvents = events.filter((event) => event.projectRunId === projectRunId);
         if (runEvents.length !== 1 || runEvents[0]?.type !== "project-started") throw new Error(`Project revision changed outside the recorded journey: expected ${latestRevision}, found ${baseRevision}.`);

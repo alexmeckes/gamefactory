@@ -2,7 +2,7 @@
   "apiVersion": "gamefactory.dev/v2",
   "kind": "Project",
   "id": "alchemy-delivery-boys-v3",
-  "title": "Alchemy Delivery Boys — Fresh Rebuild",
+  "title": "Alchemy Delivery Boys — Fresh Interactive Rebuild",
   "projectRoot": ".",
   "preproduction": {
     "concept": "concept.md",
