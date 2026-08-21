@@ -118,6 +118,33 @@ test("project runner supersedes a revision-stale run that never started a phase"
   }
 });
 
+test("project runner starts a new lineage after a committed repair to a blocked run", async () => {
+  const { root, manifestPath } = await fixture();
+  try {
+    await writeFile(join(root, ".gitignore"), ".factory/\n", "utf8");
+    await execFileAsync("git", ["init"], { cwd: root });
+    await execFileAsync("git", ["config", "user.email", "factory@example.test"], { cwd: root });
+    await execFileAsync("git", ["config", "user.name", "GameFactory Test"], { cwd: root });
+    await execFileAsync("git", ["add", "."], { cwd: root });
+    await execFileAsync("git", ["commit", "-m", "initial"], { cwd: root });
+    let calls = 0;
+    const runner = new ProjectRunner(await loadProject(manifestPath), { cwd: root, logger: new MemoryLogger(), executeCampaign: async () => {
+      calls += 1;
+      if (calls === 1) return { campaignId: "project-campaign", status: "blocked", startedAt: "2026-01-01T00:00:00.000Z", finishedAt: "2026-01-01T00:00:01.000Z", bestMetrics: {}, summary: "repair needed", experiments: [] };
+      return { campaignId: "project-campaign", status: "complete", startedAt: "2026-01-01T00:00:02.000Z", finishedAt: "2026-01-01T00:00:03.000Z", bestMetrics: { score: 3 }, summary: "accepted", experiments: [{ campaignId: "project-campaign", experimentId: "candidate", startedAt: "2026-01-01T00:00:02.000Z", finishedAt: "2026-01-01T00:00:03.000Z", status: "keep", revision: "b".repeat(40), summary: "kept", metrics: { score: 3 }, evaluations: [] }] };
+    } });
+    const blocked = await runner.run();
+    await writeFile(join(root, "repair.txt"), "bounded repair\n", "utf8");
+    await execFileAsync("git", ["add", "repair.txt"], { cwd: root });
+    await execFileAsync("git", ["commit", "-m", "repair"], { cwd: root });
+    const repaired = await runner.run();
+    assert.equal(repaired.status, "complete");
+    assert.notEqual(repaired.projectRunId, blocked.projectRunId);
+    const superseded = (await runner.journal.read()).find((event) => event.projectRunId === blocked.projectRunId && event.type === "project-finished");
+    assert.equal((superseded?.data as Record<string, unknown>).status, "superseded-after-blocked-repair");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("SQLite index mirrors idempotent project events for local querying", async () => {
   const root = await mkdtemp(join(tmpdir(), "gamefactory-project-sqlite-"));
   const index = await SqliteProjectJourneyIndex.open(join(root, "factory.sqlite"));

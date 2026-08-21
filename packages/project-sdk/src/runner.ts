@@ -530,19 +530,21 @@ export class ProjectRunner {
       })?.resultingRevision ?? latestStart.sourceRevision;
       if (latestRevision && baseRevision && latestRevision !== baseRevision) {
         const runEvents = events.filter((event) => event.projectRunId === projectRunId);
-        if (runEvents.length !== 1 || runEvents[0]?.type !== "project-started") throw new Error(`Project revision changed outside the recorded journey: expected ${latestRevision}, found ${baseRevision}.`);
+        const blockedRepair = runEvents.some((event) => event.type === "project-blocked");
+        if (!blockedRepair && (runEvents.length !== 1 || runEvents[0]?.type !== "project-started")) throw new Error(`Project revision changed outside the recorded journey: expected ${latestRevision}, found ${baseRevision}.`);
         const reconciliationLease = join(".factory", "projects", this.project.id, "run.lock");
         const reconciliationLeasePath = resolveFactoryStatePath({ cwd: this.project.root, ...(this.options.dataRoot ? { dataRoot: this.options.dataRoot } : {}) }, reconciliationLease, reconciliationLease, "project lease");
-        const releaseReconciliation = await acquireProjectLease(reconciliationLeasePath, `${projectRunId}:supersede-before-execution`);
+        const supersedeReason = blockedRepair ? "superseded-after-blocked-repair" : "superseded-before-execution";
+        const releaseReconciliation = await acquireProjectLease(reconciliationLeasePath, `${projectRunId}:${supersedeReason}`);
         try {
           await this.journal.append({
             projectId: this.project.id,
             projectRunId,
             type: "project-finished",
-            idempotencyKey: `${projectRunId}:superseded-before-execution:${baseRevision}`,
+            idempotencyKey: `${projectRunId}:${supersedeReason}:${baseRevision}`,
             manifestFingerprint: this.manifestFingerprint,
             actor: { kind: "factory" },
-            data: { status: "superseded-before-execution", expectedRevision: latestRevision, actualRevision: baseRevision },
+            data: { status: supersedeReason, expectedRevision: latestRevision, actualRevision: baseRevision },
           });
         } finally {
           await releaseReconciliation();
