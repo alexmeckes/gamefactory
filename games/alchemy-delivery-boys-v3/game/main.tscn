@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=29 format=3]
 
 [ext_resource type="Script" path="res://game/world.gd" id="1_world"]
 [ext_resource type="Script" path="res://game/player.gd" id="2_player"]
@@ -7,6 +7,20 @@
 [ext_resource type="Script" path="res://game/route_lane.gd" id="5_lane"]
 [ext_resource type="Script" path="res://game/villager.gd" id="6_villager"]
 [ext_resource type="Script" path="res://game/follow_up.gd" id="7_follow"]
+[ext_resource type="Script" path="res://game/ui/production/inkcap-conservatory/ambient_layer.gd" id="8_ambient"]
+[ext_resource type="Script" path="res://game/ui/production/inkcap-conservatory/production_hud.gd" id="9_hud"]
+[ext_resource type="Texture2D" path="res://game/assets/production/inkcap-conservatory/environment/conservatory-frame.png" id="10_frame"]
+[ext_resource type="Texture2D" path="res://game/assets/production/inkcap-conservatory/environment/workshop-environment.png" id="11_workshop"]
+[ext_resource type="Texture2D" path="res://game/assets/production/inkcap-conservatory/environment/divider-environment.png" id="12_divider"]
+[ext_resource type="Texture2D" path="res://game/assets/production/inkcap-conservatory/environment/garden-environment.png" id="13_garden"]
+[ext_resource type="Texture2D" path="res://game/assets/production/inkcap-conservatory/characters/courier-actor.png" id="14_courier"]
+[ext_resource type="Texture2D" path="res://game/assets/production/inkcap-conservatory/props/carried-bottle.png" id="15_bottle"]
+[ext_resource type="Texture2D" path="res://game/assets/production/inkcap-conservatory/interactables/brew-station.png" id="16_cauldron"]
+[ext_resource type="Texture2D" path="res://game/assets/production/inkcap-conservatory/effects/brew-effects.png" id="17_brew_fx"]
+[ext_resource type="Texture2D" path="res://game/assets/production/inkcap-conservatory/effects/route-effects.png" id="18_route_fx"]
+[ext_resource type="Texture2D" path="res://game/assets/production/inkcap-conservatory/characters/mira-actor.png" id="19_mira"]
+[ext_resource type="Texture2D" path="res://game/assets/production/inkcap-conservatory/effects/reaction-effects.png" id="20_reaction_fx"]
+[ext_resource type="Texture2D" path="res://game/assets/production/inkcap-conservatory/effects/selection-effects.png" id="21_selection_fx"]
 
 [sub_resource type="CircleShape2D" id="Circle_player"]
 radius = 7.0
@@ -34,61 +48,206 @@ size = Vector2(12, 270)
 [node name="World" type="Node2D" parent="."]
 script = ExtResource("1_world")
 
+[node name="ConservatoryFrame" type="Sprite2D" parent="World"]
+z_index = -10
+texture_filter = 1
+position = Vector2(0, 32)
+texture = ExtResource("10_frame")
+centered = false
+
+[node name="WorkshopEnvironment" type="Sprite2D" parent="World"]
+z_index = -9
+texture_filter = 1
+position = Vector2(14, 32)
+texture = ExtResource("11_workshop")
+centered = false
+hframes = 2
+script = ExtResource("8_ambient")
+frame_period = 2.8
+phase_seconds = 0.0
+
+[node name="DividerEnvironment" type="Sprite2D" parent="World"]
+z_index = -8
+texture_filter = 1
+position = Vector2(318, 32)
+texture = ExtResource("12_divider")
+centered = false
+
+[node name="GardenEnvironment" type="Sprite2D" parent="World"]
+z_index = -9
+texture_filter = 1
+position = Vector2(336, 32)
+texture = ExtResource("13_garden")
+centered = false
+hframes = 2
+script = ExtResource("8_ambient")
+frame_period = 3.2
+phase_seconds = 1.1
+
 [node name="Player" type="CharacterBody2D" parent="World"]
+z_index = 5
 position = Vector2(80, 50)
 script = ExtResource("2_player")
+
+[node name="Visual" type="Sprite2D" parent="World/Player"]
+texture_filter = 1
+position = Vector2(0, -10)
+texture = ExtResource("14_courier")
+hframes = 16
+
+[node name="Bottle" type="Sprite2D" parent="World/Player"]
+z_index = 1
+texture_filter = 1
+position = Vector2(11, -17)
+texture = ExtResource("15_bottle")
+hframes = 5
+visible = false
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="World/Player"]
 position = Vector2(0, 5)
 shape = SubResource("Circle_player")
 
 [node name="BrewStation" type="Node2D" parent="World"]
+z_index = 3
 position = Vector2(260, 185)
 script = ExtResource("3_brew")
 
+[node name="Visual" type="Sprite2D" parent="World/BrewStation"]
+texture_filter = 1
+position = Vector2(0, -20)
+texture = ExtResource("16_cauldron")
+hframes = 6
+
+[node name="Effect" type="Sprite2D" parent="World/BrewStation"]
+z_index = 2
+texture_filter = 1
+position = Vector2(0, -36)
+texture = ExtResource("17_brew_fx")
+hframes = 5
+visible = false
+
 [node name="WarmIngredient" type="Node2D" parent="World"]
+z_index = 3
 position = Vector2(140, 220)
 script = ExtResource("4_mix")
 mix_id = "warm_forward"
 
+[node name="Visual" type="Sprite2D" parent="World/WarmIngredient"]
+texture_filter = 1
+position = Vector2(0, -10)
+hframes = 5
+
 [node name="FizzIngredient" type="Node2D" parent="World"]
+z_index = 3
 position = Vector2(205, 220)
 script = ExtResource("4_mix")
 mix_id = "fizz_forward"
 
+[node name="Visual" type="Sprite2D" parent="World/FizzIngredient"]
+texture_filter = 1
+position = Vector2(0, -10)
+hframes = 5
+
 [node name="CoolingLane" type="Area2D" parent="World"]
+z_index = 4
 position = Vector2(324, 103)
 collision_layer = 0
 collision_mask = 1
 script = ExtResource("5_lane")
 effect_id = "cooling"
 
+[node name="Visual" type="Sprite2D" parent="World/CoolingLane"]
+texture_filter = 1
+hframes = 4
+
+[node name="Effect" type="Sprite2D" parent="World/CoolingLane"]
+z_index = 3
+texture_filter = 1
+position = Vector2(25, 0)
+texture = ExtResource("18_route_fx")
+hframes = 5
+visible = false
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="World/CoolingLane"]
 shape = SubResource("Rectangle_lane")
 
 [node name="VentingLane" type="Area2D" parent="World"]
+z_index = 4
 position = Vector2(324, 165)
 collision_layer = 0
 collision_mask = 1
 script = ExtResource("5_lane")
 effect_id = "venting"
 
+[node name="Visual" type="Sprite2D" parent="World/VentingLane"]
+texture_filter = 1
+hframes = 4
+
+[node name="Effect" type="Sprite2D" parent="World/VentingLane"]
+z_index = 3
+texture_filter = 1
+position = Vector2(25, 0)
+texture = ExtResource("18_route_fx")
+hframes = 5
+visible = false
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="World/VentingLane"]
 shape = SubResource("Rectangle_lane")
 
 [node name="Villager" type="Node2D" parent="World"]
+z_index = 5
 position = Vector2(414, 126)
 script = ExtResource("6_villager")
 
+[node name="Visual" type="Sprite2D" parent="World/Villager"]
+texture_filter = 1
+position = Vector2(0, -14)
+texture = ExtResource("19_mira")
+hframes = 6
+
+[node name="Effect" type="Sprite2D" parent="World/Villager"]
+z_index = 2
+texture_filter = 1
+position = Vector2(0, -27)
+texture = ExtResource("20_reaction_fx")
+hframes = 5
+visible = false
+
 [node name="FollowWarmCooling" type="Node2D" parent="World"]
+z_index = 3
 position = Vector2(372, 218)
 script = ExtResource("7_follow")
 plan_id = "warm_cooling"
 
+[node name="Visual" type="Sprite2D" parent="World/FollowWarmCooling"]
+texture_filter = 1
+hframes = 6
+
+[node name="Effect" type="Sprite2D" parent="World/FollowWarmCooling"]
+z_index = 2
+texture_filter = 1
+position = Vector2(0, -5)
+texture = ExtResource("21_selection_fx")
+hframes = 5
+visible = false
+
 [node name="FollowFizzVenting" type="Node2D" parent="World"]
+z_index = 3
 position = Vector2(438, 218)
 script = ExtResource("7_follow")
 plan_id = "fizz_venting"
+
+[node name="Visual" type="Sprite2D" parent="World/FollowFizzVenting"]
+texture_filter = 1
+hframes = 6
+
+[node name="Effect" type="Sprite2D" parent="World/FollowFizzVenting"]
+z_index = 2
+texture_filter = 1
+position = Vector2(0, -5)
+texture = ExtResource("21_selection_fx")
+hframes = 5
+visible = false
 
 [node name="Walls" type="StaticBody2D" parent="World"]
 
@@ -121,35 +280,5 @@ position = Vector2(472, 135)
 shape = SubResource("Wall_vertical")
 
 [node name="HUD" type="CanvasLayer" parent="World"]
-
-[node name="TopPanel" type="ColorRect" parent="World/HUD"]
-offset_right = 480.0
-offset_bottom = 32.0
-color = Color(0.055, 0.047, 0.102, 0.96)
-mouse_filter = 2
-
-[node name="Status" type="Label" parent="World/HUD"]
-offset_left = 8.0
-offset_top = 3.0
-offset_right = 472.0
-offset_bottom = 30.0
-theme_override_colors/font_color = Color(0.96, 0.93, 0.78, 1)
-theme_override_font_sizes/font_size = 8
-text = "MIRA'S NEED: balanced warmth + fizz"
-
-[node name="BottomPanel" type="ColorRect" parent="World/HUD"]
-offset_top = 244.0
-offset_right = 480.0
-offset_bottom = 270.0
-color = Color(0.055, 0.047, 0.102, 0.94)
-mouse_filter = 2
-
-[node name="Feedback" type="Label" parent="World/HUD"]
-offset_left = 8.0
-offset_top = 248.0
-offset_right = 472.0
-offset_bottom = 267.0
-theme_override_colors/font_color = Color(0.82, 0.9, 1, 1)
-theme_override_font_sizes/font_size = 8
-text = "WASD / arrows move; E / Space interacts."
-autowrap_mode = 2
+layer = 10
+script = ExtResource("9_hud")

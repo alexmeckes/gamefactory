@@ -1,0 +1,479 @@
+{
+  "apiVersion": "gamefactory.asset-lane-decision/v1",
+  "selectedOutcome": "direct",
+  "hypothesis": "Reconstructing the approved Inkcap components directly at their tiny native sizes, while building dynamic interface surfaces as deliberate Godot controls, will preserve the target's silhouettes, fixed geometry, causal state readability, and controlled motion more faithfully than extracting visible composite pixels or introducing a generated-video dependency.",
+  "assumptions": [
+    "The approved scene-target manifest, its five selected state views, and the captured live geometry basis remain the source of truth through asset production.",
+    "Direct means target-linked native pixel reconstruction and authored sprite families, not procedural placeholder geometry or reuse of a whole-screen target as a runtime plate.",
+    "The downstream asset producer will record exact tight-frame dimensions, whole-pixel pivots, frame timing, hashes, and recomposition checks for each exported file before integration.",
+    "Generated lettering in the target views is reference-only; sustained status, quantity, feedback, recovery, and action text remains code-native and uses a bundled license-compatible humanist face.",
+    "The approved still variants resolve the visual endpoints of the required motion grammar; no named uncertainty currently justifies an external motion study."
+  ],
+  "rationale": {
+    "smallestFaithfulMethod": "The target already locks a 480x270 grid, integer 3x presentation, palette roles, live anchors, component crops, grouped runtime bounds, actor frame sizes, pivots, state coverage, layers, and animation responsibilities. Direct reconstruction can consume those contracts without adding a provider lane, while the interface contract explicitly requires deterministic code-native structure.",
+    "whyNotSegment": "The approved views are complete composites: actors, labels, props, effects, and interface pixels cover the environments, and several state variants move consumers between views. SAM 3 could isolate visible silhouettes but cannot reconstruct actor-free floor, hidden edges, four-direction courier frames, Mira's full reaction family, bottle state interiors, or clean focus and disabled variants. Extraction would therefore create cleanup work without satisfying the production inventory.",
+    "whyNotMotionStudy": "The motion grammar consists of short native-pixel beats with declared timings and causal endpoints: focus settle, brew, route consequence, handoff, reaction hold, selection, and restrained ambient continuity. No unresolved body mechanics, camera move, or complex temporal transition needs generated video as reference.",
+    "whyNotPixelMotion": "There is no justified temporal source to track or compile. Palette-locked sprite strips can be authored directly from the approved state views and verified by exact-grid recomposition before state-linked runtime choreography.",
+    "providerBoundary": "The campaign config exposes conditional request paths for SAM 3, Google Omni video, and pixel motion, but the selected direct lane has no request path, credential, paid call, CUDA requirement, tracking job, or external prerequisite. Creating an unused provider request would incorrectly activate downstream work.",
+    "productionBoundary": "This node selects and specifies the production method only. It does not generate, extract, integrate, or promote assets and makes no engine-ready, runtime, or production-readiness claim."
+  },
+  "approvedTarget": {
+    "manifestPath": "design/scene-targets/scene-target.json",
+    "manifestSha256": "b37eaa40c354dff4c7c30133d017133de6b2267e4aed6ef032daf87b9924a05b",
+    "manifestApiVersion": "gamefactory.scene-target/v1",
+    "manifestId": "alchemy-delivery-boys-v3-production-encounter",
+    "candidateId": "inkcap-night-conservatory",
+    "primaryViewId": "inkcap-interaction",
+    "primaryViewPath": "design/scene-targets/views/direction-b-inkcap-interaction.png",
+    "primaryViewSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377",
+    "approvalStatus": "approved",
+    "approvalReviewer": "scene-target-gate",
+    "approvedComponentCount": 19,
+    "detailedProductionContractCount": 10,
+    "geometryBasisPath": "design/scene-targets/continuity-source/live-geometry-basis.png",
+    "geometryBasisSha256": "7b139850bef50177cf45284cc15bf44b4ebe9930adf8ef24a5fbcac666dc733a"
+  },
+  "productionGrammar": {
+    "nativeViewport": {
+      "width": 480,
+      "height": 270
+    },
+    "shippingPresentation": {
+      "width": 1440,
+      "height": 810,
+      "integerScale": 3,
+      "filter": "nearest-neighbor"
+    },
+    "nativePixelPx": 1,
+    "worldTileRhythmPx": 16,
+    "baseSpacingPx": 4,
+    "borderWidthsPx": [
+      1,
+      2
+    ],
+    "insetsPx": {
+      "compact": 4,
+      "reading": 6
+    },
+    "palettePolicy": {
+      "mode": "target-locked-role-palette",
+      "colors": {
+        "ink": "#12121F",
+        "slate": "#243047",
+        "mulberry": "#34243D",
+        "parchment": "#FFF3C4",
+        "copper": "#D89B62",
+        "cyan": "#66D9E8",
+        "coral": "#EF476F",
+        "leaf": "#9BE564",
+        "violet": "#7F5AF0"
+      },
+      "rule": "Derived value ramps may support these anchors, but no unrelated hue family may be introduced; potion and interaction state always pair hue with icon shape, quantity, label, and motion."
+    },
+    "contrastRoles": {
+      "navigation": "Deep indigo and slate floors preserve open traversable corridors against brighter edge clutter.",
+      "actors": "Gold-cap teal-apron courier and silver-braided plum Mira remain distinct from the floor, props, bottle, and each other at native scale.",
+      "causality": "Cyan crystalline COOL, saffron-copper VENT, leaf bottle state, and short state effects lead attention without obscuring collision apertures.",
+      "interface": "Parchment and bright semantic accents sit on the ink ledger and context surfaces; body text remains readable code-native copy.",
+      "focus": "One border-value step and one-pixel settle identify only the reachable target; ambient glints never imitate focus."
+    },
+    "outlineLanguage": "Crisp one- and two-native-pixel ink or deep-slate clusters with whole-pixel edges, no antialiasing, no smoothed filtering, and no mixed pixel density.",
+    "lightingDirection": "Moonlit conservatory with restrained cool glasslight and warm brass or lamp accents; preserve readable floor values and do not scroll collision-bearing surfaces.",
+    "materialTreatment": "Clustered indigo flagstone, old brick, glass rafters, brass alembics, mulberry soil, inkcap mushrooms, phosphor moss, cyan crystal, and copper louvers; navigation and silhouettes outrank surface noise.",
+    "silhouetteScale": {
+      "courier": "20x28 native, bottom-center pivot 10,24; gold cap, teal apron, and blue satchel remain readable and separate from the bottle.",
+      "mira": "24x32 native, bottom-center pivot 12,28; silver braids, copper face, and plum dress persist through every pose.",
+      "bottle": "8x12 native, carry-socket pivot 4,10; cork, warmth notch, fizz mark, and route rim distinguish states without color alone."
+    },
+    "typography": {
+      "mode": "hybrid",
+      "displayPx": 9,
+      "statusPx": 10,
+      "bodyPx": 10,
+      "instructionPx": 10,
+      "actionPx": 8,
+      "numeralPx": 10,
+      "rule": "Use authored pixel display treatment only for labels of twelve characters or fewer; use a bundled humanist sans and tabular numerals for sustained status, quantities, feedback, recovery, and instructions."
+    },
+    "scalingRules": [
+      "Author and inspect at exactly 480x270.",
+      "Snap camera, sprites, pivots, effects, collision-linked cues, and UI bounds to whole native pixels.",
+      "Render raster motifs at native 1:1 or through declared integer or nine-slice geometry that preserves corners and border weights.",
+      "Never ship target-rendered lettering or a generated whole-screen image as a runtime surface."
+    ]
+  },
+  "sourceScenes": [
+    {
+      "id": "inkcap-interaction",
+      "state": "interaction",
+      "path": "design/scene-targets/views/direction-b-inkcap-interaction.png",
+      "sha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+    },
+    {
+      "id": "inkcap-action",
+      "state": "action",
+      "path": "design/scene-targets/views/direction-b-inkcap-action.png",
+      "sha256": "496c970226e8326364d19c26a466cf483b7db520b23b85b018cc4938e68f06ae"
+    },
+    {
+      "id": "inkcap-route-feedback",
+      "state": "feedback",
+      "path": "design/scene-targets/views/direction-b-inkcap-route-feedback.png",
+      "sha256": "3586897a18adf932656166fd2dd6edc6a6ec2b46286c69926dfa192b1a12f5ba"
+    },
+    {
+      "id": "inkcap-resolution",
+      "state": "resolution",
+      "path": "design/scene-targets/views/direction-b-inkcap-resolution.png",
+      "sha256": "46ea8aa2c064cbb4110905fb871276a86d3dc86f714eedb77228dcf3ab3cae62"
+    },
+    {
+      "id": "inkcap-transition",
+      "state": "transition",
+      "path": "design/scene-targets/views/direction-b-inkcap-transition.png",
+      "sha256": "7642a7f9b939190ceaf1fcebadd4d103e3f710c8d6b684e0d38ef92dbc762906"
+    }
+  ],
+  "assetInventory": {
+    "authority": {
+      "path": "design/scene-targets/scene-target.json",
+      "sourceComponentPointer": "/components",
+      "runtimeContractPointer": "/metadata/componentContracts",
+      "spriteContractPointer": "/metadata/spriteContracts",
+      "uiContractPointer": "/metadata/uiSurfaceFamily",
+      "manifestSha256": "b37eaa40c354dff4c7c30133d017133de6b2267e4aed6ef032daf87b9924a05b",
+      "lockedFields": [
+        "id",
+        "sourceViewId",
+        "crop",
+        "stateIds",
+        "derivedFromSceneTargetSha256",
+        "runtimeBounds",
+        "nativeSize",
+        "anchor",
+        "layer",
+        "states",
+        "animationNeeds",
+        "pivot"
+      ]
+    },
+    "boundsPolicy": "Each sourceBounds value is the exact approved target crop. Aggregate runtimeBounds, actor and bottle native sizes, pivots, anchors, layers, states, and animation duties are pinned to the detailed contracts. For props whose tight transparent frame is not separately fixed by the target, production must preserve the crop and world anchor, choose a whole-pixel pivot, and record the exact exported frame bounds before integration rather than inventing scale during import.",
+    "requiredComponents": [
+      {
+        "id": "workshop-environment",
+        "method": "direct-raster-reconstruction",
+        "sourceViewId": "inkcap-interaction",
+        "sourceViewSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377",
+        "sourceBounds": { "x": 4, "y": 20, "width": 296, "height": 229 },
+        "runtimeBounds": { "x": 14, "y": 32, "width": 300, "height": 212 },
+        "pivot": { "x": 0, "y": 0 },
+        "anchor": "top-left at 14,32",
+        "layer": "environment-floor plus environment-edge-clutter",
+        "states": ["all"],
+        "animationResponsibility": "Keep floor and collision edges static; export glasslight, one lamp breath, and offset mushroom glints as separate overlays.",
+        "outputFamily": "environment"
+      },
+      {
+        "id": "divider-environment",
+        "method": "direct-raster-reconstruction",
+        "sourceViewId": "inkcap-interaction",
+        "sourceViewSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377",
+        "sourceBounds": { "x": 300, "y": 20, "width": 36, "height": 229 },
+        "runtimeBounds": { "x": 318, "y": 32, "width": 12, "height": 212 },
+        "pivot": { "x": 0, "y": 0 },
+        "anchor": "top-left at 318,32; apertures centered 324,103 and 324,165",
+        "layer": "environment-edge-clutter below route-gates",
+        "states": ["all"],
+        "animationResponsibility": "Keep collision-bearing masonry static; any vine shift stays one pixel and clear of both 22x40 apertures.",
+        "outputFamily": "environment"
+      },
+      {
+        "id": "garden-environment",
+        "method": "direct-raster-reconstruction",
+        "sourceViewId": "inkcap-interaction",
+        "sourceViewSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377",
+        "sourceBounds": { "x": 336, "y": 20, "width": 144, "height": 229 },
+        "runtimeBounds": { "x": 336, "y": 32, "width": 130, "height": 212 },
+        "pivot": { "x": 0, "y": 0 },
+        "anchor": "top-left at 336,32",
+        "layer": "environment-floor plus environment-edge-clutter",
+        "states": ["all"],
+        "animationResponsibility": "Leave Mira and both plots empty; export phosphor moss, two offset mushroom glints, and one lamp breath as separate overlays.",
+        "outputFamily": "environment"
+      },
+      {
+        "id": "courier-actor",
+        "method": "direct-raster-sprite-sheet",
+        "sourceViewId": "inkcap-interaction",
+        "sourceViewSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377",
+        "sourceBounds": { "x": 72, "y": 35, "width": 24, "height": 36 },
+        "nativeFrameSize": { "width": 20, "height": 28 },
+        "pivot": { "x": 10, "y": 24 },
+        "anchor": "bottom-center follows CharacterBody2D; initial world anchor 80,50",
+        "layer": "courier",
+        "states": ["idle", "walk-4dir", "brew-anticipate", "brew-follow-through", "carry-idle", "carry-walk", "deliver", "choose"],
+        "animationResponsibility": "Idle 4 frames at 5 fps; walk 6 frames at 10 fps; interaction beats 240-450 ms; bottle remains an independent socketed consumer.",
+        "outputFamily": "characters"
+      },
+      {
+        "id": "mira-actor",
+        "method": "direct-raster-sprite-sheet",
+        "sourceViewId": "inkcap-resolution",
+        "sourceViewSha256": "46ea8aa2c064cbb4110905fb871276a86d3dc86f714eedb77228dcf3ab3cae62",
+        "sourceBounds": { "x": 396, "y": 91, "width": 34, "height": 62 },
+        "nativeFrameSize": { "width": 24, "height": 32 },
+        "pivot": { "x": 12, "y": 28 },
+        "anchor": "bottom-center at 414,126",
+        "layer": "mira",
+        "states": ["waiting", "turn-to-courier", "anticipate", "balanced-relief", "mismatch", "settled"],
+        "animationResponsibility": "Offset blink and shoulder breath; anticipate, two-pixel relief bounce or mismatch, 900 ms readable hold, and settle.",
+        "outputFamily": "characters"
+      },
+      {
+        "id": "warm-ingredient",
+        "method": "direct-raster-state-family",
+        "sourceViewId": "inkcap-interaction",
+        "sourceViewSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377",
+        "sourceBounds": { "x": 136, "y": 188, "width": 42, "height": 45 },
+        "runtimeContractBounds": { "x": 124, "y": 150, "width": 166, "height": 90 },
+        "pivot": { "x": 4, "y": 32, "coordinateSpace": "approved source bounds" },
+        "anchor": "separate child at 140,220",
+        "layer": "interactive-props",
+        "states": ["normal", "focus", "selected", "feedback", "resolved"],
+        "animationResponsibility": "One-pixel focus rise and 120 ms settle; label, focus ring, and collision remain separate.",
+        "outputFamily": "interactables"
+      },
+      {
+        "id": "fizz-ingredient",
+        "method": "direct-raster-state-family",
+        "sourceViewId": "inkcap-interaction",
+        "sourceViewSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377",
+        "sourceBounds": { "x": 198, "y": 188, "width": 42, "height": 45 },
+        "runtimeContractBounds": { "x": 124, "y": 150, "width": 166, "height": 90 },
+        "pivot": { "x": 7, "y": 32, "coordinateSpace": "approved source bounds" },
+        "anchor": "separate child at 205,220",
+        "layer": "interactive-props",
+        "states": ["normal", "focus", "selected", "feedback", "resolved"],
+        "animationResponsibility": "One-pixel focus rise and 120 ms settle; label, focus ring, and collision remain separate.",
+        "outputFamily": "interactables"
+      },
+      {
+        "id": "brew-station",
+        "method": "direct-raster-state-family",
+        "sourceViewId": "inkcap-action",
+        "sourceViewSha256": "496c970226e8326364d19c26a466cf483b7db520b23b85b018cc4938e68f06ae",
+        "sourceBounds": { "x": 220, "y": 143, "width": 70, "height": 72 },
+        "runtimeContractBounds": { "x": 124, "y": 150, "width": 166, "height": 90 },
+        "pivot": { "x": 40, "y": 42, "coordinateSpace": "approved source bounds" },
+        "anchor": "separate child at 260,185",
+        "layer": "interactive-props",
+        "states": ["idle", "focus", "brew-anticipate", "action", "cooldown", "resolved"],
+        "animationResponsibility": "Run the 450 ms brew beat with separate bubble crest and rim-response effects, then settle to an authoritative bottle-present state.",
+        "outputFamily": "interactables"
+      },
+      {
+        "id": "cooling-gate",
+        "method": "direct-raster-sprite-sheet",
+        "sourceViewId": "inkcap-interaction",
+        "sourceViewSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377",
+        "sourceBounds": { "x": 301, "y": 58, "width": 35, "height": 61 },
+        "nativeFrameSize": { "width": 22, "height": 40 },
+        "pivot": { "x": 11, "y": 20 },
+        "anchor": "center at 324,103",
+        "layer": "route-gates",
+        "states": ["idle", "focus", "activated", "settled"],
+        "animationResponsibility": "Animate cyan crystal bands independently during the 360 ms consequence beat without changing the Area2D aperture.",
+        "outputFamily": "route-gates"
+      },
+      {
+        "id": "venting-gate",
+        "method": "direct-raster-sprite-sheet",
+        "sourceViewId": "inkcap-route-feedback",
+        "sourceViewSha256": "3586897a18adf932656166fd2dd6edc6a6ec2b46286c69926dfa192b1a12f5ba",
+        "sourceBounds": { "x": 301, "y": 120, "width": 48, "height": 64 },
+        "nativeFrameSize": { "width": 22, "height": 40 },
+        "pivot": { "x": 11, "y": 20 },
+        "anchor": "center at 324,165",
+        "layer": "route-gates",
+        "states": ["idle", "focus", "activated", "settled"],
+        "animationResponsibility": "Open copper louvers before the 360 ms puff-to-bottle consequence and settle without changing the Area2D aperture.",
+        "outputFamily": "route-gates"
+      },
+      {
+        "id": "carried-bottle",
+        "method": "direct-raster-sprite-sheet",
+        "sourceViewId": "inkcap-action",
+        "sourceViewSha256": "496c970226e8326364d19c26a466cf483b7db520b23b85b018cc4938e68f06ae",
+        "sourceBounds": { "x": 195, "y": 144, "width": 14, "height": 24 },
+        "nativeFrameSize": { "width": 8, "height": 12 },
+        "pivot": { "x": 4, "y": 10 },
+        "anchor": "independent courier carry socket, then 240 ms handoff arc",
+        "layer": "carried-bottle",
+        "states": ["w2-f3-unrouted", "w2-f2-vented", "w1-f3-cooled", "handoff", "empty"],
+        "animationResponsibility": "One-pixel carry settle, interior state swap, two-frame glint, and 240 ms handoff; shape, mark, quantity, and rim preserve non-color state cues.",
+        "outputFamily": "props"
+      },
+      {
+        "id": "follow-up-plots",
+        "method": "direct-raster-state-family",
+        "sourceViewId": "inkcap-resolution",
+        "sourceViewSha256": "46ea8aa2c064cbb4110905fb871276a86d3dc86f714eedb77228dcf3ab3cae62",
+        "sourceBounds": { "x": 348, "y": 188, "width": 128, "height": 51 },
+        "runtimeBounds": { "x": 352, "y": 198, "width": 106, "height": 42 },
+        "pivots": [
+          { "id": "warm-cool", "x": 24, "y": 30, "coordinateSpace": "approved source bounds" },
+          { "id": "fizz-vent", "x": 90, "y": 30, "coordinateSpace": "approved source bounds" }
+        ],
+        "anchor": "independent centers at 372,218 and 438,218",
+        "layer": "interactive-props below selection-effects",
+        "states": ["dormant", "focus", "active", "selected", "disabled", "resolved"],
+        "animationResponsibility": "Raise plus sigils on activation, pulse focus once, close a 300 ms selection ring, and desaturate the disabled plot without hiding or moving it.",
+        "outputFamily": "interactables"
+      },
+      {
+        "id": "brew-effects",
+        "method": "direct-raster-effect-sheet",
+        "sourceViewId": "inkcap-action",
+        "sourceViewSha256": "496c970226e8326364d19c26a466cf483b7db520b23b85b018cc4938e68f06ae",
+        "sourceBounds": { "x": 238, "y": 145, "width": 36, "height": 35 },
+        "runtimeContractBounds": { "x": 230, "y": 86, "width": 226, "height": 154 },
+        "pivot": { "x": 0, "y": 0, "role": "top-left transparent strip canvas" },
+        "anchor": "local origin at brew station",
+        "layer": "state-effects",
+        "states": ["brew"],
+        "animationResponsibility": "Transparent bubble crest and rim response strip synchronized to courier anticipation and bottle appearance within 450 ms.",
+        "outputFamily": "effects"
+      },
+      {
+        "id": "route-effects",
+        "method": "direct-raster-effect-sheet",
+        "sourceViewId": "inkcap-route-feedback",
+        "sourceViewSha256": "3586897a18adf932656166fd2dd6edc6a6ec2b46286c69926dfa192b1a12f5ba",
+        "sourceBounds": { "x": 315, "y": 133, "width": 66, "height": 45 },
+        "runtimeContractBounds": { "x": 230, "y": 86, "width": 226, "height": 154 },
+        "pivot": { "x": 0, "y": 0, "role": "top-left transparent strip canvas" },
+        "anchor": "local origins at activated gate and carried bottle",
+        "layer": "state-effects",
+        "states": ["route-consequence"],
+        "animationResponsibility": "Transparent vent puff, cool transfer, bottle conversion, and fading spark strips; gate responds before travel and bottle settles within 360 ms.",
+        "outputFamily": "effects"
+      },
+      {
+        "id": "reaction-effects",
+        "method": "direct-raster-effect-sheet",
+        "sourceViewId": "inkcap-resolution",
+        "sourceViewSha256": "46ea8aa2c064cbb4110905fb871276a86d3dc86f714eedb77228dcf3ab3cae62",
+        "sourceBounds": { "x": 395, "y": 84, "width": 43, "height": 34 },
+        "runtimeContractBounds": { "x": 230, "y": 86, "width": 226, "height": 154 },
+        "pivot": { "x": 0, "y": 0, "role": "top-left transparent strip canvas" },
+        "anchor": "local origin at Mira",
+        "layer": "state-effects",
+        "states": ["reaction"],
+        "animationResponsibility": "Balanced cyan/coral motes and relief accent follow anticipation, preserve Mira's silhouette, and support the 900 ms readable hold.",
+        "outputFamily": "effects"
+      },
+      {
+        "id": "selection-effects",
+        "method": "direct-raster-effect-sheet",
+        "sourceViewId": "inkcap-transition",
+        "sourceViewSha256": "7642a7f9b939190ceaf1fcebadd4d103e3f710c8d6b684e0d38ef92dbc762906",
+        "sourceBounds": { "x": 348, "y": 186, "width": 128, "height": 54 },
+        "runtimeContractBounds": { "x": 230, "y": 86, "width": 226, "height": 154 },
+        "pivot": { "x": 0, "y": 0, "role": "top-left transparent strip canvas" },
+        "anchor": "independent local origins at both plot centers",
+        "layer": "state-effects",
+        "states": ["focus", "selected", "disabled", "resolved"],
+        "animationResponsibility": "One-shot focus, two-pixel leaf selection ring, upward mote, and readable low-saturation disabled outline without moving plot anchors.",
+        "outputFamily": "effects"
+      },
+      {
+        "id": "status-ledger",
+        "method": "code-native-ui-with-direct-raster-motifs",
+        "sourceViewId": "inkcap-interaction",
+        "sourceViewSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377",
+        "sourceBounds": { "x": 0, "y": 0, "width": 480, "height": 20 },
+        "runtimeBounds": { "x": 0, "y": 0, "width": 480, "height": 32 },
+        "pivot": { "x": 0, "y": 0 },
+        "anchor": "top-left at 0,0",
+        "layer": "status-ui",
+        "states": ["normal", "feedback", "resolved"],
+        "animationResponsibility": "Swap need, plan, bottle, and result content only after world response begins; fixed groups never reflow or become separate cards.",
+        "outputFamily": "interface"
+      },
+      {
+        "id": "context-ribbon",
+        "method": "code-native-ui-with-direct-raster-motifs",
+        "sourceViewId": "inkcap-action",
+        "sourceViewSha256": "496c970226e8326364d19c26a466cf483b7db520b23b85b018cc4938e68f06ae",
+        "sourceBounds": { "x": 0, "y": 248, "width": 480, "height": 22 },
+        "runtimeBounds": { "x": 0, "y": 244, "width": 480, "height": 26 },
+        "pivot": { "x": 0, "y": 0 },
+        "anchor": "top-left at 0,244",
+        "layer": "context-ui",
+        "states": ["controls", "feedback", "recovery", "resolved"],
+        "animationResponsibility": "Replace one concise message in fixed bounds after world response; recovery preserves the entire world and pulses the next valid anchor once.",
+        "outputFamily": "feedback"
+      },
+      {
+        "id": "world-context-cues",
+        "method": "code-native-nine-slice-ui-with-direct-raster-motifs",
+        "sourceViewId": "inkcap-interaction",
+        "sourceViewSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377",
+        "sourceBounds": { "x": 295, "y": 54, "width": 180, "height": 188 },
+        "runtimeBounds": { "x": 0, "y": 0, "width": 480, "height": 270 },
+        "pivot": { "x": 0, "y": 0, "role": "full native UI canvas" },
+        "anchor": "entity-local whole-pixel anchors; only the reachable target owns an E cue",
+        "layer": "world-cues",
+        "states": ["normal", "focus", "selected", "disabled", "feedback", "recovery", "resolved"],
+        "animationResponsibility": "Brighten one border step on focus, compress one native pixel on action, settle within 120 ms, and never overlap actors, apertures, plots, or peer UI regions.",
+        "outputFamily": "world-interface"
+      }
+    ],
+    "codeNativePolicy": "Dynamic text, numeric potion state, proximity ownership, focus and selected state, disabled state, feedback sequencing, recovery copy, and accessibility-sensitive surfaces remain deliberately styled Godot controls. Raster motifs may provide target-derived brass, cyan, leaf, or border details only at 1:1 or through declared nine-slice regions; engine defaults and generic rectangles are prohibited.",
+    "animationPolicy": "Author native frames directly from approved silhouettes and state views, then hand them to runtime integration for causal choreography. Every short effect must begin from a real state change, settle to an authoritative persistent state, preserve actor identity and anchors, and avoid ambient motion that resembles an affordance."
+  },
+  "expectedOutputs": {
+    "containedDirectories": [
+      "game/assets/production/inkcap-conservatory/environment/",
+      "game/assets/production/inkcap-conservatory/interactables/",
+      "game/assets/production/inkcap-conservatory/route-gates/",
+      "game/assets/production/inkcap-conservatory/characters/",
+      "game/assets/production/inkcap-conservatory/props/",
+      "game/assets/production/inkcap-conservatory/effects/",
+      "game/assets/production/inkcap-conservatory/interface/",
+      "game/ui/production/inkcap-conservatory/",
+      "design/production-assets/inkcap-conservatory/"
+    ],
+    "handoffManifest": "design/production-assets/inkcap-conservatory/inventory.json",
+    "requirements": [
+      "Lossless native PNG assets or sprite sheets for every direct-raster component, with declared tight frame bounds, pivots, state or animation names, frame timing, layers, runtime consumers, and hashes.",
+      "Deliberately styled code-native UI components for normal, focus or selected, disabled when applicable, feedback, recovery, and resolved states, with generated target lettering excluded.",
+      "Per-component provenance linking manifest hash, approved target id and hash, source view and hash, source crop, prompt or contract pointer, native size, output hash, and contained runtime path.",
+      "Exact 480x270 and integer 3x recomposition checks showing that independent components recover the approved hierarchy without actor-bearing environment plates, clipping, undeclared overlap, mixed density, or smoothed scaling.",
+      "Transparent-background edge checks for actors, gates, bottle, props, and effects, including clean pixels behind every moved or state-swapped consumer.",
+      "Runtime engine capture and state-linked motion evidence remain downstream integration obligations and are not outputs of this planning node."
+    ]
+  },
+  "providerRequests": {
+    "required": false,
+    "files": [],
+    "configuredConditionalPaths": {
+      "sam3": "sam3.request.json",
+      "video": "video.request.json",
+      "pixelMotion": "pixel-motion.request.json"
+    },
+    "reason": "The selected direct lane needs neither segmentation nor generated motion. No sam3.request.json, video.request.json, sam3.video.request.json, or pixel-motion.request.json is created."
+  },
+  "verification": {
+    "selectedViewHashesVerified": 5,
+    "selectedViewFilesExist": true,
+    "selectedViewDimensions": "480x270",
+    "approvalStatusVerified": "approved",
+    "approvalHashMatchesPrimaryView": true,
+    "componentCountVerified": 19,
+    "inventoryCount": 19,
+    "providerRequestFilesIntentionallyAbsent": true,
+    "assetGenerationIntentionallyAbsent": true,
+    "runtimeIntegrationIntentionallyAbsent": true
+  }
+}

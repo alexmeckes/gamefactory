@@ -1,0 +1,521 @@
+{
+  "apiVersion": "gamefactory.production-validation/v1",
+  "checks": [
+    {
+      "detail": "(480, 212) expected (480, 212)",
+      "id": "native-size",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/environment/conservatory-frame.png"
+    },
+    {
+      "detail": "(600, 212) expected (600, 212)",
+      "id": "native-size",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/environment/workshop-environment.png"
+    },
+    {
+      "detail": "(12, 212) expected (12, 212)",
+      "id": "native-size",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/environment/divider-environment.png"
+    },
+    {
+      "detail": "(260, 212) expected (260, 212)",
+      "id": "native-size",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/environment/garden-environment.png"
+    },
+    {
+      "detail": "(320, 28) expected (320, 28)",
+      "id": "native-size",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/characters/courier-actor.png"
+    },
+    {
+      "detail": "transparent=4774 opaque=4186",
+      "id": "transparent-background",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/characters/courier-actor.png"
+    },
+    {
+      "detail": "(144, 32) expected (144, 32)",
+      "id": "native-size",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/characters/mira-actor.png"
+    },
+    {
+      "detail": "transparent=2752 opaque=1856",
+      "id": "transparent-background",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/characters/mira-actor.png"
+    },
+    {
+      "detail": "(120, 32) expected (120, 32)",
+      "id": "native-size",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/interactables/warm-ingredient.png"
+    },
+    {
+      "detail": "transparent=2349 opaque=1491",
+      "id": "transparent-background",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/interactables/warm-ingredient.png"
+    },
+    {
+      "detail": "(120, 32) expected (120, 32)",
+      "id": "native-size",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/interactables/fizz-ingredient.png"
+    },
+    {
+      "detail": "transparent=2349 opaque=1491",
+      "id": "transparent-background",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/interactables/fizz-ingredient.png"
+    },
+    {
+      "detail": "(288, 48) expected (288, 48)",
+      "id": "native-size",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/interactables/brew-station.png"
+    },
+    {
+      "detail": "transparent=8928 opaque=4896",
+      "id": "transparent-background",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/interactables/brew-station.png"
+    },
+    {
+      "detail": "(88, 40) expected (88, 40)",
+      "id": "native-size",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/route-gates/cooling-gate.png"
+    },
+    {
+      "detail": "transparent=32 opaque=3488",
+      "id": "transparent-background",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/route-gates/cooling-gate.png"
+    },
+    {
+      "detail": "(88, 40) expected (88, 40)",
+      "id": "native-size",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/route-gates/venting-gate.png"
+    },
+    {
+      "detail": "transparent=32 opaque=3488",
+      "id": "transparent-background",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/route-gates/venting-gate.png"
+    },
+    {
+      "detail": "(40, 12) expected (40, 12)",
+      "id": "native-size",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/props/carried-bottle.png"
+    },
+    {
+      "detail": "transparent=220 opaque=260",
+      "id": "transparent-background",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/props/carried-bottle.png"
+    },
+    {
+      "detail": "(192, 24) expected (192, 24)",
+      "id": "native-size",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/interactables/follow-up-warm_cool.png"
+    },
+    {
+      "detail": "transparent=2621 opaque=1987",
+      "id": "transparent-background",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/interactables/follow-up-warm_cool.png"
+    },
+    {
+      "detail": "(192, 24) expected (192, 24)",
+      "id": "native-size",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/interactables/follow-up-fizz_vent.png"
+    },
+    {
+      "detail": "transparent=2621 opaque=1987",
+      "id": "transparent-background",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/interactables/follow-up-fizz_vent.png"
+    },
+    {
+      "detail": "(180, 35) expected (180, 35)",
+      "id": "native-size",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/effects/brew-effects.png"
+    },
+    {
+      "detail": "transparent=6094 opaque=206",
+      "id": "transparent-background",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/effects/brew-effects.png"
+    },
+    {
+      "detail": "(330, 45) expected (330, 45)",
+      "id": "native-size",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/effects/route-effects.png"
+    },
+    {
+      "detail": "transparent=14593 opaque=257",
+      "id": "transparent-background",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/effects/route-effects.png"
+    },
+    {
+      "detail": "(215, 34) expected (215, 34)",
+      "id": "native-size",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/effects/reaction-effects.png"
+    },
+    {
+      "detail": "transparent=7229 opaque=81",
+      "id": "transparent-background",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/effects/reaction-effects.png"
+    },
+    {
+      "detail": "(160, 32) expected (160, 32)",
+      "id": "native-size",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/effects/selection-effects.png"
+    },
+    {
+      "detail": "transparent=4709 opaque=411",
+      "id": "transparent-background",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/effects/selection-effects.png"
+    },
+    {
+      "detail": "(16, 16) expected (16, 16)",
+      "id": "native-size",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/interface/ledger-panel.png"
+    },
+    {
+      "detail": "(16, 16) expected (16, 16)",
+      "id": "native-size",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/interface/context-panel.png"
+    },
+    {
+      "detail": "(16, 12) expected (16, 12)",
+      "id": "native-size",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/interface/world-cue-panel.png"
+    },
+    {
+      "detail": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377",
+      "id": "approved-target-hash",
+      "passed": true,
+      "subject": "inkcap-interaction"
+    },
+    {
+      "detail": "bundled interface typography dependency",
+      "id": "bundled-font",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/interface/fonts/DejaVuSans.ttf"
+    },
+    {
+      "detail": "bundled interface typography dependency",
+      "id": "bundled-font",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/interface/fonts/DejaVuSans-Bold.ttf"
+    },
+    {
+      "detail": "bundled interface typography dependency",
+      "id": "bundled-font",
+      "passed": true,
+      "subject": "game/assets/production/inkcap-conservatory/interface/fonts/LICENSE_DEJAVU.txt"
+    },
+    {
+      "detail": "PackedScene loads",
+      "id": "scene-load",
+      "passed": true,
+      "subject": "game/main.tscn"
+    },
+    {
+      "detail": "expected (80.0, 50.0)",
+      "id": "anchor",
+      "passed": true,
+      "subject": "World/Player"
+    },
+    {
+      "detail": "expected (140.0, 220.0)",
+      "id": "anchor",
+      "passed": true,
+      "subject": "World/WarmIngredient"
+    },
+    {
+      "detail": "expected (205.0, 220.0)",
+      "id": "anchor",
+      "passed": true,
+      "subject": "World/FizzIngredient"
+    },
+    {
+      "detail": "expected (260.0, 185.0)",
+      "id": "anchor",
+      "passed": true,
+      "subject": "World/BrewStation"
+    },
+    {
+      "detail": "expected (324.0, 103.0)",
+      "id": "anchor",
+      "passed": true,
+      "subject": "World/CoolingLane"
+    },
+    {
+      "detail": "expected (324.0, 165.0)",
+      "id": "anchor",
+      "passed": true,
+      "subject": "World/VentingLane"
+    },
+    {
+      "detail": "expected (414.0, 126.0)",
+      "id": "anchor",
+      "passed": true,
+      "subject": "World/Villager"
+    },
+    {
+      "detail": "expected (372.0, 218.0)",
+      "id": "anchor",
+      "passed": true,
+      "subject": "World/FollowWarmCooling"
+    },
+    {
+      "detail": "expected (438.0, 218.0)",
+      "id": "anchor",
+      "passed": true,
+      "subject": "World/FollowFizzVenting"
+    },
+    {
+      "detail": "independent textured Sprite2D",
+      "id": "runtime-consumer",
+      "passed": true,
+      "subject": "World/ConservatoryFrame"
+    },
+    {
+      "detail": "independent textured Sprite2D",
+      "id": "runtime-consumer",
+      "passed": true,
+      "subject": "World/WorkshopEnvironment"
+    },
+    {
+      "detail": "independent textured Sprite2D",
+      "id": "runtime-consumer",
+      "passed": true,
+      "subject": "World/DividerEnvironment"
+    },
+    {
+      "detail": "independent textured Sprite2D",
+      "id": "runtime-consumer",
+      "passed": true,
+      "subject": "World/GardenEnvironment"
+    },
+    {
+      "detail": "independent textured Sprite2D",
+      "id": "runtime-consumer",
+      "passed": true,
+      "subject": "World/Player/Visual"
+    },
+    {
+      "detail": "independent textured Sprite2D",
+      "id": "runtime-consumer",
+      "passed": true,
+      "subject": "World/Player/Bottle"
+    },
+    {
+      "detail": "independent textured Sprite2D",
+      "id": "runtime-consumer",
+      "passed": true,
+      "subject": "World/BrewStation/Visual"
+    },
+    {
+      "detail": "independent textured Sprite2D",
+      "id": "runtime-consumer",
+      "passed": true,
+      "subject": "World/BrewStation/Effect"
+    },
+    {
+      "detail": "independent textured Sprite2D",
+      "id": "runtime-consumer",
+      "passed": true,
+      "subject": "World/CoolingLane/Visual"
+    },
+    {
+      "detail": "independent textured Sprite2D",
+      "id": "runtime-consumer",
+      "passed": true,
+      "subject": "World/CoolingLane/Effect"
+    },
+    {
+      "detail": "independent textured Sprite2D",
+      "id": "runtime-consumer",
+      "passed": true,
+      "subject": "World/VentingLane/Visual"
+    },
+    {
+      "detail": "independent textured Sprite2D",
+      "id": "runtime-consumer",
+      "passed": true,
+      "subject": "World/VentingLane/Effect"
+    },
+    {
+      "detail": "independent textured Sprite2D",
+      "id": "runtime-consumer",
+      "passed": true,
+      "subject": "World/Villager/Visual"
+    },
+    {
+      "detail": "independent textured Sprite2D",
+      "id": "runtime-consumer",
+      "passed": true,
+      "subject": "World/Villager/Effect"
+    },
+    {
+      "detail": "independent textured Sprite2D",
+      "id": "runtime-consumer",
+      "passed": true,
+      "subject": "World/FollowWarmCooling/Visual"
+    },
+    {
+      "detail": "independent textured Sprite2D",
+      "id": "runtime-consumer",
+      "passed": true,
+      "subject": "World/FollowWarmCooling/Effect"
+    },
+    {
+      "detail": "independent textured Sprite2D",
+      "id": "runtime-consumer",
+      "passed": true,
+      "subject": "World/FollowFizzVenting/Visual"
+    },
+    {
+      "detail": "independent textured Sprite2D",
+      "id": "runtime-consumer",
+      "passed": true,
+      "subject": "World/FollowFizzVenting/Effect"
+    },
+    {
+      "detail": "shipping InputMap action remains present",
+      "id": "shipping-input",
+      "passed": true,
+      "subject": "move_left"
+    },
+    {
+      "detail": "shipping InputMap action remains present",
+      "id": "shipping-input",
+      "passed": true,
+      "subject": "move_right"
+    },
+    {
+      "detail": "shipping InputMap action remains present",
+      "id": "shipping-input",
+      "passed": true,
+      "subject": "move_up"
+    },
+    {
+      "detail": "shipping InputMap action remains present",
+      "id": "shipping-input",
+      "passed": true,
+      "subject": "move_down"
+    },
+    {
+      "detail": "shipping InputMap action remains present",
+      "id": "shipping-input",
+      "passed": true,
+      "subject": "interact"
+    },
+    {
+      "detail": "(1440, 810)",
+      "id": "shipping-capture-size",
+      "passed": true,
+      "subject": "evidence/captures/planning.png"
+    },
+    {
+      "detail": "(1440, 810)",
+      "id": "shipping-capture-size",
+      "passed": true,
+      "subject": "evidence/captures/action.png"
+    },
+    {
+      "detail": "(1440, 810)",
+      "id": "shipping-capture-size",
+      "passed": true,
+      "subject": "evidence/captures/result.png"
+    },
+    {
+      "detail": "(1440, 810)",
+      "id": "shipping-capture-size",
+      "passed": true,
+      "subject": "evidence/motion/frame-000.png"
+    },
+    {
+      "detail": "(1440, 810)",
+      "id": "shipping-capture-size",
+      "passed": true,
+      "subject": "evidence/motion/frame-001.png"
+    },
+    {
+      "detail": "(1440, 810)",
+      "id": "shipping-capture-size",
+      "passed": true,
+      "subject": "evidence/motion/frame-002.png"
+    },
+    {
+      "detail": "(1440, 810)",
+      "id": "shipping-capture-size",
+      "passed": true,
+      "subject": "evidence/motion/frame-003.png"
+    },
+    {
+      "detail": "(1440, 810)",
+      "id": "shipping-capture-size",
+      "passed": true,
+      "subject": "evidence/motion/frame-004.png"
+    },
+    {
+      "detail": "(1440, 810)",
+      "id": "shipping-capture-size",
+      "passed": true,
+      "subject": "evidence/motion/frame-005.png"
+    },
+    {
+      "detail": "(1440, 810)",
+      "id": "shipping-capture-size",
+      "passed": true,
+      "subject": "evidence/motion/frame-006.png"
+    },
+    {
+      "detail": "10 distinct hashes across configured captures",
+      "id": "motion-distinct",
+      "passed": true,
+      "subject": "evidence/motion"
+    },
+    {
+      "detail": "{\"carrying\":false,\"deliveryComplete\":true,\"followUpChoice\":\"warm_cooling\",\"label\":\"resolved-hold\",\"path\":\"evidence/motion/frame-007.png\",\"playerPosition\":{\"x\":395.0,\"y\":215.0},\"reaction\":\"balanced relief\",\"routeEffect\":\"venting\"}",
+      "id": "candidate-causal-chain",
+      "passed": true,
+      "subject": "candidate-capture-trace"
+    },
+    {
+      "detail": "not factory-trusted evidence",
+      "id": "candidate-trust-boundary",
+      "passed": true,
+      "subject": "candidate-capture-trace"
+    }
+  ],
+  "outcome": "pass",
+  "sliceId": "production-encounter",
+  "specRevision": 1,
+  "targetHash": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377",
+  "trustBoundary": "Static and candidate-authored runtime validation; downstream factory-owned evidence remains authoritative.",
+  "violations": []
+}

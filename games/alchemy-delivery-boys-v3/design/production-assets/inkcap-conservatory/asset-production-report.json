@@ -1,0 +1,44 @@
+{
+  "apiVersion": "gamefactory.pixel-asset-production-report/v1",
+  "specRevision": 1,
+  "sliceId": "production-encounter",
+  "targetId": "inkcap-interaction",
+  "targetHash": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377",
+  "hypothesis": "Direct native-pixel reconstruction can preserve the approved Inkcap geometry and state silhouettes more faithfully than segmentation because every moving or stateful element remains a transparent, independently controlled runtime consumer.",
+  "assumptions": [
+    "The approved whole-screen target is art direction; the accepted 480x270 live geometry remains placement authority.",
+    "Dynamic text, numeric state, proximity focus, disabled state, feedback, and recovery remain code-native.",
+    "The selected direct lane intentionally skips SAM, video, and pixel-motion provider requests."
+  ],
+  "productionGrammar": {
+    "nativeGrid": "480x270",
+    "integerScale": 3,
+    "palettePolicy": "target-locked role palette",
+    "outlineLanguage": "crisp one- and two-pixel ink/slate clusters",
+    "lighting": "cool moonlight with warm brass accents",
+    "materialLanguage": ["indigo flagstone", "old brick", "glass rafters", "brass shelving", "mulberry soil", "inkcap mushrooms", "phosphor moss", "cyan crystal", "copper louvers"],
+    "silhouetteScale": {"courier": "20x28", "mira": "24x32", "bottle": "8x12"}
+  },
+  "inventory": "design/production-assets/inkcap-conservatory/inventory.json",
+  "componentCount": 19,
+  "directRasterComponentsReady": 16,
+  "codeNativeInterfaceFamiliesReady": 3,
+  "losslessRuntimePngCount": 21,
+  "transparentStateFamilies": 14,
+  "providerRequests": {"sam3": "skipped", "video": "skipped", "pixelMotion": "skipped"},
+  "runtimeHandoff": {
+    "nativeAssets": "game/assets/production/inkcap-conservatory/",
+    "interfaceSources": "game/ui/production/inkcap-conservatory/",
+    "authoringSource": "design/production-assets/inkcap-conservatory/build_assets.gd"
+  },
+  "verification": {
+    "targetHashPinned": true,
+    "nativeSizesPassed": true,
+    "transparentEdgesPassed": true,
+    "losslessImportsPassed": true,
+    "orphanAssets": [],
+    "violations": []
+  },
+  "status": "pass"
+}
+

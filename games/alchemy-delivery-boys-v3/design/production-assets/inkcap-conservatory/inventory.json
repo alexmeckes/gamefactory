@@ -1,0 +1,282 @@
+{
+  "apiVersion": "gamefactory.production-asset-inventory/v1",
+  "specRevision": 1,
+  "sliceId": "production-encounter",
+  "target": {
+    "id": "alchemy-delivery-boys-v3-production-encounter",
+    "candidateId": "inkcap-night-conservatory",
+    "primaryViewId": "inkcap-interaction",
+    "sha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377",
+    "contract": "design/scene-targets/scene-target.json",
+    "laneDecision": "design/asset-lanes/decision.json"
+  },
+  "productionGrammar": {
+    "nativeViewport": "480x270",
+    "shippingViewport": "1440x810",
+    "integerScale": 3,
+    "filter": "nearest-neighbor",
+    "palette": ["#12121F", "#243047", "#34243D", "#FFF3C4", "#D89B62", "#66D9E8", "#EF476F", "#9BE564", "#7F5AF0"],
+    "outline": "one- and two-native-pixel whole-pixel clusters",
+    "lighting": "cool moonlit glasslight with restrained warm brass accents",
+    "typography": "code-native DejaVu Sans body and bold display roles with target-derived raster panel motifs"
+  },
+  "productionMethod": {
+    "selectedLane": "direct",
+    "method": "direct-native-raster-reconstruction",
+    "authoringScript": {
+      "path": "design/production-assets/inkcap-conservatory/build_assets.gd",
+      "sha256": "ca0e17017922969501452e4c9ee3e41c395701975d4600cb5c63efce8d16f9ae"
+    },
+    "providerRequests": {
+      "sam3": "skipped",
+      "video": "skipped",
+      "pixelMotion": "skipped",
+      "reason": "The approved direct lane required no segmentation or generated-motion provider."
+    }
+  },
+  "components": [
+    {
+      "id": "workshop-environment",
+      "sourceView": "inkcap-interaction",
+      "sourceViewSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377",
+      "sourceCrop": "4,20,296,229",
+      "runtimeBounds": "14,32,300,212",
+      "layer": "environment-floor plus edge-clutter",
+      "outputs": [
+        {"path": "game/assets/production/inkcap-conservatory/environment/conservatory-frame.png", "sha256": "47a5ea40269417990a640a77a633e35e02655bbbbef00ac7fc49f454db21e3d6", "nativeSize": "480x212", "importPath": "game/assets/production/inkcap-conservatory/environment/conservatory-frame.png.import"},
+        {"path": "game/assets/production/inkcap-conservatory/environment/workshop-environment.png", "sha256": "70866dcef1745ee10f41028fc4bdc1e31236595eaa71d23bc12fb1ebc82c006d", "nativeSize": "600x212", "frames": 2, "frameSize": "300x212", "frameTimingMs": 2800, "importPath": "game/assets/production/inkcap-conservatory/environment/workshop-environment.png.import"}
+      ],
+      "runtimeConsumers": ["World/ConservatoryFrame", "World/WorkshopEnvironment"],
+      "states": ["all"],
+      "pivot": "top-left"
+    },
+    {
+      "id": "divider-environment",
+      "sourceView": "inkcap-interaction",
+      "sourceViewSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377",
+      "sourceCrop": "300,20,36,229",
+      "runtimeBounds": "318,32,12,212",
+      "layer": "environment-edge-clutter below route-gates",
+      "outputs": [{"path": "game/assets/production/inkcap-conservatory/environment/divider-environment.png", "sha256": "b273ac621a2480eddd5b3f2f54c83582adafe1a6ac05abb583da139d752cc433", "nativeSize": "12x212", "importPath": "game/assets/production/inkcap-conservatory/environment/divider-environment.png.import"}],
+      "runtimeConsumers": ["World/DividerEnvironment"],
+      "states": ["all"],
+      "pivot": "top-left"
+    },
+    {
+      "id": "garden-environment",
+      "sourceView": "inkcap-interaction",
+      "sourceViewSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377",
+      "sourceCrop": "336,20,144,229",
+      "runtimeBounds": "336,32,130,212",
+      "layer": "environment-floor plus edge-clutter",
+      "outputs": [{"path": "game/assets/production/inkcap-conservatory/environment/garden-environment.png", "sha256": "cb878ddbf2ba9c6ec2c21558fc5220a70bab22931d0aa4fae11e676a5ff5c55a", "nativeSize": "260x212", "frames": 2, "frameSize": "130x212", "frameTimingMs": 3200, "importPath": "game/assets/production/inkcap-conservatory/environment/garden-environment.png.import"}],
+      "runtimeConsumers": ["World/GardenEnvironment"],
+      "states": ["all"],
+      "pivot": "top-left"
+    },
+    {
+      "id": "courier-actor",
+      "sourceView": "inkcap-interaction",
+      "sourceViewSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377",
+      "sourceCrop": "72,35,24,36",
+      "layer": "courier",
+      "outputs": [{"path": "game/assets/production/inkcap-conservatory/characters/courier-actor.png", "sha256": "8da8296bc72df64ea68ad3dc5c4cb1100bd2cff9bdf326e60bd89910fdd581a4", "nativeSize": "320x28", "frames": 16, "frameSize": "20x28", "pivot": "10,24", "frameTimingMs": [200, 100, 240, 450], "importPath": "game/assets/production/inkcap-conservatory/characters/courier-actor.png.import"}],
+      "runtimeConsumers": ["World/Player/Visual"],
+      "states": ["idle", "walk-down", "walk-side", "walk-up", "brew-anticipate", "brew-follow-through", "carry-idle", "carry-walk", "deliver", "choose"]
+    },
+    {
+      "id": "mira-actor",
+      "sourceView": "inkcap-resolution",
+      "sourceViewSha256": "46ea8aa2c064cbb4110905fb871276a86d3dc86f714eedb77228dcf3ab3cae62",
+      "sourceCrop": "396,91,34,62",
+      "layer": "mira",
+      "outputs": [{"path": "game/assets/production/inkcap-conservatory/characters/mira-actor.png", "sha256": "e45032ef99aea6c05db5b27dc4e5f65b82ca65737ec13ce028bf42eaa9eb84a7", "nativeSize": "144x32", "frames": 6, "frameSize": "24x32", "pivot": "12,28", "frameTimingMs": [240, 900], "importPath": "game/assets/production/inkcap-conservatory/characters/mira-actor.png.import"}],
+      "runtimeConsumers": ["World/Villager/Visual"],
+      "states": ["waiting", "turn-to-courier", "anticipate", "balanced-relief", "mismatch", "settled"]
+    },
+    {
+      "id": "warm-ingredient",
+      "sourceView": "inkcap-interaction",
+      "sourceViewSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377",
+      "sourceCrop": "136,188,42,45",
+      "layer": "interactive-props",
+      "outputs": [{"path": "game/assets/production/inkcap-conservatory/interactables/warm-ingredient.png", "sha256": "2b6175198e363337dd360192a48e9f038b425ac9c63c91f381e156ab9b5e13fa", "nativeSize": "120x32", "frames": 5, "frameSize": "24x32", "frameTimingMs": 120, "importPath": "game/assets/production/inkcap-conservatory/interactables/warm-ingredient.png.import"}],
+      "runtimeConsumers": ["World/WarmIngredient/Visual"],
+      "states": ["normal", "focus", "selected", "feedback", "resolved"]
+    },
+    {
+      "id": "fizz-ingredient",
+      "sourceView": "inkcap-interaction",
+      "sourceViewSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377",
+      "sourceCrop": "198,188,42,45",
+      "layer": "interactive-props",
+      "outputs": [{"path": "game/assets/production/inkcap-conservatory/interactables/fizz-ingredient.png", "sha256": "07590375335bdf3e9cca896d6476f82cc9c46d43f730b59ae4b56dc70d780090", "nativeSize": "120x32", "frames": 5, "frameSize": "24x32", "frameTimingMs": 120, "importPath": "game/assets/production/inkcap-conservatory/interactables/fizz-ingredient.png.import"}],
+      "runtimeConsumers": ["World/FizzIngredient/Visual"],
+      "states": ["normal", "focus", "selected", "feedback", "resolved"]
+    },
+    {
+      "id": "brew-station",
+      "sourceView": "inkcap-action",
+      "sourceViewSha256": "496c970226e8326364d19c26a466cf483b7db520b23b85b018cc4938e68f06ae",
+      "sourceCrop": "220,143,70,72",
+      "layer": "interactive-props",
+      "outputs": [{"path": "game/assets/production/inkcap-conservatory/interactables/brew-station.png", "sha256": "72757d15b4d1d5073fefc16ffdd25f767fabae4b05843a0decea9e81d4db4785", "nativeSize": "288x48", "frames": 6, "frameSize": "48x48", "frameTimingMs": 450, "importPath": "game/assets/production/inkcap-conservatory/interactables/brew-station.png.import"}],
+      "runtimeConsumers": ["World/BrewStation/Visual"],
+      "states": ["idle", "focus", "brew-anticipate", "action", "cooldown", "resolved"]
+    },
+    {
+      "id": "cooling-gate",
+      "sourceView": "inkcap-interaction",
+      "sourceViewSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377",
+      "sourceCrop": "301,58,35,61",
+      "layer": "route-gates",
+      "outputs": [{"path": "game/assets/production/inkcap-conservatory/route-gates/cooling-gate.png", "sha256": "22999b80e12d23030c47afb58a9004dc2fa46def8e0c9033c0f76f382e9658da", "nativeSize": "88x40", "frames": 4, "frameSize": "22x40", "pivot": "11,20", "frameTimingMs": 360, "importPath": "game/assets/production/inkcap-conservatory/route-gates/cooling-gate.png.import"}],
+      "runtimeConsumers": ["World/CoolingLane/Visual"],
+      "states": ["idle", "recovery-focus", "activated", "settled"]
+    },
+    {
+      "id": "venting-gate",
+      "sourceView": "inkcap-route-feedback",
+      "sourceViewSha256": "3586897a18adf932656166fd2dd6edc6a6ec2b46286c69926dfa192b1a12f5ba",
+      "sourceCrop": "301,120,48,64",
+      "layer": "route-gates",
+      "outputs": [{"path": "game/assets/production/inkcap-conservatory/route-gates/venting-gate.png", "sha256": "8cf5905406e30fb93df77aa018a130276083dab578bc1c9adf385fd404cbf7ed", "nativeSize": "88x40", "frames": 4, "frameSize": "22x40", "pivot": "11,20", "frameTimingMs": 360, "importPath": "game/assets/production/inkcap-conservatory/route-gates/venting-gate.png.import"}],
+      "runtimeConsumers": ["World/VentingLane/Visual"],
+      "states": ["idle", "recovery-focus", "activated", "settled"]
+    },
+    {
+      "id": "carried-bottle",
+      "sourceView": "inkcap-action",
+      "sourceViewSha256": "496c970226e8326364d19c26a466cf483b7db520b23b85b018cc4938e68f06ae",
+      "sourceCrop": "195,144,14,24",
+      "layer": "carried-bottle",
+      "outputs": [{"path": "game/assets/production/inkcap-conservatory/props/carried-bottle.png", "sha256": "0a787f45d1235beabf75ca3899f836130b7518667732fd2a2160ffbf710a4ac2", "nativeSize": "40x12", "frames": 5, "frameSize": "8x12", "pivot": "4,10", "frameTimingMs": [360, 240], "importPath": "game/assets/production/inkcap-conservatory/props/carried-bottle.png.import"}],
+      "runtimeConsumers": ["World/Player/Bottle"],
+      "states": ["w2-f3-unrouted", "w2-f2-vented", "w1-f3-cooled", "handoff", "empty"]
+    },
+    {
+      "id": "follow-up-plots",
+      "sourceView": "inkcap-resolution",
+      "sourceViewSha256": "46ea8aa2c064cbb4110905fb871276a86d3dc86f714eedb77228dcf3ab3cae62",
+      "sourceCrop": "348,188,128,51",
+      "layer": "interactive-props below selection-effects",
+      "outputs": [
+        {"path": "game/assets/production/inkcap-conservatory/interactables/follow-up-warm_cool.png", "sha256": "020a13ab26b8493750d4d43e088f3d2276679ab593a780bde1a5c1d50b8b3a25", "nativeSize": "192x24", "frames": 6, "frameSize": "32x24", "frameTimingMs": 300, "importPath": "game/assets/production/inkcap-conservatory/interactables/follow-up-warm_cool.png.import"},
+        {"path": "game/assets/production/inkcap-conservatory/interactables/follow-up-fizz_vent.png", "sha256": "fd8779d1eaebb8821413f1d5fa3e9ea24083689ec96e16fccc31e3facf1bd3a3", "nativeSize": "192x24", "frames": 6, "frameSize": "32x24", "frameTimingMs": 300, "importPath": "game/assets/production/inkcap-conservatory/interactables/follow-up-fizz_vent.png.import"}
+      ],
+      "runtimeConsumers": ["World/FollowWarmCooling/Visual", "World/FollowFizzVenting/Visual"],
+      "states": ["dormant", "active", "focus", "selected", "disabled", "resolved"]
+    },
+    {
+      "id": "brew-effects",
+      "sourceView": "inkcap-action",
+      "sourceViewSha256": "496c970226e8326364d19c26a466cf483b7db520b23b85b018cc4938e68f06ae",
+      "sourceCrop": "238,145,36,35",
+      "layer": "state-effects",
+      "outputs": [{"path": "game/assets/production/inkcap-conservatory/effects/brew-effects.png", "sha256": "170feff37b110270bd0f41ca959944aac275b14b18cf2478daf8130cb179aaaa", "nativeSize": "180x35", "frames": 5, "frameSize": "36x35", "frameTimingMs": 90, "importPath": "game/assets/production/inkcap-conservatory/effects/brew-effects.png.import"}],
+      "runtimeConsumers": ["World/BrewStation/Effect"],
+      "states": ["brew"]
+    },
+    {
+      "id": "route-effects",
+      "sourceView": "inkcap-route-feedback",
+      "sourceViewSha256": "3586897a18adf932656166fd2dd6edc6a6ec2b46286c69926dfa192b1a12f5ba",
+      "sourceCrop": "315,133,66,45",
+      "layer": "state-effects",
+      "outputs": [{"path": "game/assets/production/inkcap-conservatory/effects/route-effects.png", "sha256": "ecc73ea43560c47659991a312ca762dcdac497bebbd1aed7b3a273ce8c4be208", "nativeSize": "330x45", "frames": 5, "frameSize": "66x45", "frameTimingMs": 72, "importPath": "game/assets/production/inkcap-conservatory/effects/route-effects.png.import"}],
+      "runtimeConsumers": ["World/CoolingLane/Effect", "World/VentingLane/Effect"],
+      "states": ["route-consequence"]
+    },
+    {
+      "id": "reaction-effects",
+      "sourceView": "inkcap-resolution",
+      "sourceViewSha256": "46ea8aa2c064cbb4110905fb871276a86d3dc86f714eedb77228dcf3ab3cae62",
+      "sourceCrop": "395,84,43,34",
+      "layer": "state-effects",
+      "outputs": [{"path": "game/assets/production/inkcap-conservatory/effects/reaction-effects.png", "sha256": "18728b9fcce7a12b32b2286a4c468f57d01cd38d956a9d52e363ba329c71be64", "nativeSize": "215x34", "frames": 5, "frameSize": "43x34", "frameTimingMs": 180, "importPath": "game/assets/production/inkcap-conservatory/effects/reaction-effects.png.import"}],
+      "runtimeConsumers": ["World/Villager/Effect"],
+      "states": ["reaction"]
+    },
+    {
+      "id": "selection-effects",
+      "sourceView": "inkcap-transition",
+      "sourceViewSha256": "7642a7f9b939190ceaf1fcebadd4d103e3f710c8d6b684e0d38ef92dbc762906",
+      "sourceCrop": "348,186,128,54",
+      "layer": "state-effects",
+      "outputs": [{"path": "game/assets/production/inkcap-conservatory/effects/selection-effects.png", "sha256": "b639ba021f0aedac22db84d08e7a559f722284c0c36895c64de76508c23009c1", "nativeSize": "160x32", "frames": 5, "frameSize": "32x32", "frameTimingMs": 75, "importPath": "game/assets/production/inkcap-conservatory/effects/selection-effects.png.import"}],
+      "runtimeConsumers": ["World/FollowWarmCooling/Effect", "World/FollowFizzVenting/Effect"],
+      "states": ["focus", "selected", "disabled", "resolved"]
+    },
+    {
+      "id": "status-ledger",
+      "method": "code-native-ui-with-direct-raster-motifs",
+      "sourceView": "inkcap-interaction",
+      "sourceViewSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377",
+      "runtimeBounds": "0,0,480,32",
+      "outputs": [
+        {"path": "game/assets/production/inkcap-conservatory/interface/ledger-panel.png", "sha256": "6dc0461164753a3c60cf752329a7c577d6783ced5b08352439ce3aa23e3d6574", "nativeSize": "16x16", "nineSliceMargins": "5,5,5,5", "importPath": "game/assets/production/inkcap-conservatory/interface/ledger-panel.png.import"},
+        {"path": "game/ui/production/inkcap-conservatory/production_hud.gd", "sha256": "03b1cf36791dd6f86c1b7ece82c0dff204c3f4006dc52e5d9eebe30c1bda49a5"}
+      ],
+      "runtimeConsumers": ["World/HUD"],
+      "states": ["normal", "feedback", "resolved"]
+    },
+    {
+      "id": "context-ribbon",
+      "method": "code-native-ui-with-direct-raster-motifs",
+      "sourceView": "inkcap-action",
+      "sourceViewSha256": "496c970226e8326364d19c26a466cf483b7db520b23b85b018cc4938e68f06ae",
+      "runtimeBounds": "0,244,480,26",
+      "outputs": [
+        {"path": "game/assets/production/inkcap-conservatory/interface/context-panel.png", "sha256": "f9c4764ccf79bc3aa2dd7a9eea98e9ff58a08fb9b7e7d6a85ac85090faf5695f", "nativeSize": "16x16", "nineSliceMargins": "5,5,5,5", "importPath": "game/assets/production/inkcap-conservatory/interface/context-panel.png.import"},
+        {"path": "game/ui/production/inkcap-conservatory/production_hud.gd", "sha256": "03b1cf36791dd6f86c1b7ece82c0dff204c3f4006dc52e5d9eebe30c1bda49a5"}
+      ],
+      "runtimeConsumers": ["World/HUD"],
+      "states": ["controls", "feedback", "recovery", "resolved"]
+    },
+    {
+      "id": "world-context-cues",
+      "method": "code-native-nine-slice-ui-with-direct-raster-motifs",
+      "sourceView": "inkcap-interaction",
+      "sourceViewSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377",
+      "runtimeBounds": "entity-local whole-pixel anchors",
+      "outputs": [
+        {"path": "game/assets/production/inkcap-conservatory/interface/world-cue-panel.png", "sha256": "8f03e78297182ff8b9fc697a90bd8af67a40d7f59a8438987150ce727ab540cc", "nativeSize": "16x12", "nineSliceMargins": "4,4,4,4", "importPath": "game/assets/production/inkcap-conservatory/interface/world-cue-panel.png.import"},
+        {"path": "game/ui/production/inkcap-conservatory/world_cue.gd", "sha256": "e82d0373bd3220c853fb64b5508ac73b83bb08b04c7c2b2c2ef82f0da9678f78"},
+        {"path": "game/assets/production/inkcap-conservatory/interface/fonts/DejaVuSans.ttf", "sha256": "3fdf69cabf06049ea70a00b5919340e2ce1e6d02b0cc3c4b44fb6801bd1e0d22"},
+        {"path": "game/assets/production/inkcap-conservatory/interface/fonts/DejaVuSans-Bold.ttf", "sha256": "b184b89e3c1075f22f6b71575b6fc20d4972b3cfd3b23322ca6fd596dcaef167"},
+        {"path": "game/assets/production/inkcap-conservatory/interface/fonts/LICENSE_DEJAVU.txt", "sha256": "d75938dec098f06f0ac3c00853065d94f020be1c3c62ef1dc2975ba15b4d9b0e"}
+      ],
+      "runtimeConsumers": ["WarmIngredient cue", "FizzIngredient cue", "BrewStation cue", "Villager cue", "FollowWarmCooling cue", "FollowFizzVenting cue", "route and prop identity labels"],
+      "states": ["normal", "focus", "pressed", "selected", "disabled", "feedback", "recovery", "resolved"]
+    }
+  ],
+  "runtimeSources": [
+    {"path": "game/main.tscn", "sha256": "85de534d07605f16946c06e4c04b05404df84c71952ac1bad3304ba521109a61"},
+    {"path": "game/world.gd", "sha256": "33ce3069811b9343431439a19cbeba7ba2792ed494a3b270c5d6f1957d0a7402"},
+    {"path": "game/player.gd", "sha256": "cafab3b0b5136da664bf62fa0815d1e369425258d67259c8b1ac0da0ca48bd90"},
+    {"path": "game/brew_station.gd", "sha256": "173d9dbcf85bb86044327417279b1e50f45026537a6b8c4963e3235975ecfa1b"},
+    {"path": "game/mix_pedestal.gd", "sha256": "05fcc0131bb62462ca563748c5c084104a0d7d98f026921474e16a963ca0a781"},
+    {"path": "game/route_lane.gd", "sha256": "92a1abfe16d68fe43149f20dbe9c5d24588a74cd74e2def7e7f83761431b2e40"},
+    {"path": "game/villager.gd", "sha256": "3410e8c58fcb49a34883f0fdb00940e46540ec05c901a98ee1bfc331b5af854e"},
+    {"path": "game/follow_up.gd", "sha256": "adf020e49280c3bfcde2075fd68fd24babbaac3507752554bd5e9d1f881bbb63"},
+    {"path": "game/ui/production/inkcap-conservatory/ambient_layer.gd", "sha256": "1767e1ea3118573e54e55c80b92850ebb3aa2cb3efc21e905821ff43b1e3ed54"},
+    {"path": "game/ui/production/inkcap-conservatory/world_cue.gd", "sha256": "e82d0373bd3220c853fb64b5508ac73b83bb08b04c7c2b2c2ef82f0da9678f78"},
+    {"path": "game/ui/production/inkcap-conservatory/production_hud.gd", "sha256": "03b1cf36791dd6f86c1b7ece82c0dff204c3f4006dc52e5d9eebe30c1bda49a5"}
+  ],
+  "importSettings": {
+    "textureCompression": "lossless compress/mode=0",
+    "mipmaps": false,
+    "filter": "project nearest-neighbor plus per-consumer nearest",
+    "alphaBorderFix": true,
+    "colorSpace": "RGBA8 source PNG",
+    "font": "dynamic FontFile, no mipmaps, licensed DejaVu bundle"
+  },
+  "verification": {
+    "path": "evidence/production-validation.json",
+    "outcome": "pass",
+    "checks": 85,
+    "violations": 0,
+    "candidateCaptureTrace": "evidence/candidate-capture-trace.json"
+  },
+  "status": "pass"
+}

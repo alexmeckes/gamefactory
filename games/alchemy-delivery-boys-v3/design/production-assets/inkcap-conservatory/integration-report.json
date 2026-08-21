@@ -1,0 +1,88 @@
+{
+  "apiVersion": "gamefactory.asset-integration-report/v1",
+  "specRevision": 1,
+  "sliceId": "production-encounter",
+  "targetHash": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377",
+  "components": [
+    {"id": "workshop-environment", "status": "live", "consumer": "World/WorkshopEnvironment"},
+    {"id": "divider-environment", "status": "live", "consumer": "World/DividerEnvironment"},
+    {"id": "garden-environment", "status": "live", "consumer": "World/GardenEnvironment"},
+    {"id": "courier-actor", "status": "live", "consumer": "World/Player/Visual"},
+    {"id": "mira-actor", "status": "live", "consumer": "World/Villager/Visual"},
+    {"id": "warm-ingredient", "status": "live", "consumer": "World/WarmIngredient/Visual"},
+    {"id": "fizz-ingredient", "status": "live", "consumer": "World/FizzIngredient/Visual"},
+    {"id": "brew-station", "status": "live", "consumer": "World/BrewStation/Visual"},
+    {"id": "cooling-gate", "status": "live", "consumer": "World/CoolingLane/Visual"},
+    {"id": "venting-gate", "status": "live", "consumer": "World/VentingLane/Visual"},
+    {"id": "carried-bottle", "status": "live", "consumer": "World/Player/Bottle"},
+    {"id": "follow-up-plots", "status": "live", "consumer": "World/FollowWarmCooling/Visual and World/FollowFizzVenting/Visual"},
+    {"id": "brew-effects", "status": "live", "consumer": "World/BrewStation/Effect"},
+    {"id": "route-effects", "status": "live", "consumer": "World/CoolingLane/Effect and World/VentingLane/Effect"},
+    {"id": "reaction-effects", "status": "live", "consumer": "World/Villager/Effect"},
+    {"id": "selection-effects", "status": "live", "consumer": "both follow-up Effect children"},
+    {"id": "status-ledger", "status": "live-code-native", "consumer": "World/HUD"},
+    {"id": "context-ribbon", "status": "live-code-native", "consumer": "World/HUD"},
+    {"id": "world-context-cues", "status": "live-code-native", "consumer": "entity-local WorldCue instances and identity labels"}
+  ],
+  "runtimeConsumers": {
+    "environment": ["ConservatoryFrame", "WorkshopEnvironment", "DividerEnvironment", "GardenEnvironment"],
+    "actors": ["Player/Visual", "Villager/Visual"],
+    "interactiveProps": ["WarmIngredient/Visual", "FizzIngredient/Visual", "BrewStation/Visual", "FollowWarmCooling/Visual", "FollowFizzVenting/Visual"],
+    "routeGates": ["CoolingLane/Visual", "VentingLane/Visual"],
+    "carriedState": ["Player/Bottle"],
+    "effects": ["BrewStation/Effect", "CoolingLane/Effect", "VentingLane/Effect", "Villager/Effect", "both follow-up Effect children"],
+    "interface": ["HUD status ledger", "HUD context ribbon", "entity-local cues"]
+  },
+  "importSettings": {
+    "format": "lossless PNG RGBA8",
+    "compression": "Godot compress/mode=0",
+    "mipmaps": false,
+    "filter": "nearest",
+    "scaling": "native 1:1 composed into the 480x270 viewport; shipping presentation uses exact 3x",
+    "font": "bundled DejaVu Sans and DejaVu Sans Bold with license"
+  },
+  "removedFallbacks": [
+    "World procedural rectangle and circle graybox rendering",
+    "Player procedural body and bottle rendering",
+    "Ingredient procedural pedestal rendering",
+    "Cauldron procedural rendering and free-running decorative bubbles",
+    "Gate procedural bands and louvers",
+    "Mira procedural body and reaction line",
+    "Follow-up procedural plot rendering",
+    "Default ColorRect status and context chrome",
+    "Always-on procedural action strings"
+  ],
+  "stateCoverage": {
+    "interface": ["normal", "focus", "pressed", "selected", "disabled", "feedback", "recovery", "resolved"],
+    "courier": ["idle", "walk-down", "walk-side", "walk-up", "brew", "carry", "deliver", "choose"],
+    "bottle": ["unrouted", "vented", "cooled", "handoff", "empty"],
+    "gates": ["idle", "recovery-focus", "activated", "settled"],
+    "mira": ["waiting", "focus", "anticipate", "balanced-relief", "mismatch", "settled"],
+    "plots": ["dormant", "active", "focus", "selected", "disabled", "resolved"]
+  },
+  "provenance": {
+    "inventory": "design/production-assets/inkcap-conservatory/inventory.json",
+    "assetProductionReport": "design/production-assets/inkcap-conservatory/asset-production-report.json",
+    "authoringSource": "design/production-assets/inkcap-conservatory/build_assets.gd",
+    "scene": "game/main.tscn",
+    "target": "design/scene-targets/scene-target.json"
+  },
+  "captures": [
+    {"path": "evidence/captures/planning.png", "state": "interaction", "producer": "candidate-authored-godot-capture"},
+    {"path": "evidence/captures/action.png", "state": "action", "producer": "candidate-authored-godot-capture"},
+    {"path": "evidence/captures/result.png", "state": "resolution", "producer": "candidate-authored-godot-capture"}
+  ],
+  "violations": [],
+  "regressionChecks": [
+    {"id": "approved-target-hash", "status": "pass"},
+    {"id": "native-asset-dimensions", "status": "pass"},
+    {"id": "transparent-edge-integrity", "status": "pass"},
+    {"id": "exact-world-anchors", "status": "pass"},
+    {"id": "independent-runtime-consumers", "status": "pass"},
+    {"id": "shipping-input-map", "status": "pass"},
+    {"id": "configured-capture-dimensions", "status": "pass"}
+  ],
+  "trustBoundary": "Captures are current real-engine candidate evidence but are not factory-trusted; the downstream factory-owned Godot node remains authoritative for causal acceptance.",
+  "status": "pass"
+}
+

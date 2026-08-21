@@ -1,0 +1,1480 @@
+{
+  "apiVersion": "gamefactory.scene-target/v1",
+  "id": "alchemy-delivery-boys-v3-production-encounter",
+  "version": "1.0.0",
+  "selectedCandidateId": "inkcap-night-conservatory",
+  "nativeGeometry": {
+    "viewport": {
+      "width": 480,
+      "height": 270
+    },
+    "baseUnitPx": 4,
+    "borderWidthsPx": [
+      1,
+      2
+    ],
+    "typographyPx": {
+      "display": 9,
+      "status": 10,
+      "body": 10,
+      "instruction": 10,
+      "action": 8,
+      "numeral": 10
+    },
+    "scalingRules": [
+      "Author geometry, sprites, effects, and interface at exactly 480x270 native pixels.",
+      "Present at exact integer 3x to 1440x810 with nearest-neighbor filtering.",
+      "Snap camera, collision-linked cues, sprite pivots, effect origins, and UI bounds to whole native pixels.",
+      "Use the preserved live geometry basis for runtime placement; generated whole-screen views are art-direction references and must never be loaded as runtime world plates.",
+      "Render extracted raster motifs at native 1:1 or with declared integer/nine-slice scaling that preserves corners and border weights.",
+      "Render sustained status and instruction copy as code-native text at the declared sizes; do not rasterize generated lettering into production UI."
+    ]
+  },
+  "candidates": [
+    {
+      "id": "brambleglass-courier-yard",
+      "label": "Direction A — Brambleglass Courier Yard",
+      "primaryViewId": "brambleglass-interaction",
+      "views": [
+        {
+          "id": "brambleglass-interaction",
+          "label": "Brambleglass initial interaction",
+          "state": "interaction",
+          "path": "design/scene-targets/views/direction-a-brambleglass-interaction.png",
+          "sha256": "791f0123a92070140d0ea4d5ca7caafea7969a6bbcb317c49c66256df438863f",
+          "prompt": "Use case: stylized-concept. Complete 16:9 whole-screen gameplay target on the 480x270 native grid, derived from the accepted live screenshot. Re-art the fixed workshop, two-gate divider, garden, courier, cauldron, WARM and FIZZ ingredients, Mira, dormant follow-up plots, top status ribbon, and bottom instruction ribbon as a warm late-afternoon Brambleglass Courier Yard. Preserve direct movement, E interaction, navigable floor, route-gate causality, actor scale, object anchors, and the ink/slate/mulberry/parchment/copper/cyan/coral/leaf/violet palette. Use crisp authored 16-bit pixel clusters, quiet readable status typography, short pixel world labels, and no runtime plate, dashboard, menu, extra character, hidden gate, decorative frame, generic purple card, mixed pixel density, watermark, or concept-art perspective.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "inkcap-night-conservatory",
+      "label": "Direction B — Inkcap Night Conservatory",
+      "primaryViewId": "inkcap-interaction",
+      "views": [
+        {
+          "id": "inkcap-interaction",
+          "label": "Interaction — choose and brew",
+          "state": "interaction",
+          "path": "design/scene-targets/views/direction-b-inkcap-interaction.png",
+          "sha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377",
+          "prompt": "Use case: stylized-concept. Complete whole-screen gameplay target for Direction B, Inkcap Night Conservatory, derived from the accepted initial live-engine capture. Preserve the 480x270 shipping camera; the broad workshop, narrow divider with exactly two COOL and VENT openings, compact garden, courier, ingredient, cauldron, Mira, and dormant follow-up anchors; direct WASD movement and E interaction; and open navigable space. Re-art the world as moonlit indigo flagstone beneath glass rafters, brass alembics, inkcap mushrooms, mulberry soil, phosphor moss, cyan crystalline COOL gate, and saffron copper VENT gate. Use a compact dark ledger status band, a single bottom control sentence, calm readable status typography, pixel display type only for short world labels, crisp 1-2 native-pixel outlines, and one consistent authored pixel density. Initial state: no bottle, inactive gates, waiting Mira, dormant unlabeled prediction plots. Avoid moved topology, extra actors, generic cards, rounded panels, inventory UI, excessive borders, illegible copy, painterly or isometric treatment, hidden gates, watermark, or runtime-plate framing.",
+          "required": true
+        },
+        {
+          "id": "inkcap-action",
+          "label": "Action — post-brew carrying",
+          "state": "action",
+          "path": "design/scene-targets/views/direction-b-inkcap-action.png",
+          "sha256": "496c970226e8326364d19c26a466cf483b7db520b23b85b018cc4938e68f06ae",
+          "prompt": "Use case: precise-object-edit. Keep the selected Inkcap Night Conservatory world, fixed camera, palette, pixel density, environment, gates, Mira, anchors, and interface regions unchanged. Create the coherent post-brew action state: the sole courier stands at the cauldron, carries a separate cyan-and-coral corked bottle, the cauldron shows a compact magenta/cyan bubble crest and brass rim response, ingredient pedestals settle, both route gates remain inactive and equally plausible, Mira waits, and prediction plots stay dormant. Status communicates FIZZ FORWARD and W2 F3 UNROUTED; the bottom instruction communicates carry through exactly one COOL or VENT gate. No new panel, path, actor, object, border, overlap, watermark, or unrelated effect.",
+          "required": true
+        },
+        {
+          "id": "inkcap-route-feedback",
+          "label": "Feedback — vent changed bottle",
+          "state": "feedback",
+          "path": "design/scene-targets/views/direction-b-inkcap-route-feedback.png",
+          "sha256": "3586897a18adf932656166fd2dd6edc6a6ec2b46286c69926dfa192b1a12f5ba",
+          "prompt": "Use case: precise-object-edit plus duplicate-courier correction. Keep the selected world, camera, geometry, palette, props, UI regions, and one consistent pixel density unchanged. Show exactly one courier just right of the VENT gate carrying a leaf-green balanced bottle; open only the lower copper VENT louvers; emit a compact saffron puff and one fading fizz spark; keep COOL inactive, Mira waiting and facing the courier, and follow-up plots dormant. Status communicates W2 F2 VENTED and bottom feedback communicates that VENT released fizz and delivery should continue to Mira. Remove any duplicate courier by restoring continuous workshop flagstone. No extra actors, moved anchors, new controls, panel, border, watermark, or unrelated motion.",
+          "required": true
+        },
+        {
+          "id": "inkcap-resolution",
+          "label": "Resolution — balanced relief and prediction",
+          "state": "resolution",
+          "path": "design/scene-targets/views/direction-b-inkcap-resolution.png",
+          "sha256": "46ea8aa2c064cbb4110905fb871276a86d3dc86f714eedb77228dcf3ab3cae62",
+          "prompt": "Use case: precise-object-edit. Keep the selected world, camera, geometry, palette, anchors, pixel density, and interface family. Show immediate successful delivery: exactly one empty-handed courier beside Mira, Mira makes a small relieved bounce with a leaf-green smile cue and balanced cyan/coral motes, cauldron and gates are idle, and the two dormant garden plots activate independently at their existing anchors as WARM+COOL and FIZZ+VENT without becoming cards. Status communicates BALANCED RELIEF and no bottle; bottom feedback asks for the next-batch prediction. Keep choices separated from characters and UI. No new actors, paths, panels, outer border, overlap, watermark, or unrelated effect.",
+          "required": true
+        },
+        {
+          "id": "inkcap-transition",
+          "label": "Transition — next plan committed",
+          "state": "transition",
+          "path": "design/scene-targets/views/direction-b-inkcap-transition.png",
+          "sha256": "7642a7f9b939190ceaf1fcebadd4d103e3f710c8d6b684e0d38ef92dbc762906",
+          "prompt": "Use case: precise-object-edit plus position correction. Starting from the selected resolution screen, move the sole courier from Mira to immediately above the left garden prediction plot, keep WARM and FIZZ ingredient pedestals in the workshop, select WARM+COOL with a crisp leaf-green double ring and one upward mote, disable FIZZ+VENT with dark soil and a low-saturation saffron outline, keep Mira calm, and keep all other world and UI geometry unchanged. Status communicates BALANCED RELIEF and NEXT WARM+COOL; bottom feedback communicates that the result informed another choice. Exactly one courier, both choices inside the garden, no moved topology, new panel, actor, border, overlap, watermark, or unrelated motion.",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "components": [
+    {
+      "id": "workshop-environment",
+      "label": "Workshop environment layers",
+      "sourceViewId": "inkcap-interaction",
+      "crop": {
+        "x": 4,
+        "y": 20,
+        "width": 296,
+        "height": 229
+      },
+      "stateIds": [
+        "interaction",
+        "action",
+        "feedback",
+        "resolution",
+        "transition"
+      ],
+      "derivedFromSceneTargetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+    },
+    {
+      "id": "divider-environment",
+      "label": "Brick divider and two gate apertures",
+      "sourceViewId": "inkcap-interaction",
+      "crop": {
+        "x": 300,
+        "y": 20,
+        "width": 36,
+        "height": 229
+      },
+      "stateIds": [
+        "interaction",
+        "action",
+        "feedback",
+        "resolution",
+        "transition"
+      ],
+      "derivedFromSceneTargetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+    },
+    {
+      "id": "garden-environment",
+      "label": "Mira garden environment layers",
+      "sourceViewId": "inkcap-interaction",
+      "crop": {
+        "x": 336,
+        "y": 20,
+        "width": 144,
+        "height": 229
+      },
+      "stateIds": [
+        "interaction",
+        "action",
+        "feedback",
+        "resolution",
+        "transition"
+      ],
+      "derivedFromSceneTargetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+    },
+    {
+      "id": "courier-actor",
+      "label": "Courier actor and carry socket",
+      "sourceViewId": "inkcap-interaction",
+      "crop": {
+        "x": 72,
+        "y": 35,
+        "width": 24,
+        "height": 36
+      },
+      "stateIds": [
+        "interaction",
+        "action",
+        "feedback",
+        "resolution",
+        "transition"
+      ],
+      "derivedFromSceneTargetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+    },
+    {
+      "id": "mira-actor",
+      "label": "Mira actor and reaction poses",
+      "sourceViewId": "inkcap-resolution",
+      "crop": {
+        "x": 396,
+        "y": 91,
+        "width": 34,
+        "height": 62
+      },
+      "stateIds": [
+        "interaction",
+        "action",
+        "feedback",
+        "resolution",
+        "transition"
+      ],
+      "derivedFromSceneTargetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+    },
+    {
+      "id": "warm-ingredient",
+      "label": "Warm ingredient pedestal",
+      "sourceViewId": "inkcap-interaction",
+      "crop": {
+        "x": 136,
+        "y": 188,
+        "width": 42,
+        "height": 45
+      },
+      "stateIds": [
+        "interaction",
+        "action",
+        "feedback",
+        "resolution",
+        "transition"
+      ],
+      "derivedFromSceneTargetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+    },
+    {
+      "id": "fizz-ingredient",
+      "label": "Fizz ingredient pedestal",
+      "sourceViewId": "inkcap-interaction",
+      "crop": {
+        "x": 198,
+        "y": 188,
+        "width": 42,
+        "height": 45
+      },
+      "stateIds": [
+        "interaction",
+        "action",
+        "feedback",
+        "resolution",
+        "transition"
+      ],
+      "derivedFromSceneTargetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+    },
+    {
+      "id": "brew-station",
+      "label": "Cauldron and brew interaction prop",
+      "sourceViewId": "inkcap-action",
+      "crop": {
+        "x": 220,
+        "y": 143,
+        "width": 70,
+        "height": 72
+      },
+      "stateIds": [
+        "interaction",
+        "action",
+        "feedback",
+        "resolution",
+        "transition"
+      ],
+      "derivedFromSceneTargetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+    },
+    {
+      "id": "cooling-gate",
+      "label": "Cooling route gate",
+      "sourceViewId": "inkcap-interaction",
+      "crop": {
+        "x": 301,
+        "y": 58,
+        "width": 35,
+        "height": 61
+      },
+      "stateIds": [
+        "interaction",
+        "action",
+        "feedback",
+        "resolution",
+        "transition"
+      ],
+      "derivedFromSceneTargetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+    },
+    {
+      "id": "venting-gate",
+      "label": "Venting route gate",
+      "sourceViewId": "inkcap-route-feedback",
+      "crop": {
+        "x": 301,
+        "y": 120,
+        "width": 48,
+        "height": 64
+      },
+      "stateIds": [
+        "interaction",
+        "action",
+        "feedback",
+        "resolution",
+        "transition"
+      ],
+      "derivedFromSceneTargetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+    },
+    {
+      "id": "carried-bottle",
+      "label": "Carried potion state prop",
+      "sourceViewId": "inkcap-action",
+      "crop": {
+        "x": 195,
+        "y": 144,
+        "width": 14,
+        "height": 24
+      },
+      "stateIds": [
+        "action",
+        "feedback"
+      ],
+      "derivedFromSceneTargetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+    },
+    {
+      "id": "follow-up-plots",
+      "label": "Two physical next-batch prediction plots",
+      "sourceViewId": "inkcap-resolution",
+      "crop": {
+        "x": 348,
+        "y": 188,
+        "width": 128,
+        "height": 51
+      },
+      "stateIds": [
+        "interaction",
+        "action",
+        "feedback",
+        "resolution",
+        "transition"
+      ],
+      "derivedFromSceneTargetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+    },
+    {
+      "id": "brew-effects",
+      "label": "Brew bubble crest and rim response effects",
+      "sourceViewId": "inkcap-action",
+      "crop": {
+        "x": 238,
+        "y": 145,
+        "width": 36,
+        "height": 35
+      },
+      "stateIds": [
+        "action"
+      ],
+      "derivedFromSceneTargetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+    },
+    {
+      "id": "route-effects",
+      "label": "Gate activation and route-consequence effects",
+      "sourceViewId": "inkcap-route-feedback",
+      "crop": {
+        "x": 315,
+        "y": 133,
+        "width": 66,
+        "height": 45
+      },
+      "stateIds": [
+        "feedback"
+      ],
+      "derivedFromSceneTargetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+    },
+    {
+      "id": "reaction-effects",
+      "label": "Mira attributable reaction effects",
+      "sourceViewId": "inkcap-resolution",
+      "crop": {
+        "x": 395,
+        "y": 84,
+        "width": 43,
+        "height": 34
+      },
+      "stateIds": [
+        "resolution"
+      ],
+      "derivedFromSceneTargetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+    },
+    {
+      "id": "selection-effects",
+      "label": "Follow-up focus selected and disabled effects",
+      "sourceViewId": "inkcap-transition",
+      "crop": {
+        "x": 348,
+        "y": 186,
+        "width": 128,
+        "height": 54
+      },
+      "stateIds": [
+        "resolution",
+        "transition"
+      ],
+      "derivedFromSceneTargetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+    },
+    {
+      "id": "status-ledger",
+      "label": "Top need plan bottle and result status family",
+      "sourceViewId": "inkcap-interaction",
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "width": 480,
+        "height": 20
+      },
+      "stateIds": [
+        "interaction",
+        "action",
+        "feedback",
+        "resolution",
+        "transition"
+      ],
+      "derivedFromSceneTargetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+    },
+    {
+      "id": "context-ribbon",
+      "label": "Bottom control feedback recovery and resolution family",
+      "sourceViewId": "inkcap-action",
+      "crop": {
+        "x": 0,
+        "y": 248,
+        "width": 480,
+        "height": 22
+      },
+      "stateIds": [
+        "interaction",
+        "action",
+        "feedback",
+        "resolution",
+        "transition"
+      ],
+      "derivedFromSceneTargetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+    },
+    {
+      "id": "world-context-cues",
+      "label": "Code-native anchored world labels and action cues",
+      "sourceViewId": "inkcap-interaction",
+      "crop": {
+        "x": 295,
+        "y": 54,
+        "width": 180,
+        "height": 188
+      },
+      "stateIds": [
+        "interaction",
+        "action",
+        "feedback",
+        "resolution",
+        "transition"
+      ],
+      "derivedFromSceneTargetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+    }
+  ],
+  "experience": {
+    "composition": {
+      "regions": [
+        {
+          "id": "status",
+          "label": "Persistent need plan bottle and result status",
+          "stateIds": [
+            "interaction",
+            "action",
+            "feedback",
+            "resolution",
+            "transition"
+          ],
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 480,
+            "height": 32
+          },
+          "allowsOverlapWith": []
+        },
+        {
+          "id": "playfield",
+          "label": "Persistent navigable workshop divider and garden",
+          "stateIds": [
+            "interaction",
+            "action",
+            "feedback",
+            "resolution",
+            "transition"
+          ],
+          "rect": {
+            "x": 0,
+            "y": 32,
+            "width": 480,
+            "height": 212
+          },
+          "allowsOverlapWith": [
+            "route-signs",
+            "actor-cues",
+            "prediction-cues"
+          ]
+        },
+        {
+          "id": "controls",
+          "label": "Initial shipping controls",
+          "stateIds": [
+            "interaction"
+          ],
+          "rect": {
+            "x": 0,
+            "y": 244,
+            "width": 480,
+            "height": 26
+          },
+          "allowsOverlapWith": []
+        },
+        {
+          "id": "narrative-feedback",
+          "label": "Action consequence recovery and resolution feedback",
+          "stateIds": [
+            "action",
+            "feedback",
+            "resolution",
+            "transition"
+          ],
+          "rect": {
+            "x": 0,
+            "y": 244,
+            "width": 480,
+            "height": 26
+          },
+          "allowsOverlapWith": []
+        },
+        {
+          "id": "route-signs",
+          "label": "Intentional world-anchored route overlays",
+          "stateIds": [
+            "interaction",
+            "action",
+            "feedback",
+            "resolution",
+            "transition"
+          ],
+          "rect": {
+            "x": 306,
+            "y": 72,
+            "width": 34,
+            "height": 120
+          },
+          "allowsOverlapWith": [
+            "playfield"
+          ]
+        },
+        {
+          "id": "actor-cues",
+          "label": "Intentional Mira context cue overlay",
+          "stateIds": [
+            "interaction",
+            "action",
+            "feedback",
+            "resolution",
+            "transition"
+          ],
+          "rect": {
+            "x": 360,
+            "y": 90,
+            "width": 110,
+            "height": 70
+          },
+          "allowsOverlapWith": [
+            "playfield"
+          ]
+        },
+        {
+          "id": "prediction-cues",
+          "label": "Intentional physical follow-up choice overlays",
+          "stateIds": [
+            "resolution",
+            "transition"
+          ],
+          "rect": {
+            "x": 346,
+            "y": 190,
+            "width": 120,
+            "height": 54
+          },
+          "allowsOverlapWith": [
+            "playfield"
+          ]
+        }
+      ],
+      "rules": [
+        "Status, playfield, and bottom context rail are peer regions and never cover one another.",
+        "The only intentional playfield overlaps are short labels and focus cues anchored to the route gates, Mira, and the two physical prediction plots.",
+        "No generated decorative frame may consume navigable space or shrink the accepted 300-pixel workshop and 130-pixel garden regions.",
+        "The courier, cauldron, gates, Mira, carried bottle, prediction plots, and their collision cues must stay unobscured in every required state.",
+        "Long feedback replaces the bottom control sentence after action; it never stacks another strip or becomes a modal card."
+      ]
+    },
+    "typography": {
+      "mode": "hybrid",
+      "roles": [
+        {
+          "id": "world-display",
+          "label": "World display",
+          "purpose": "Short place, ingredient, route, and action identity accents",
+          "treatment": "Authored uppercase pixel face at 8-9 native pixels with a one-pixel ink shadow"
+        },
+        {
+          "id": "status-body",
+          "label": "Status body",
+          "purpose": "Need, plan, carried potion, result, and next-plan reading",
+          "treatment": "License-compatible humanist sans at 10 native pixels with tabular numerals and no baked target lettering"
+        },
+        {
+          "id": "feedback-body",
+          "label": "Feedback and recovery",
+          "purpose": "One concise causal consequence, recovery instruction, or resolved next step",
+          "treatment": "License-compatible humanist sans at 10 native pixels, one line preferred and two lines maximum"
+        },
+        {
+          "id": "state-numeral",
+          "label": "Potion state numerals",
+          "purpose": "Warmth and fizz quantities that remain readable without hue",
+          "treatment": "Tabular humanist sans numerals at 10 native pixels paired with angular warmth and round fizz shapes"
+        }
+      ],
+      "rules": [
+        "Generated lettering is compositional reference only; runtime status and feedback text are code-native and measured.",
+        "Reserve pixel display lettering for labels of twelve characters or fewer; never force sustained reading into a tiny pixel face.",
+        "Potion changes use icon shape, quantity, word, and hue together; color never carries state alone.",
+        "All copy remains inside four-pixel compact or six-pixel reading insets and must pass capture review at native and 3x presentation."
+      ]
+    },
+    "motion": {
+      "beats": [
+        {
+          "id": "inhabited-idle",
+          "label": "Restrained conservatory continuity",
+          "kind": "ambient",
+          "stateIds": [
+            "interaction",
+            "action",
+            "feedback",
+            "resolution",
+            "transition"
+          ],
+          "trigger": "Scene is stable between player inputs",
+          "visibleResponse": "Glasslight shifts one value step, one lamp breathes, two mushroom caps glint out of phase, and Mira blinks; navigable edges and collision cues do not move"
+        },
+        {
+          "id": "ingredient-focus",
+          "label": "Physical ingredient focus",
+          "kind": "interaction",
+          "stateIds": [
+            "interaction"
+          ],
+          "trigger": "Courier enters an ingredient interaction radius or changes the selected mix",
+          "visibleResponse": "Only the reachable pedestal rises one pixel, its outline brightens, and the anchored E cue appears; focus settles within 120 ms"
+        },
+        {
+          "id": "brew-commit",
+          "label": "Brew anticipation action and carry settle",
+          "kind": "gameplay",
+          "stateIds": [
+            "interaction",
+            "action"
+          ],
+          "trigger": "Shipping interact input commits the selected mix at the cauldron",
+          "visibleResponse": "Courier leans, cauldron rim answers, two bubbles crest, bottle rises into the carry socket, and the authoritative W2 F3 state settles",
+          "startViewId": "inkcap-interaction",
+          "endViewId": "inkcap-action"
+        },
+        {
+          "id": "vent-consequence",
+          "label": "Venting route consequence",
+          "kind": "gameplay",
+          "stateIds": [
+            "action",
+            "feedback"
+          ],
+          "trigger": "Courier body crosses the real VENT Area2D while carrying an unrouted bottle",
+          "visibleResponse": "Copper louvers open, a saffron puff travels toward the bottle, one fizz mote leaves it, liquid resolves green, and status changes from W2 F3 to W2 F2",
+          "startViewId": "inkcap-action",
+          "endViewId": "inkcap-route-feedback"
+        },
+        {
+          "id": "delivery-reaction",
+          "label": "Delivery and attributable relief",
+          "kind": "gameplay",
+          "stateIds": [
+            "feedback",
+            "resolution"
+          ],
+          "trigger": "Shipping interact input delivers the routed W2 F2 bottle to Mira",
+          "visibleResponse": "Bottle leaves the carry socket, Mira anticipates then makes a two-pixel relief bounce, balanced motes separate cyan and coral, and prediction plots activate only after the reaction reads",
+          "startViewId": "inkcap-route-feedback",
+          "endViewId": "inkcap-resolution"
+        },
+        {
+          "id": "follow-up-commit",
+          "label": "Prediction selection and return transition",
+          "kind": "transition",
+          "stateIds": [
+            "resolution",
+            "transition"
+          ],
+          "trigger": "Shipping interact input commits WARM+COOL at the physical follow-up plot",
+          "visibleResponse": "Selected plot completes a three-step green ring, one mote rises, the alternative loses saturation, and NEXT WARM+COOL replaces bottle status without a camera cut",
+          "startViewId": "inkcap-resolution",
+          "endViewId": "inkcap-transition"
+        }
+      ],
+      "continuityRules": [
+        "Courier and Mira identity, native footprint, pivot, and world anchor remain stable through every beat.",
+        "Ambient loops are offset, low-amplitude, and subordinate to current interaction and consequence motion.",
+        "Effects originate at the real cauldron, gate, bottle, recipient, or plot state change and disappear without hiding authoritative state.",
+        "No animation moves collision boundaries, closes a traversable gate, obscures an action cue, or displaces an interactive anchor.",
+        "Interruption leaves the current potion, route, delivery, and follow-up state visibly correct."
+      ]
+    }
+  },
+  "approval": {
+    "status": "approved",
+    "reviewer": "scene-target-gate",
+    "selectedTargetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377",
+    "findings": {
+      "selectedTargetId": "inkcap-interaction",
+      "selectedTargetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377",
+      "selectedCandidateId": "inkcap-night-conservatory",
+      "hypothesis": "A restrained moonlit conservatory can add authored identity and controlled life without changing the accepted embodied loop when live geometry remains authoritative and generated screens remain reference-only.",
+      "approvedStateVariants": [
+        {
+          "id": "inkcap-interaction",
+          "state": "interaction",
+          "sha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+        },
+        {
+          "id": "inkcap-action",
+          "state": "action",
+          "sha256": "496c970226e8326364d19c26a466cf483b7db520b23b85b018cc4938e68f06ae"
+        },
+        {
+          "id": "inkcap-route-feedback",
+          "state": "feedback",
+          "sha256": "3586897a18adf932656166fd2dd6edc6a6ec2b46286c69926dfa192b1a12f5ba"
+        },
+        {
+          "id": "inkcap-resolution",
+          "state": "resolution",
+          "sha256": "46ea8aa2c064cbb4110905fb871276a86d3dc86f714eedb77228dcf3ab3cae62"
+        },
+        {
+          "id": "inkcap-transition",
+          "state": "transition",
+          "sha256": "7642a7f9b939190ceaf1fcebadd4d103e3f710c8d6b684e0d38ef92dbc762906"
+        }
+      ],
+      "experienceContract": {
+        "nativeViewport": "480x270",
+        "shippingViewport": "1440x810",
+        "presentation": "integer 3x nearest-neighbor",
+        "peerRegions": {
+          "status": "0,0,480,32",
+          "playfield": "0,32,480,212",
+          "context": "0,244,480,26"
+        },
+        "intentionalOverlays": [
+          "route-signs",
+          "actor-cues",
+          "prediction-cues"
+        ],
+        "typography": "Hybrid: short pixel display labels and measured code-native humanist status, quantity, feedback, and recovery text.",
+        "controlledLife": [
+          "restrained ambient conservatory continuity",
+          "ingredient and target focus response",
+          "brew anticipation and bottle settle",
+          "gate-to-bottle route consequence",
+          "delivery anticipation and attributable Mira reaction",
+          "physical follow-up selection transition"
+        ]
+      },
+      "componentMap": {
+        "apiVersion": "gamefactory.scene-target/v1",
+        "componentCount": 19,
+        "detailedProductionContractCount": 10,
+        "components": [
+          "workshop-environment",
+          "divider-environment",
+          "garden-environment",
+          "courier-actor",
+          "mira-actor",
+          "warm-ingredient",
+          "fizz-ingredient",
+          "brew-station",
+          "cooling-gate",
+          "venting-gate",
+          "carried-bottle",
+          "follow-up-plots",
+          "brew-effects",
+          "route-effects",
+          "reaction-effects",
+          "selection-effects",
+          "status-ledger",
+          "context-ribbon",
+          "world-context-cues"
+        ],
+        "decomposition": "Environment layers, actors, interactive props, carried potion, effects, and UI remain independent engine consumers with explicit bounds, anchors, states, layers, animation needs, prompts, and target-hash lineage."
+      },
+      "blockingFindings": [],
+      "opportunities": [
+        {
+          "findingClass": "opportunity",
+          "claimIds": [],
+          "issue": "Capture the one-line invalid-interaction recovery state during downstream integration; it is fully specified in the experience contract but does not have a dedicated raster reference.",
+          "evidence": [
+            "design/scene-targets/scene-target.json defines recovery as a fixed bottom-ribbon replacement while preserving the complete world."
+          ]
+        }
+      ],
+      "evidence": [
+        "Both complete factory-owned traces use shipping input and record brewing at 3.5667s, route transformation at 5.6167s, delivery plus attributable reaction at 6.0167s, and next-plan commitment at 7.3667s; both scenarios passed with 38 distinct 1440x810 frames and no violations.",
+        "The 480x270 live geometry basis matches every center pixel of the first-session 1440x810 frame at time 0 under exact 3x normalization, tying the target contract to the accepted shipping-camera scene.",
+        "All six proposed target images exist at exactly 480x270 and match their declared SHA-256 pins.",
+        "Direction A and Direction B were reviewed as separate complete screens. Direction B wins because it preserves more open navigation, makes the two route gates one legible hinge, keeps Mira as the destination focus, and leaves follow-up plots visibly dormant before delivery.",
+        "Across the five selected states, the sole courier, cauldron, route gates, Mira, bottle state, prediction plots, status band, and context band remain coherent without modal takeover or accidental peer-region overlap.",
+        "All 19 component crops remain in viewport bounds and reference the approved hash. The only region intersections are the three explicitly declared playfield overlays."
+      ]
+    },
+    "approvedAt": "2026-08-21T19:10:44.1074186Z"
+  },
+  "metadata": {
+    "hypothesis": "A moonlit conservatory with a quiet code-native ledger and state-linked gate, bottle, recipient, and prediction motion can make the accepted loop feel inhabited while keeping direct navigation and causal attribution more legible than a warmer prop-dense courtyard.",
+    "assumptions": [
+      "The accepted 480x270 fixed camera, collider topology, scene anchors, shipping controls, and event order remain immutable through production.",
+      "Generated target lettering is not production typography and will be replaced by measured code-native text.",
+      "Visual generation may suggest material and silhouette, but exact runtime placement is governed by the live geometry basis and component contracts."
+    ],
+    "screenProblem": {
+      "states": [
+        {
+          "id": "interaction",
+          "playerQuestion": "Which starting mix answers Mira's balanced need?",
+          "primaryAction": "Move to WARM or FIZZ, then interact at the cauldron.",
+          "essentialInformation": "Need, current plan, no-bottle state, both ingredients, cauldron, both future gates, Mira, and shipping controls.",
+          "actors": [
+            "courier",
+            "Mira"
+          ],
+          "persistentContext": "One continuous workshop-divider-garden place."
+        },
+        {
+          "id": "action",
+          "playerQuestion": "Which route should change the unrouted W2 F3 bottle?",
+          "primaryAction": "Physically carry it through COOL or VENT.",
+          "essentialInformation": "Carried bottle, W2 F3 values, unrouted state, both gates, destination, and causal instruction.",
+          "actors": [
+            "courier",
+            "Mira"
+          ],
+          "persistentContext": "Ingredients and cauldron settle but remain spatially present."
+        },
+        {
+          "id": "feedback",
+          "playerQuestion": "What did VENT change, and what should I do now?",
+          "primaryAction": "Read W2 F2 VENTED and deliver to Mira.",
+          "essentialInformation": "Activated gate, traveling puff, balanced bottle shape and color, changed quantity, and Mira's facing response.",
+          "actors": [
+            "courier",
+            "Mira"
+          ],
+          "persistentContext": "The route and source room remain visible so the consequence is attributable."
+        },
+        {
+          "id": "resolution",
+          "playerQuestion": "How did Mira react, and what prediction follows?",
+          "primaryAction": "Choose one newly active physical prediction plot.",
+          "essentialInformation": "Balanced relief, empty hands, Mira reaction, WARM+COOL and FIZZ+VENT choice states.",
+          "actors": [
+            "courier",
+            "Mira"
+          ],
+          "persistentContext": "The delivered route and brew room remain in the same camera."
+        },
+        {
+          "id": "transition",
+          "playerQuestion": "Was my next plan committed?",
+          "primaryAction": "Read selected WARM+COOL and the disabled alternative.",
+          "essentialInformation": "Selected ring, disabled plot, committed next-plan status, and resolved causal copy.",
+          "actors": [
+            "courier",
+            "Mira"
+          ],
+          "persistentContext": "No camera cut or results modal replaces the embodied place."
+        }
+      ],
+      "recovery": {
+        "condition": "Interact with Mira before crossing a route gate or interact with no target in range.",
+        "presentation": "Keep the complete current world visible; swap only the bottom context ribbon to an actionable one-line recovery instruction and pulse the next valid world anchor once.",
+        "copyExamples": [
+          "BOTTLE UNFINISHED · CROSS COOL OR VENT",
+          "NO ALCHEMY TARGET IN REACH · MOVE CLOSER"
+        ],
+        "rule": "Recovery never opens a modal, teleports the courier, changes potion state, or introduces a new control."
+      }
+    },
+    "geometryAuthority": {
+      "path": "design/scene-targets/continuity-source/live-geometry-basis.png",
+      "sha256": "7b139850bef50177cf45284cc15bf44b4ebe9930adf8ef24a5fbcac666dc733a",
+      "classification": "captured accepted-core geometry basis, copied and normalized to exact native size",
+      "viewport": {
+        "width": 480,
+        "height": 270
+      },
+      "regions": {
+        "status": {
+          "x": 0,
+          "y": 0,
+          "width": 480,
+          "height": 32
+        },
+        "workshop": {
+          "x": 14,
+          "y": 32,
+          "width": 300,
+          "height": 212
+        },
+        "divider": {
+          "x": 318,
+          "y": 32,
+          "width": 12,
+          "height": 212
+        },
+        "garden": {
+          "x": 336,
+          "y": 32,
+          "width": 130,
+          "height": 212
+        },
+        "contextRibbon": {
+          "x": 0,
+          "y": 244,
+          "width": 480,
+          "height": 26
+        }
+      },
+      "anchors": {
+        "courierStart": {
+          "x": 80,
+          "y": 50
+        },
+        "warmIngredient": {
+          "x": 140,
+          "y": 220
+        },
+        "fizzIngredient": {
+          "x": 205,
+          "y": 220
+        },
+        "brewStation": {
+          "x": 260,
+          "y": 185
+        },
+        "coolGate": {
+          "x": 324,
+          "y": 103
+        },
+        "ventGate": {
+          "x": 324,
+          "y": 165
+        },
+        "Mira": {
+          "x": 414,
+          "y": 126
+        },
+        "warmCoolPrediction": {
+          "x": 372,
+          "y": 218
+        },
+        "fizzVentPrediction": {
+          "x": 438,
+          "y": 218
+        }
+      },
+      "gateApertures": [
+        {
+          "id": "cool",
+          "rect": {
+            "x": 313,
+            "y": 83,
+            "width": 22,
+            "height": 40
+          }
+        },
+        {
+          "id": "vent",
+          "rect": {
+            "x": 313,
+            "y": 145,
+            "width": 22,
+            "height": 40
+          }
+        }
+      ]
+    },
+    "renderingGrid": {
+      "nativePixel": 1,
+      "worldTileRhythmPx": 16,
+      "uiSpacingUnitPx": 4,
+      "outlineWeightsPx": [
+        1,
+        2
+      ],
+      "shippingScale": 3,
+      "filter": "nearest-neighbor",
+      "cameraRule": "fixed 480x270 canvas with whole-pixel sprite and effect coordinates"
+    },
+    "palette": {
+      "ink": "#12121F",
+      "slate": "#243047",
+      "mulberry": "#34243D",
+      "parchment": "#FFF3C4",
+      "copper": "#D89B62",
+      "cyan": "#66D9E8",
+      "coral": "#EF476F",
+      "leaf": "#9BE564",
+      "violet": "#7F5AF0",
+      "rule": "World and UI may use value ramps derived from these anchors but may not introduce an unrelated hue family."
+    },
+    "layerStack": [
+      {
+        "order": 0,
+        "id": "environment-floor"
+      },
+      {
+        "order": 10,
+        "id": "environment-edge-clutter"
+      },
+      {
+        "order": 20,
+        "id": "interactive-props"
+      },
+      {
+        "order": 30,
+        "id": "route-gates"
+      },
+      {
+        "order": 40,
+        "id": "courier"
+      },
+      {
+        "order": 41,
+        "id": "mira"
+      },
+      {
+        "order": 42,
+        "id": "carried-bottle"
+      },
+      {
+        "order": 50,
+        "id": "state-effects"
+      },
+      {
+        "order": 60,
+        "id": "world-cues"
+      },
+      {
+        "order": 80,
+        "id": "status-ui"
+      },
+      {
+        "order": 81,
+        "id": "context-ui"
+      }
+    ],
+    "spriteContracts": [
+      {
+        "id": "courier",
+        "nativeSize": {
+          "width": 20,
+          "height": 28
+        },
+        "pivot": {
+          "x": 10,
+          "y": 24
+        },
+        "states": [
+          "idle",
+          "walk-4dir",
+          "brew-anticipate",
+          "brew-follow-through",
+          "carry-idle",
+          "carry-walk",
+          "deliver",
+          "choose"
+        ],
+        "animation": "Idle 4 frames at 5 fps; walk 6 frames at 10 fps; interaction beats event-timed from 240-450 ms; bottle uses an independent socket.",
+        "silhouetteRule": "Gold cap, teal apron, and blue satchel remain readable at native scale and never merge with the bottle."
+      },
+      {
+        "id": "mira",
+        "nativeSize": {
+          "width": 24,
+          "height": 32
+        },
+        "pivot": {
+          "x": 12,
+          "y": 28
+        },
+        "states": [
+          "waiting",
+          "turn-to-courier",
+          "anticipate",
+          "balanced-relief",
+          "mismatch",
+          "settled"
+        ],
+        "animation": "Idle blink and shoulder breath are offset; reaction uses anticipate, two-pixel bounce, 900 ms readable hold, and settle.",
+        "silhouetteRule": "Silver braids, copper face, and plum dress retain identity through every pose."
+      },
+      {
+        "id": "potion-bottle",
+        "nativeSize": {
+          "width": 8,
+          "height": 12
+        },
+        "pivot": {
+          "x": 4,
+          "y": 10
+        },
+        "states": [
+          "w2-f3-unrouted",
+          "w2-f2-vented",
+          "w1-f3-cooled",
+          "handoff",
+          "empty"
+        ],
+        "animation": "One-pixel carry settle, state-change interior swap, two-frame specular glint, and a 240 ms handoff arc; no color-only distinction.",
+        "silhouetteRule": "Cork, angular warmth notch, round fizz mark, and route rim make state legible independent of hue."
+      }
+    ],
+    "componentContracts": [
+      {
+        "id": "workshop-environment",
+        "runtimeBounds": {
+          "x": 14,
+          "y": 32,
+          "width": 300,
+          "height": 212
+        },
+        "nativeSize": {
+          "width": 300,
+          "height": 212
+        },
+        "anchor": "top-left at native 14,32",
+        "layer": "environment-floor plus environment-edge-clutter",
+        "states": [
+          "all"
+        ],
+        "animationNeeds": "Separate glasslight, lamp, and mushroom-glint overlays; floor and collision edges remain static.",
+        "sourcePrompt": "Derive indigo flagstone, glass rafters, brass alembics, and inkcap edge clutter from the selected full screen while preserving the exact live workshop mask and empty navigation corridors.",
+        "targetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+      },
+      {
+        "id": "divider-environment",
+        "runtimeBounds": {
+          "x": 318,
+          "y": 32,
+          "width": 12,
+          "height": 212
+        },
+        "nativeSize": {
+          "width": 12,
+          "height": 212
+        },
+        "anchor": "top-left at native 318,32 with apertures centered 324,103 and 324,165",
+        "layer": "environment-edge-clutter below route-gates",
+        "states": [
+          "all"
+        ],
+        "animationNeeds": "None on collision-bearing masonry; vines may shift one pixel only away from apertures.",
+        "sourcePrompt": "Reconstruct the selected old brick and vine material on the exact live divider segments; keep both 22x40 route apertures fully open and collision-readable.",
+        "targetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+      },
+      {
+        "id": "garden-environment",
+        "runtimeBounds": {
+          "x": 336,
+          "y": 32,
+          "width": 130,
+          "height": 212
+        },
+        "nativeSize": {
+          "width": 130,
+          "height": 212
+        },
+        "anchor": "top-left at native 336,32",
+        "layer": "environment-floor plus environment-edge-clutter",
+        "states": [
+          "all"
+        ],
+        "animationNeeds": "Separate phosphor moss, two mushroom glints, and one lamp breath; Mira and plots remain separate consumers.",
+        "sourcePrompt": "Derive mulberry soil, fungus orchard, greenhouse masonry, and phosphor moss from the selected full screen within the exact live garden mask; leave Mira and both prediction anchors empty.",
+        "targetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+      },
+      {
+        "id": "courier-actor",
+        "runtimeBounds": {
+          "x": 70,
+          "y": 26,
+          "width": 20,
+          "height": 28
+        },
+        "nativeSize": {
+          "width": 20,
+          "height": 28
+        },
+        "anchor": "bottom-center follows CharacterBody2D; initial world anchor 80,50",
+        "layer": "courier",
+        "states": [
+          "interaction",
+          "action",
+          "feedback",
+          "resolution",
+          "transition"
+        ],
+        "animationNeeds": "Idle, walk, brew, carry, deliver, choose; bottle is socketed and independent.",
+        "sourcePrompt": "Regenerate the selected gold-cap teal-apron blue-satchel courier as a transparent 20x28 four-direction sprite family using full-screen and courier crop references.",
+        "targetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+      },
+      {
+        "id": "mira-actor",
+        "runtimeBounds": {
+          "x": 402,
+          "y": 94,
+          "width": 24,
+          "height": 32
+        },
+        "nativeSize": {
+          "width": 24,
+          "height": 32
+        },
+        "anchor": "bottom-center at world 414,126",
+        "layer": "mira",
+        "states": [
+          "waiting",
+          "facing-courier",
+          "balanced-relief",
+          "mismatch",
+          "settled"
+        ],
+        "animationNeeds": "Blink, turn, anticipate, relief bounce, mismatch response, settle.",
+        "sourcePrompt": "Regenerate the selected silver-braided copper-skinned gardener in plum as a transparent 24x32 state family using the full resolution view and local crop.",
+        "targetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+      },
+      {
+        "id": "interactive-props",
+        "runtimeBounds": {
+          "x": 124,
+          "y": 150,
+          "width": 166,
+          "height": 90
+        },
+        "nativeSize": {
+          "width": 166,
+          "height": 90
+        },
+        "anchor": "separate children at 140,220; 205,220; and 260,185",
+        "layer": "interactive-props",
+        "states": [
+          "normal",
+          "focus",
+          "selected",
+          "feedback",
+          "resolved"
+        ],
+        "animationNeeds": "Each pedestal has one-pixel focus rise and settle; cauldron has idle, brew-anticipate, action, and cooldown layers.",
+        "sourcePrompt": "Extract or regenerate WARM, FIZZ, and cauldron separately from the selected views; preserve their exact individual native footprints and do not bake labels, focus rings, bubbles, or collisions into any prop.",
+        "targetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+      },
+      {
+        "id": "route-gates",
+        "runtimeBounds": {
+          "x": 313,
+          "y": 78,
+          "width": 22,
+          "height": 127
+        },
+        "nativeSize": {
+          "width": 22,
+          "height": 127
+        },
+        "anchor": "separate gate centers at 324,103 and 324,165",
+        "layer": "route-gates",
+        "states": [
+          "idle",
+          "focus",
+          "activated",
+          "settled"
+        ],
+        "animationNeeds": "COOL crystal bands and VENT copper louvers animate independently; activation is event-linked and never alters Area2D shape.",
+        "sourcePrompt": "Regenerate two transparent 22x40 gate interiors from the selected target and feedback view with cyan crystalline and saffron copper material families, plus separate state effects.",
+        "targetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+      },
+      {
+        "id": "follow-up-plots",
+        "runtimeBounds": {
+          "x": 352,
+          "y": 198,
+          "width": 106,
+          "height": 42
+        },
+        "nativeSize": {
+          "width": 106,
+          "height": 42
+        },
+        "anchor": "separate centers at 372,218 and 438,218",
+        "layer": "interactive-props below selection-effects",
+        "states": [
+          "dormant",
+          "focus",
+          "active",
+          "selected",
+          "disabled",
+          "resolved"
+        ],
+        "animationNeeds": "Dormant soil is still; activation raises plus sigils; focus pulses once; selection closes a ring; disabled fades without disappearing.",
+        "sourcePrompt": "Extract or regenerate two independent physical soil-plot families from the resolution and transition full screens; no card backgrounds or baked labels.",
+        "targetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+      },
+      {
+        "id": "state-effects",
+        "runtimeBounds": {
+          "x": 230,
+          "y": 86,
+          "width": 226,
+          "height": 154
+        },
+        "nativeSize": {
+          "width": 226,
+          "height": 154
+        },
+        "anchor": "independent local origins at cauldron, gate, bottle, Mira, and plots",
+        "layer": "state-effects",
+        "states": [
+          "brew",
+          "route-consequence",
+          "reaction",
+          "selection"
+        ],
+        "animationNeeds": "Short sprite strips for bubbles, vent puff, bottle conversion, balanced motes, relief bounce accent, and selection rings; never one shared full-screen effect layer.",
+        "sourcePrompt": "Derive each effect from the relevant complete state view and its local crop, retain palette and pixel density, export transparent native strips, and composite each back into the exact geometry basis for comparison.",
+        "targetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+      },
+      {
+        "id": "interface-family",
+        "runtimeBounds": {
+          "x": 0,
+          "y": 0,
+          "width": 480,
+          "height": 270
+        },
+        "nativeSize": {
+          "width": 480,
+          "height": 270
+        },
+        "anchor": "top status 0,0,480,32; bottom context 0,244,480,26; world cues use entity anchors",
+        "layer": "world-cues, status-ui, context-ui",
+        "states": [
+          "normal",
+          "focus",
+          "selected",
+          "disabled",
+          "feedback",
+          "recovery",
+          "resolved"
+        ],
+        "animationNeeds": "Focus brightens one border step, action compresses one pixel, feedback enters after world response, selection ring completes, disabled loses saturation, resolved status swaps without moving regions.",
+        "sourcePrompt": "Build deterministic Godot Control geometry with one- and two-pixel borders, four- and six-pixel insets, code-native humanist text, tabular numerals, target-derived brass/cyan motifs, and exact peer-region bounds; generated lettering is never extracted.",
+        "targetSha256": "98b9f68faf484f1d9a36eb471a840e653f30e6d088d7086e872e6248cd205377"
+      }
+    ],
+    "uiSurfaceFamily": {
+      "productionMethod": "Planned code-native Godot Control structure with target-derived 1:1 pixel motifs; no production implementation exists in this handoff.",
+      "geometry": {
+        "spacingUnitPx": 4,
+        "borderPx": [
+          1,
+          2
+        ],
+        "compactInsetPx": 4,
+        "readingInsetPx": 6,
+        "statusHeightPx": 32,
+        "contextHeightPx": 26
+      },
+      "surfaces": [
+        {
+          "id": "need-plan-bottle-ledger",
+          "states": [
+            "normal",
+            "feedback",
+            "resolved"
+          ],
+          "rule": "One continuous structural surface; content changes without width reflow or new panels."
+        },
+        {
+          "id": "world-action-cue",
+          "states": [
+            "normal",
+            "focus",
+            "selected",
+            "disabled"
+          ],
+          "rule": "Appears only beside the reachable physical target and never competes with another E cue."
+        },
+        {
+          "id": "context-ribbon",
+          "states": [
+            "controls",
+            "feedback",
+            "recovery",
+            "resolved"
+          ],
+          "rule": "One concise message replaces the prior message; no stack, log, modal, or scrolling copy."
+        },
+        {
+          "id": "prediction-plot",
+          "states": [
+            "dormant",
+            "focus",
+            "selected",
+            "disabled",
+            "resolved"
+          ],
+          "rule": "State belongs to a world prop; UI supplies only the anchored label and focus/selection cue."
+        }
+      ]
+    },
+    "controlledLife": {
+      "ambientContinuity": [
+        "One workshop lamp breathes across three low-amplitude values.",
+        "Two mushroom caps glint on different offsets, never simultaneously.",
+        "Mira blinks and shifts one shoulder while waiting.",
+        "Glasslight moves one value step without scrolling the floor or collision edges."
+      ],
+      "interactionResponse": [
+        "Only the reachable ingredient, cauldron, Mira, or plot owns the active E cue.",
+        "Focus raises a prop or cue by one native pixel and settles within 120 ms.",
+        "Brew input links courier anticipation to cauldron response and bottle appearance."
+      ],
+      "gameplayConsequence": [
+        "The VENT gate opens before the puff reaches the bottle and W2 F3 becomes W2 F2.",
+        "Mira turns before relief, reacts before result copy, and exposes choices only after the reaction reads.",
+        "Prediction selection animates the chosen world plot and visibly disables the alternative."
+      ],
+      "transitionMotion": [
+        "Status content swaps in fixed bounds after the corresponding world response.",
+        "Follow-up plots transition dormant to active to selected/disabled without a camera cut.",
+        "All short effects settle to a persistent authoritative world or UI state."
+      ],
+      "reject": [
+        "Frozen tableau with text-only state changes.",
+        "Unrelated particle loops or every-prop animation quotas.",
+        "Camera shake that obscures the route or actor anchor.",
+        "Ambient motion that resembles an interaction affordance."
+      ]
+    },
+    "antiPatterns": [
+      "Generated whole-screen image loaded as the runtime world.",
+      "Environment plate containing courier, Mira, gates, bottle, prediction choices, labels, collisions, or feedback.",
+      "Generic purple cards, arbitrary rounded panels, nested decorative frames, or a dashboard around the playfield.",
+      "Tiny pixel font used for need, potion quantities, consequence, or recovery sentences.",
+      "Different pixel densities, non-integer runtime scaling, smoothed filtering, or resized unrelated motifs.",
+      "Route buttons, automatic travel, teleportation, proxy counters, or hidden gate choices.",
+      "Labels colliding with courier, Mira, prediction plots, gates, or the bottom context ribbon.",
+      "Effects or ambient loops not caused by current world state."
+    ],
+    "sourceClassification": {
+      "generatedSources": "ImageGen-authored whole-screen references under design/scene-targets/generated-sources; composition and art-direction only.",
+      "normalizedTargets": "Exact 480x270 nearest-neighbor target references under design/scene-targets/views.",
+      "reviewCopies": "Exact integer 3x review copies under design/scene-targets/review-3x.",
+      "geometryBasis": "Factory-captured accepted-core frame normalized to 480x270 under design/scene-targets/continuity-source.",
+      "engineReadyAssets": "absent",
+      "productionAssets": "absent",
+      "runtimeIntegration": "absent",
+      "engineMatchEvidence": "absent"
+    },
+    "productionStatus": "absent",
+    "humanFunEvidence": false,
+    "evidenceBoundary": "Factory-owned Godot traces establish the accepted embodied interaction and positions. Generated targets and this manifest establish a reviewable visual contract, not runtime production quality or human evidence of fun."
+  }
+}

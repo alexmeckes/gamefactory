@@ -1,0 +1,155 @@
+{
+  "apiVersion": "gamefactory.candidate-capture-trace/v1",
+  "inputDelivery": "Godot InputEventAction through the shipping InputMap",
+  "producer": "candidate-authored-godot-capture",
+  "samples": [
+    {
+      "carrying": false,
+      "deliveryComplete": false,
+      "followUpChoice": "",
+      "label": "planning",
+      "path": "evidence/captures/planning.png",
+      "playerPosition": {
+        "x": 80.0,
+        "y": 50.0
+      },
+      "reaction": "",
+      "routeEffect": ""
+    },
+    {
+      "carrying": false,
+      "deliveryComplete": false,
+      "followUpChoice": "",
+      "label": "initial-world",
+      "path": "evidence/motion/frame-000.png",
+      "playerPosition": {
+        "x": 80.0,
+        "y": 50.0
+      },
+      "reaction": "",
+      "routeEffect": ""
+    },
+    {
+      "carrying": false,
+      "deliveryComplete": false,
+      "followUpChoice": "",
+      "label": "cauldron-focus",
+      "path": "evidence/motion/frame-001.png",
+      "playerPosition": {
+        "x": 260.0,
+        "y": 185.0
+      },
+      "reaction": "",
+      "routeEffect": ""
+    },
+    {
+      "carrying": true,
+      "deliveryComplete": false,
+      "followUpChoice": "",
+      "label": "brew-action",
+      "path": "evidence/captures/action.png",
+      "playerPosition": {
+        "x": 260.0,
+        "y": 185.0
+      },
+      "reaction": "",
+      "routeEffect": ""
+    },
+    {
+      "carrying": true,
+      "deliveryComplete": false,
+      "followUpChoice": "",
+      "label": "brew-impact",
+      "path": "evidence/motion/frame-002.png",
+      "playerPosition": {
+        "x": 260.0,
+        "y": 185.0
+      },
+      "reaction": "",
+      "routeEffect": ""
+    },
+    {
+      "carrying": true,
+      "deliveryComplete": false,
+      "followUpChoice": "",
+      "label": "bottle-settled",
+      "path": "evidence/motion/frame-003.png",
+      "playerPosition": {
+        "x": 260.0,
+        "y": 185.0
+      },
+      "reaction": "",
+      "routeEffect": ""
+    },
+    {
+      "carrying": true,
+      "deliveryComplete": false,
+      "followUpChoice": "",
+      "label": "route-consequence",
+      "path": "evidence/motion/frame-004.png",
+      "playerPosition": {
+        "x": 309.5,
+        "y": 155.0
+      },
+      "reaction": "",
+      "routeEffect": "venting"
+    },
+    {
+      "carrying": false,
+      "deliveryComplete": true,
+      "followUpChoice": "",
+      "label": "mira-reaction",
+      "path": "evidence/motion/frame-005.png",
+      "playerPosition": {
+        "x": 395.0,
+        "y": 125.0
+      },
+      "reaction": "balanced relief",
+      "routeEffect": "venting"
+    },
+    {
+      "carrying": false,
+      "deliveryComplete": true,
+      "followUpChoice": "",
+      "label": "delivery-result",
+      "path": "evidence/captures/result.png",
+      "playerPosition": {
+        "x": 395.0,
+        "y": 125.0
+      },
+      "reaction": "balanced relief",
+      "routeEffect": "venting"
+    },
+    {
+      "carrying": false,
+      "deliveryComplete": true,
+      "followUpChoice": "warm_cooling",
+      "label": "follow-up-commit",
+      "path": "evidence/motion/frame-006.png",
+      "playerPosition": {
+        "x": 395.0,
+        "y": 215.0
+      },
+      "reaction": "balanced relief",
+      "routeEffect": "venting"
+    },
+    {
+      "carrying": false,
+      "deliveryComplete": true,
+      "followUpChoice": "warm_cooling",
+      "label": "resolved-hold",
+      "path": "evidence/motion/frame-007.png",
+      "playerPosition": {
+        "x": 395.0,
+        "y": 215.0
+      },
+      "reaction": "balanced relief",
+      "routeEffect": "venting"
+    }
+  ],
+  "shippingViewport": {
+    "height": 810,
+    "width": 1440
+  },
+  "trustBoundary": "Diagnostic implementation evidence only; the downstream factory-owned Godot node must establish trusted causal evidence."
+}

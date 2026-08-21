@@ -1,0 +1,114 @@
+{
+  "apiVersion": "gamefactory.motion-report/v1",
+  "specRevision": 1,
+  "sliceId": "production-encounter",
+  "motionGrammar": {
+    "principle": "World response begins from the real event, reads before copy settles, and leaves authoritative state visible.",
+    "gameplayCritical": ["shipping-input locomotion", "brew commit", "gate-to-bottle consequence", "delivery handoff", "Mira reaction", "follow-up commitment"],
+    "interactionResponse": ["one-pixel ingredient focus", "single reachable E cue", "one-pixel pressed settle", "one-shot recovery pulse"],
+    "ambientContinuity": ["out-of-phase workshop glasslight", "out-of-phase garden mushroom glints", "restrained Mira blink"],
+    "transitionMotion": ["bottle carry settle", "handoff arc", "plot activation", "three-step selection ring", "disabled alternative desaturation"],
+    "easing": "whole-pixel stepped frames for authored raster motion; short engine-time arcs only for the independent bottle socket",
+    "camera": "fixed shipping camera; no shake or cut",
+    "audio": "not added because no approved audio family was selected by the asset lane"
+  },
+  "stateGraphs": [
+    {
+      "owner": "courier",
+      "graph": "idle <-> walk-4dir; interact -> brew-anticipate -> brew-follow-through -> carry; carry + gate -> route-settle; carry + Mira -> deliver -> idle; idle + plot -> choose -> idle",
+      "fallback": "current locomotion or persistent carry state",
+      "overlap": "locomotion remains responsive during route settle"
+    },
+    {
+      "owner": "brew-station",
+      "graph": "idle <-> focus; interact -> anticipation -> rim-response+bubbles -> cooldown -> resolved",
+      "fallback": "resolved cauldron state"
+    },
+    {
+      "owner": "route-gate-and-bottle",
+      "graph": "idle gate + unrouted bottle -> activated gate -> traveling effect -> converted bottle -> settled gate",
+      "fallback": "converted bottle and settled activated gate"
+    },
+    {
+      "owner": "Mira-and-follow-up-plots",
+      "graph": "waiting -> anticipate -> relief|mismatch -> 900ms readable hold -> settled -> plots active; plot focus -> selected, sibling disabled",
+      "fallback": "settled reaction plus visible active/selected/disabled plots"
+    },
+    {
+      "owner": "interface",
+      "graph": "controls -> feedback -> recovery|resolved; world cues normal -> focus -> pressed -> settle",
+      "fallback": "current authoritative status and one bottom context message"
+    }
+  ],
+  "eventBindings": [
+    {"event": "InputMap movement axis", "owners": ["Player/Visual"], "response": "10 fps directional walk cadence"},
+    {"event": "BrewStation.interact", "owners": ["Player/Visual", "Player/Bottle", "BrewStation/Visual", "BrewStation/Effect", "HUD"], "response": "brew anticipation, rim answer, bubble crest, bottle settle, then concise feedback"},
+    {"event": "CoolingLane or VentingLane body_entered", "owners": ["route gate Visual", "route gate Effect", "Player/Bottle", "HUD"], "response": "gate response, traveling effect, persistent bottle conversion, then status"},
+    {"event": "Villager.interact with routed bottle", "owners": ["Player/Bottle", "Player/Visual", "Villager/Visual", "Villager/Effect", "follow-up plots", "HUD"], "response": "handoff, anticipation, readable reaction, plots activation, resolved instruction"},
+    {"event": "FollowUp.interact", "owners": ["selected plot", "disabled sibling", "Player/Visual", "HUD"], "response": "selection ring, upward mote, disabled desaturation, persistent NEXT state"}
+  ],
+  "timings": {
+    "focusSettleMs": 120,
+    "brewBeatMs": 450,
+    "gateConsequenceMs": 360,
+    "deliveryHandoffMs": 240,
+    "reactionReadableHoldMs": 900,
+    "selectionRingMs": 300,
+    "courierIdleFps": 5,
+    "courierWalkFps": 10,
+    "workshopAmbientPeriodMs": 2800,
+    "gardenAmbientPeriodMs": 3200
+  },
+  "interruptions": {
+    "locomotion": "never locked by visual beats",
+    "brew": "gameplay state commits immediately; interruption leaves the bottle visible in its authoritative state",
+    "route": "route mutation commits once; repeat crossings cannot duplicate the effect or quantity change",
+    "delivery": "delivery and reaction properties commit immediately; follow-up plots activate after the readable hold",
+    "selection": "selection and disabled sibling commit immediately; animation can finish without changing anchors",
+    "recovery": "one-shot pulse does not roll back, teleport, or replace the world"
+  },
+  "ambientContinuity": {
+    "owner": "World environment Sprite2D consumers and Mira",
+    "behavior": "two authored environment frames change only light/glint pixels; collision edges, anchors, and traversable silhouettes are identical",
+    "competitionPolicy": "ambient cadence is slower and lower-amplitude than focus or consequence motion"
+  },
+  "transitions": [
+    "interaction -> action through the real brew input",
+    "action -> feedback through the real Area2D crossing",
+    "feedback -> resolution through the real Mira interaction",
+    "resolution -> transition through the real physical plot interaction",
+    "all transitions retain one place and one fixed camera"
+  ],
+  "providerProvenance": {
+    "method": "direct authored pixel frames plus engine-native state choreography",
+    "sam3": "not used",
+    "videoGeneration": "not used",
+    "pixelMotion": "not used",
+    "runtimeSources": ["game/player.gd", "game/brew_station.gd", "game/route_lane.gd", "game/villager.gd", "game/follow_up.gd", "game/ui/production/inkcap-conservatory/ambient_layer.gd"]
+  },
+  "captures": [
+    {"path": "evidence/motion/frame-000.png", "beat": "initial-world"},
+    {"path": "evidence/motion/frame-001.png", "beat": "cauldron-focus"},
+    {"path": "evidence/motion/frame-002.png", "beat": "brew-impact"},
+    {"path": "evidence/motion/frame-003.png", "beat": "bottle-settled"},
+    {"path": "evidence/motion/frame-004.png", "beat": "route-consequence"},
+    {"path": "evidence/motion/frame-005.png", "beat": "Mira-reaction"},
+    {"path": "evidence/motion/frame-006.png", "beat": "follow-up-commit"},
+    {"path": "evidence/motion/frame-007.png", "beat": "resolved-hold"}
+  ],
+  "traceLinks": [
+    {"path": "evidence/candidate-capture-trace.json", "producer": "candidate-authored-godot-capture", "trust": "diagnostic-only"},
+    {"path": "evidence/production-validation.json", "producer": "candidate validation", "trust": "diagnostic-only"}
+  ],
+  "violations": [],
+  "regressionChecks": [
+    {"id": "complete-causal-sequence", "status": "pass"},
+    {"id": "seven-distinct-configured-motion-frames", "status": "pass"},
+    {"id": "responsive-repeated-input", "status": "pass"},
+    {"id": "no-collision-edge-motion", "status": "pass"},
+    {"id": "no-duplicated-route-effect", "status": "pass"},
+    {"id": "authoritative-interruption-state", "status": "pass"}
+  ],
+  "trustBoundary": "Motion is live and state-linked in current candidate engine captures; the downstream factory-owned probe must refresh trusted shipping-input evidence.",
+  "status": "pass"
+}
