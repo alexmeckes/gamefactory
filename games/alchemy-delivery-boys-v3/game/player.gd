@@ -45,7 +45,7 @@ func _process(delta: float) -> void:
 	_update_visual()
 
 
-func _unhandled_input(event: InputEvent) -> void:
+func _input(event: InputEvent) -> void:
 	if not event.is_action_pressed("interact"):
 		return
 	var nearest := _nearest_interactable()
@@ -177,4 +177,3 @@ func _update_visual() -> void:
 	if _deliver_time > 0.0:
 		var progress := 1.0 - (_deliver_time / 0.24)
 		bottle.position = Vector2(11 + progress * 12.0, -17 - sin(progress * PI) * 6.0).round()
-

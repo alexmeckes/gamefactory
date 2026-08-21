@@ -1,6 +1,6 @@
 {
   "apiVersion": "gamefactory.dev/v1",
-  "id": "alchemy-delivery-boys-v3-production-v5",
+  "id": "alchemy-delivery-boys-v3-production-v6",
   "objective": "Promote the already accepted embodied core revision into one visually production-ready Godot encounter. Re-verify the accepted core with factory-owned shipping-input evidence, approve coherent whole-scene targets derived from that live scene, activate only the asset lanes required by the selected target, integrate production assets and state-linked motion, then refresh trusted runtime evidence before multimodal and Sol judgment. Use a separate tournament campaign only for a named unresolved fork. Do not rebuild the core game, present proxy state logic, use static scene plates as runtime worlds, or describe concept art, generated source, extracted source, or engine-ready assets as production.",
   "projectRoot": ".",
   "workflow": "autoresearch",
@@ -27,7 +27,7 @@
     ".factory/**"
   ],
   "parameters": {
-    "productionContractRevision": 5,
+    "productionContractRevision": 6,
     "workspace": "git.worktree",
     "agent": "agent.team",
     "evaluators": [
@@ -296,7 +296,18 @@
             "dependsOn": [
               "production-slice-builder"
             ],
-            "refreshAfterRepair": true
+            "refreshAfterRepair": true,
+            "repair": {
+              "target": "production-slice-builder",
+              "outcomes": [
+                "revise"
+              ],
+              "maximumAttempts": 2,
+              "allowedPaths": [
+                "game/**",
+                "evidence/**"
+              ]
+            }
           },
           {
             "id": "gemini-production-review",
