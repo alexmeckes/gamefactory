@@ -84,6 +84,12 @@
           "id": "embodied-v5-recovery",
           "campaign": "embodied-recovery-v5-campaign.json",
           "config": "factory.json",
+          "status": "superseded"
+        },
+        {
+          "id": "embodied-v6-causal-loop-repair",
+          "campaign": "embodied-recovery-v6-campaign.json",
+          "config": "factory.json",
           "status": "active"
         }
       ]

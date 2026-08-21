@@ -156,6 +156,12 @@ test("factory-owned probe drives a real Godot scene through its shipping InputMa
   assert.ok(result.artifacts.some((artifact) => artifact.metadata?.producer === "factory-owned-godot-probe"));
 });
 
+test("factory-owned probe supports a distinct trusted target for each interaction step", async () => {
+  const source = await readFile(embodiedProbeScriptPath(), "utf8");
+  assert.match(source, /step\.get\("targetPath", default_target_path\)/);
+  assert.match(source, /subject\.get_node_or_null\(NodePath\(target_path\)\)/);
+});
+
 test("Godot scenario artifacts normalize candidate-defined kinds before crossing adapter boundaries", async () => {
   const normalized = await normalizeScenarioArtifacts([{
     kind: "gameplay-evidence",

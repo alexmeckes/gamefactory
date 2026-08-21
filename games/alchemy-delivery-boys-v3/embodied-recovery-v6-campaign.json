@@ -1,0 +1,279 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "id": "alchemy-delivery-boys-v3-embodied-v6-causal-loop-repair",
+  "objective": "Resolve the embodied-review blocker instead of stopping: preserve the recovered playable source, prove the entire causal loop through shipping input (brew, route transformation, villager delivery, visible reaction, and informed next choice), allow bounded source repair when trusted review finds a claim-linked blocker, and accept only evidence bound to the frozen GameSpec.",
+  "projectRoot": ".",
+  "workflow": "autoresearch",
+  "requires": [
+    "workflow:autoresearch",
+    "workspace:git.worktree",
+    "agent:agent.team",
+    "agent:godot.evidence",
+    "agent:gemini.visual-embodied",
+    "engine:godot.engine",
+    "evaluator:godot.scenario"
+  ],
+  "mutablePaths": [
+    "game/**",
+    "evidence/**"
+  ],
+  "parameters": {
+    "workspace": "git.worktree",
+    "agent": "agent.team",
+    "evaluators": [
+      "godot.scenario"
+    ],
+    "agentTeam": {
+      "context": [],
+      "graph": {
+        "maximumConcurrency": 2,
+        "maximumTotalAttempts": 14,
+        "nodes": [
+          {
+            "id": "recovery-checkpoint",
+            "adapter": "command",
+            "command": [
+              "node",
+              "-e",
+              "const fs=require('node:fs'),crypto=require('node:crypto');const paths=['game/main.tscn','game/world.gd','game/player.gd','game/brew_station.gd','game/mix_pedestal.gd','game/route_lane.gd','game/villager.gd','game/follow_up.gd'];const files=Object.fromEntries(paths.map(path=>[path,crypto.createHash('sha256').update(fs.readFileSync(path)).digest('hex')]));fs.mkdirSync('evidence',{recursive:true});fs.writeFileSync('evidence/recovery-checkpoint.json',JSON.stringify({apiVersion:'gamefactory.recovery-checkpoint/v1',source:'accepted-v5-restoration',validation:'sha256-current',files},null,2)+'\\n');process.stdout.write(JSON.stringify({summary:'Recovered source checkpoint recorded; causal-loop repair may proceed.',outcome:'pass'}));"
+            ],
+            "role": "worker",
+            "permissions": "write",
+            "timeoutSeconds": 60,
+            "maximumAttempts": 1,
+            "instructions": "Record the current recovered source identity before any bounded repair. This is provenance, not gameplay evidence."
+          },
+          {
+            "id": "causal-loop-repairer",
+            "skills": [
+              "prove-godot-gameplay"
+            ],
+            "adapter": "codex-app-server",
+            "role": "implementer",
+            "permissions": "write",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "high",
+            "timeoutSeconds": 1800,
+            "dependsOn": [
+              "recovery-checkpoint"
+            ],
+            "instructions": "Inspect the recovered Godot slice and the frozen loop.core claim. Preserve working movement and brewing. Make only the smallest source changes needed so shipping input can complete a visible causal loop: choose a mix, brew, traverse exactly one world route that changes the carried potion, deliver to the villager, see an attributable reaction, and commit an informed next-batch choice. The current source may already implement most or all of this; do not rewrite working code merely to appear active. Keep World/Player, World/BrewStation, World/Villager, World/FollowWarmCooling, and res://game/main.tscn stable for trusted evidence."
+          },
+          {
+            "id": "gameplay-evidence",
+            "adapter": "agent-driver",
+            "driver": "godot.evidence",
+            "role": "worker",
+            "permissions": "read",
+            "driverWritePaths": [
+              "evidence/**"
+            ],
+            "timeoutSeconds": 900,
+            "dependsOn": [
+              "causal-loop-repairer"
+            ],
+            "refreshAfterRepair": true,
+            "instructions": "Refresh Godot import and run the full factory-owned multi-target shipping-input proof through brewing, route transformation, delivery, reaction, and follow-up choice."
+          },
+          {
+            "id": "gemini-embodied-review",
+            "adapter": "agent-driver",
+            "driver": "gemini.visual-embodied",
+            "role": "critic",
+            "permissions": "read",
+            "timeoutSeconds": 300,
+            "maximumAttempts": 3,
+            "dependsOn": [
+              "causal-loop-repairer",
+              "gameplay-evidence"
+            ],
+            "refreshAfterRepair": true,
+            "repair": {
+              "target": "causal-loop-repairer",
+              "outcomes": [
+                "revise"
+              ],
+              "maximumAttempts": 2,
+              "allowedPaths": [
+                "game/**"
+              ]
+            },
+            "instructions": "Independently review the trusted continuous engine sequence and causal trace. Pass when the actor, spatial path, carried-state change, delivery reaction, and next-choice affordance are visually understandable. Return a claim-linked blocker using the required structured schema when repair is needed. Do not demand production polish."
+          },
+          {
+            "id": "experience-gate",
+            "skills": [
+              "prove-godot-gameplay"
+            ],
+            "adapter": "codex-app-server",
+            "role": "critic",
+            "permissions": "read",
+            "model": "gpt-5.6-luna",
+            "reasoningEffort": "high",
+            "timeoutSeconds": 900,
+            "dependsOn": [
+              "causal-loop-repairer",
+              "gameplay-evidence",
+              "gemini-embodied-review"
+            ],
+            "refreshAfterRepair": true,
+            "repair": {
+              "target": "causal-loop-repairer",
+              "outcomes": [
+                "revise"
+              ],
+              "maximumAttempts": 2,
+              "allowedPaths": [
+                "game/**"
+              ],
+              "preserve": [
+                "gemini-embodied-review"
+              ]
+            },
+            "advisor": {
+              "model": "gpt-5.6-sol",
+              "reasoningEffort": "high",
+              "outcomes": [
+                "needs_advisor"
+              ],
+              "onFailure": true,
+              "maximumAttempts": 1
+            },
+            "instructions": "Judge only the frozen loop.core claim from trusted evidence. Require shipping input to visibly move the actor, mix and carry a potion, cross one state-changing route, deliver to Mira, show an attributable reaction, and create an informed next choice. If any required stage is missing, return outcome revise with payload.findings containing a blocker classified findingClass=blocker and claimIds=[loop.core], so the graph repairs it. Do not judge production polish or request new scope."
+          },
+          {
+            "id": "embodied-judge",
+            "skills": [
+              "prove-godot-gameplay"
+            ],
+            "adapter": "codex-app-server",
+            "role": "judge",
+            "permissions": "read",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "timeoutSeconds": 1200,
+            "dependsOn": [
+              "causal-loop-repairer",
+              "gameplay-evidence",
+              "gemini-embodied-review",
+              "experience-gate"
+            ],
+            "requiredOutputFields": [
+              "projectEvidence.scenarios",
+              "projectEvidence.interactionTrace",
+              "projectEvidence.embodiedGameplay",
+              "projectEvidence.engineCapture",
+              "projectEvidence.motionEvidence"
+            ],
+            "requiredOutputFieldsOn": [
+              "pass"
+            ],
+            "repair": {
+              "target": "causal-loop-repairer",
+              "outcomes": [
+                "revise"
+              ],
+              "maximumAttempts": 1,
+              "allowedPaths": [
+                "game/**"
+              ]
+            },
+            "instructions": "Make the final core-experience decision from the frozen claim and trusted full-loop evidence. On a claim-linked repairable failure, return revise using the required blocker schema so the graph repairs it. On pass, bind projectEvidence to the current specRevision and specFingerprint and cite preserved evaluator artifacts for every scenario, interactionTrace, embodiedGameplay, engineCapture, and motionEvidence."
+          }
+        ]
+      }
+    },
+    "geminiVisualReview": {
+      "checkpoint": "embodied",
+      "model": "gemini-3.7-flash",
+      "credentialName": "google.gemini",
+      "apiKeyEnvironment": "GEMINI_API_KEY",
+      "minimumImages": 6,
+      "maximumImages": 12,
+      "minimumScore": 60,
+      "failureSeverities": [
+        "blocker"
+      ],
+      "requireEmbodiedTrace": true,
+      "maximumReviews": 3,
+      "contractPaths": [
+        "game-spec.json"
+      ]
+    },
+    "godot": {
+      "binary": "C:/Users/alexm/OneDrive/Documents/New project/oldschool-mmo-godot/tools/godot/Godot_v4.7.1-stable_win64_console.exe",
+      "importCheck": true,
+      "rendered": true,
+      "timeoutSeconds": 300,
+      "embodiedProof": {
+        "minimumDurationSeconds": 9,
+        "minimumShippingInputEvents": 15,
+        "minimumDisplacementPixels": 250,
+        "minimumSpatialInteractions": 3,
+        "minimumStateConsequences": 5,
+        "minimumDistinctFrames": 12
+      },
+      "scenarios": [
+        {
+          "id": "first-session",
+          "provider": "godot.factory/v1",
+          "version": "2",
+          "path": "res://game/main.tscn",
+          "parameters": {
+            "mode": "first-session",
+            "seed": 314159,
+            "physics_hz": 60,
+            "embodiedProbe": {
+              "actorPath": "World/Player",
+              "targetPath": "World/BrewStation",
+              "interactionAction": "interact",
+              "interactionRange": 64,
+              "captureEveryFrames": 15,
+              "stateObservations": [
+                { "id": "brew", "nodePath": "World/BrewStation", "property": "brew_committed", "state": "potion-brewed" },
+                { "id": "route", "nodePath": "World/Player", "property": "route_effect", "state": "potion-changed-by-route" },
+                { "id": "delivery", "nodePath": "World", "property": "delivery_complete", "state": "potion-delivered" },
+                { "id": "reaction", "nodePath": "World", "property": "last_reaction", "state": "villager-reacted" },
+                { "id": "next-choice", "nodePath": "World", "property": "follow_up_choice", "state": "next-plan-committed" }
+              ],
+              "steps": [
+                { "action": "move_right", "kind": "axis", "pressed": true, "frames": 120 },
+                { "action": "move_right", "kind": "axis", "pressed": false, "frames": 1 },
+                { "action": "move_down", "kind": "axis", "pressed": true, "frames": 90 },
+                { "action": "move_down", "kind": "axis", "pressed": false, "frames": 1 },
+                { "action": "interact", "kind": "action", "pressed": true, "frames": 2, "targetPath": "World/BrewStation" },
+                { "action": "interact", "kind": "action", "pressed": false, "frames": 12 },
+                { "action": "move_up", "kind": "axis", "pressed": true, "frames": 20 },
+                { "action": "move_up", "kind": "axis", "pressed": false, "frames": 1 },
+                { "action": "move_right", "kind": "axis", "pressed": true, "frames": 90 },
+                { "action": "move_right", "kind": "axis", "pressed": false, "frames": 1 },
+                { "action": "move_up", "kind": "axis", "pressed": true, "frames": 20 },
+                { "action": "move_up", "kind": "axis", "pressed": false, "frames": 1 },
+                { "action": "interact", "kind": "action", "pressed": true, "frames": 2, "targetPath": "World/Villager" },
+                { "action": "interact", "kind": "action", "pressed": false, "frames": 18 },
+                { "action": "move_down", "kind": "axis", "pressed": true, "frames": 60 },
+                { "action": "move_down", "kind": "axis", "pressed": false, "frames": 1 },
+                { "action": "interact", "kind": "action", "pressed": true, "frames": 2, "targetPath": "World/FollowWarmCooling" },
+                { "action": "interact", "kind": "action", "pressed": false, "frames": 100 }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
+  "acceptance": {
+    "primaryMetric": "embodied_proof",
+    "direction": "maximize",
+    "minimumDelta": 0,
+    "comparison": "at-least",
+    "hardGates": [
+      "godot.scenario"
+    ]
+  },
+  "budget": {
+    "maximumExperiments": 2,
+    "maximumConsecutiveCrashes": 2,
+    "wallTimeMinutes": 120
+  }
+}

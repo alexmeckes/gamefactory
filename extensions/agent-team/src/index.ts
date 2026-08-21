@@ -1980,6 +1980,18 @@ function validateAuthorityOutput(config: GraphAgentTeamConfig, node: GraphNodeCo
   }
 }
 
+function authorityOutputInstruction(config: GraphAgentTeamConfig, node: GraphNodeConfig): string {
+  if (node.authority !== "propose" && node.authority !== "approve") return `Authority: ${node.authority}. Do not exceed this authority.`;
+  const claimIds = config.claimIds.length > 0
+    ? config.claimIds.map((claimId) => `\`${claimId}\``).join(", ")
+    : "the existing claimIds in the supplied project contract";
+  return [
+    `Authority: ${node.authority}. Classify every finding as blocker or opportunity. New scope is an opportunity and cannot force revision.`,
+    `If outcome is rejecting (for example revise, reject, fail, or needs_work), payload.findings must be an array with at least one object shaped like { findingClass: \"blocker\", claimIds: [\"claim.id\"], issue: \"...\", evidence: [...] }.`,
+    `Every blocker must cite at least one of these existing claimIds: ${claimIds}. If no existing claim is falsified, return a positive outcome and report the concern as an opportunity instead.`
+  ].join(" ");
+}
+
 async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Promise<AgentResult> {
   const nodesById = new Map(config.nodes.map((node) => [node.id, node]));
   const states = new Map(config.nodes.map((node): [string, GraphNodeState] => [node.id, {
@@ -2125,9 +2137,9 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
         attempt,
         instructions: state.config.advisor ? [
           state.config.instructions ?? INSTRUCTIONS[state.config.role],
-          `Authority: ${state.config.authority}. ${state.config.authority === "propose" || state.config.authority === "approve" ? "Classify every finding as blocker or opportunity. A blocker must cite existing claimIds; new scope is an opportunity and cannot force revision." : "Do not exceed this authority."}`,
+          authorityOutputInstruction(config, state.config),
           `A bounded advisor escalation is available. If you cannot produce a sufficiently supported result, return one of these escalation outcomes: ${state.config.advisor.outcomes.join(", ")}. Preserve your partial findings, evidence, assumptions, and exact remaining gap for the advisor. Use escalation only for a material capability or uncertainty gap, not ordinary difficulty.`
-        ].join("\n\n") : [state.config.instructions ?? INSTRUCTIONS[state.config.role], `Authority: ${state.config.authority}. ${state.config.authority === "propose" || state.config.authority === "approve" ? "Classify every finding as blocker or opportunity. A blocker must cite existing claimIds; new scope is an opportunity and cannot force revision." : "Do not exceed this authority."}`].join("\n\n"),
+        ].join("\n\n") : [state.config.instructions ?? INSTRUCTIONS[state.config.role], authorityOutputInstruction(config, state.config)].join("\n\n"),
         context: [...(state.config.inheritContext ? config.context : []), ...state.config.context],
         historyLimit: config.historyLimit,
         reason: invocationReason

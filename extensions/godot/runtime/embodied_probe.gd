@@ -137,8 +137,7 @@ func _run() -> void:
 	if actor == null or _node_position(actor) == null:
 		_finish_failure("godot.embodied.actor", "actorPath must resolve to a Node2D or Control: " + actor_path)
 		return
-	var target_path := String(probe.get("targetPath", ""))
-	var target := subject.get_node_or_null(NodePath(target_path)) if not target_path.is_empty() else null
+	var default_target_path := String(probe.get("targetPath", ""))
 	var interaction_action := String(probe.get("interactionAction", "interact"))
 	var interaction_range := float(probe.get("interactionRange", 64.0))
 	var physics_hz := maxi(1, int(parameters.get("physics_hz", 60)))
@@ -164,6 +163,11 @@ func _run() -> void:
 		var strength := clampf(float(step.get("strength", 1.0)), 0.0, 1.0)
 		var frames := maxi(1, int(step.get("frames", 1)))
 		var kind := String(step.get("kind", "action"))
+		# A player-complete loop can interact with several world entities. Let each
+		# shipping-input step identify the entity whose in-range causal interaction
+		# it is proving, while retaining the top-level targetPath as a default.
+		var target_path := String(step.get("targetPath", default_target_path))
+		var target := subject.get_node_or_null(NodePath(target_path)) if not target_path.is_empty() else null
 		if action.is_empty() or not InputMap.has_action(StringName(action)):
 			_finish_failure("godot.embodied.input-map", "Probe action is absent from the shipping InputMap: " + action)
 			return
