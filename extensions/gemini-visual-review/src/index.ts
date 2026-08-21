@@ -359,6 +359,16 @@ function responseText(value: unknown): string {
   throw new Error("Gemini response contains no output text");
 }
 
+function responseJson(value: string): unknown {
+  let source = value.trim();
+  if (source.startsWith("```")) {
+    const fenced = /^```(?:json)?\s*\r?\n([\s\S]*?)\r?\n```$/i.exec(source);
+    if (!fenced) throw new Error("Gemini JSON response used an invalid Markdown fence");
+    source = fenced[1]!.trim();
+  }
+  return JSON.parse(source) as unknown;
+}
+
 function parseReview(value: unknown, evidenceIds: Set<string>, hasTarget: boolean): GeminiReview {
   const root = record(value, "Gemini visual review");
   if (root.verdict !== "pass" && root.verdict !== "revise" && root.verdict !== "blocked") throw new Error("Gemini visual review verdict is invalid");
@@ -503,7 +513,7 @@ export class GeminiVisualEvaluator implements Evaluator {
         throw new Error(`Gemini visual review request failed with HTTP ${response.status}: ${fallbackFailure}${primaryFailure ? `; structured request also failed: ${primaryFailure}` : ""}`);
       }
       const rawResponse = await response.json() as unknown;
-      const review = parseReview(JSON.parse(responseText(rawResponse)) as unknown, new Set(evidence.media.map((item) => item.id)), evidence.media.some((item) => item.role === "target"));
+      const review = parseReview(responseJson(responseText(rawResponse)), new Set(evidence.media.map((item) => item.id)), evidence.media.some((item) => item.role === "target"));
       const applicable = DIMENSIONS.filter((id) => !review.notApplicable.includes(id));
       const score = applicable.reduce((sum, id) => sum + review.scores[id], 0) / applicable.length;
       const violations = violationsFor(review, config, score);

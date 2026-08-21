@@ -224,7 +224,7 @@ test("Gemini visual evaluator falls back to locally validated JSON on a structur
   const fetchImpl: typeof fetch = async (_url, init) => {
     bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
     if (bodies.length === 1) return new Response(JSON.stringify({ error: { code: 400, message: "Request contains an invalid argument." } }), { status: 400 });
-    return new Response(JSON.stringify({ output_text: JSON.stringify(review()) }), { status: 200 });
+    return new Response(JSON.stringify({ output_text: `\`\`\`json\n${JSON.stringify(review())}\n\`\`\`` }), { status: 200 });
   };
   try {
     const result = await new GeminiVisualEvaluator({ fetchImpl, credentialStore: credentials.store }).evaluate({ campaign: campaign(root), candidate: { id: "candidate", root, metadata: {} }, experimentId: "exp-compatibility", priorEvaluations: [prior.evaluation], signal: new AbortController().signal });
