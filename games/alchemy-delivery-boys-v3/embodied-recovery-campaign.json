@@ -1,0 +1,244 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "id": "alchemy-delivery-boys-v3-embodied-v2-recovery",
+  "objective": "Recover the already-built Alchemy Delivery Boys embodied slice from preserved content-addressed artifacts, then rerun only trusted Godot proof, independent Gemini multimodal review, the experience gate, and final evidence binding. Do not rebuild or redesign the game in this recovery attempt.",
+  "projectRoot": ".",
+  "workflow": "autoresearch",
+  "requires": [
+    "workflow:autoresearch",
+    "workspace:git.worktree",
+    "agent:agent.team",
+    "agent:godot.evidence",
+    "agent:gemini.visual-embodied",
+    "engine:godot.engine",
+    "evaluator:godot.scenario"
+  ],
+  "mutablePaths": [
+    "game/**",
+    "evidence/**"
+  ],
+  "parameters": {
+    "workspace": "git.worktree",
+    "agent": "agent.team",
+    "evaluators": [
+      "godot.scenario"
+    ],
+    "agentTeam": {
+      "context": [],
+      "graph": {
+        "maximumConcurrency": 2,
+        "maximumTotalAttempts": 8,
+        "nodes": [
+          {
+            "id": "recovery-checkpoint",
+            "adapter": "command",
+            "command": [
+              "node",
+              "-e",
+              "const fs=require('node:fs'),crypto=require('node:crypto');const expected={\"game/main.tscn\":\"fd305421f42a5497c89a07920ed293fdaed7b926bbf52fb13a20f9848cf1cf22\",\"game/world.gd\":\"7e2a65b0678f204541daae43b4a795f6f0724841b1c751ab7f69ab278e62cc2b\",\"game/player.gd\":\"d80ea31451a764ae0ed3ae037161bbbc7d6436e37d892e9963bb3ebb8019606a\",\"game/brew_station.gd\":\"1183a544f3a715807ec4a049ba3144c5bf3570d3145c6f97258fc4e660e19699\",\"game/mix_pedestal.gd\":\"a8b94ee1eac17f1d5203cc7f244a9cc248113ee9b45c7ee7addf897473656fd8\",\"game/route_lane.gd\":\"d53d49c6e56a860324674f8f5e909723ea1f1387cfb3de38748a0f103c943ff3\",\"game/villager.gd\":\"cb673f28dc1bb899f247f8f2f4a6a3cefa55e228d9d09b335b01e80cc6f8f34d\",\"game/follow_up.gd\":\"8938b4120e303482da0a8edac1b50426b10ce1eadd9a49df0cdc3486f5c96f27\"};for(const [path,hash] of Object.entries(expected)){const actual=crypto.createHash('sha256').update(fs.readFileSync(path)).digest('hex');if(actual!==hash)throw new Error(`Recovered source hash mismatch: ${path}`);}fs.mkdirSync('evidence',{recursive:true});fs.writeFileSync('evidence/recovery-checkpoint.json',JSON.stringify({apiVersion:'gamefactory.recovery-checkpoint/v1',source:'content-addressed-artifact-store',validation:'sha256-exact',files:expected},null,2)+'\\n');process.stdout.write(JSON.stringify({summary:'Recovered source hashes verified; ready for trusted runtime validation.',outcome:'pass'}));"
+            ],
+            "role": "worker",
+            "permissions": "write",
+            "timeoutSeconds": 60,
+            "maximumAttempts": 1,
+            "instructions": "Verify that each restored Godot source file exactly matches the preserved artifact hash and write a transparent recovery checkpoint. This marker is provenance only and is never gameplay evidence."
+          },
+          {
+            "id": "gameplay-evidence",
+            "adapter": "agent-driver",
+            "driver": "godot.evidence",
+            "role": "worker",
+            "permissions": "read",
+            "driverWritePaths": [
+              "evidence/**"
+            ],
+            "timeoutSeconds": 900,
+            "dependsOn": [
+              "recovery-checkpoint"
+            ],
+            "refreshAfterRepair": true,
+            "instructions": "Refresh Godot import, embodied input-event replay, causal trace, and continuous engine evidence."
+          },
+          {
+            "id": "gemini-embodied-review",
+            "adapter": "agent-driver",
+            "driver": "gemini.visual-embodied",
+            "role": "critic",
+            "permissions": "read",
+            "timeoutSeconds": 300,
+            "maximumAttempts": 3,
+            "dependsOn": [
+              "gameplay-evidence"
+            ],
+            "refreshAfterRepair": true,
+            "instructions": "Independently review the trusted engine frame sequence and causal trace for embodied readability. Block static plates, invisible or illegible actors, unclear spatial action, missing visual consequence, or non-causal motion. Do not demand production polish."
+          },
+          {
+            "id": "experience-gate",
+            "skills": [
+              "prove-godot-gameplay"
+            ],
+            "adapter": "codex-app-server",
+            "role": "critic",
+            "permissions": "read",
+            "model": "gpt-5.6-luna",
+            "reasoningEffort": "high",
+            "dependsOn": [
+              "gameplay-evidence",
+              "gemini-embodied-review"
+            ],
+            "refreshAfterRepair": true,
+            "advisor": {
+              "model": "gpt-5.6-sol",
+              "reasoningEffort": "high",
+              "outcomes": [
+                "needs_advisor"
+              ],
+              "onFailure": true,
+              "maximumAttempts": 1
+            },
+            "instructions": "Inspect the verified embodied trace and continuous engine sequence. Return pass only when shipping input visibly moves an actor, an in-range interaction produces understandable feedback and a state consequence, and the result creates another decision. Reject direct replay, static plates, text-only changes, debug controls, and telemetry-only gameplay. Do not judge production polish."
+          },
+          {
+            "id": "embodied-judge",
+            "skills": [
+              "prove-godot-gameplay"
+            ],
+            "adapter": "codex-app-server",
+            "role": "judge",
+            "permissions": "read",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "dependsOn": [
+              "gameplay-evidence",
+              "gemini-embodied-review",
+              "experience-gate"
+            ],
+            "requiredOutputFields": [
+              "projectEvidence.scenarios",
+              "projectEvidence.interactionTrace",
+              "projectEvidence.embodiedGameplay",
+              "projectEvidence.engineCapture",
+              "projectEvidence.motionEvidence"
+            ],
+            "requiredOutputFieldsOn": [
+              "pass"
+            ],
+            "instructions": "Make the core-experience decision from the authoritative projectSlice, frozen claim, evaluator-verified embodied gameplay report, trace, and continuous engine captures. Return pass only if the experience is genuinely playable through shipping input and its complete causal loop exists visibly in the running engine. On pass, bind projectEvidence to the current specRevision and specFingerprint and cite preserved evaluator artifacts for every scenario, interactionTrace, embodiedGameplay, engineCapture, and motionEvidence. Do not claim fun without human evidence."
+          }
+        ]
+      }
+    },
+    "geminiVisualReview": {
+      "checkpoint": "embodied",
+      "model": "gemini-3.6-flash",
+      "credentialName": "google.gemini",
+      "apiKeyEnvironment": "GEMINI_API_KEY",
+      "minimumImages": 5,
+      "maximumImages": 10,
+      "minimumScore": 60,
+      "failureSeverities": [
+        "blocker"
+      ],
+      "requireEmbodiedTrace": true,
+      "maximumReviews": 3,
+      "contractPaths": [
+        "game-spec.json"
+      ]
+    },
+    "godot": {
+      "binary": "C:/Users/alexm/OneDrive/Documents/New project/oldschool-mmo-godot/tools/godot/Godot_v4.7.1-stable_win64_console.exe",
+      "importCheck": true,
+      "rendered": true,
+      "timeoutSeconds": 300,
+      "embodiedProof": {
+        "minimumDurationSeconds": 4,
+        "minimumShippingInputEvents": 6,
+        "minimumDisplacementPixels": 32,
+        "minimumSpatialInteractions": 1,
+        "minimumStateConsequences": 1,
+        "minimumDistinctFrames": 5
+      },
+      "scenarios": [
+        {
+          "id": "first-session",
+          "provider": "godot.factory/v1",
+          "version": "1",
+          "path": "res://game/main.tscn",
+          "parameters": {
+            "mode": "first-session",
+            "seed": 314159,
+            "physics_hz": 60,
+            "embodiedProbe": {
+              "actorPath": "World/Player",
+              "targetPath": "World/BrewStation",
+              "interactionAction": "interact",
+              "interactionRange": 64,
+              "captureEveryFrames": 12,
+              "stateObservations": [
+                {
+                  "id": "core-consequence",
+                  "nodePath": "World/BrewStation",
+                  "property": "brew_committed",
+                  "state": "core-consequence"
+                }
+              ],
+              "steps": [
+                {
+                  "action": "move_right",
+                  "kind": "axis",
+                  "pressed": true,
+                  "frames": 120
+                },
+                {
+                  "action": "move_right",
+                  "kind": "axis",
+                  "pressed": false,
+                  "frames": 1
+                },
+                {
+                  "action": "move_down",
+                  "kind": "axis",
+                  "pressed": true,
+                  "frames": 90
+                },
+                {
+                  "action": "move_down",
+                  "kind": "axis",
+                  "pressed": false,
+                  "frames": 1
+                },
+                {
+                  "action": "interact",
+                  "kind": "action",
+                  "pressed": true,
+                  "frames": 2
+                },
+                {
+                  "action": "interact",
+                  "kind": "action",
+                  "pressed": false,
+                  "frames": 30
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
+  "acceptance": {
+    "primaryMetric": "embodied_proof",
+    "direction": "maximize",
+    "minimumDelta": 0,
+    "comparison": "at-least",
+    "hardGates": [
+      "godot.scenario"
+    ]
+  },
+  "budget": {
+    "maximumExperiments": 1,
+    "maximumConsecutiveCrashes": 2,
+    "wallTimeMinutes": 90
+  }
+}
