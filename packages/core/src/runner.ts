@@ -88,6 +88,10 @@ export interface CampaignRunIdentity {
 export function resolveCampaignRunIdentity(campaign: Campaign, config: FactoryConfig): CampaignRunIdentity {
   const configFingerprint = createHash("sha256").update(JSON.stringify(config)).digest("hex");
   const { budget: _operationalBudget, ...campaignBehavior } = campaign;
+  if (campaignBehavior.parameters?.resume !== undefined) {
+    const { resume: _operationalResume, ...behaviorParameters } = campaignBehavior.parameters;
+    campaignBehavior.parameters = behaviorParameters;
+  }
   const campaignFingerprint = createHash("sha256").update(JSON.stringify(campaignBehavior)).digest("hex");
   const runFingerprint = createHash("sha256").update(`${campaignFingerprint}:${configFingerprint}`).digest("hex");
   return {
@@ -96,6 +100,33 @@ export function resolveCampaignRunIdentity(campaign: Campaign, config: FactoryCo
     runFingerprint,
     runId: `${campaign.id}-${runFingerprint.slice(0, 16)}`
   };
+}
+
+function containsPath(pattern: string, path: string): boolean {
+  const outer = pattern.replaceAll("\\", "/").replace(/^\.\//, "");
+  const inner = path.replaceAll("\\", "/").replace(/^\.\//, "");
+  if (outer === inner) return true;
+  if (!outer.endsWith("/**")) return false;
+  const prefix = outer.slice(0, -3).replace(/\/$/, "");
+  return inner === prefix || inner.startsWith(`${prefix}/`);
+}
+
+async function assertCompatibleRevisionCarryForward(campaign: Campaign, expected: string, current: string, latestAppliedRevision?: string): Promise<void> {
+  const raw = campaign.parameters?.resume;
+  const settings = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : undefined;
+  const allowed = Array.isArray(settings?.projectRevisionCarryForwardPaths) && settings.projectRevisionCarryForwardPaths.every((item) => typeof item === "string")
+    ? settings.projectRevisionCarryForwardPaths as string[]
+    : [];
+  if (!allowed.length || latestAppliedRevision !== expected) throw new Error(`Project revision changed outside the recorded campaign: expected ${expected}, found ${current}.`);
+  try {
+    await execFileAsync("git", ["-C", campaign.projectRoot, "merge-base", "--is-ancestor", expected, current], { windowsHide: true });
+  } catch {
+    throw new Error(`Project revision changed outside the recorded campaign: expected ${expected}, found ${current}.`);
+  }
+  const { stdout } = await execFileAsync("git", ["-C", campaign.projectRoot, "diff", "--name-only", "--diff-filter=ACDMRTUXB", expected, current, "--"], { windowsHide: true });
+  const changed = stdout.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
+  const incompatible = changed.filter((path) => !allowed.some((pattern) => containsPath(pattern, path)));
+  if (incompatible.length) throw new Error(`Project revision changed outside the recorded campaign: expected ${expected}, found ${current}; incompatible paths: ${incompatible.join(", ")}.`);
 }
 
 export class FactoryRunner {
@@ -249,7 +280,8 @@ export class FactoryRunner {
       const gitScopedResume = Boolean(previousProjectRevision && /^[0-9a-f]{40}$/i.test(previousProjectRevision));
       const expectedProjectRevision = gitScopedResume ? latestAppliedRevision ?? previousProjectRevision : previousProjectRevision;
       if (expectedProjectRevision && currentProjectFingerprint !== expectedProjectRevision) {
-        throw new Error(`Project revision changed outside the recorded campaign: expected ${expectedProjectRevision}, found ${currentProjectFingerprint}.`);
+        await assertCompatibleRevisionCarryForward(campaign, expectedProjectRevision, currentProjectFingerprint, latestAppliedRevision);
+        this.options.logger.warn("Carrying an accepted campaign result across an explicitly compatible project revision", { expectedProjectRevision, currentProjectFingerprint });
       }
       const fingerprints = {
         campaign: campaignFingerprint,

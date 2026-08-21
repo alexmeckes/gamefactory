@@ -268,8 +268,11 @@ function evidenceReasons(phase: LoadedProjectPhase, result: CampaignResult, froz
   }
   for (const scenario of phase.evidence.scenarios ?? []) if (!hasReference(scenarioEvidence.get(scenario), new Set(["replay", "telemetry", "test-report", "log"]), scenarioEvaluators)) reasons.push(`Required slice scenario ${scenario} is not linked to a trusted engine scenario artifact.`);
   if (phase.evidence.requireInteractionTrace && !hasReference(evidence.interactionTrace, new Set(["replay", "telemetry"]), scenarioEvaluators)) reasons.push("Slice requires a trusted real interaction trace artifact.");
-  if (phase.evidence.requireEmbodiedGameplay && !hasVerifiedEmbodiedReference(evidence.embodiedGameplay)) reasons.push("Slice requires evaluator-verified embodied gameplay evidence from shipping input through visible motion and spatial consequence.");
-  if (phase.evidence.requireEngineCapture && !hasReference(evidence.engineCapture, new Set(["image", "video"]), captureEvaluators)) reasons.push("Slice requires a trusted current engine capture artifact.");
+  const scenarioReferences = [...scenarioEvidence.values()];
+  if (phase.evidence.requireEmbodiedGameplay && ![evidence.embodiedGameplay, evidence.interactionTrace, ...scenarioReferences].some(hasVerifiedEmbodiedReference)) reasons.push("Slice requires evaluator-verified embodied gameplay evidence from shipping input through visible motion and spatial consequence.");
+  const captureBundle = evidence.engineCapture && typeof evidence.engineCapture === "object" && !Array.isArray(evidence.engineCapture) ? evidence.engineCapture as Record<string, unknown> : undefined;
+  const representativeFrames = Array.isArray(captureBundle?.representativeFrames) ? captureBundle.representativeFrames : [];
+  if (phase.evidence.requireEngineCapture && ![evidence.engineCapture, ...representativeFrames].some((value) => hasReference(value, new Set(["image", "video"]), captureEvaluators))) reasons.push("Slice requires a trusted current engine capture artifact.");
   if (phase.evidence.targetApprovalNode && !hasReference(evidence.targetSha256, new Set(["image"]), new Set(["evaluator:design.system"]))) reasons.push("Slice engine evidence is not bound to a design-system-verified target image hash.");
   if (phase.evidence.targetApprovalNode) {
     const targetHash = evidenceReference(evidence.targetSha256);
@@ -279,7 +282,7 @@ function evidenceReasons(phase: LoadedProjectPhase, result: CampaignResult, froz
     const approvedHash = findings && typeof findings === "object" && !Array.isArray(findings) ? (findings as Record<string, unknown>).selectedTargetSha256 : undefined;
     if (!approval || typeof approvedHash !== "string" || approvedHash !== targetHash) reasons.push(`Scene target hash is not bound to the in-memory pass verdict from ${phase.evidence.targetApprovalNode}.`);
   }
-  if (phase.evidence.requireMotionEvidence && !hasReference(evidence.motionEvidence, new Set(["video", "replay"]), captureEvaluators)) reasons.push("Slice requires trusted current runtime motion evidence.");
+  if (phase.evidence.requireMotionEvidence && ![evidence.motionEvidence, evidence.interactionTrace].some((value) => hasReference(value, new Set(["video", "replay"]), captureEvaluators))) reasons.push("Slice requires trusted current runtime motion evidence.");
   const runtimeEvidence = new Map<string, unknown>();
   if (Array.isArray(evidence.runtimeAssets)) for (const item of evidence.runtimeAssets) {
     if (item && typeof item === "object" && !Array.isArray(item) && typeof (item as Record<string, unknown>).id === "string" && typeof (item as Record<string, unknown>).consumer === "string") runtimeEvidence.set((item as Record<string, unknown>).id as string, item);

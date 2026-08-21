@@ -280,8 +280,8 @@ function evidencedResult(campaign: Campaign, revision: string): CampaignResult {
   result.experiments[0]!.agent = { summary: "real engine evidence", contributors: [], artifacts: [] };
   result.experiments[0]!.evaluations = [
     { evaluator: "godot.scenario", version: "1", status: "pass", metrics: {}, violations: [], artifacts: [
-      { kind: "test-report", path: "evidence/first-errand-report.json", sha256: scenarioSha },
-      { kind: "replay", path: "evidence/first-errand-trace.json", sha256: interactionSha },
+      { kind: "test-report", path: "evidence/first-errand-report.json", sha256: scenarioSha, metadata: { evidenceClass: "embodied-gameplay", verified: true } },
+      { kind: "replay", path: "evidence/first-errand-trace.json", sha256: interactionSha, metadata: { evidenceClass: "embodied-gameplay", verified: true } },
       { kind: "test-report", path: "evidence/embodied-proof.json", sha256: embodiedSha, metadata: { evidenceClass: "embodied-gameplay", verified: true } }
     ] },
     { evaluator: "godot.scenario", version: "1", status: "pass", metrics: {}, violations: [], artifacts: [
@@ -334,6 +334,12 @@ test("v2 promotion-only budget policy does not invalidate the campaign execution
       if (campaign.id === "spec-campaign") { await writeFile(specPath, JSON.stringify(spec), "utf8"); return acceptedResult(campaign.id, "a".repeat(40)); }
       assert.deepEqual((campaign.parameters?.projectSlice as Record<string, unknown>).gate, { requireAcceptedRevision: true });
       const result = evidencedResult(campaign, "b".repeat(40));
+      const projectEvidence = result.experiments[0]!.metadata!.projectEvidence as Record<string, any>;
+      const scenarioReference = projectEvidence.scenarios[0];
+      const captureReference = projectEvidence.engineCapture;
+      projectEvidence.embodiedGameplay = captureReference;
+      projectEvidence.engineCapture = { artifactSha256: scenarioReference.artifactSha256, representativeFrames: [captureReference] };
+      projectEvidence.motionEvidence = scenarioReference;
       result.status = "budget-exhausted";
       return result;
     } });
@@ -401,9 +407,9 @@ test("v2 rejects ordinary scenario reports when embodied gameplay proof is requi
     const runner = new ProjectRunner(await loadProject(manifestPath), { cwd: root, logger: new MemoryLogger(), executeCampaign: async ({ campaign }) => {
       if (campaign.id === "spec-campaign") return acceptedResult(campaign.id, "a".repeat(40));
       const result = evidencedResult(campaign, "b".repeat(40));
-      const embodied = result.experiments[0]!.evaluations.flatMap((evaluation) => evaluation.artifacts).find((artifact) => artifact.metadata?.evidenceClass === "embodied-gameplay");
-      assert.ok(embodied);
-      delete embodied.metadata;
+      const embodied = result.experiments[0]!.evaluations.flatMap((evaluation) => evaluation.artifacts).filter((artifact) => artifact.metadata?.evidenceClass === "embodied-gameplay");
+      assert.ok(embodied.length > 0);
+      for (const artifact of embodied) delete artifact.metadata;
       return result;
     } });
     const result = await runner.run();

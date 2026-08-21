@@ -7,7 +7,8 @@ import { BudgetController } from "./budget.js";
 import { decideAcceptance } from "./decision.js";
 import { CapabilityRegistry } from "./registry.js";
 import { JsonlResultStore } from "./results.js";
-import type { Evaluation, ExperimentRecord } from "./types.js";
+import { resolveCampaignRunIdentity } from "./runner.js";
+import type { Campaign, Evaluation, ExperimentRecord, FactoryConfig } from "./types.js";
 
 const evaluation = (score: number): Evaluation => ({
   evaluator: "score",
@@ -16,6 +17,13 @@ const evaluation = (score: number): Evaluation => ({
   metrics: { score },
   violations: [],
   artifacts: []
+});
+
+test("operational revision carry-forward policy does not fork campaign identity", () => {
+  const campaign: Campaign = { apiVersion: "gamefactory.dev/v1", id: "resume-fixture", objective: "test", projectRoot: ".", workflow: "fixture", requires: [], parameters: { workspace: "fixture" }, acceptance: { primaryMetric: "score", direction: "maximize" } };
+  const config: FactoryConfig = { apiVersion: "gamefactory.dev/v1", extensions: [] };
+  const resumed: Campaign = { ...campaign, parameters: { ...campaign.parameters, resume: { projectRevisionCarryForwardPaths: ["project-policy.json"] } } };
+  assert.equal(resolveCampaignRunIdentity(resumed, config).runId, resolveCampaignRunIdentity(campaign, config).runId);
 });
 
 test("registry registers and disposes capabilities", () => {

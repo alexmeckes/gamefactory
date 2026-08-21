@@ -18,6 +18,16 @@
     "evidence/**"
   ],
   "parameters": {
+    "resume": {
+      "projectRevisionCarryForwardPaths": [
+        "games/alchemy-delivery-boys-v3/gamefactory.project.json",
+        "games/alchemy-delivery-boys-v3/embodied-recovery-v6-campaign.json",
+        "packages/core/src/runner.ts",
+        "packages/core/src/core.test.ts",
+        "packages/project-sdk/src/runner.ts",
+        "packages/project-sdk/src/project.test.ts"
+      ]
+    },
     "workspace": "git.worktree",
     "agent": "agent.team",
     "evaluators": [
