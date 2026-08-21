@@ -1,0 +1,155 @@
+[gd_scene load_steps=15 format=3]
+
+[ext_resource type="Script" path="res://game/world.gd" id="1_world"]
+[ext_resource type="Script" path="res://game/player.gd" id="2_player"]
+[ext_resource type="Script" path="res://game/brew_station.gd" id="3_brew"]
+[ext_resource type="Script" path="res://game/mix_pedestal.gd" id="4_mix"]
+[ext_resource type="Script" path="res://game/route_lane.gd" id="5_lane"]
+[ext_resource type="Script" path="res://game/villager.gd" id="6_villager"]
+[ext_resource type="Script" path="res://game/follow_up.gd" id="7_follow"]
+
+[sub_resource type="CircleShape2D" id="Circle_player"]
+radius = 7.0
+
+[sub_resource type="RectangleShape2D" id="Rectangle_lane"]
+size = Vector2(22, 40)
+
+[sub_resource type="RectangleShape2D" id="Wall_top"]
+size = Vector2(12, 45)
+
+[sub_resource type="RectangleShape2D" id="Wall_mid"]
+size = Vector2(12, 18)
+
+[sub_resource type="RectangleShape2D" id="Wall_bottom"]
+size = Vector2(12, 68)
+
+[sub_resource type="RectangleShape2D" id="Wall_horizontal"]
+size = Vector2(480, 12)
+
+[sub_resource type="RectangleShape2D" id="Wall_vertical"]
+size = Vector2(12, 270)
+
+[node name="Main" type="Node2D"]
+
+[node name="World" type="Node2D" parent="."]
+script = ExtResource("1_world")
+
+[node name="Player" type="CharacterBody2D" parent="World"]
+position = Vector2(80, 50)
+script = ExtResource("2_player")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/Player"]
+position = Vector2(0, 5)
+shape = SubResource("Circle_player")
+
+[node name="BrewStation" type="Node2D" parent="World"]
+position = Vector2(260, 185)
+script = ExtResource("3_brew")
+
+[node name="WarmIngredient" type="Node2D" parent="World"]
+position = Vector2(140, 220)
+script = ExtResource("4_mix")
+mix_id = "warm_forward"
+
+[node name="FizzIngredient" type="Node2D" parent="World"]
+position = Vector2(205, 220)
+script = ExtResource("4_mix")
+mix_id = "fizz_forward"
+
+[node name="CoolingLane" type="Area2D" parent="World"]
+position = Vector2(324, 103)
+collision_layer = 0
+collision_mask = 1
+script = ExtResource("5_lane")
+effect_id = "cooling"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/CoolingLane"]
+shape = SubResource("Rectangle_lane")
+
+[node name="VentingLane" type="Area2D" parent="World"]
+position = Vector2(324, 165)
+collision_layer = 0
+collision_mask = 1
+script = ExtResource("5_lane")
+effect_id = "venting"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/VentingLane"]
+shape = SubResource("Rectangle_lane")
+
+[node name="Villager" type="Node2D" parent="World"]
+position = Vector2(414, 126)
+script = ExtResource("6_villager")
+
+[node name="FollowWarmCooling" type="Node2D" parent="World"]
+position = Vector2(372, 218)
+script = ExtResource("7_follow")
+plan_id = "warm_cooling"
+
+[node name="FollowFizzVenting" type="Node2D" parent="World"]
+position = Vector2(438, 218)
+script = ExtResource("7_follow")
+plan_id = "fizz_venting"
+
+[node name="Walls" type="StaticBody2D" parent="World"]
+
+[node name="TopDivider" type="CollisionShape2D" parent="World/Walls"]
+position = Vector2(324, 58.5)
+shape = SubResource("Wall_top")
+
+[node name="MidDivider" type="CollisionShape2D" parent="World/Walls"]
+position = Vector2(324, 134)
+shape = SubResource("Wall_mid")
+
+[node name="BottomDivider" type="CollisionShape2D" parent="World/Walls"]
+position = Vector2(324, 221)
+shape = SubResource("Wall_bottom")
+
+[node name="TopBoundary" type="CollisionShape2D" parent="World/Walls"]
+position = Vector2(240, 30)
+shape = SubResource("Wall_horizontal")
+
+[node name="BottomBoundary" type="CollisionShape2D" parent="World/Walls"]
+position = Vector2(240, 264)
+shape = SubResource("Wall_horizontal")
+
+[node name="LeftBoundary" type="CollisionShape2D" parent="World/Walls"]
+position = Vector2(8, 135)
+shape = SubResource("Wall_vertical")
+
+[node name="RightBoundary" type="CollisionShape2D" parent="World/Walls"]
+position = Vector2(472, 135)
+shape = SubResource("Wall_vertical")
+
+[node name="HUD" type="CanvasLayer" parent="World"]
+
+[node name="TopPanel" type="ColorRect" parent="World/HUD"]
+offset_right = 480.0
+offset_bottom = 32.0
+color = Color(0.055, 0.047, 0.102, 0.96)
+mouse_filter = 2
+
+[node name="Status" type="Label" parent="World/HUD"]
+offset_left = 8.0
+offset_top = 3.0
+offset_right = 472.0
+offset_bottom = 30.0
+theme_override_colors/font_color = Color(0.96, 0.93, 0.78, 1)
+theme_override_font_sizes/font_size = 8
+text = "MIRA'S NEED: balanced warmth + fizz"
+
+[node name="BottomPanel" type="ColorRect" parent="World/HUD"]
+offset_top = 244.0
+offset_right = 480.0
+offset_bottom = 270.0
+color = Color(0.055, 0.047, 0.102, 0.94)
+mouse_filter = 2
+
+[node name="Feedback" type="Label" parent="World/HUD"]
+offset_left = 8.0
+offset_top = 248.0
+offset_right = 472.0
+offset_bottom = 267.0
+theme_override_colors/font_color = Color(0.82, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 8
+text = "WASD / arrows move; E / Space interacts."
+autowrap_mode = 2
