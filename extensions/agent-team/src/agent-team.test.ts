@@ -1292,6 +1292,44 @@ test("agent graph can invoke a lazily activated extension agent driver", async (
   }
 });
 
+test("extension drivers may return more artifacts than model structured output permits", async () => {
+  const root = await repository();
+  try {
+    const extensionDriver: AgentDriver = {
+      id: "fixture.many-artifacts",
+      async run(request) {
+        const directory = resolve(request.candidate.root, "evidence");
+        await mkdir(directory, { recursive: true });
+        const artifacts = await Promise.all(Array.from({ length: 65 }, async (_, index) => {
+          const path = resolve(directory, `frame-${index}.txt`);
+          await writeFile(path, `${index}\n`, "utf8");
+          return { kind: "image" as const, path, mediaType: "text/plain", label: `frame ${index}` };
+        }));
+        return { summary: "large trusted evidence bundle passed", artifacts, metadata: { outcome: "pass" } };
+      }
+    };
+    const result = await new AgentTeam(() => extensionDriver).run({
+      campaign: graphCampaign(root, [{
+        id: "many-artifacts",
+        adapter: "agent-driver",
+        driver: "fixture.many-artifacts",
+        role: "worker",
+        permissions: "write"
+      }]),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-many-artifacts",
+      history: [],
+      signal: new AbortController().signal
+    });
+    const contribution = result.contributors?.[0];
+    assert.equal(contribution?.status, "complete");
+    assert.equal(contribution?.metadata?.outcome, "pass");
+    assert.equal(contribution?.artifacts.filter((item) => item.label?.startsWith("frame ")).length, 65);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("read-only extension drivers may refresh only explicitly declared candidate evidence", async () => {
   const root = await repository();
   try {

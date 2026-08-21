@@ -1420,7 +1420,6 @@ async function invokeContributor(
         stdout: JSON.stringify({
           summary: delegated.summary,
           outcome: delegatedOutcome,
-          artifacts: agentDriverArtifacts,
           ...(delegated.usage ? { usage: delegated.usage } : {}),
           ...(delegated.metadata?.structured && typeof delegated.metadata.structured === "object" && !Array.isArray(delegated.metadata.structured)
             ? delegated.metadata.structured as Record<string, unknown>
