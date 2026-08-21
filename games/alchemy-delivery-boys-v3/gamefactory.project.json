@@ -66,6 +66,12 @@
           "id": "embodied-v2-recovery",
           "campaign": "embodied-recovery-campaign.json",
           "config": "factory.json",
+          "status": "superseded"
+        },
+        {
+          "id": "embodied-v3-recovery",
+          "campaign": "embodied-recovery-v3-campaign.json",
+          "config": "factory.json",
           "status": "active"
         }
       ]
