@@ -1,6 +1,6 @@
 {
   "apiVersion": "gamefactory.dev/v1",
-  "id": "pulling-season-embodied-v10",
+  "id": "pulling-season-embodied-v11",
   "objective": "Prove one small player-complete Pulling Season experience in Unity 6 through shipping Input System events before visual production. Require a visible first-person actor, spatial approach, sustained player-caused crop extraction, visible physical consequence, and another harvest decision. Reject direct helper replay, context-button harvesting, invisible state, static scene plates, and presentation-only prototypes.",
   "projectRoot": ".",
   "workflow": "autoresearch",
@@ -67,7 +67,7 @@
             "model": "gpt-5.6-luna",
             "reasoningEffort": "high",
             "dependsOn": ["core-game-director"],
-            "instructions": "Try to defeat the plan with counterfactuals. Reject any plan that can pass by waiting, pressing one context button, moving a decoy actor, invoking a gameplay helper, or showing only UI. Require quiescence before input and identify the smallest real Input System sequence that proves approach, grab, sustained pull, consequence, and continuation.",
+            "instructions": "Try to defeat the plan and current source with counterfactuals. Reject if the proposed implementation or evidence contract could pass by waiting, pressing one context button, moving a decoy actor, invoking a gameplay helper, or showing only UI. Require the downstream evidence lane to test quiescence before input and identify the smallest real Input System sequence that proves approach, grab, sustained pull, consequence, and continuation. This is a pre-build source/plan audit: trusted runtime evidence is intentionally produced by later nodes. Do not reject solely because that downstream evidence does not exist yet. If the source and plan can support an honest falsifiable run, pass and record remaining runtime checks as evidence obligations or opportunities for the downstream reviewers.",
             "advisor": {
               "model": "gpt-5.6-sol",
               "reasoningEffort": "high",
