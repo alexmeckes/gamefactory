@@ -25,18 +25,18 @@ namespace PullingSeason
             guidanceText.color = harmed ? new Color(1f, 0.58f, 0.38f) : new Color(0.90f, 0.96f, 0.78f);
 
             if (crop.Acknowledged && nextDecision != null && nextDecision.DecisionAvailable)
-                guidanceText.text = "RESULT CARRIED FORWARD  •  inspect the glowing next bed";
+                guidanceText.text = "NEXT BED READY  •  inspect the glowing crop";
             else if (crop.Harvested)
-                guidanceText.text = (harmed ? "BRUISED — lateral strain stayed visible" : "INTACT — straight tension released the root")
-                    + "  •  SPACE acknowledge";
+                guidanceText.text = (harmed ? "BRUISED  •  sideways strain" : "INTACT  •  straight pull")
+                    + "  •  SPACE accept";
             else if (crop.Condition.Contains("slip"))
-                guidanceText.text = "GRIP SLIPPED  •  E regrip  •  then A pull straight";
+                guidanceText.text = "SLIPPED / BRUISED  •  E regrip  •  A pull straight";
             else if (crop.GripActive)
-                guidanceText.text = "GRIPPED  •  A pull straight  •  W/S loads the root sideways";
+                guidanceText.text = "GRIPPED  •  A pull straight  •  W/S strains root";
             else if (crop.GrowthStage == "Late")
-                guidanceText.text = "LATE: broad crown + dry cracks  •  D approach  •  E grip";
+                guidanceText.text = "LATE / DRY ROOTS  •  D approach  •  E grip";
             else
-                guidanceText.text = "EARLY: small crown + loose seams  •  D approach  •  E grip  •  G grow once";
+                guidanceText.text = "EARLY / LOOSE SOIL  •  D approach  •  E grip  •  G grow once";
         }
     }
 }

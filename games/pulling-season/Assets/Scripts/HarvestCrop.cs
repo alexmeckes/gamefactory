@@ -98,11 +98,21 @@ namespace PullingSeason
 
             if (cropVisual != null && !Harvested)
             {
-                feedbackClock += Time.deltaTime;
                 cropVisual.localScale = Vector3.Lerp(cropVisual.localScale, visualTargetScale, 0.13f);
-                var tension = GripActive ? 2.5f + PullProgress * 5f : 1.2f;
-                var wobble = Mathf.Sin(feedbackClock * tension) * (GripActive ? 3f + PullProgress * 7f : 0.7f);
-                cropVisual.localRotation = visualRestRotation * Quaternion.Euler(0f, 0f, wobble);
+                if (GripActive)
+                {
+                    feedbackClock += Time.deltaTime;
+                    var tension = 2.5f + PullProgress * 5f;
+                    var wobble = Mathf.Sin(feedbackClock * tension) * (3f + PullProgress * 7f);
+                    cropVisual.localRotation = visualRestRotation * Quaternion.Euler(0f, 0f, wobble);
+                }
+                else if (!damaged)
+                {
+                    // A rooted crop is strictly quiescent before shipping input. Motion
+                    // begins only after the player takes a grip; a slipped, damaged crop
+                    // keeps its last player-caused deflection instead of idling.
+                    cropVisual.localRotation = visualRestRotation;
+                }
             }
 
             UpdateSoilResponse();
@@ -223,7 +233,7 @@ namespace PullingSeason
                 soilRestScale.x * (1f + effort * 0.20f),
                 soilRestScale.y * (1f - effort * 0.42f),
                 soilRestScale.z * (1f + effort * 0.20f));
-            var strainYaw = damaged ? Mathf.Sin(feedbackClock * 12f) * 5f : 0f;
+            var strainYaw = GripActive && damaged ? Mathf.Sin(feedbackClock * 12f) * 5f : 0f;
             soilResponse.localRotation = soilRestRotation * Quaternion.Euler(0f, strainYaw, 0f);
         }
 

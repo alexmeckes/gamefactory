@@ -21,12 +21,28 @@ import {
   unityPrepareArgs,
   unityScenarioArgs,
   unityStatusArgs,
+  unityCandidateSnapshot,
   verifyUnityEmbodiedArtifacts
 } from "./index.js";
 
 test("Unity evidence driver does not claim agent-team control files", () => {
   const driver = new UnityEvidenceAgent(null as never, null as never);
   assert.deepEqual([...driver.writePaths], ["evidence/**"]);
+});
+
+test("Unity candidate snapshots bind dirty authored content without including evidence output", async () => {
+  const root = await fixtureProject();
+  try {
+    const candidate = { id: "candidate", root, baseRevision: "a".repeat(40), metadata: {} };
+    const before = await unityCandidateSnapshot(candidate);
+    await writeFile(resolve(root, "Assets", "GameFactory", "runtime.cs"), "first\n", "utf8");
+    const after = await unityCandidateSnapshot(candidate);
+    assert.notEqual(after.sha256, before.sha256);
+    assert.equal(after.baseRevision, candidate.baseRevision);
+    await mkdir(resolve(root, ".factory", "runs"), { recursive: true });
+    await writeFile(resolve(root, ".factory", "runs", "evidence.json"), "volatile\n", "utf8");
+    assert.equal((await unityCandidateSnapshot(candidate)).sha256, after.sha256);
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 function campaign(root: string, overrides: Record<string, unknown> = {}): Campaign {
@@ -259,6 +275,46 @@ test("Unity scenario runner preserves engine-authoritative evidence from the bri
     assert.equal(result.metrics.embodied_proof, 1);
     assert.ok(result.artifacts.some((artifact) => artifact.metadata?.evidenceAuthority === ENGINE_EVIDENCE_AUTHORITY));
     assert.ok(result.artifacts.some((artifact) => artifact.metadata?.evidenceClass === "embodied-gameplay" && artifact.metadata?.verified === true));
+    assert.ok(result.artifacts.filter((artifact) => artifact.kind === "image" || artifact.kind === "replay").every((artifact) => /^[a-f0-9]{64}$/.test(artifact.sha256 ?? "")));
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("Unity evidence publishes the revision-bound manifest first with complete scenario frame mapping", async () => {
+  const root = await fixtureProject();
+  const tracePath = resolve(root, "trace.json");
+  const framePath = resolve(root, "frame.png");
+  await writeFile(tracePath, "{}", "utf8");
+  await writeFile(framePath, "frame", "utf8");
+  const runner = {
+    id: "fixture",
+    async run() {
+      return {
+        status: "pass" as const,
+        metrics: { embodied_proof: 1 },
+        violations: [],
+        artifacts: [
+          { kind: "replay" as const, path: tracePath, sha256: "b".repeat(64), metadata: { evidenceAuthority: ENGINE_EVIDENCE_AUTHORITY } },
+          { kind: "image" as const, path: framePath, sha256: "c".repeat(64), metadata: { evidenceRole: "continuous-frame", frame: 7, evidenceAuthority: ENGINE_EVIDENCE_AUTHORITY } }
+        ]
+      };
+    }
+  };
+  try {
+    const candidate = { id: "candidate", root, baseRevision: "a".repeat(40), metadata: {} };
+    const result = await new UnityEvidenceAgent(null as never, runner).run({
+      campaign: campaign(root, { importCheck: false, scenarios: [{ id: "harvest", path: "Assets/GameFactory/scenario.json" }] }),
+      candidate,
+      experimentId: "manifest-test",
+      history: [],
+      signal: new AbortController().signal
+    });
+    assert.equal(result.artifacts?.[0]?.label, "Fresh Unity evidence manifest");
+    const manifest = JSON.parse(await readFile(result.artifacts![0]!.path, "utf8")) as { candidateSnapshot: { sha256: string; baseRevision: string }; scenarioBundles: Array<{ id: string; trace: { sha256: string }; frames: Array<{ sha256: string; frame: number; sampleIndex: number }> }> };
+    assert.match(manifest.candidateSnapshot.sha256, /^[a-f0-9]{64}$/);
+    assert.equal(manifest.candidateSnapshot.baseRevision, candidate.baseRevision);
+    assert.equal(manifest.scenarioBundles[0]!.id, "harvest");
+    assert.equal(manifest.scenarioBundles[0]!.trace.sha256, "b".repeat(64));
+    assert.deepEqual(manifest.scenarioBundles[0]!.frames[0], { path: framePath, sha256: "c".repeat(64), frame: 7, sampleIndex: 0 });
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 

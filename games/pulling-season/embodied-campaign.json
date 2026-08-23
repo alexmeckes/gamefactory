@@ -1,6 +1,6 @@
 {
   "apiVersion": "gamefactory.dev/v1",
-  "id": "pulling-season-embodied-v13",
+  "id": "pulling-season-embodied-v14",
   "objective": "Prove one small player-complete Pulling Season experience in Unity 6 through shipping Input System events before visual production. Require a visible first-person actor, spatial approach, sustained player-caused crop extraction, visible physical consequence, and another harvest decision. Reject direct helper replay, context-button harvesting, invisible state, static scene plates, and presentation-only prototypes.",
   "projectRoot": ".",
   "workflow": "autoresearch",
@@ -141,7 +141,7 @@
             "reasoningEffort": "high",
             "dependsOn": ["embodied-prototype-builder", "gameplay-evidence", "gemini-embodied-review"],
             "refreshAfterRepair": true,
-            "instructions": "Inspect the trusted trace and continuous Unity frame sequence. Pass only when shipping input approaches the crop, grabbing alone does not resolve it, sustained spatial action visibly extracts it, the result remains physical and understandable, and another decision is visible. Reject telemetry-only proof and do not judge final polish.",
+            "instructions": "Inspect the trusted trace and continuous Unity frame sequence through the Fresh Unity evidence manifest. Verify its candidateSnapshot fingerprint plus every scenario trace/frame hash before judging causality. Pass only when shipping input approaches the crop, grabbing alone does not resolve it, sustained spatial action visibly extracts it, the result remains physical and understandable, and another decision is visible. Reject telemetry-only proof and do not judge final polish.",
             "repair": {
               "target": "embodied-prototype-builder",
               "outcomes": ["revise"],

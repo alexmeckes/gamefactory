@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { access, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { access, lstat, mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -35,6 +36,50 @@ export const DEFAULT_UNITY_BRIDGE_ROOT = resolve(dirname(fileURLToPath(import.me
 export interface UnityBridgeAuthority {
   root: string;
   sha256: string;
+}
+
+const UNITY_SNAPSHOT_ROOTS = ["Assets", "ProjectSettings", "Packages"] as const;
+
+async function fileSha256(path: string): Promise<string> {
+  const hash = createHash("sha256");
+  for await (const chunk of createReadStream(path)) hash.update(chunk);
+  return hash.digest("hex");
+}
+
+async function snapshotFiles(root: string, directory: string): Promise<Array<{ path: string; sha256: string }>> {
+  const absolute = resolve(root, directory);
+  try {
+    if (!(await lstat(absolute)).isDirectory()) return [];
+  } catch {
+    return [];
+  }
+  const files: Array<{ path: string; sha256: string }> = [];
+  const visit = async (path: string): Promise<void> => {
+    const entries = await readdir(path, { withFileTypes: true });
+    entries.sort((left, right) => left.name.localeCompare(right.name));
+    for (const entry of entries) {
+      const child = resolve(path, entry.name);
+      if (entry.isDirectory()) await visit(child);
+      else if (entry.isFile()) files.push({ path: relative(root, child).replaceAll("\\", "/"), sha256: await fileSha256(child) });
+    }
+  };
+  await visit(absolute);
+  return files;
+}
+
+export async function unityCandidateSnapshot(candidate: Candidate): Promise<{ algorithm: "sha256"; sha256: string; fileCount: number; roots: string[]; candidateId: string; baseRevision?: string }> {
+  const files = (await Promise.all(UNITY_SNAPSHOT_ROOTS.map((directory) => snapshotFiles(candidate.root, directory)))).flat();
+  files.sort((left, right) => left.path.localeCompare(right.path));
+  const hash = createHash("sha256");
+  for (const file of files) hash.update(file.path).update("\0").update(file.sha256).update("\n");
+  return {
+    algorithm: "sha256",
+    sha256: hash.digest("hex"),
+    fileCount: files.length,
+    roots: [...UNITY_SNAPSHOT_ROOTS],
+    candidateId: candidate.id,
+    ...(candidate.baseRevision ? { baseRevision: candidate.baseRevision } : {})
+  };
 }
 
 export interface UnityProcessResult {
@@ -507,6 +552,7 @@ async function normalizeArtifacts(value: unknown, output: string, authority: Uni
       artifacts.push({
         kind,
         path: canonical,
+        sha256: await fileSha256(canonical),
         ...(typeof record.mediaType === "string" ? { mediaType: record.mediaType } : {}),
         ...(typeof record.label === "string" ? { label: record.label } : {}),
         metadata: { ...object(record.metadata), evidenceAuthority: ENGINE_EVIDENCE_AUTHORITY, engine: "unity", trustedBridgeSha256: authority.sha256 }
@@ -699,6 +745,7 @@ export class UnityScenarioRunner implements ScenarioRunner {
     try {
       const raw = object(JSON.parse(await readFile(resultPath, "utf8")));
       const resultArtifact: ArtifactReference = { kind: "test-report", path: resultPath, mediaType: "application/json", label: "Unity scenario result", metadata: { evidenceAuthority: ENGINE_EVIDENCE_AUTHORITY, engine: "unity" } };
+      resultArtifact.sha256 = await fileSha256(resultPath);
       artifacts.push(resultArtifact);
       const normalized = await normalizeArtifacts(raw.artifacts, output, authority);
       artifacts.push(...normalized.artifacts);
@@ -735,7 +782,10 @@ async function configuredEvidence(input: { campaign: Campaign; candidate: Candid
   try {
     for (const [index, configured] of settings.scenarios.entries()) {
       const result = await input.runner.run({ campaign: input.campaign, projectRoot: input.candidate.root, candidate: input.candidate, experimentId: `${input.experimentId}-${configured.id}`, scenario: configured.reference, signal: input.signal });
-      artifacts.push(...result.artifacts);
+      artifacts.push(...result.artifacts.map((artifact) => ({
+        ...artifact,
+        metadata: { ...(artifact.metadata ?? {}), scenarioId: configured.id }
+      })));
       scenarios.push({ id: configured.id, status: result.status });
       for (const [name, value] of Object.entries(result.metrics)) {
         if (settings.scenarios.length > 1) metrics[`${configured.id}.${name}`] = value;
@@ -818,9 +868,23 @@ export class UnityEvidenceAgent implements AgentDriver {
     const output = resolve(request.candidate.root, ".factory", "runs", request.experimentId, "engine-evidence");
     await mkdir(output, { recursive: true });
     const manifestPath = resolve(output, "result.json");
-    await writeFile(manifestPath, `${JSON.stringify({ apiVersion: "gamefactory.engine-evidence/v1", evaluator: "unity.scenario", engine: "unity", status: run.status, metrics: run.metrics, violations: run.violations, scenarios: run.scenarios, artifacts }, null, 2)}\n`, "utf8");
-    const manifest: ArtifactReference = { kind: "test-report", path: manifestPath, mediaType: "application/json", label: "Fresh Unity evidence manifest", metadata: { evidenceAuthority: ENGINE_EVIDENCE_AUTHORITY, engine: "unity", status: run.status } };
-    artifacts.push(manifest);
+    const candidateSnapshot = await unityCandidateSnapshot(request.candidate);
+    const scenarioBundles = run.scenarios.map((scenario) => {
+      const scenarioArtifacts = artifacts.filter((artifact) => artifact.metadata?.scenarioId === scenario.id);
+      const trace = scenarioArtifacts.find((artifact) => artifact.kind === "replay" || artifact.kind === "telemetry");
+      const frames = scenarioArtifacts
+        .filter((artifact) => artifact.kind === "image" && artifact.metadata?.evidenceRole === "continuous-frame")
+        .sort((left, right) => Number(left.metadata?.frame ?? 0) - Number(right.metadata?.frame ?? 0));
+      return {
+        id: scenario.id,
+        status: scenario.status,
+        ...(trace ? { trace: { path: trace.path, sha256: trace.sha256 } } : {}),
+        frames: frames.map((frame, sampleIndex) => ({ path: frame.path, sha256: frame.sha256, frame: frame.metadata?.frame, sampleIndex }))
+      };
+    });
+    await writeFile(manifestPath, `${JSON.stringify({ apiVersion: "gamefactory.engine-evidence/v1", evaluator: "unity.scenario", engine: "unity", evidenceRunId: request.experimentId, candidateSnapshot, status: run.status, metrics: run.metrics, violations: run.violations, scenarios: run.scenarios, scenarioBundles, artifacts }, null, 2)}\n`, "utf8");
+    const manifest: ArtifactReference = { kind: "test-report", path: manifestPath, sha256: await fileSha256(manifestPath), mediaType: "application/json", label: "Fresh Unity evidence manifest", metadata: { evidenceAuthority: ENGINE_EVIDENCE_AUTHORITY, engine: "unity", status: run.status, candidateSnapshotSha256: candidateSnapshot.sha256 } };
+    artifacts.unshift(manifest);
     return { summary: run.status === "pass" ? `Fresh Unity evidence passed ${run.scenarios.length} scenario(s).` : `Fresh Unity evidence ${run.status}.`, artifacts, metadata: { outcome: run.status === "pass" ? "pass" : "fail", structured: { status: run.status, metrics: run.metrics, violations: run.violations, scenarios: run.scenarios }, evidenceAuthority: ENGINE_EVIDENCE_AUTHORITY, engine: "unity" } };
   }
 }

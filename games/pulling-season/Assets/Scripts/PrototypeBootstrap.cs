@@ -271,9 +271,13 @@ namespace PullingSeason
             var camera = player.GetComponentInChildren<Camera>(true).transform;
             var root = new GameObject("FieldReadout");
             root.transform.SetParent(camera, false);
-            Panel("GuidanceStrip", root.transform, new Vector3(0f, 0.405f, 0.86f), new Vector3(1.16f, 0.070f, 1f), panel);
+            // One compact safe-band prompt replaces debug telemetry in the player
+            // view. The larger type remains readable at the 960x540 evidence viewport
+            // without covering the crop, hands, soil socket, or extracted result.
+            Panel("GuidanceStrip", root.transform, new Vector3(0f, 0.405f, 0.86f), new Vector3(1.08f, 0.064f, 1f), panel);
             var guidance = CameraText("Guidance", root.transform, "", new Vector3(0f, 0.407f, 0.82f),
-                TextAnchor.MiddleCenter, 0.018f, new Color(0.90f, 0.96f, 0.78f));
+                TextAnchor.MiddleCenter, 0.020f, new Color(0.90f, 0.96f, 0.78f));
+            guidance.fontStyle = FontStyle.Bold;
             var display = root.AddComponent<PrototypeDisplay>();
             display.Configure(crop, nextDecision, guidance);
         }
