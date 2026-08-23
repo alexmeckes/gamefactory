@@ -473,7 +473,7 @@ export class UnityEngine implements EngineDriver {
     } catch (error) {
       return { ok: false, exitCode: null, stdout: "", stderr: error instanceof Error ? error.message : String(error), artifacts: [], metrics: { import_ok: 0, unity_process_launch_failed: 1 } };
     } finally {
-      await rm(privateLogRoot, { recursive: true, force: true });
+      await rm(privateLogRoot, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
     }
   }
 }
