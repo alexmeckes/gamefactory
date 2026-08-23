@@ -9,6 +9,7 @@ import {
   DEFAULT_UNITY_BRIDGE_ROOT,
   ENGINE_EVIDENCE_AUTHORITY,
   UNITY_EVIDENCE_PRODUCER,
+  UnityEvidenceAgent,
   UnityEngine,
   UnityScenarioRunner,
   type UnityProcessRunner,
@@ -18,6 +19,11 @@ import {
   unityScenarioArgs,
   verifyUnityEmbodiedArtifacts
 } from "./index.js";
+
+test("Unity evidence driver does not claim agent-team control files", () => {
+  const driver = new UnityEvidenceAgent(null as never, null as never);
+  assert.deepEqual([...driver.writePaths], ["evidence/**"]);
+});
 
 function campaign(root: string, overrides: Record<string, unknown> = {}): Campaign {
   return {

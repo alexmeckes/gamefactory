@@ -602,7 +602,7 @@ export class UnityScenarioEvaluator implements Evaluator {
 
 export class UnityEvidenceAgent implements AgentDriver {
   readonly id = "unity.evidence";
-  readonly writePaths = [".factory/**", "evidence/**"] as const;
+  readonly writePaths = ["evidence/**"] as const;
   constructor(private readonly engine: EngineDriver, private readonly scenarios: ScenarioRunner) {}
   async run(request: Parameters<AgentDriver["run"]>[0]): Promise<AgentResult> {
     const settings = config(request.campaign);
