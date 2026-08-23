@@ -6,12 +6,14 @@ import test from "node:test";
 import type { Campaign } from "@gamefactory/core";
 import {
   EMBODIED_TRACE_PROTOCOL,
+  DEFAULT_UNITY_BRIDGE_ROOT,
   ENGINE_EVIDENCE_AUTHORITY,
   UNITY_EVIDENCE_PRODUCER,
   UnityEngine,
   UnityScenarioRunner,
   type UnityProcessRunner,
   unityImportArgs,
+  unityLogHasErrors,
   unityPrepareArgs,
   unityScenarioArgs,
   verifyUnityEmbodiedArtifacts
@@ -34,11 +36,10 @@ function campaign(root: string, overrides: Record<string, unknown> = {}): Campai
 async function fixtureProject(): Promise<string> {
   const root = await mkdtemp(resolve(tmpdir(), "gamefactory-unity-"));
   await mkdir(resolve(root, "ProjectSettings"), { recursive: true });
-  await mkdir(resolve(root, "Packages", "com.gamefactory.bridge"), { recursive: true });
+  await mkdir(resolve(root, "Packages"), { recursive: true });
   await mkdir(resolve(root, "Assets", "GameFactory"), { recursive: true });
   await writeFile(resolve(root, "ProjectSettings", "ProjectVersion.txt"), "m_EditorVersion: 6000.1.11f1\n");
-  await writeFile(resolve(root, "Packages", "manifest.json"), JSON.stringify({ dependencies: { "com.unity.pipeline": "0.3.0-exp.1", "com.unity.inputsystem": "1.11.2", "com.gamefactory.bridge": "file:com.gamefactory.bridge" } }));
-  await writeFile(resolve(root, "Packages", "com.gamefactory.bridge", "package.json"), JSON.stringify({ name: "com.gamefactory.bridge", version: "0.1.0" }));
+  await writeFile(resolve(root, "Packages", "manifest.json"), JSON.stringify({ dependencies: { "com.unity.pipeline": "0.3.0-exp.1", "com.unity.inputsystem": "1.11.2", "com.gamefactory.bridge": `file:${DEFAULT_UNITY_BRIDGE_ROOT}` } }));
   await writeFile(resolve(root, "Assets", "GameFactory", "scenario.json"), JSON.stringify({ apiVersion: "gamefactory.unity-scenario/v1" }));
   return root;
 }
@@ -65,6 +66,36 @@ test("Unity doctor requires Unity 6, Pipeline, Input System, and the factory bri
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test("Unity doctor rejects a candidate-owned bridge even when its package name matches", async () => {
+  const root = await fixtureProject();
+  const embedded = resolve(root, "Packages", "com.gamefactory.bridge");
+  const fake: UnityProcessRunner = async () => ({ exitCode: 0, stdout: "1.0.0-beta.6\n", stderr: "", timedOut: false });
+  try {
+    await mkdir(embedded, { recursive: true });
+    await writeFile(resolve(embedded, "package.json"), JSON.stringify({ name: "com.gamefactory.bridge", version: "0.1.0" }));
+    await writeFile(resolve(root, "Packages", "manifest.json"), JSON.stringify({ dependencies: { "com.unity.pipeline": "0.3.0-exp.1", "com.unity.inputsystem": "1.11.2", "com.gamefactory.bridge": "file:com.gamefactory.bridge" } }));
+    const result = await new UnityEngine(fake).doctor({ campaign: campaign(root), projectRoot: root, signal: new AbortController().signal });
+    assert.equal(result.ok, false);
+    assert.equal(result.checks.find((check) => check.name === "unity.bridge")?.ok, false);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("Unity import rejects compiler errors hidden behind a zero launcher exit", async () => {
+  const root = await fixtureProject();
+  const fake: UnityProcessRunner = async (_binary, args) => {
+    const logPath = args[args.lastIndexOf("-logFile") + 1]!;
+    await writeFile(logPath, "Assets/Broken.cs(1,1): error CS1002: ; expected\n", "utf8");
+    return { exitCode: 0, stdout: "launcher completed", stderr: "", timedOut: false };
+  };
+  try {
+    assert.equal(unityLogHasErrors("error CS1002: ; expected"), true);
+    const result = await new UnityEngine(fake).build({ campaign: campaign(root), projectRoot: root, candidate: { id: "candidate", root, metadata: {} }, experimentId: "import", signal: new AbortController().signal });
+    assert.equal(result.ok, false);
+    assert.equal(result.metrics?.import_ok, 0);
+    assert.match(result.stderr, /compiler or batch-mode errors/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("Unity embodied verification rejects static proxy evidence and accepts factory input evidence", async () => {
   const root = await mkdtemp(resolve(tmpdir(), "gamefactory-unity-proof-"));
   try {
@@ -84,18 +115,19 @@ test("Unity embodied verification rejects static proxy evidence and accepts fact
         ] }
       ]
     }));
+    const authority = { root: DEFAULT_UNITY_BRIDGE_ROOT, sha256: "trusted-test-bridge" };
     const verified = await verifyUnityEmbodiedArtifacts([
-      { kind: "replay", path: tracePath, metadata: { protocol: EMBODIED_TRACE_PROTOCOL, producer: UNITY_EVIDENCE_PRODUCER } },
+      { kind: "replay", path: tracePath, metadata: { protocol: EMBODIED_TRACE_PROTOCOL, producer: UNITY_EVIDENCE_PRODUCER, trustedBridgeSha256: authority.sha256 } },
       { kind: "image", path: frameA, metadata: { evidenceRole: "continuous-frame" } },
       { kind: "image", path: frameB, metadata: { evidenceRole: "continuous-frame" } }
-    ], { minimumDurationSeconds: 1, minimumShippingInputEvents: 2, minimumDisplacementUnits: 1, minimumSpatialInteractions: 1, minimumStateConsequences: 1, minimumDistinctFrames: 2 });
+    ], { minimumDurationSeconds: 1, minimumShippingInputEvents: 2, minimumDisplacementUnits: 1, minimumSpatialInteractions: 1, minimumStateConsequences: 1, minimumDistinctFrames: 2 }, authority);
     assert.equal(verified.verified, true);
     assert.equal(verified.metrics.embodied_proof, 1);
     const staticResult = await verifyUnityEmbodiedArtifacts([
-      { kind: "replay", path: tracePath, metadata: { protocol: EMBODIED_TRACE_PROTOCOL, producer: UNITY_EVIDENCE_PRODUCER } },
+      { kind: "replay", path: tracePath, metadata: { protocol: EMBODIED_TRACE_PROTOCOL, producer: UNITY_EVIDENCE_PRODUCER, trustedBridgeSha256: authority.sha256 } },
       { kind: "image", path: frameA, metadata: { evidenceRole: "continuous-frame" } },
       { kind: "image", path: frameA, metadata: { evidenceRole: "continuous-frame" } }
-    ], { minimumDurationSeconds: 1, minimumShippingInputEvents: 2, minimumDisplacementUnits: 1, minimumSpatialInteractions: 1, minimumStateConsequences: 1, minimumDistinctFrames: 2 });
+    ], { minimumDurationSeconds: 1, minimumShippingInputEvents: 2, minimumDisplacementUnits: 1, minimumSpatialInteractions: 1, minimumStateConsequences: 1, minimumDistinctFrames: 2 }, authority);
     assert.equal(staticResult.verified, false);
     assert.ok(staticResult.violations.some((violation) => violation.code === "unity.embodied.visible-motion"));
   } finally { await rm(root, { recursive: true, force: true }); }

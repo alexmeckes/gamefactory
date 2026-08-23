@@ -155,9 +155,12 @@ func _run() -> void:
 	Engine.physics_ticks_per_second = physics_hz
 	var capture_every := maxi(1, int(probe.get("captureEveryFrames", 8)))
 	var default_settle_frames := clampi(int(probe.get("settleFrames", 0)), 0, 60)
+	var quiescence_frames := clampi(int(probe.get("quiescenceFrames", 3)), 1, 60)
+	var quiescence_position_tolerance := maxf(float(probe.get("quiescencePositionTolerance", 0.001)), 0.0)
 	var frame_index := 0
-	var before_state := _observe(subject, observations)
 	await physics_frame
+	var before_state := _observe(subject, observations)
+	var before_position: Vector2 = _node_position(actor)
 	_samples.append({
 		"time": 0.0,
 		"input": {"delivery": "godot-input-event", "kind": "initial", "action": ""},
@@ -165,6 +168,24 @@ func _run() -> void:
 		"events": []
 	})
 	await _capture(frame_index)
+	for ignored_frame in range(quiescence_frames):
+		await physics_frame
+		frame_index += 1
+		if frame_index % capture_every == 0:
+			await _capture(frame_index)
+	var quiescent_state := _observe(subject, observations)
+	var quiescent_position: Vector2 = _node_position(actor)
+	if _state_changed(before_state, quiescent_state, observations):
+		_violations.append({"code": "godot.embodied.counterfactual-state-change", "message": "Observed runtime state changed before any player input was delivered.", "severity": "error"})
+	if before_position.distance_to(quiescent_position) > quiescence_position_tolerance:
+		_violations.append({"code": "godot.embodied.counterfactual-motion", "message": "The actor moved before any player input was delivered.", "severity": "error"})
+	_samples.append({
+		"time": float(frame_index) / float(physics_hz),
+		"input": {"delivery": "none", "kind": "counterfactual", "action": ""},
+		"actor": {"id": actor_path, "visible": _node_visible(actor), "position": _point(quiescent_position)},
+		"events": []
+	})
+	before_state = quiescent_state
 	for raw_step in steps:
 		if not raw_step is Dictionary:
 			_finish_failure("godot.embodied.step", "Every embodiedProbe step must be an object.")
@@ -270,6 +291,7 @@ func _run() -> void:
 			"embodied_probe_completed": 1,
 			"embodied_probe_input_events": steps.size(),
 			"embodied_probe_frames": _captured_frames,
+			"embodied_probe_quiescence_frames": quiescence_frames,
 			"embodied_probe_max_consequence_latency_frames": _max_state_latency_frames,
 			"embodied_probe_seconds": float(frame_index) / float(physics_hz)
 		},

@@ -1,7 +1,8 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { access, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
-import { isAbsolute, relative, resolve } from "node:path";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import type {
   AgentDriver,
   AgentResult,
@@ -26,6 +27,12 @@ export const UNITY_SCENARIO_PROVIDER = "unity.pipeline/v1";
 export const EMBODIED_TRACE_PROTOCOL = "gamefactory.embodied-trace/v1";
 export const UNITY_EVIDENCE_PRODUCER = "factory-owned-unity-bridge";
 export const ENGINE_EVIDENCE_AUTHORITY = "factory-engine";
+export const DEFAULT_UNITY_BRIDGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../../bridges/unity/com.gamefactory.bridge");
+
+export interface UnityBridgeAuthority {
+  root: string;
+  sha256: string;
+}
 
 export interface UnityProcessResult {
   exitCode: number | null;
@@ -59,6 +66,7 @@ interface UnityConfig {
   command: string;
   prepareCommand: string;
   connectedEditor: boolean;
+  bridgePath: string;
   scenarios: Array<{ id: string; reference: ScenarioReference }>;
   embodiedProof?: UnityEmbodiedProofConfig;
 }
@@ -134,6 +142,7 @@ function config(campaign: Campaign): UnityConfig {
     command: typeof value.command === "string" && value.command.length > 0 ? value.command : "gamefactory_run_scenario",
     prepareCommand: typeof value.prepareCommand === "string" && value.prepareCommand.length > 0 ? value.prepareCommand : "gamefactory_prepare_playmode",
     connectedEditor: value.connectedEditor === true,
+    bridgePath: typeof value.bridgePath === "string" && value.bridgePath.length > 0 ? value.bridgePath : DEFAULT_UNITY_BRIDGE_ROOT,
     scenarios,
     ...(value.embodiedProof !== undefined ? { embodiedProof: proofConfig(value.embodiedProof)! } : {})
   };
@@ -178,17 +187,32 @@ export function unityScenarioArgs(project: string, command: string, timeoutSecon
 }
 
 export const executeUnity: UnityProcessRunner = async (binary, args, cwd, signal, timeoutSeconds) => new Promise((resolvePromise, reject) => {
-  const child = spawn(binary, args, { cwd, windowsHide: true, env: { ...process.env, UNITY_NO_CONSENT_PROMPT: "1" } });
+  const child = spawn(binary, args, { cwd, windowsHide: true, detached: process.platform !== "win32", env: { ...process.env, UNITY_NO_CONSENT_PROMPT: "1" } });
   let stdout = "";
   let stderr = "";
   let timedOut = false;
+  const terminateTree = (): void => {
+    if (!child.pid) { child.kill(); return; }
+    const pid = child.pid;
+    if (process.platform === "win32") {
+      const killer = spawn("taskkill", ["/pid", String(pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
+      killer.on("error", () => child.kill());
+      killer.on("exit", (code) => { if (code !== 0) child.kill(); });
+      return;
+    }
+    try {
+      process.kill(-pid, "SIGTERM");
+      const force = setTimeout(() => { try { process.kill(-pid, "SIGKILL"); } catch { /* already exited */ } }, 2_000);
+      force.unref();
+    } catch { child.kill(); }
+  };
   child.stdout.on("data", (chunk) => { stdout += String(chunk); });
   child.stderr.on("data", (chunk) => { stderr += String(chunk); });
   const timer = setTimeout(() => {
     timedOut = true;
-    child.kill();
+    terminateTree();
   }, timeoutSeconds * 1000);
-  const abort = () => child.kill();
+  const abort = () => terminateTree();
   signal.addEventListener("abort", abort, { once: true });
   child.on("error", (error) => {
     clearTimeout(timer);
@@ -213,6 +237,42 @@ async function packageManifest(project: string): Promise<Record<string, string>>
   } catch { return {}; }
 }
 
+const TRUSTED_BRIDGE_FILES = [
+  "package.json",
+  "Editor/GameFactory.UnityBridge.Editor.asmdef",
+  "Editor/GameFactoryScenarioCommand.cs"
+];
+
+function localPackageCandidates(project: string, dependency: string): string[] {
+  if (!dependency.startsWith("file:")) return [];
+  const path = dependency.slice("file:".length);
+  if (isAbsolute(path)) return [resolve(path)];
+  return [resolve(project, path), resolve(project, "Packages", path)];
+}
+
+export async function resolveUnityBridgeAuthority(campaign: Campaign, candidateRoot = campaign.projectRoot): Promise<UnityBridgeAuthority> {
+  const settings = config(campaign);
+  const project = projectRoot(settings, candidateRoot);
+  const expected = isAbsolute(settings.bridgePath) ? resolve(settings.bridgePath) : resolve(campaign.projectRoot, settings.bridgePath);
+  const [canonicalCandidate, canonicalBridge] = await Promise.all([realpath(candidateRoot), realpath(expected)]);
+  const bridgeTraversal = relative(canonicalCandidate, canonicalBridge);
+  if (!bridgeTraversal || (!bridgeTraversal.startsWith("..\\") && !bridgeTraversal.startsWith("../") && bridgeTraversal !== ".." && !isAbsolute(bridgeTraversal))) {
+    throw new Error("The trusted Unity bridge must live outside the candidate workspace");
+  }
+  const dependency = (await packageManifest(project))["com.gamefactory.bridge"];
+  if (typeof dependency !== "string") throw new Error("Packages/manifest.json must declare com.gamefactory.bridge");
+  const declared = await Promise.all(localPackageCandidates(project, dependency).map(async (path) => realpath(path).catch(() => undefined)));
+  if (!declared.includes(canonicalBridge)) throw new Error("com.gamefactory.bridge must reference the configured host-owned bridge path");
+  const digest = createHash("sha256");
+  for (const path of TRUSTED_BRIDGE_FILES) {
+    digest.update(path.replaceAll("\\", "/"));
+    digest.update("\0");
+    digest.update(await readFile(resolve(canonicalBridge, path)));
+    digest.update("\0");
+  }
+  return { root: canonicalBridge, sha256: digest.digest("hex") };
+}
+
 async function projectVersion(project: string): Promise<string | undefined> {
   try {
     const source = await readFile(resolve(project, "ProjectSettings", "ProjectVersion.txt"), "utf8");
@@ -224,6 +284,12 @@ function unitySix(version: string | undefined): boolean {
   if (!version) return false;
   const major = Number.parseInt(version.split(".")[0] ?? "", 10);
   return Number.isFinite(major) && major >= 6000;
+}
+
+const UNITY_LOG_ERROR = /(?:\berror CS\d+:|Scripts have compiler errors|Compilation failed|Aborting batchmode due to failure|Unhandled Exception|^\s*Error:\s)/im;
+
+export function unityLogHasErrors(content: string): boolean {
+  return UNITY_LOG_ERROR.test(content);
 }
 
 async function processLogs(directory: string, prefix: string, result: UnityProcessResult): Promise<ArtifactReference[]> {
@@ -264,8 +330,12 @@ export class UnityEngine implements EngineDriver {
     }
     const projectOk = Boolean(version);
     const pipeline = typeof dependencies["com.unity.pipeline"] === "string";
-    const bridgeEmbedded = await exists(resolve(root, "Packages", "com.gamefactory.bridge", "package.json"));
-    const bridgeDeclared = typeof dependencies["com.gamefactory.bridge"] === "string";
+    let bridgeAuthority: UnityBridgeAuthority | undefined;
+    let bridgeMessage = "Unity bridge trust has not been verified";
+    try {
+      bridgeAuthority = await resolveUnityBridgeAuthority(context.campaign, context.projectRoot);
+      bridgeMessage = `Host-owned com.gamefactory.bridge ${bridgeAuthority.sha256.slice(0, 12)}`;
+    } catch (error) { bridgeMessage = error instanceof Error ? error.message : String(error); }
     const inputSystem = typeof dependencies["com.unity.inputsystem"] === "string";
     const checks = [
       { name: "unity.cli", ok: cliOk, message: cliMessage },
@@ -273,7 +343,7 @@ export class UnityEngine implements EngineDriver {
       { name: "unity.project", ok: projectOk, message: version ? `Unity project ${version}` : "ProjectSettings/ProjectVersion.txt is missing" },
       { name: "unity.version", ok: unitySix(version), message: version ? `Editor ${version}` : "Unity 6.0 or later is required" },
       { name: "unity.pipeline", ok: pipeline, message: pipeline ? `com.unity.pipeline ${dependencies["com.unity.pipeline"]}` : "Run unity pipeline install --project-path <project>" },
-      { name: "unity.bridge", ok: bridgeEmbedded || bridgeDeclared, message: bridgeEmbedded || bridgeDeclared ? "com.gamefactory.bridge is available" : "Embed bridges/unity/com.gamefactory.bridge under Packages and declare it in manifest.json" },
+      { name: "unity.bridge", ok: Boolean(bridgeAuthority), message: bridgeMessage },
       { name: "unity.input-system", ok: inputSystem, message: inputSystem ? `com.unity.inputsystem ${dependencies["com.unity.inputsystem"]}` : "Trusted input injection requires com.unity.inputsystem" }
     ];
     return { ok: checks.every((check) => check.ok), checks };
@@ -288,8 +358,11 @@ export class UnityEngine implements EngineDriver {
     try {
       const result = await this.runProcess(settings.cli, unityImportArgs(root, settings.timeoutSeconds, logPath), root, context.signal, settings.timeoutSeconds + 15);
       const artifacts = await processLogs(output, "unity-import", result);
-      if (await exists(logPath)) artifacts.push({ kind: "log", path: logPath, mediaType: "text/plain", label: "Unity import log", metadata: { evidenceAuthority: ENGINE_EVIDENCE_AUTHORITY, engine: "unity" } });
-      return { ok: result.exitCode === 0 && !result.timedOut, exitCode: result.exitCode, stdout: result.stdout, stderr: result.stderr, artifacts, metrics: { import_ok: result.exitCode === 0 && !result.timedOut ? 1 : 0 } };
+      const importLog = await readFile(logPath, "utf8").catch(() => "");
+      if (importLog) artifacts.push({ kind: "log", path: logPath, mediaType: "text/plain", label: "Unity import log", metadata: { evidenceAuthority: ENGINE_EVIDENCE_AUTHORITY, engine: "unity" } });
+      const hiddenErrors = unityLogHasErrors(`${result.stdout}\n${result.stderr}\n${importLog}`);
+      const ok = result.exitCode === 0 && !result.timedOut && !hiddenErrors;
+      return { ok, exitCode: result.exitCode, stdout: result.stdout, stderr: `${result.stderr}${hiddenErrors ? `${result.stderr ? "\n" : ""}Unity logs contain compiler or batch-mode errors despite a successful launcher exit.` : ""}`, artifacts, metrics: { import_ok: ok ? 1 : 0 } };
     } catch (error) {
       return { ok: false, exitCode: null, stdout: "", stderr: error instanceof Error ? error.message : String(error), artifacts: [], metrics: { import_ok: 0 } };
     }
@@ -305,7 +378,7 @@ function contained(root: string, value: string, label: string): string {
   return target;
 }
 
-async function normalizeArtifacts(value: unknown, output: string): Promise<{ artifacts: ArtifactReference[]; violations: Violation[] }> {
+async function normalizeArtifacts(value: unknown, output: string, authority: UnityBridgeAuthority): Promise<{ artifacts: ArtifactReference[]; violations: Violation[] }> {
   if (!Array.isArray(value)) return { artifacts: [], violations: [{ code: "unity.artifact.list", message: "Scenario artifacts must be an array.", severity: "error" }] };
   const artifacts: ArtifactReference[] = [];
   const violations: Violation[] = [];
@@ -327,7 +400,7 @@ async function normalizeArtifacts(value: unknown, output: string): Promise<{ art
         path: canonical,
         ...(typeof record.mediaType === "string" ? { mediaType: record.mediaType } : {}),
         ...(typeof record.label === "string" ? { label: record.label } : {}),
-        metadata: { ...object(record.metadata), evidenceAuthority: ENGINE_EVIDENCE_AUTHORITY, engine: "unity" }
+        metadata: { ...object(record.metadata), evidenceAuthority: ENGINE_EVIDENCE_AUTHORITY, engine: "unity", trustedBridgeSha256: authority.sha256 }
       });
       if (kind === "other" && record.kind !== "other") violations.push({ code: `unity.artifact.${index}.kind`, message: `Normalized unsupported artifact kind ${record.kind} to other.`, severity: "warning" });
     } catch {
@@ -347,8 +420,10 @@ function position(value: unknown): { x: number; y: number; z: number } | undefin
 
 export async function verifyUnityEmbodiedArtifacts(
   artifacts: ArtifactReference[],
-  requirements: UnityEmbodiedProofConfig
+  requirements: UnityEmbodiedProofConfig,
+  authority?: UnityBridgeAuthority
 ): Promise<{ verified: boolean; metrics: Record<string, number>; violations: Violation[] }> {
+  if (!authority) return { verified: false, metrics: { embodied_proof: 0 }, violations: [{ code: "unity.embodied.untrusted-authority", message: "Embodied proof requires a verified host-owned Unity bridge.", severity: "error" }] };
   const traceArtifact = artifacts.find((artifact) =>
     (artifact.kind === "replay" || artifact.kind === "telemetry")
     && artifact.metadata?.protocol === EMBODIED_TRACE_PROTOCOL);
@@ -356,7 +431,7 @@ export async function verifyUnityEmbodiedArtifacts(
   let trace: Record<string, unknown>;
   try { trace = object(JSON.parse(await readFile(traceArtifact.path, "utf8"))); }
   catch { return { verified: false, metrics: { embodied_proof: 0 }, violations: [{ code: "unity.embodied.trace-invalid", message: "Embodied trace is missing or malformed JSON.", severity: "error" }] }; }
-  if (trace.apiVersion !== EMBODIED_TRACE_PROTOCOL || trace.producer !== UNITY_EVIDENCE_PRODUCER || traceArtifact.metadata?.producer !== UNITY_EVIDENCE_PRODUCER) {
+  if (trace.apiVersion !== EMBODIED_TRACE_PROTOCOL || trace.producer !== UNITY_EVIDENCE_PRODUCER || traceArtifact.metadata?.producer !== UNITY_EVIDENCE_PRODUCER || traceArtifact.metadata?.trustedBridgeSha256 !== authority.sha256) {
     return { verified: false, metrics: { embodied_proof: 0 }, violations: [{ code: "unity.embodied.untrusted-producer", message: "Embodied evidence was not produced by the factory-owned Unity bridge.", severity: "error" }] };
   }
   const samples = Array.isArray(trace.samples) ? trace.samples : [];
@@ -419,6 +494,12 @@ export class UnityScenarioRunner implements ScenarioRunner {
     const settings = config(input.campaign);
     if (input.scenario.provider !== UNITY_SCENARIO_PROVIDER) return { status: "fail", metrics: {}, artifacts: [], violations: [{ code: "unity.scenario.provider", message: `Expected ${UNITY_SCENARIO_PROVIDER}.`, severity: "error" }] };
     const root = projectRoot(settings, input.candidate.root);
+    let authority: UnityBridgeAuthority;
+    try {
+      authority = await resolveUnityBridgeAuthority(input.campaign, input.candidate.root);
+    } catch (error) {
+      return { status: "fail", metrics: {}, artifacts: [], violations: [{ code: "unity.bridge.untrusted", message: error instanceof Error ? error.message : String(error), severity: "error" }] };
+    }
     let scenarioPath: string;
     try {
       scenarioPath = contained(input.candidate.root, input.scenario.path, "Unity scenario path");
@@ -449,9 +530,9 @@ export class UnityScenarioRunner implements ScenarioRunner {
       const raw = object(JSON.parse(await readFile(resultPath, "utf8")));
       const resultArtifact: ArtifactReference = { kind: "test-report", path: resultPath, mediaType: "application/json", label: "Unity scenario result", metadata: { evidenceAuthority: ENGINE_EVIDENCE_AUTHORITY, engine: "unity" } };
       artifacts.push(resultArtifact);
-      const normalized = await normalizeArtifacts(raw.artifacts, output);
+      const normalized = await normalizeArtifacts(raw.artifacts, output, authority);
       artifacts.push(...normalized.artifacts);
-      const embodied = settings.embodiedProof ? await verifyUnityEmbodiedArtifacts(normalized.artifacts, settings.embodiedProof) : { verified: false, metrics: {}, violations: [] as Violation[] };
+      const embodied = settings.embodiedProof ? await verifyUnityEmbodiedArtifacts(normalized.artifacts, settings.embodiedProof, authority) : { verified: false, metrics: {}, violations: [] as Violation[] };
       if (embodied.verified) {
         const verification = { evidenceAuthority: ENGINE_EVIDENCE_AUTHORITY, engine: "unity", evidenceClass: "embodied-gameplay", verified: true, protocol: EMBODIED_TRACE_PROTOCOL };
         resultArtifact.metadata = { ...(resultArtifact.metadata ?? {}), ...verification };
@@ -467,7 +548,7 @@ export class UnityScenarioRunner implements ScenarioRunner {
       ];
       const rawStatus = raw.status === "pass" || raw.status === "fail" || raw.status === "crash" ? raw.status : "fail";
       const status = processResult.exitCode !== 0 || processResult.timedOut ? "crash" : violations.some((item) => item.severity === "error") ? "fail" : rawStatus;
-      return { status, metrics: { ...object(raw.metrics) as Record<string, number>, ...embodied.metrics }, artifacts, violations, metadata: { ...object(raw.metadata), evidenceAuthority: ENGINE_EVIDENCE_AUTHORITY, engine: "unity" } };
+      return { status, metrics: { ...object(raw.metrics) as Record<string, number>, ...embodied.metrics }, artifacts, violations, metadata: { ...object(raw.metadata), evidenceAuthority: ENGINE_EVIDENCE_AUTHORITY, engine: "unity", trustedBridgeSha256: authority.sha256 } };
     } catch {
       return { status: "crash", metrics: {}, artifacts, violations: [{ code: "unity.result.missing", message: `Unity exited ${processResult.exitCode} without a valid result.json.`, severity: "error" }], metadata: { timedOut: processResult.timedOut } };
     }

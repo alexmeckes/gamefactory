@@ -1,17 +1,17 @@
 # GameFactory Unity Bridge
 
-This embedded Unity 6 package exposes `gamefactory_run_scenario` through
+This host-owned Unity 6 package exposes `gamefactory_run_scenario` through
 `com.unity.pipeline`. The command injects real Unity Input System control events,
 observes a visible actor and runtime state, captures camera frames, and writes
 `gamefactory.embodied-trace/v1` evidence beneath the factory-owned output path.
 
-Copy this package to `Packages/com.gamefactory.bridge` in the Unity project and
-add these dependencies to `Packages/manifest.json`:
+Do not copy this package into a candidate project. Reference its absolute host
+path from `Packages/manifest.json` so candidates cannot edit the evidence producer:
 
 ```json
 {
   "dependencies": {
-    "com.gamefactory.bridge": "file:com.gamefactory.bridge",
+    "com.gamefactory.bridge": "file:C:/path/to/gamefactory/bridges/unity/com.gamefactory.bridge",
     "com.unity.inputsystem": "<project-compatible-version>"
   }
 }

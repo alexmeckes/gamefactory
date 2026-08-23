@@ -129,6 +129,57 @@ test("runtime worktree settings are portable and explicit campaign settings take
   }
 });
 
+test("Git acceptance preserves a human-owned in-progress cherry-pick", async () => {
+  const repository = await mkdtemp(resolve(tmpdir(), "gamefactory-git-human-cherry-pick-"));
+  const projectRoot = resolve(repository, "game");
+  const signal = new AbortController().signal;
+  const workspace = new GitWorktreeWorkspace();
+  const campaign: Campaign = {
+    apiVersion: "gamefactory.dev/v1",
+    id: "human-cherry-pick-contract",
+    objective: "preserve developer work",
+    projectRoot,
+    workflow: "autoresearch",
+    requires: [],
+    mutablePaths: ["value.txt"],
+    acceptance: { primaryMetric: "score", direction: "maximize" }
+  };
+  let candidate: Candidate | undefined;
+  try {
+    await mkdir(projectRoot);
+    await writeFile(resolve(projectRoot, "value.txt"), "old\n", "utf8");
+    await writeFile(resolve(projectRoot, "conflict.txt"), "base\n", "utf8");
+    await exec("git", ["init", "-q"], { cwd: repository });
+    await exec("git", ["add", "--all"], { cwd: repository });
+    await exec("git", ["-c", "user.name=Test", "-c", "user.email=test@localhost", "commit", "-qm", "initial"], { cwd: repository });
+    const branch = (await exec("git", ["branch", "--show-current"], { cwd: repository })).stdout.trim();
+    candidate = await workspace.createCandidate({ campaign, experimentId: "candidate", signal });
+    await writeFile(resolve(candidate.root, "value.txt"), "candidate\n", "utf8");
+
+    await exec("git", ["switch", "-qc", "human-source"], { cwd: repository });
+    await writeFile(resolve(projectRoot, "conflict.txt"), "theirs\n", "utf8");
+    await exec("git", ["add", "--all"], { cwd: repository });
+    await exec("git", ["-c", "user.name=Test", "-c", "user.email=test@localhost", "commit", "-qm", "human source"], { cwd: repository });
+    const humanRevision = (await exec("git", ["rev-parse", "HEAD"], { cwd: repository })).stdout.trim();
+    await exec("git", ["switch", "-q", branch], { cwd: repository });
+    await writeFile(resolve(projectRoot, "conflict.txt"), "ours\n", "utf8");
+    await exec("git", ["add", "--all"], { cwd: repository });
+    await exec("git", ["-c", "user.name=Test", "-c", "user.email=test@localhost", "commit", "-qm", "human target"], { cwd: repository });
+    await assert.rejects(() => exec("git", ["cherry-pick", humanRevision], { cwd: repository }));
+    await writeFile(resolve(projectRoot, "conflict.txt"), "human resolution in progress\n", "utf8");
+    const cherryPickHead = (await exec("git", ["rev-parse", "CHERRY_PICK_HEAD"], { cwd: repository })).stdout.trim();
+
+    await assert.rejects(() => workspace.acceptCandidate({ campaign, candidate: candidate!, signal }), /in-progress cherry-pick/);
+    assert.equal((await exec("git", ["rev-parse", "CHERRY_PICK_HEAD"], { cwd: repository })).stdout.trim(), cherryPickHead);
+    assert.equal(await readFile(resolve(projectRoot, "conflict.txt"), "utf8"), "human resolution in progress\n");
+    await exec("git", ["cherry-pick", "--abort"], { cwd: repository });
+  } finally {
+    if (candidate) await workspace.discardCandidate({ campaign, candidate, signal }).catch(() => undefined);
+    await exec("git", ["cherry-pick", "--abort"], { cwd: repository }).catch(() => undefined);
+    await rm(repository, { recursive: true, force: true });
+  }
+});
+
 test("Git workspace maps a subproject, enforces paths, and cherry-picks accepted work", async () => {
   const repository = await mkdtemp(resolve(tmpdir(), "gamefactory-git-"));
   const projectRoot = resolve(repository, "game");

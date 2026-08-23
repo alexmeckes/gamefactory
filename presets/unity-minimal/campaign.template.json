@@ -16,9 +16,7 @@
     "ProjectSettings/**",
     "evidence/**"
   ],
-  "immutablePaths": [
-    "Packages/com.gamefactory.bridge/**"
-  ],
+  "immutablePaths": [],
   "parameters": {
     "workspace": "git.worktree",
     "agent": "command.agent",

@@ -235,12 +235,11 @@ async function acceptedOperationRevision(repositoryRoot: string, token: string, 
   return result.stdout || undefined;
 }
 
-async function hasCherryPickInProgress(repositoryRoot: string, signal: AbortSignal): Promise<boolean> {
+async function cherryPickHeadRevision(repositoryRoot: string, signal: AbortSignal): Promise<string | undefined> {
   try {
-    await run("git", ["rev-parse", "--verify", "CHERRY_PICK_HEAD"], repositoryRoot, signal);
-    return true;
+    return (await run("git", ["rev-parse", "--verify", "CHERRY_PICK_HEAD"], repositoryRoot, signal)).stdout || undefined;
   } catch {
-    return false;
+    return undefined;
   }
 }
 
@@ -304,9 +303,8 @@ export class GitWorktreeWorkspace implements WorkspaceDriver {
     const acceptedRevision = await withRepositoryAcceptanceLock(repositoryRoot, async () => {
       const completed = await acceptedOperationRevision(repositoryRoot, token, signal);
       if (completed) return completed;
-      if (await hasCherryPickInProgress(repositoryRoot, signal)) {
-        await run("git", ["cherry-pick", "--abort"], repositoryRoot, signal);
-      }
+      const existingCherryPick = await cherryPickHeadRevision(repositoryRoot, signal);
+      if (existingCherryPick) throw new Error(`Main worktree has an in-progress cherry-pick at ${existingCherryPick}; refusing to disturb it`);
       const mainStatus = (await run("git", ["status", "--porcelain"], repositoryRoot, signal)).stdout;
       if (mainStatus) throw new Error("Main worktree is dirty; refusing to cherry-pick an accepted candidate");
       const mainRevision = (await run("git", ["rev-parse", "HEAD"], repositoryRoot, signal)).stdout;
@@ -318,7 +316,10 @@ export class GitWorktreeWorkspace implements WorkspaceDriver {
       } catch (error) {
         const cleanup = new AbortController();
         const timeout = setTimeout(() => cleanup.abort(), 20_000);
-        await run("git", ["cherry-pick", "--abort"], repositoryRoot, cleanup.signal).catch(() => undefined);
+        const failedCherryPick = await cherryPickHeadRevision(repositoryRoot, cleanup.signal).catch(() => undefined);
+        if (failedCherryPick === revision) {
+          await run("git", ["cherry-pick", "--abort"], repositoryRoot, cleanup.signal).catch(() => undefined);
+        }
         clearTimeout(timeout);
         throw error;
       }

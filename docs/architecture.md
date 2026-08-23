@@ -183,9 +183,11 @@ split instead of teaching the core their APIs.
 
 The Unity extension follows the same boundary. Its host adapter discovers and
 launches Unity 6 through the Unity CLI, performs compile/import gates, invokes
-`com.unity.pipeline`, normalizes artifacts, and verifies evidence. The embedded
-`com.gamefactory.bridge` package is the in-engine bridge: it owns scene loading,
-Unity Input System event injection, runtime observation, camera capture, and the
-factory-authored evidence manifest. Project gates recognize the generic
+`com.unity.pipeline`, normalizes artifacts, and verifies evidence. The host-owned
+`com.gamefactory.bridge` package is the in-engine bridge: candidate manifests
+reference it outside their workspace, and the adapter pins its executable hash
+before execution. The bridge owns scene loading, Unity Input System event
+injection, runtime observation, camera capture, and the factory-authored
+evidence manifest. Project gates recognize the generic
 `factory-engine` evidence authority, so adding Unity does not add Unity behavior
 to the kernel.

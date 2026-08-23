@@ -334,6 +334,7 @@ test("v2 validates a frozen claim-addressed spec and advances player-complete sl
       const graph = ((campaign.parameters?.agentTeam as Record<string, unknown>).graph as Record<string, unknown>);
       assert.deepEqual(graph.claimIds, ["loop.first-errand"]);
       assert.equal(graph.enforceClaimedBlockers, true);
+      assert.equal(graph.enforceWriteContracts, true);
       assert.deepEqual(graph.attemptPolicy, { executionRetries: 2, creativeRepairs: 1, advisorEscalations: 1 });
       assert.deepEqual(campaign.mutablePaths, ["game/**"]);
       assert.equal((campaign.parameters?.projectSlice as Record<string, unknown>).primaryRisk, "The game becomes a static menu.");

@@ -13,15 +13,16 @@ continuous camera frames.
    unity pipeline install --project-path <project>
    ```
 
-2. Copy `bridges/unity/com.gamefactory.bridge` into the Unity project's
-   `Packages/com.gamefactory.bridge` directory.
-3. Add `com.gamefactory.bridge` and a Unity-6-compatible
-   `com.unity.inputsystem` version to `Packages/manifest.json`.
+2. Add `com.gamefactory.bridge` to `Packages/manifest.json` as an absolute
+   `file:` reference to GameFactory's host-owned
+   `bridges/unity/com.gamefactory.bridge` directory. Do not copy it into the project.
+3. Add a Unity-6-compatible `com.unity.inputsystem` version to the same manifest.
 4. Copy `scenario.template.json` to
    `Assets/GameFactory/first-session.scenario.json` and bind its scene, actor,
    target, state observation, and physical controls.
 5. Copy `campaign.template.json` into the project and run it with a factory
    config derived from `factory.preset.json`.
 
-The bridge is immutable during experiments. Game code may not produce or edit
-the trusted verdict, trace authority, or capture metadata.
+The bridge is outside candidate mutation authority and its executable hash is
+pinned before evidence capture. Game code may not produce or edit the trusted
+verdict, trace authority, or capture metadata.

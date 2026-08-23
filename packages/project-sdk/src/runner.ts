@@ -142,6 +142,7 @@ function campaignForPhase(campaign: Campaign, phase: LoadedProjectPhase, project
           ...graphRecord,
           claimIds: phase.consumesClaims ?? [],
           enforceClaimedBlockers: true,
+          enforceWriteContracts: true,
           ...(attemptPolicy ? { attemptPolicy: { ...policy, ...(attemptPolicy.executionRetries !== undefined ? { executionRetries: attemptPolicy.executionRetries } : {}), ...(attemptPolicy.creativeRepairs !== undefined ? { creativeRepairs: attemptPolicy.creativeRepairs } : {}), ...(attemptPolicy.advisorEscalations !== undefined ? { advisorEscalations: attemptPolicy.advisorEscalations } : {}) } } : {})
         }
       } } : {})

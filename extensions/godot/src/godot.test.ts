@@ -211,6 +211,16 @@ test("factory-owned probe attributes bounded late consequences and reports their
   assert.match(source, /"embodied_probe_max_consequence_latency_frames": _max_state_latency_frames/);
 });
 
+test("factory-owned probe establishes quiescence before attributing changes to input", async () => {
+  const source = await readFile(embodiedProbeScriptPath(), "utf8");
+  const counterfactual = source.indexOf('"kind": "counterfactual"');
+  const firstInjection = source.indexOf("_inject_action(action, pressed, strength)");
+  assert.ok(counterfactual > 0 && counterfactual < firstInjection);
+  assert.match(source, /godot\.embodied\.counterfactual-state-change/);
+  assert.match(source, /godot\.embodied\.counterfactual-motion/);
+  assert.match(source, /"embodied_probe_quiescence_frames": quiescence_frames/);
+});
+
 test("Godot scenario artifacts normalize candidate-defined kinds before crossing adapter boundaries", async () => {
   const normalized = await normalizeScenarioArtifacts([{
     kind: "gameplay-evidence",

@@ -731,6 +731,30 @@ test("agent graph escalates a configured Luna hard failure to Sol", async () => 
   }
 });
 
+test("advisor success must satisfy the node required-output contract", async () => {
+  const root = await repository();
+  try {
+    await assert.rejects(() => new AgentTeam().run({
+      campaign: graphCampaign(root, [graphCommand("advisor-scout", {
+        role: "scout",
+        permissions: "read",
+        provider: "openai-codex-app-server",
+        model: "gpt-5.6-luna",
+        reasoningEffort: "high",
+        billingMode: "subscription",
+        requiredOutputFields: ["findings.requiredDecision"],
+        advisor: { model: "gpt-5.6-sol", reasoningEffort: "high", outcomes: ["needs_advisor"], maximumAttempts: 1 }
+      })]),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-advisor-output-contract",
+      history: [],
+      signal: new AbortController().signal
+    }), /missing required fields: findings\.requiredDecision/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("agent graph passes structured context to a writer and repairs from critic findings", async () => {
   const root = await repository();
   try {

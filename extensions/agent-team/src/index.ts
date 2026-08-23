@@ -2795,6 +2795,7 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
       })
     });
     const priorAdvisorRuns: PriorOutput[] = [];
+    let lastOutputContractError: AgentTeamOutputContractError | undefined;
     for (let advisorAttempt = 1; advisorAttempt <= advisor.maximumAttempts; advisorAttempt += 1) {
       if (advisorEscalations >= config.maximumAdvisorEscalations) break;
       reserveAttempt();
@@ -2828,12 +2829,23 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
       state.outcome = advisorRun.provenance.outcome;
       state.summary = advisorRun.provenance.summary;
       if (advisorRun.provenance.status === "complete" && !advisor.outcomes.includes(advisorRun.provenance.outcome)) {
-        validateAuthorityOutput(config, state.config, advisorRun);
+        try {
+          validateAuthorityOutput(config, state.config, advisorRun);
+          validateRequiredOutputFields(state.config, advisorRun);
+        } catch (error) {
+          if (!(error instanceof AgentTeamOutputContractError)) throw error;
+          lastOutputContractError = error;
+          const feedback = priorOutput(advisorRun, config.handoffCharacters);
+          feedback.summary = `ADVISOR OUTPUT CONTRACT REJECTED — preserve the evidence and supply the missing contract fields: ${error.message}`;
+          priorAdvisorRuns.push(feedback);
+          continue;
+        }
         completeState(state);
         return;
       }
       priorAdvisorRuns.push(priorOutput(advisorRun, config.handoffCharacters));
     }
+    if (lastOutputContractError) throw new AgentTeamOutputContractError(lastOutputContractError.message, state.runs);
     state.status = "failed";
     state.summary = `Advisor ${advisor.id} did not resolve ${state.config.id}: ${state.summary}`;
   };

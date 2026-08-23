@@ -89,6 +89,12 @@ function validateProbeSettleFrames(probe: unknown, path: string): void {
     }
   };
   validate(value.settleFrames, `${path}.settleFrames`);
+  if (value.quiescenceFrames !== undefined && (typeof value.quiescenceFrames !== "number" || !Number.isInteger(value.quiescenceFrames) || value.quiescenceFrames < 1 || value.quiescenceFrames > 60)) {
+    throw new Error(`${path}.quiescenceFrames must be an integer from 1 to 60`);
+  }
+  if (value.quiescencePositionTolerance !== undefined && (typeof value.quiescencePositionTolerance !== "number" || !Number.isFinite(value.quiescencePositionTolerance) || value.quiescencePositionTolerance < 0)) {
+    throw new Error(`${path}.quiescencePositionTolerance must be a non-negative finite number`);
+  }
   if (!Array.isArray(value.steps)) return;
   for (const [index, rawStep] of value.steps.entries()) {
     if (!rawStep || typeof rawStep !== "object" || Array.isArray(rawStep)) continue;
@@ -167,6 +173,7 @@ export async function verifyEmbodiedScenarioArtifacts(
   let visibleSamples = 0;
   let spatialInteractions = 0;
   let stateConsequences = 0;
+  let counterfactualSamples = 0;
   let chronological = true;
   for (const item of samples) {
     if (!item || typeof item !== "object" || Array.isArray(item)) continue;
@@ -185,6 +192,7 @@ export async function verifyEmbodiedScenarioArtifacts(
       maximumDisplacement = Math.max(maximumDisplacement, Math.hypot(actorPosition.x - origin.x, actorPosition.y - origin.y));
     }
     const input = sample.input && typeof sample.input === "object" && !Array.isArray(sample.input) ? sample.input as Record<string, unknown> : undefined;
+    if (input?.delivery === "none" && input.kind === "counterfactual") counterfactualSamples += 1;
     if (input?.delivery === "godot-input-event" && (input.kind === "axis" || input.kind === "action")) shippingInputs += 1;
     if (Array.isArray(sample.events)) for (const rawEvent of sample.events) {
       if (!rawEvent || typeof rawEvent !== "object" || Array.isArray(rawEvent)) continue;
@@ -205,6 +213,7 @@ export async function verifyEmbodiedScenarioArtifacts(
   }
 
   if (!chronological) violations.push({ code: "godot.embodied.chronology", message: "Embodied gameplay samples are not chronological.", severity: "error" });
+  if (requiredProducer && counterfactualSamples < 1) violations.push({ code: "godot.embodied.counterfactual-missing", message: "Factory-owned evidence must establish a no-input quiescence window before attributing consequences to player input.", severity: "error" });
   if (duration < requirements.minimumDurationSeconds) violations.push({ code: "godot.embodied.duration", message: `Embodied capture lasts ${duration.toFixed(2)}s; expected at least ${requirements.minimumDurationSeconds}s.`, severity: "error" });
   if (shippingInputs < requirements.minimumShippingInputEvents) violations.push({ code: "godot.embodied.shipping-input", message: `Only ${shippingInputs} shipping InputEvent samples were observed; direct function replay is not acceptable.`, severity: "error" });
   if (visibleSamples === 0) violations.push({ code: "godot.embodied.actor-visible", message: "No trace sample establishes a visible player-controlled runtime actor.", severity: "error" });
@@ -223,6 +232,7 @@ export async function verifyEmbodiedScenarioArtifacts(
       embodied_displacement_pixels: maximumDisplacement,
       embodied_spatial_interactions: spatialInteractions,
       embodied_state_consequences: stateConsequences,
+      embodied_counterfactual_samples: counterfactualSamples,
       embodied_distinct_frames: frameHashes.size
     },
     violations

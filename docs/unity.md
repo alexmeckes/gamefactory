@@ -11,7 +11,8 @@ interfaces used by other host adapters.
 - Unity CLI authenticated with `unity auth login`.
 - `com.unity.pipeline`, installed with `unity pipeline install --project-path`.
 - Unity Input System.
-- The embedded `bridges/unity/com.gamefactory.bridge` package.
+- The host-owned `bridges/unity/com.gamefactory.bridge` package, referenced by
+  absolute `file:` path from the project manifest rather than copied into the candidate.
 
 The bridge registers `gamefactory_prepare_playmode` and
 `gamefactory_run_scenario` with Unity Pipeline. Preparation preserves the user's
@@ -41,7 +42,8 @@ Passing embodied evidence requires:
 - multiple byte-distinct engine frames.
 
 Trusted artifacts carry `metadata.evidenceAuthority: "factory-engine"` and
-`metadata.engine: "unity"`. Project evidence gates and Gemini review consume
+`metadata.engine: "unity"`, plus the factory-stamped hash of the verified
+host bridge. Project evidence gates and Gemini review consume
 those generic roles rather than matching Unity-specific evaluator names.
 
 Use `presets/unity-minimal` as the starting point. Production visuals remain a
