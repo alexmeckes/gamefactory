@@ -23,6 +23,7 @@ namespace PullingSeason
         [SerializeField] private GameObject damageMarks;
         [SerializeField] private LineRenderer gripLine;
         [SerializeField] private ParticleSystem soilBurst;
+        [SerializeField] private Transform soilResponse;
         [SerializeField] private float gripRange = 2.4f;
 
         private Rigidbody cropBody;
@@ -30,14 +31,22 @@ namespace PullingSeason
         private float mishandledDistance;
         private bool damaged;
         private Vector3 visualRestScale;
+        private Vector3 visualTargetScale;
         private Quaternion visualRestRotation;
+        private Vector3 rootedPosition;
+        private Vector3 lastGripPosition;
+        private Vector3 rootDeflection;
+        private Vector3 soilRestScale;
+        private Quaternion soilRestRotation;
+        private float lastSoilMilestone;
         private float feedbackClock;
 
         private float RequiredPullDistance => GrowthStage == "Late" ? 2.55f : 1.75f;
 
         public void Configure(NextHarvestDecision targetNextDecision, Transform targetVisual, Renderer targetBulbRenderer,
             Material targetEarlyMaterial, Material targetLateMaterial, Material targetDamagedMaterial,
-            GameObject targetLateSoilCues, GameObject targetDamageMarks, LineRenderer targetGripLine, ParticleSystem targetSoilBurst)
+            GameObject targetLateSoilCues, GameObject targetDamageMarks, LineRenderer targetGripLine,
+            ParticleSystem targetSoilBurst, Transform targetSoilResponse)
         {
             nextDecision = targetNextDecision;
             cropVisual = targetVisual;
@@ -49,6 +58,7 @@ namespace PullingSeason
             damageMarks = targetDamageMarks;
             gripLine = targetGripLine;
             soilBurst = targetSoilBurst;
+            soilResponse = targetSoilResponse;
         }
 
         private void Awake()
@@ -56,10 +66,17 @@ namespace PullingSeason
             cropBody = GetComponent<Rigidbody>();
             cropBody.isKinematic = true;
             cropBody.useGravity = false;
+            rootedPosition = cropBody.position;
             if (cropVisual != null)
             {
                 visualRestScale = cropVisual.localScale;
+                visualTargetScale = visualRestScale;
                 visualRestRotation = cropVisual.localRotation;
+            }
+            if (soilResponse != null)
+            {
+                soilRestScale = soilResponse.localScale;
+                soilRestRotation = soilResponse.localRotation;
             }
             if (lateSoilCues != null) lateSoilCues.SetActive(false);
             if (damageMarks != null) damageMarks.SetActive(false);
@@ -82,10 +99,25 @@ namespace PullingSeason
             if (cropVisual != null && !Harvested)
             {
                 feedbackClock += Time.deltaTime;
+                cropVisual.localScale = Vector3.Lerp(cropVisual.localScale, visualTargetScale, 0.13f);
                 var tension = GripActive ? 2.5f + PullProgress * 5f : 1.2f;
                 var wobble = Mathf.Sin(feedbackClock * tension) * (GripActive ? 3f + PullProgress * 7f : 0.7f);
                 cropVisual.localRotation = visualRestRotation * Quaternion.Euler(0f, 0f, wobble);
             }
+
+            UpdateSoilResponse();
+        }
+
+        private void LateUpdate()
+        {
+            if (!GripActive || Harvested || grippingPlayer == null) return;
+
+            var currentGripPosition = grippingPlayer.transform.position;
+            var playerDelta = Vector3.ProjectOnPlane(currentGripPosition - lastGripPosition, Vector3.up);
+            lastGripPosition = currentGripPosition;
+            if (playerDelta.sqrMagnitude < 0.000001f) return;
+
+            ApplyObservedPlayerMotion(currentGripPosition - playerDelta, playerDelta.normalized, playerDelta.magnitude);
         }
 
         public void CommitLate()
@@ -95,8 +127,8 @@ namespace PullingSeason
             Condition = "Rooted - dense roots";
             if (cropVisual != null)
             {
-                cropVisual.localScale = visualRestScale * 1.2f;
-                visualRestScale = cropVisual.localScale;
+                visualTargetScale = visualRestScale * 1.2f;
+                visualRestScale = visualTargetScale;
             }
             if (bulbRenderer != null && lateMaterial != null) bulbRenderer.material = lateMaterial;
             if (lateSoilCues != null) lateSoilCues.SetActive(true);
@@ -113,6 +145,7 @@ namespace PullingSeason
 
             grippingPlayer = player;
             GripActive = true;
+            lastGripPosition = player.transform.position;
             if (mishandledDistance > 0.01f)
             {
                 damaged = true;
@@ -124,7 +157,7 @@ namespace PullingSeason
             }
         }
 
-        public void ApplyPlayerMovement(Vector3 playerPositionBeforeMove, Vector3 movementDirection, float distance)
+        private void ApplyObservedPlayerMotion(Vector3 playerPositionBeforeMove, Vector3 movementDirection, float distance)
         {
             if (!GripActive || Harvested || grippingPlayer == null) return;
 
@@ -134,7 +167,9 @@ namespace PullingSeason
             {
                 PullProgress = Mathf.Clamp01(PullProgress + distance / RequiredPullDistance);
                 Condition = damaged ? "Pulling - bruised root" : (GrowthStage == "Late" ? "Pulling - dense roots holding" : "Pulling - soil releasing");
-                if (soilBurst != null && !soilBurst.isPlaying) soilBurst.Play();
+                rootDeflection = Vector3.Lerp(rootDeflection, Vector3.zero, 0.18f);
+                MoveRootedCrop();
+                EmitSoilAtMilestone();
                 if (PullProgress >= 0.999f) Extract(away);
                 return;
             }
@@ -142,6 +177,10 @@ namespace PullingSeason
             mishandledDistance += distance;
             damaged = true;
             Condition = "Lateral strain - fibers tearing";
+            rootDeflection = Vector3.ClampMagnitude(rootDeflection + movementDirection * distance * 0.22f, 0.14f);
+            MoveRootedCrop();
+            if (mishandledDistance >= 0.14f) ShowDamage();
+            EmitSoilAtMilestone();
             if (cropVisual != null)
                 cropVisual.localRotation = visualRestRotation * Quaternion.Euler(movementDirection.z * 13f, 0f, -movementDirection.x * 8f);
 
@@ -150,7 +189,42 @@ namespace PullingSeason
                 GripActive = false;
                 grippingPlayer = null;
                 Condition = "Grip slipped - regrip with E";
+                ShowDamage();
+                if (soilBurst != null) soilBurst.Emit(10);
             }
+        }
+
+        private void MoveRootedCrop()
+        {
+            if (Harvested) return;
+            var lift = Mathf.SmoothStep(0f, GrowthStage == "Late" ? 0.28f : 0.34f, PullProgress);
+            cropBody.MovePosition(rootedPosition + Vector3.up * lift + rootDeflection);
+        }
+
+        private void EmitSoilAtMilestone()
+        {
+            var effort = PullProgress + mishandledDistance * 0.35f;
+            if (soilBurst == null || effort < lastSoilMilestone + 0.055f) return;
+            lastSoilMilestone = effort;
+            soilBurst.Emit(damaged ? 3 : 2);
+        }
+
+        private void ShowDamage()
+        {
+            if (damageMarks != null) damageMarks.SetActive(true);
+            if (bulbRenderer != null && damagedMaterial != null) bulbRenderer.material = damagedMaterial;
+        }
+
+        private void UpdateSoilResponse()
+        {
+            if (soilResponse == null || Harvested) return;
+            var effort = Mathf.Clamp01(PullProgress + mishandledDistance * 0.4f);
+            soilResponse.localScale = new Vector3(
+                soilRestScale.x * (1f + effort * 0.20f),
+                soilRestScale.y * (1f - effort * 0.42f),
+                soilRestScale.z * (1f + effort * 0.20f));
+            var strainYaw = damaged ? Mathf.Sin(feedbackClock * 12f) * 5f : 0f;
+            soilResponse.localRotation = soilRestRotation * Quaternion.Euler(0f, strainYaw, 0f);
         }
 
         public void AcknowledgeResult()
@@ -171,11 +245,11 @@ namespace PullingSeason
                 : (GrowthStage == "Late" ? "Harvested prize-intact - heavy roots" : "Harvested tender-intact - loose soil");
 
             if (damageMarks != null) damageMarks.SetActive(damaged);
-            if (damaged && bulbRenderer != null && damagedMaterial != null) bulbRenderer.material = damagedMaterial;
+            if (damaged) ShowDamage();
             if (gripLine != null) gripLine.enabled = false;
-            if (soilBurst != null) soilBurst.Play();
+            if (soilBurst != null) soilBurst.Emit(damaged ? 34 : 26);
 
-            transform.position += Vector3.up * 0.72f;
+            cropBody.position += Vector3.up * 0.72f;
             cropBody.isKinematic = false;
             cropBody.useGravity = true;
             cropBody.mass = GrowthStage == "Late" ? 3.2f : 2.0f;

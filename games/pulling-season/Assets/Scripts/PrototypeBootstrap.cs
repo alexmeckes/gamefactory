@@ -75,12 +75,13 @@ namespace PullingSeason
             gripLine.receiveShadows = false;
             gripLine.enabled = false;
             var soilBurst = AddSoilFeedback(cropObject.transform, looseSoil);
+            var soilResponse = AddRootSocket(world.transform, looseSoil, crack);
             var lateCues = AddLateCues(world.transform, crack);
             lateCues.SetActive(false);
 
             var harvest = cropObject.AddComponent<HarvestCrop>();
             harvest.Configure(nextDecision, visual.transform, bulb.GetComponent<Renderer>(), early, late, damaged,
-                lateCues, damageMarks, gripLine, soilBurst);
+                lateCues, damageMarks, gripLine, soilBurst, soilResponse.transform);
 
             var player = AddPlayer(world.transform, playerMaterial, glove, harvest);
             AddDisplay(player, harvest, nextDecision, panel, earlyProgress, lateProgress, damageProgress);
@@ -167,12 +168,30 @@ namespace PullingSeason
             main.startColor = new Color(0.45f, 0.25f, 0.10f);
             var emission = particles.emission;
             emission.rateOverTime = 0f;
-            emission.SetBursts(new[] { new ParticleSystem.Burst(0f, 12) });
             var shape = particles.shape;
             shape.shapeType = ParticleSystemShapeType.Circle;
             shape.radius = 0.65f;
             feedback.GetComponent<ParticleSystemRenderer>().material = soil;
             return particles;
+        }
+
+        private static GameObject AddRootSocket(Transform world, Material looseSoil, Material crack)
+        {
+            var root = new GameObject("RootSocket");
+            root.transform.SetParent(world);
+            root.transform.localPosition = new Vector3(0f, 0.125f, 0f);
+            Primitive("CompressionPlate", PrimitiveType.Cylinder, root.transform, Vector3.zero,
+                new Vector3(1.34f, 0.018f, 1.34f), looseSoil);
+            for (var index = 0; index < 12; index++)
+            {
+                var angle = index * 30f;
+                var radians = angle * Mathf.Deg2Rad;
+                var clod = Primitive("RootClod_" + index, PrimitiveType.Cube, root.transform,
+                    new Vector3(Mathf.Cos(radians) * 0.72f, 0.035f, Mathf.Sin(radians) * 0.72f),
+                    new Vector3(0.28f, 0.07f, 0.12f), index % 3 == 0 ? crack : looseSoil);
+                clod.transform.localRotation = Quaternion.Euler(0f, -angle, (index % 2 == 0 ? 1f : -1f) * 4f);
+            }
+            return root;
         }
 
         private static GameObject AddLateCues(Transform world, Material crack)

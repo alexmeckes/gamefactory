@@ -17,6 +17,7 @@ namespace PullingSeason
         private Vector3 cameraRest;
         private Vector3 leftRest;
         private Vector3 rightRest;
+        private Vector3 plannedPosition;
         private float motionClock;
 
         public Transform GripAnchor => gripAnchor != null ? gripAnchor : transform;
@@ -35,6 +36,9 @@ namespace PullingSeason
             body = GetComponent<Rigidbody>();
             body.isKinematic = true;
             body.useGravity = false;
+            body.interpolation = RigidbodyInterpolation.Interpolate;
+            body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+            plannedPosition = body.position;
             if (cameraRig != null) cameraRest = cameraRig.localPosition;
             if (leftHand != null) leftRest = leftHand.localPosition;
             if (rightHand != null) rightRest = rightHand.localPosition;
@@ -58,12 +62,13 @@ namespace PullingSeason
             if (movement.sqrMagnitude > 0.01f && !crop.Harvested)
             {
                 movement.Normalize();
-                var before = transform.position;
-                var after = before + movement * distancePerFrame;
-                body.position = after;
-                transform.position = after;
-                crop.ApplyPlayerMovement(before, movement, distancePerFrame);
+                plannedPosition += movement * distancePerFrame;
+                body.MovePosition(plannedPosition);
                 motionClock += 0.28f;
+            }
+            else
+            {
+                plannedPosition = body.position;
             }
 
             AnimateEmbodiment(movement.sqrMagnitude > 0.01f);

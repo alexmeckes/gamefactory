@@ -58,7 +58,9 @@ namespace PullingSeason
             if (controlText != null)
                 controlText.text = crop.Harvested
                     ? (crop.Acknowledged ? "Lesson carried forward: choose the next plan" : "SPACE  ACKNOWLEDGE THE PHYSICAL RESULT")
-                    : "D  APPROACH     E  GRIP / REGRIP     A  PULL AWAY\nW/S  CHANGE ANGLE     G  COMMIT LATE";
+                    : (crop.GripActive
+                        ? "TETHERED: MOVEMENT DOES THE WORK     A  PULL STRAIGHT\nW/S  LOAD SIDEWAYS     E  ONLY REGRIPS"
+                        : "D  APPROACH     E  GRIP / REGRIP     A  PULL AWAY\nW/S  CHANGE ANGLE     G  COMMIT LATE");
 
             if (progressFill != null)
             {
