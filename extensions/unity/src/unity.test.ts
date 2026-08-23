@@ -13,10 +13,13 @@ import {
   UnityEngine,
   UnityScenarioRunner,
   type UnityProcessRunner,
+  unityEditorPid,
   unityImportArgs,
   unityLogHasErrors,
+  unityOpenArgs,
   unityPrepareArgs,
   unityScenarioArgs,
+  unityStatusArgs,
   verifyUnityEmbodiedArtifacts
 } from "./index.js";
 
@@ -60,6 +63,9 @@ test("Unity CLI argument builders use non-interactive one-shot project commands"
   assert.deepEqual(unityPrepareArgs("C:\\Game", "gamefactory_prepare_playmode", 180, "state.json", true), [
     "--non-interactive", "--format", "ndjson", "command", "gamefactory_prepare_playmode", "--project-path", "C:\\Game", "--timeout", "180", "--", "--state", "state.json"
   ]);
+  assert.deepEqual(unityOpenArgs("C:\\Game"), ["--non-interactive", "--format", "json", "open", "C:\\Game", "--args", "-batchmode -nographics"]);
+  assert.deepEqual(unityStatusArgs("C:\\Game"), ["--non-interactive", "--format", "json", "status", "--project-path", "C:\\Game"]);
+  assert.equal(unityEditorPid(JSON.stringify({ success: true, data: { instances: [{ pid: 4242 }] } })), 4242);
 });
 
 test("Unity doctor requires Unity 6, Pipeline, Input System, and the factory bridge", async () => {
@@ -186,6 +192,8 @@ test("Unity scenario runner preserves engine-authoritative evidence from the bri
   const calls: string[][] = [];
   const fake: UnityProcessRunner = async (_binary, args) => {
     calls.push(args);
+    if (args.includes("open")) return { exitCode: 0, stdout: "opened", stderr: "", timedOut: false };
+    if (args.includes("status")) return { exitCode: 0, stdout: JSON.stringify({ success: true, data: { instances: [{ pid: 4242 }] } }), stderr: "", timedOut: false };
     if (args.includes("gamefactory_prepare_playmode")) return { exitCode: 0, stdout: "play mode prepared", stderr: "", timedOut: false };
     const outputFlag = args.lastIndexOf("--output");
     const resultPath = args[outputFlag + 1]!;
@@ -214,7 +222,7 @@ test("Unity scenario runner preserves engine-authoritative evidence from the bri
     return { exitCode: 0, stdout: "scenario complete", stderr: "", timedOut: false };
   };
   try {
-    const result = await new UnityScenarioRunner(fake).run({
+    const result = await new UnityScenarioRunner(fake, async () => {}, async () => {}).run({
       campaign: campaign(root, { embodiedProof: { minimumDistinctFrames: 2, minimumDisplacementUnits: 1 } }),
       projectRoot: root,
       candidate: { id: "candidate", root, metadata: {} },
@@ -223,21 +231,31 @@ test("Unity scenario runner preserves engine-authoritative evidence from the bri
       signal: new AbortController().signal
     });
     assert.equal(result.status, "pass");
-    assert.equal(calls.length, 2);
-    assert.ok(calls[0]!.includes("gamefactory_prepare_playmode"));
+    assert.equal(calls.length, 4);
+    assert.ok(calls[0]!.includes("open"));
+    assert.ok(calls[1]!.includes("status"));
+    assert.ok(calls[2]!.includes("gamefactory_prepare_playmode"));
+    assert.ok(calls[2]!.includes("command"));
     assert.equal(result.metrics.embodied_proof, 1);
     assert.ok(result.artifacts.some((artifact) => artifact.metadata?.evidenceAuthority === ENGINE_EVIDENCE_AUTHORITY));
     assert.ok(result.artifacts.some((artifact) => artifact.metadata?.evidenceClass === "embodied-gameplay" && artifact.metadata?.verified === true));
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test("Unity scenario runner retries while a newly started Pipeline Editor is still settling", async () => {
+test("Unity scenario runner launches one Editor, polls readiness, and retries attached commands", async () => {
   const root = await fixtureProject();
   const calls: string[][] = [];
   const waits: number[] = [];
   let preparationAttempts = 0;
+  let statusAttempts = 0;
   const fake: UnityProcessRunner = async (_binary, args) => {
     calls.push(args);
+    if (args.includes("open")) return { exitCode: 0, stdout: "opened", stderr: "", timedOut: false };
+    if (args.includes("status")) {
+      statusAttempts += 1;
+      if (statusAttempts === 1) return { exitCode: 1, stdout: JSON.stringify({ success: false, errors: [{ code: "STATUS_NO_INSTANCES" }] }), stderr: "", timedOut: false };
+      return { exitCode: 0, stdout: JSON.stringify({ success: true, data: { instances: [{ processId: "5151" }] } }), stderr: "", timedOut: false };
+    }
     if (args.includes("gamefactory_prepare_playmode")) {
       preparationAttempts += 1;
       if (preparationAttempts === 1) {
@@ -255,8 +273,10 @@ test("Unity scenario runner retries while a newly started Pipeline Editor is sti
     await writeFile(resultPath, JSON.stringify({ status: "pass", metrics: {}, artifacts: [], violations: [] }));
     return { exitCode: 0, stdout: "scenario complete", stderr: "", timedOut: false };
   };
+  const terminated: number[] = [];
   try {
-    const result = await new UnityScenarioRunner(fake, async (milliseconds) => { waits.push(milliseconds); }).run({
+    const runner = new UnityScenarioRunner(fake, async (milliseconds) => { waits.push(milliseconds); }, async (pid) => { terminated.push(pid); });
+    const result = await runner.run({
       campaign: campaign(root),
       projectRoot: root,
       candidate: { id: "candidate", root, metadata: {} },
@@ -266,8 +286,13 @@ test("Unity scenario runner retries while a newly started Pipeline Editor is sti
     });
     assert.equal(result.status, "pass");
     assert.equal(preparationAttempts, 2);
-    assert.deepEqual(waits, [1_000]);
-    assert.equal(calls.length, 3);
+    assert.equal(statusAttempts, 2);
+    assert.deepEqual(waits, [2_000, 1_000]);
+    assert.equal(calls.filter((args) => args.includes("open")).length, 1);
+    assert.equal(calls.filter((args) => args.includes("run")).length, 0);
+    assert.ok(calls.filter((args) => args.includes("command")).length >= 3);
+    await runner.releaseProject(root);
+    assert.deepEqual(terminated, [5151]);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 

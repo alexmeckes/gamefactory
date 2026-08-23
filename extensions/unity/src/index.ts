@@ -53,6 +53,8 @@ export type UnityProcessRunner = (
 
 export type UnityWait = (milliseconds: number, signal: AbortSignal) => Promise<void>;
 
+export type UnityProcessTerminator = (pid: number) => Promise<void>;
+
 export interface UnityEmbodiedProofConfig {
   minimumDurationSeconds: number;
   minimumShippingInputEvents: number;
@@ -190,6 +192,14 @@ export function unityScenarioArgs(project: string, command: string, timeoutSecon
   ];
 }
 
+export function unityOpenArgs(project: string): string[] {
+  return ["--non-interactive", "--format", "json", "open", project, "--args", "-batchmode -nographics"];
+}
+
+export function unityStatusArgs(project: string): string[] {
+  return ["--non-interactive", "--format", "json", "status", "--project-path", project];
+}
+
 export const executeUnity: UnityProcessRunner = async (binary, args, cwd, signal, timeoutSeconds) => new Promise((resolvePromise, reject) => {
   const child = spawn(binary, args, { cwd, windowsHide: true, detached: process.platform !== "win32", env: { ...process.env, UNITY_NO_CONSENT_PROMPT: "1" } });
   let stdout = "";
@@ -229,6 +239,26 @@ export const executeUnity: UnityProcessRunner = async (binary, args, cwd, signal
     resolvePromise({ exitCode, stdout, stderr, timedOut });
   });
 });
+
+export const terminateUnityEditor: UnityProcessTerminator = async (pid) => {
+  if (!Number.isSafeInteger(pid) || pid <= 0) throw new Error(`Refusing to terminate invalid Unity Editor PID ${pid}`);
+  await new Promise<void>((resolvePromise, reject) => {
+    if (process.platform === "win32") {
+      const child = spawn("taskkill", ["/pid", String(pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
+      child.on("error", reject);
+      child.on("exit", (code) => code === 0 || code === 128 ? resolvePromise() : reject(new Error(`taskkill exited ${code} for Unity Editor PID ${pid}`)));
+      return;
+    }
+    try {
+      process.kill(pid, "SIGTERM");
+      resolvePromise();
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === "ESRCH") resolvePromise();
+      else reject(error);
+    }
+  });
+};
 
 async function exists(path: string): Promise<boolean> {
   try { await access(path); return true; } catch { return false; }
@@ -319,6 +349,45 @@ function combineProcessResults(results: UnityProcessResult[]): UnityProcessResul
     .filter(Boolean)
     .join("\n");
   return { ...final, stdout: join("stdout"), stderr: join("stderr") };
+}
+
+function jsonDocuments(output: string): unknown[] {
+  const documents: unknown[] = [];
+  try { documents.push(JSON.parse(output)); } catch { /* fall through to NDJSON */ }
+  if (documents.length === 0) {
+    for (const line of output.split(/\r?\n/).map((item) => item.trim()).filter(Boolean)) {
+      try { documents.push(JSON.parse(line)); } catch { /* diagnostic text */ }
+    }
+  }
+  return documents;
+}
+
+export function unityEditorPid(output: string): number | undefined {
+  const visit = (value: unknown): number | undefined => {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const found = visit(item);
+        if (found !== undefined) return found;
+      }
+      return undefined;
+    }
+    const record = object(value);
+    for (const key of ["pid", "processId", "process_id"]) {
+      const candidate = record[key];
+      if (typeof candidate === "number" && Number.isSafeInteger(candidate) && candidate > 0) return candidate;
+      if (typeof candidate === "string" && /^[1-9]\d*$/.test(candidate)) return Number.parseInt(candidate, 10);
+    }
+    for (const nested of Object.values(record)) {
+      const found = visit(nested);
+      if (found !== undefined) return found;
+    }
+    return undefined;
+  };
+  for (const document of jsonDocuments(output)) {
+    const found = visit(document);
+    if (found !== undefined) return found;
+  }
+  return undefined;
 }
 
 export class UnityEngine implements EngineDriver {
@@ -517,12 +586,54 @@ export async function verifyUnityEmbodiedArtifacts(
 
 export class UnityScenarioRunner implements ScenarioRunner {
   readonly id = "unity.scenario";
+  private readonly ownedEditors = new Map<string, number>();
   constructor(
     private readonly runProcess: UnityProcessRunner = executeUnity,
     private readonly wait: UnityWait = async (milliseconds, signal) => {
       await delay(milliseconds, undefined, { signal });
-    }
+    },
+    private readonly terminateProcess: UnityProcessTerminator = terminateUnityEditor
   ) {}
+
+  private async ensureProjectEditor(binary: string, root: string, signal: AbortSignal, timeoutSeconds: number): Promise<void> {
+    if (this.ownedEditors.has(root)) return;
+    const opened = await this.runProcess(binary, unityOpenArgs(root), root, signal, Math.min(timeoutSeconds, 60));
+    if (opened.exitCode !== 0 || opened.timedOut) {
+      throw new Error(`Unity Editor launch failed with exit code ${opened.exitCode}. ${opened.stderr || opened.stdout}`.trim());
+    }
+    const statusAttempts: UnityProcessResult[] = [];
+    const maximumAttempts = Math.max(8, Math.ceil(timeoutSeconds / 2));
+    for (let attempt = 1; attempt <= maximumAttempts; attempt += 1) {
+      const status = await this.runProcess(binary, unityStatusArgs(root), root, signal, 15);
+      statusAttempts.push(status);
+      const pid = status.exitCode === 0 && !status.timedOut ? unityEditorPid(status.stdout) : undefined;
+      if (pid !== undefined) {
+        this.ownedEditors.set(root, pid);
+        return;
+      }
+      if (status.timedOut || signal.aborted) break;
+      const detail = `${status.stdout}\n${status.stderr}`;
+      const starting = /STATUS_NO_INSTANCES|No Unity Editor instances|503 Service Unavailable|Server Busy|settling|connection (?:failed|refused)/i.test(detail);
+      if (!starting) break;
+      await this.wait(2_000, signal);
+    }
+    const combined = combineProcessResults(statusAttempts);
+    throw new Error(`Unity Editor did not become Pipeline-ready after one launch. ${combined.stderr || combined.stdout}`.trim());
+  }
+
+  async releaseProject(root: string): Promise<void> {
+    const canonical = resolve(root);
+    const pid = this.ownedEditors.get(canonical);
+    if (pid === undefined) return;
+    this.ownedEditors.delete(canonical);
+    await this.terminateProcess(pid);
+  }
+
+  async dispose(): Promise<void> {
+    const editors = [...this.ownedEditors.values()];
+    this.ownedEditors.clear();
+    await Promise.allSettled(editors.map((pid) => this.terminateProcess(pid)));
+  }
 
   private async runPipelineWhenReady(binary: string, args: string[], cwd: string, signal: AbortSignal, timeoutSeconds: number): Promise<UnityProcessResult> {
     const attempts: UnityProcessResult[] = [];
@@ -563,12 +674,13 @@ export class UnityScenarioRunner implements ScenarioRunner {
     let processResult: UnityProcessResult;
     let artifacts: ArtifactReference[] = [];
     try {
-      const preparation = await this.runPipelineWhenReady(settings.cli, unityPrepareArgs(root, settings.prepareCommand, settings.timeoutSeconds, playModeStatePath, settings.connectedEditor), root, input.signal, settings.timeoutSeconds + 30);
+      if (!settings.connectedEditor) await this.ensureProjectEditor(settings.cli, root, input.signal, settings.timeoutSeconds);
+      const preparation = await this.runPipelineWhenReady(settings.cli, unityPrepareArgs(root, settings.prepareCommand, settings.timeoutSeconds, playModeStatePath, true), root, input.signal, settings.timeoutSeconds + 30);
       artifacts = await processLogs(output, "unity-playmode-prepare", preparation);
       if (preparation.exitCode !== 0 || preparation.timedOut) {
         return { status: "crash", metrics: {}, artifacts, violations: [{ code: "unity.playmode.prepare", message: `Unity play-mode preparation failed with exit code ${preparation.exitCode}.${settings.connectedEditor ? " Confirm the Editor is open and Pipeline status is ready." : ""}`, severity: "error" }] };
       }
-      processResult = await this.runPipelineWhenReady(settings.cli, unityScenarioArgs(root, settings.command, settings.timeoutSeconds, requestPath, resultPath, settings.connectedEditor), root, input.signal, settings.timeoutSeconds + 30);
+      processResult = await this.runPipelineWhenReady(settings.cli, unityScenarioArgs(root, settings.command, settings.timeoutSeconds, requestPath, resultPath, true), root, input.signal, settings.timeoutSeconds + 30);
     } catch (error) {
       return { status: "crash", metrics: {}, artifacts, violations: [{ code: "unity.launch", message: error instanceof Error ? error.message : String(error), severity: "error" }] };
     }
@@ -609,17 +721,23 @@ async function configuredEvidence(input: { campaign: Campaign; candidate: Candid
   const metrics: Record<string, number> = {};
   const scenarios: Array<{ id: string; status: ScenarioResult["status"] }> = [];
   let status: ScenarioResult["status"] = "pass";
-  for (const [index, configured] of settings.scenarios.entries()) {
-    const result = await input.runner.run({ campaign: input.campaign, projectRoot: input.candidate.root, candidate: input.candidate, experimentId: `${input.experimentId}-${configured.id}`, scenario: configured.reference, signal: input.signal });
-    artifacts.push(...result.artifacts);
-    scenarios.push({ id: configured.id, status: result.status });
-    for (const [name, value] of Object.entries(result.metrics)) {
-      if (settings.scenarios.length > 1) metrics[`${configured.id}.${name}`] = value;
-      if (index === 0) metrics[name] = value;
+  try {
+    for (const [index, configured] of settings.scenarios.entries()) {
+      const result = await input.runner.run({ campaign: input.campaign, projectRoot: input.candidate.root, candidate: input.candidate, experimentId: `${input.experimentId}-${configured.id}`, scenario: configured.reference, signal: input.signal });
+      artifacts.push(...result.artifacts);
+      scenarios.push({ id: configured.id, status: result.status });
+      for (const [name, value] of Object.entries(result.metrics)) {
+        if (settings.scenarios.length > 1) metrics[`${configured.id}.${name}`] = value;
+        if (index === 0) metrics[name] = value;
+      }
+      violations.push(...result.violations.map((violation) => ({ ...violation, code: `unity.scenario.${configured.id}.${violation.code}` })));
+      if (result.status === "crash") status = "crash";
+      else if (result.status === "fail" && status !== "crash") status = "fail";
     }
-    violations.push(...result.violations.map((violation) => ({ ...violation, code: `unity.scenario.${configured.id}.${violation.code}` })));
-    if (result.status === "crash") status = "crash";
-    else if (result.status === "fail" && status !== "crash") status = "fail";
+  } finally {
+    if (input.runner instanceof UnityScenarioRunner && !settings.connectedEditor) {
+      await input.runner.releaseProject(projectRoot(settings, input.candidate.root));
+    }
   }
   if (settings.scenarios.length > 1) {
     metrics.scenarios_total = settings.scenarios.length;
@@ -700,6 +818,7 @@ export default defineExtension((api) => {
   const engine = new UnityEngine();
   const scenarios = new UnityScenarioRunner();
   return combineDisposables(
+    { dispose: () => scenarios.dispose() },
     api.register("engine", "unity.engine", engine),
     api.register("scenario", "unity.scenario", scenarios),
     api.register("agent", "unity.evidence", new UnityEvidenceAgent(engine, scenarios)),
