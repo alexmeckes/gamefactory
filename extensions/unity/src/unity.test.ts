@@ -63,7 +63,7 @@ test("Unity CLI argument builders use non-interactive one-shot project commands"
   assert.deepEqual(unityPrepareArgs("C:\\Game", "gamefactory_prepare_playmode", 180, "state.json", true), [
     "--non-interactive", "--format", "ndjson", "command", "gamefactory_prepare_playmode", "--project-path", "C:\\Game", "--timeout", "180", "--", "--state", "state.json"
   ]);
-  assert.deepEqual(unityOpenArgs("C:\\Game"), ["--non-interactive", "--format", "json", "open", "C:\\Game", "--args", "-batchmode -nographics"]);
+  assert.deepEqual(unityOpenArgs("C:\\Game"), ["--non-interactive", "--format", "json", "open", "C:\\Game"]);
   assert.deepEqual(unityStatusArgs("C:\\Game"), ["--non-interactive", "--format", "json", "status", "--project-path", "C:\\Game"]);
   assert.equal(unityEditorPid(JSON.stringify({ success: true, data: { instances: [{ pid: 4242 }] } })), 4242);
 });

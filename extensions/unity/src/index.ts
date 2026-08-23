@@ -193,7 +193,7 @@ export function unityScenarioArgs(project: string, command: string, timeoutSecon
 }
 
 export function unityOpenArgs(project: string): string[] {
-  return ["--non-interactive", "--format", "json", "open", project, "--args", "-batchmode -nographics"];
+  return ["--non-interactive", "--format", "json", "open", project];
 }
 
 export function unityStatusArgs(project: string): string[] {
