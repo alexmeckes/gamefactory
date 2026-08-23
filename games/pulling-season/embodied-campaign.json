@@ -1,0 +1,233 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "id": "pulling-season-embodied-v1",
+  "objective": "Prove one small player-complete Pulling Season experience in Unity 6 through shipping Input System events before visual production. Require a visible first-person actor, spatial approach, sustained player-caused crop extraction, visible physical consequence, and another harvest decision. Reject direct helper replay, context-button harvesting, invisible state, static scene plates, and presentation-only prototypes.",
+  "projectRoot": ".",
+  "workflow": "autoresearch",
+  "requires": [
+    "workflow:autoresearch",
+    "workspace:git.worktree",
+    "agent:agent.team",
+    "agent:unity.evidence",
+    "agent:gemini.visual-embodied",
+    "engine:unity.engine",
+    "evaluator:unity.scenario"
+  ],
+  "mutablePaths": [
+    "Assets/**",
+    "ProjectSettings/**",
+    "Packages/packages-lock.json",
+    "evidence/**"
+  ],
+  "immutablePaths": [
+    "concept.md",
+    "game-spec.json",
+    "gamefactory.project.json",
+    "contracts/**",
+    "Packages/manifest.json",
+    ".git/**",
+    ".factory/**"
+  ],
+  "parameters": {
+    "workspace": "git.worktree",
+    "agent": "agent.team",
+    "evaluators": ["unity.scenario"],
+    "autoresearch": {"stopAfterAccepted": true},
+    "agentTeam": {
+      "provider": "openai-codex-app-server",
+      "billingMode": "subscription",
+      "threadRetention": "ephemeral",
+      "maximumParallel": 2,
+      "context": [],
+      "graph": {
+        "enforceWriteContracts": true,
+        "reuseCheckpoints": true,
+        "maximumConcurrency": 2,
+        "maximumTotalAttempts": 11,
+        "nodes": [
+          {
+            "id": "core-game-director",
+            "skills": ["plan-playable-slice"],
+            "adapter": "codex-app-server",
+            "role": "planner",
+            "permissions": "read",
+            "authority": "propose",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "maximumAttempts": 1,
+            "instructions": "Read the frozen GameSpec and authoritative projectSlice. Define the smallest Unity experience that completes one harvest through shipping input, visible spatial action, readable risk, a physical intact-or-damaged consequence, and another decision. State actor, camera, controls, collision, target, feedback, failure recovery, and evidence contract. Keep the one-field/one-crop boundary."
+          },
+          {
+            "id": "mechanics-scout",
+            "skills": ["plan-playable-slice"],
+            "adapter": "codex-app-server",
+            "role": "scout",
+            "permissions": "read",
+            "authority": "propose",
+            "model": "gpt-5.6-luna",
+            "reasoningEffort": "high",
+            "dependsOn": ["core-game-director"],
+            "instructions": "Try to defeat the plan with counterfactuals. Reject any plan that can pass by waiting, pressing one context button, moving a decoy actor, invoking a gameplay helper, or showing only UI. Require quiescence before input and identify the smallest real Input System sequence that proves approach, grab, sustained pull, consequence, and continuation.",
+            "advisor": {
+              "model": "gpt-5.6-sol",
+              "reasoningEffort": "high",
+              "outcomes": ["needs_advisor"],
+              "onFailure": true,
+              "maximumAttempts": 1
+            }
+          },
+          {
+            "id": "embodied-prototype-builder",
+            "adapter": "codex-app-server",
+            "role": "implementer",
+            "permissions": "write",
+            "authority": "mutate-candidate",
+            "writePaths": ["Assets/**", "ProjectSettings/**"],
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "high",
+            "timeoutSeconds": 3600,
+            "dependsOn": ["mechanics-scout"],
+            "instructions": "Implement one small experiential Unity 6 slice, not a production-art pass. Use a visible first-person player driven by Unity Input System controls, colliders and rigidbodies, a separately addressable crop, readable provisional geometry/materials, world feedback, and a physical extracted crop that remains in the scene. The factory scenario contract is immutable at contracts/first-session.scenario.json. Preserve its exact scene and object paths: Assets/Scenes/Main.unity, World/Player, World/Crop. Implement an observable public boolean Harvested on a PullingSeason.HarvestCrop component. Pressing E may grab or attach, but must not itself complete the harvest; sustained player movement must create the extraction consequence. After extraction, present another visible harvest-related choice. Do not create candidate-owned evidence producers, weaken the scenario, invoke gameplay helpers from tests, use a whole-screen image as the world, add networking, or begin final art."
+          },
+          {
+            "id": "gameplay-evidence",
+            "adapter": "agent-driver",
+            "driver": "unity.evidence",
+            "role": "worker",
+            "permissions": "read",
+            "writePaths": [
+              "evidence/**",
+              "Assets/**/*.meta",
+              "ProjectSettings/**",
+              "Packages/packages-lock.json"
+            ],
+            "timeoutSeconds": 1200,
+            "dependsOn": ["embodied-prototype-builder"],
+            "refreshAfterRepair": true,
+            "instructions": "Refresh Unity import, trusted host-bridge Input System replay, causal trace, and continuous engine camera evidence. Fail closed on compiler errors, a non-quiescent no-input settle, an untrusted bridge, or missing physical consequence."
+          },
+          {
+            "id": "gemini-embodied-review",
+            "adapter": "agent-driver",
+            "driver": "gemini.visual-embodied",
+            "role": "critic",
+            "permissions": "read",
+            "timeoutSeconds": 300,
+            "maximumAttempts": 3,
+            "dependsOn": ["embodied-prototype-builder", "gameplay-evidence"],
+            "refreshAfterRepair": true,
+            "instructions": "Review only trusted Unity engine frames and the causal trace. Block static plates, invisible or illegible player action, a crop that self-animates without input, one-button harvesting, unclear extraction feedback, a missing persistent crop consequence, or no readable next decision. Do not demand production polish.",
+            "repair": {
+              "target": "embodied-prototype-builder",
+              "outcomes": ["revise"],
+              "maximumAttempts": 2,
+              "allowedPaths": ["Assets/**", "ProjectSettings/**"]
+            }
+          },
+          {
+            "id": "experience-gate",
+            "skills": ["review-embodied-gameplay"],
+            "adapter": "codex-app-server",
+            "role": "critic",
+            "permissions": "read",
+            "authority": "approve",
+            "model": "gpt-5.6-luna",
+            "reasoningEffort": "high",
+            "dependsOn": ["embodied-prototype-builder", "gameplay-evidence", "gemini-embodied-review"],
+            "refreshAfterRepair": true,
+            "instructions": "Inspect the trusted trace and continuous Unity frame sequence. Pass only when shipping input approaches the crop, grabbing alone does not resolve it, sustained spatial action visibly extracts it, the result remains physical and understandable, and another decision is visible. Reject telemetry-only proof and do not judge final polish.",
+            "repair": {
+              "target": "embodied-prototype-builder",
+              "outcomes": ["revise"],
+              "maximumAttempts": 2,
+              "allowedPaths": ["Assets/**", "ProjectSettings/**"]
+            },
+            "advisor": {
+              "model": "gpt-5.6-sol",
+              "reasoningEffort": "high",
+              "outcomes": ["needs_advisor"],
+              "onFailure": true,
+              "maximumAttempts": 1
+            }
+          },
+          {
+            "id": "embodied-judge",
+            "skills": ["review-embodied-gameplay"],
+            "adapter": "codex-app-server",
+            "role": "judge",
+            "permissions": "read",
+            "authority": "approve",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "dependsOn": ["embodied-prototype-builder", "gameplay-evidence", "gemini-embodied-review", "experience-gate"],
+            "requiredOutputFields": [
+              "projectEvidence.scenarios",
+              "projectEvidence.interactionTrace",
+              "projectEvidence.embodiedGameplay",
+              "projectEvidence.engineCapture",
+              "projectEvidence.motionEvidence"
+            ],
+            "requiredOutputFieldsOn": ["pass"],
+            "instructions": "Decide from the authoritative projectSlice, frozen loop.core, evaluator-verified Unity embodied report, trace, and engine captures. Pass only if the complete causal harvest exists visibly in the running engine through shipping input. Bind projectEvidence to the current specRevision and specFingerprint and cite preserved evaluator artifacts for every evidence role. Do not claim the game is fun without human evidence.",
+            "repair": {
+              "target": "embodied-prototype-builder",
+              "outcomes": ["revise"],
+              "maximumAttempts": 1,
+              "allowedPaths": ["Assets/**", "ProjectSettings/**"]
+            }
+          }
+        ]
+      }
+    },
+    "geminiVisualReview": {
+      "checkpoint": "embodied",
+      "model": "gemini-3.7-flash",
+      "credentialName": "google.gemini",
+      "apiKeyEnvironment": "GEMINI_API_KEY",
+      "minimumImages": 5,
+      "maximumImages": 10,
+      "minimumScore": 60,
+      "failureSeverities": ["blocker"],
+      "requireEmbodiedTrace": true,
+      "maximumReviews": 3,
+      "contractPaths": ["game-spec.json"]
+    },
+    "unity": {
+      "cli": "C:/Program Files/Unity Hub/resources/cli/unity.exe",
+      "bridgePath": "C:/Users/alexm/OneDrive/Documents/ChatGPT/gamefactory/bridges/unity/com.gamefactory.bridge",
+      "importCheck": true,
+      "timeoutSeconds": 600,
+      "command": "gamefactory_run_scenario",
+      "prepareCommand": "gamefactory_prepare_playmode",
+      "connectedEditor": false,
+      "embodiedProof": {
+        "minimumDurationSeconds": 3,
+        "minimumShippingInputEvents": 6,
+        "minimumDisplacementUnits": 1,
+        "minimumSpatialInteractions": 1,
+        "minimumStateConsequences": 1,
+        "minimumDistinctFrames": 5
+      },
+      "scenarios": [
+        {
+          "id": "first-session",
+          "provider": "unity.pipeline/v1",
+          "version": "1",
+          "path": "contracts/first-session.scenario.json"
+        }
+      ]
+    }
+  },
+  "acceptance": {
+    "primaryMetric": "embodied_proof",
+    "direction": "maximize",
+    "minimumDelta": 1,
+    "comparison": "at-least",
+    "hardGates": ["unity.scenario"]
+  },
+  "budget": {
+    "maximumExperiments": 1,
+    "maximumConsecutiveCrashes": 2,
+    "wallTimeMinutes": 120
+  }
+}

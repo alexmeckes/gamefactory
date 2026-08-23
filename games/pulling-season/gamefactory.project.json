@@ -1,0 +1,67 @@
+{
+  "apiVersion": "gamefactory.dev/v2",
+  "kind": "Project",
+  "id": "pulling-season",
+  "title": "Pulling Season",
+  "projectRoot": ".",
+  "preproduction": {
+    "concept": "concept.md",
+    "spec": "game-spec.json",
+    "maximumConvergencePasses": 3,
+    "attempts": [
+      {
+        "id": "spec-v1",
+        "campaign": "spec-campaign.json",
+        "config": "factory.json"
+      }
+    ]
+  },
+  "slices": [
+    {
+      "id": "first-playable",
+      "title": "One embodied oversized-crop harvest",
+      "order": 10,
+      "consumesClaims": ["loop.core"],
+      "playerOutcome": "Read one oversized crop, physically extract it through shipping input, understand why it emerged intact or damaged, and face another harvest choice.",
+      "primaryRisk": "The prototype fakes gardening with a context prompt, scripted animation, invisible state change, or static presentation instead of a causal physical interaction.",
+      "nonGoals": [
+        "Networking or cooperative play",
+        "Production art or imitation of another game's assets",
+        "A calendar, broad inventory, crafting tree, or economy",
+        "Multiple fields or a crop catalog",
+        "Long-term progression"
+      ],
+      "mutablePaths": [
+        "Assets/**",
+        "ProjectSettings/**",
+        "Packages/packages-lock.json",
+        "evidence/**"
+      ],
+      "evidence": {
+        "scenarios": ["first-session"],
+        "requireInteractionTrace": true,
+        "requireEmbodiedGameplay": true,
+        "requireEngineCapture": true,
+        "requireMotionEvidence": true
+      },
+      "attemptPolicy": {
+        "executionRetries": 2,
+        "creativeRepairs": 2,
+        "specAmendments": 1,
+        "advisorEscalations": 1
+      },
+      "gate": {
+        "requireAcceptedRevision": true,
+        "requireHumanApproval": true,
+        "allowBudgetExhaustedAfterAcceptance": true
+      },
+      "attempts": [
+        {
+          "id": "embodied-v1",
+          "campaign": "embodied-campaign.json",
+          "config": "factory.json"
+        }
+      ]
+    }
+  ]
+}

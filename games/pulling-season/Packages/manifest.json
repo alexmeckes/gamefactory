@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "com.gamefactory.bridge": "file:C:/Users/alexm/OneDrive/Documents/ChatGPT/gamefactory/bridges/unity/com.gamefactory.bridge",
+    "com.unity.inputsystem": "1.11.2",
+    "com.unity.pipeline": "0.5.0-exp.1"
+  }
+}

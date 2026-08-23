@@ -1,0 +1,28 @@
+{
+  "apiVersion": "gamefactory.unity-scenario/v1",
+  "id": "first-session",
+  "scenePath": "Assets/Scenes/Main.unity",
+  "actorPath": "World/Player",
+  "targetPath": "World/Crop",
+  "interactionRange": 3.5,
+  "captureEveryFrames": 10,
+  "captureWidth": 960,
+  "captureHeight": 540,
+  "stateObservations": [
+    {
+      "id": "crop-extracted",
+      "path": "World/Crop",
+      "component": "PullingSeason.HarvestCrop",
+      "member": "Harvested",
+      "state": "core-consequence"
+    }
+  ],
+  "steps": [
+    {"control": "<Keyboard>/d", "pressed": true, "value": 1, "frames": 100, "settleFrames": 0, "interaction": false},
+    {"control": "<Keyboard>/d", "pressed": false, "value": 0, "frames": 1, "settleFrames": 4, "interaction": false},
+    {"control": "<Keyboard>/e", "pressed": true, "value": 1, "frames": 2, "settleFrames": 2, "interaction": true},
+    {"control": "<Keyboard>/e", "pressed": false, "value": 0, "frames": 1, "settleFrames": 2, "interaction": false},
+    {"control": "<Keyboard>/a", "pressed": true, "value": 1, "frames": 110, "settleFrames": 0, "interaction": false},
+    {"control": "<Keyboard>/a", "pressed": false, "value": 0, "frames": 1, "settleFrames": 45, "interaction": false}
+  ]
+}

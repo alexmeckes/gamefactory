@@ -1,0 +1,88 @@
+{
+  "apiVersion": "gamefactory.game-spec/v1",
+  "kind": "GameSpec",
+  "projectId": "pulling-season",
+  "revision": 1,
+  "status": "draft",
+  "concept": "# Pulling Season\n\n## User direction (verbatim)\n\nlook at the game how to fish on steam and the art style there - i want to make something similar\n\ngive me a few potential ideas of a similar vein , maybe gardening theme ?\n\nlets do that\n\n## Selected co-created concept\n\nPulling Season is a first-person physics gardening comedy about raising oversized, temperamental produce and deciding when and how to harvest it. The player is an underqualified gardener who reads visible crop and soil cues, chooses between safer early value and riskier late value, then physically wrestles crops out of the ground with movement, leverage, ropes, and simple tools. Harvested produce remains a world object whose damage and handling affect the result. The first proof is single-player and uses one small field, one crop, and one complete harvest decision before any networking, broad progression, content catalog, or final visual production.\n",
+  "thesis": "A readable harvest decision becomes funny and consequential only when the player must physically act on uncertain crop and soil cues, and the resulting intact or damaged produce remains present in the world before the next choice.",
+  "claims": [
+    {
+      "id": "loop.core",
+      "category": "loop",
+      "statement": "In the opening session, the player reads visible crop and soil risk, commits to a harvest approach, directly moves and applies physical input to extract one crop, sees an attributable intact or damaged result remain in the world, and immediately receives another harvest-related decision informed by that outcome.",
+      "status": "open",
+      "falsifiers": [
+        "The crop can be harvested by waiting, clicking a menu, or pressing one context button without sustained spatial action.",
+        "The same result occurs regardless of the player's approach, direction, timing, or use of leverage.",
+        "The crop disappears into inventory or a score immediately instead of remaining as a physical world object.",
+        "Damage, failure, or success is communicated only through text or telemetry rather than visible world feedback.",
+        "The accepted interaction ends without another decision that uses what the player just learned."
+      ]
+    },
+    {
+      "id": "visual.production-fidelity",
+      "category": "visual",
+      "statement": "A later production encounter should use an original chunky, low-detail 3D language with strong silhouettes, material-led color, soft outdoor light, sparse interface, and state-linked physical motion without copying another game's protected characters, props, layouts, or branding.",
+      "status": "open",
+      "falsifiers": [
+        "The runtime world is a static plate or monolithic generated image.",
+        "The crop, player tool, soil state, and harvest consequence are not independently rendered and readable.",
+        "Visual polish obscures the accepted physical interaction or replaces it with presentation-only transitions."
+      ]
+    }
+  ],
+  "decisions": [
+    {
+      "id": "engine.unity",
+      "status": "accepted",
+      "question": "Which engine should prove the first slice?",
+      "resolution": "Use Unity 6 with the Input System and the host-owned GameFactory evidence bridge.",
+      "affectedClaims": ["loop.core"]
+    },
+    {
+      "id": "scope.single-player-proof",
+      "status": "accepted",
+      "question": "Does the first proof require cooperative multiplayer?",
+      "resolution": "No. Prove one honest single-player harvest before considering one-to-four-player cooperation.",
+      "affectedClaims": ["loop.core"]
+    },
+    {
+      "id": "future.production-direction",
+      "status": "deferred",
+      "question": "Which exact whole-screen art direction should production use?",
+      "resolution": "Choose and approve an original whole-screen direction only after the embodied harvest is accepted.",
+      "affectedClaims": ["visual.production-fidelity"]
+    }
+  ],
+  "slices": [
+    {
+      "id": "first-playable",
+      "playerOutcome": "Read one oversized crop, physically extract it through shipping input, understand why it emerged intact or damaged, and face another harvest choice.",
+      "primaryRisk": "The prototype fakes gardening with a context prompt, scripted animation, invisible state change, or static presentation instead of a causal physical interaction.",
+      "claimIds": ["loop.core"]
+    },
+    {
+      "id": "production-encounter",
+      "playerOutcome": "Replay the accepted harvest as one coherent, animated, original production encounter.",
+      "primaryRisk": "Visual production copies surface traits, hides causality, or turns the physical world into a static plate.",
+      "claimIds": ["loop.core", "visual.production-fidelity"]
+    }
+  ],
+  "assumptions": [
+    "A first-person camera can make leverage and crop scale legible with a compact control set.",
+    "One crop and one small field are enough to test whether extraction itself creates agency and comedy.",
+    "Readable provisional geometry and material colors are sufficient for embodied review before production art.",
+    "The first deterministic evidence scenario can use keyboard movement and interaction while leaving final control feel open."
+  ],
+  "openQuestions": [
+    "Which extraction model best creates controlled uncertainty without becoming a binary quick-time event?",
+    "Which visible cues make root tension and crop damage readable without explanation-heavy UI?",
+    "What immediate post-harvest choice best proves continuation: sell, replant, attempt a second crop, or another bounded option?",
+    "How should co-op, crop variety, weather, tools, and progression expand only if the first harvest is accepted?"
+  ],
+  "change": {
+    "kind": "initial",
+    "rationale": "Initial bounded thesis for a Unity-first embodied harvest proof."
+  }
+}

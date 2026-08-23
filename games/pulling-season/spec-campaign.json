@@ -1,0 +1,94 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "id": "pulling-season-spec-v1",
+  "objective": "Converge the supplied Pulling Season concept into one falsifiable, frozen GameSpec for the next player-complete slice. Preserve the concept verbatim, resolve only claims consumed by the first playable, retain genuine future uncertainty as open, and keep visual production downstream of embodied proof.",
+  "projectRoot": ".",
+  "workflow": "autoresearch",
+  "requires": [
+    "workflow:autoresearch",
+    "workspace:git.worktree",
+    "agent:agent.team",
+    "evaluator:game.spec"
+  ],
+  "mutablePaths": ["game-spec.json"],
+  "immutablePaths": [
+    "concept.md",
+    "gamefactory.project.json",
+    "contracts/**",
+    "Packages/manifest.json",
+    ".git/**",
+    ".factory/**"
+  ],
+  "parameters": {
+    "workspace": "git.worktree",
+    "agent": "agent.team",
+    "evaluators": ["game.spec"],
+    "autoresearch": {"stopAfterAccepted": true},
+    "gameSpec": {
+      "path": "game-spec.json",
+      "conceptPath": "concept.md",
+      "projectId": "pulling-season",
+      "requireFrozen": true,
+      "requiredClaims": ["loop.core"],
+      "requiredSlices": ["first-playable"],
+      "maximumConvergencePasses": 3
+    },
+    "agentTeam": {
+      "provider": "openai-codex-app-server",
+      "billingMode": "subscription",
+      "threadRetention": "ephemeral",
+      "maximumParallel": 2,
+      "graph": {
+        "enforceWriteContracts": true,
+        "reuseCheckpoints": true,
+        "maximumTotalAttempts": 5,
+        "nodes": [
+          {
+            "id": "spec-owner",
+            "skills": ["converge-game-spec", "frame-core-game"],
+            "adapter": "codex-app-server",
+            "role": "planner",
+            "permissions": "write",
+            "authority": "mutate-spec",
+            "writePaths": ["game-spec.json"],
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "maximumAttempts": 1,
+            "instructions": "Read projectSpec, concept.md, and game-spec.json. Converge one original, bounded, falsifiable core harvest thesis. Preserve the concept verbatim. Resolve only loop.core for first-playable. Keep co-op, content breadth, progression, and final art open. Do not prescribe a broad implementation or imitate protected content from a reference game. Write a valid frozen gamefactory.game-spec/v1 with stable claim IDs and concrete falsifiers."
+          },
+          {
+            "id": "spec-critic",
+            "skills": ["converge-game-spec"],
+            "adapter": "codex-app-server",
+            "role": "critic",
+            "permissions": "read",
+            "authority": "approve",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "high",
+            "dependsOn": ["spec-owner"],
+            "requiredOutputFields": ["outcome", "summary"],
+            "instructions": "Stress-test the current GameSpec for embodied agency, causal physical extraction, readable uncertainty, immediate continuation, originality, and first-slice scope. Block only by citing an existing claim. Treat desirable extra systems as non-blocking opportunities.",
+            "repair": {
+              "target": "spec-owner",
+              "outcomes": ["revise"],
+              "maximumAttempts": 2,
+              "allowedPaths": ["game-spec.json"]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "acceptance": {
+    "primaryMetric": "spec_valid",
+    "direction": "maximize",
+    "minimumDelta": 0,
+    "comparison": "at-least",
+    "hardGates": ["game.spec"]
+  },
+  "budget": {
+    "maximumExperiments": 3,
+    "maximumConsecutiveCrashes": 2,
+    "wallTimeMinutes": 60
+  }
+}

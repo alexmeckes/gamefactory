@@ -1,0 +1,23 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "name": "pulling-season-unity",
+  "extensions": [
+    "../../extensions/autoresearch",
+    "../../extensions/git",
+    "../../extensions/agent-team",
+    "../../extensions/game-spec",
+    "../../extensions/gemini-visual-review",
+    "../../extensions/unity"
+  ],
+  "capabilities": [
+    "workflow:autoresearch",
+    "workspace:git.worktree",
+    "agent:agent.team",
+    "evaluator:game.spec",
+    "agent:gemini.visual-embodied",
+    "engine:unity.engine",
+    "scenario:unity.scenario",
+    "agent:unity.evidence",
+    "evaluator:unity.scenario"
+  ]
+}
