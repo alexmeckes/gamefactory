@@ -96,6 +96,7 @@
             "role": "worker",
             "permissions": "read",
             "writePaths": [
+              ".factory/**",
               "evidence/**",
               "Assets/**/*.meta",
               "ProjectSettings/**",
