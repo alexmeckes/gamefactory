@@ -3,86 +3,142 @@
   "kind": "GameSpec",
   "projectId": "pulling-season",
   "revision": 1,
-  "status": "draft",
+  "status": "frozen",
   "concept": "# Pulling Season\n\n## User direction (verbatim)\n\nlook at the game how to fish on steam and the art style there - i want to make something similar\n\ngive me a few potential ideas of a similar vein , maybe gardening theme ?\n\nlets do that\n\n## Selected co-created concept\n\nPulling Season is a first-person physics gardening comedy about raising oversized, temperamental produce and deciding when and how to harvest it. The player is an underqualified gardener who reads visible crop and soil cues, chooses between safer early value and riskier late value, then physically wrestles crops out of the ground with movement, leverage, ropes, and simple tools. Harvested produce remains a world object whose damage and handling affect the result. The first proof is single-player and uses one small field, one crop, and one complete harvest decision before any networking, broad progression, content catalog, or final visual production.\n",
-  "thesis": "A readable harvest decision becomes funny and consequential only when the player must physically act on uncertain crop and soil cues, and the resulting intact or damaged produce remains present in the world before the next choice.",
+  "thesis": "Reading the ground, gambling on one more growth step, and then physically managing the pull can turn one oversized crop into a funny, attributable harvest story: timing changes potential value and resistance, handling changes damage, and the persistent result teaches the next plan.",
   "claims": [
     {
       "id": "loop.core",
       "category": "loop",
-      "statement": "In the opening session, the player reads visible crop and soil risk, commits to a harvest approach, directly moves and applies physical input to extract one crop, sees an attributable intact or damaged result remain in the world, and immediately receives another harvest-related decision informed by that outcome.",
-      "status": "open",
+      "statement": "Within the opening session, the player reads visible but incomplete crop-readiness and soil-resistance cues, chooses a harvest plan that trades a safer smaller harvest now against a larger riskier harvest after one more clearly signaled growth step, commits to an approach, and personally extracts the crop through sustained movement and spatially responsive pulling or leverage. Chosen timing and physical handling causally affect the crop's potential value, extraction resistance, and intact or damaged condition; the harvested crop remains a physical world object whose continued handling can still affect that condition through result acknowledgement; and a changed cue set immediately presents another harvest-plan decision on which the player can apply the outcome.",
+      "status": "required",
       "falsifiers": [
-        "The crop can be harvested by waiting, clicking a menu, or pressing one context button without sustained spatial action.",
-        "The same result occurs regardless of the player's approach, direction, timing, or use of leverage.",
-        "The crop disappears into inventory or a score immediately instead of remaining as a physical world object.",
-        "Damage, failure, or success is communicated only through text or telemetry rather than visible world feedback.",
-        "The accepted interaction ends without another decision that uses what the player just learned."
+        "The player is not shown enough directional crop and soil information to make a plausible early-versus-late or extraction-approach prediction before committing.",
+        "Harvesting now and waiting produce equivalent stakes, or one timing is always correct regardless of the visible cues.",
+        "The crop can be extracted by waiting, selecting a menu result, or pressing one context button without sustained spatial action from shipping input.",
+        "Under the same crop state, materially different pull direction, timing, positioning, or leverage cannot produce a different physical response or condition outcome.",
+        "Unsignaled randomness dominates the opening result strongly enough that counterfactual player plans cannot be attributed to their timing and handling.",
+        "Success or damage is communicated only by text, a score, or hidden state rather than by visible crop, soil, motion, and condition feedback tied to the player's action.",
+        "The extracted crop disappears into inventory or becomes consequence-free before its placement and continued handling can affect the acknowledged result.",
+        "After the result, no changed harvest-plan decision lets the player apply what the first crop taught them."
       ]
     },
     {
       "id": "visual.production-fidelity",
       "category": "visual",
-      "statement": "A later production encounter should use an original chunky, low-detail 3D language with strong silhouettes, material-led color, soft outdoor light, sparse interface, and state-linked physical motion without copying another game's protected characters, props, layouts, or branding.",
+      "statement": "If the accepted harvest advances to production, it should use an original, coherent whole-screen direction that keeps crop, soil, player action, physical consequence, and state-linked motion independently readable without copying another game's protected characters, props, layouts, assets, or branding.",
       "status": "open",
       "falsifiers": [
-        "The runtime world is a static plate or monolithic generated image.",
-        "The crop, player tool, soil state, and harvest consequence are not independently rendered and readable.",
-        "Visual polish obscures the accepted physical interaction or replaces it with presentation-only transitions."
+        "The runtime world is primarily a static plate or monolithic generated image rather than independently rendered interactive elements.",
+        "Production presentation obscures the accepted physical causality or replaces it with presentation-only transitions.",
+        "The direction depends on recognizable protected content from a reference game rather than an original authored identity."
       ]
     }
   ],
   "decisions": [
     {
+      "id": "core.coupled-harvest-plan",
+      "status": "accepted",
+      "question": "What is the one repeated consequential decision for Pulling Season?",
+      "resolution": "At each readable harvest window, commit to a coupled plan: take the safer smaller crop now or allow one more growth step for greater potential value and resistance, then choose an extraction approach suited to the visible crop and soil cues. Timing changes the stakes; physical execution determines whether the wager survives contact with the world.",
+      "affectedClaims": [
+        "loop.core"
+      ]
+    },
+    {
+      "id": "core.directional-uncertainty",
+      "status": "accepted",
+      "question": "What must the player know before committing?",
+      "resolution": "Crop readiness and soil resistance must be signaled directionally well enough to support a prediction, while exact tolerance remains uncertain and learnable through immediate physical feedback. The opening evidence should use deterministic underlying state rather than opaque outcome randomness.",
+      "affectedClaims": [
+        "loop.core"
+      ]
+    },
+    {
+      "id": "core.persistent-consequence",
+      "status": "accepted",
+      "question": "What carries the completed harvest into the next decision?",
+      "resolution": "The crop's visible size, damage, and placement persist as physical consequence through acknowledgement of the result, and the next cue set changes enough that the player can reconsider timing or approach using what just happened.",
+      "affectedClaims": [
+        "loop.core"
+      ]
+    },
+    {
       "id": "engine.unity",
       "status": "accepted",
-      "question": "Which engine should prove the first slice?",
-      "resolution": "Use Unity 6 with the Input System and the host-owned GameFactory evidence bridge.",
-      "affectedClaims": ["loop.core"]
+      "question": "Which project host should prove the first slice?",
+      "resolution": "Use the project's configured Unity 6 host, Input System, and GameFactory evidence bridge for this slice without making the product thesis depend on a Unity-specific mechanic.",
+      "affectedClaims": [
+        "loop.core"
+      ]
     },
     {
       "id": "scope.single-player-proof",
       "status": "accepted",
       "question": "Does the first proof require cooperative multiplayer?",
-      "resolution": "No. Prove one honest single-player harvest before considering one-to-four-player cooperation.",
-      "affectedClaims": ["loop.core"]
+      "resolution": "No. Prove one player-complete harvest and expose the next decision before considering cooperation.",
+      "affectedClaims": [
+        "loop.core"
+      ]
     },
     {
       "id": "future.production-direction",
       "status": "deferred",
-      "question": "Which exact whole-screen art direction should production use?",
-      "resolution": "Choose and approve an original whole-screen direction only after the embodied harvest is accepted.",
-      "affectedClaims": ["visual.production-fidelity"]
+      "question": "Which exact whole-screen art, audio, motion, camera, and interface direction should production use?",
+      "resolution": "Choose and approve an original whole-screen direction only after real-engine evidence accepts the embodied harvest.",
+      "affectedClaims": [
+        "visual.production-fidelity"
+      ]
     }
   ],
   "slices": [
     {
       "id": "first-playable",
-      "playerOutcome": "Read one oversized crop, physically extract it through shipping input, understand why it emerged intact or damaged, and face another harvest choice.",
-      "primaryRisk": "The prototype fakes gardening with a context prompt, scripted animation, invisible state change, or static presentation instead of a causal physical interaction.",
-      "claimIds": ["loop.core"]
+      "playerOutcome": "Read one oversized crop and its soil, commit to a safer-now or riskier-later harvest plan, physically extract it through shipping input, understand why it emerged intact or damaged, and immediately face another harvest-plan decision informed by that result.",
+      "primaryRisk": "The slice presents crop cues and labels but resolves the harvest with a context prompt, scripted animation, opaque randomness, invisible state change, or nonpersistent reward instead of a causal physical wager.",
+      "claimIds": [
+        "loop.core"
+      ]
     },
     {
       "id": "production-encounter",
-      "playerOutcome": "Replay the accepted harvest as one coherent, animated, original production encounter.",
-      "primaryRisk": "Visual production copies surface traits, hides causality, or turns the physical world into a static plate.",
-      "claimIds": ["loop.core", "visual.production-fidelity"]
+      "playerOutcome": "Replay the accepted harvest as one coherent, animated, readable, and original production encounter.",
+      "primaryRisk": "Visual production copies surface traits, hides accepted causality, or turns the physical world into a static plate.",
+      "claimIds": [
+        "loop.core",
+        "visual.production-fidelity"
+      ]
     }
   ],
   "assumptions": [
-    "A first-person camera can make leverage and crop scale legible with a compact control set.",
-    "One crop and one small field are enough to test whether extraction itself creates agency and comedy.",
-    "Readable provisional geometry and material colors are sufficient for embodied review before production art.",
-    "The first deterministic evidence scenario can use keyboard movement and interaction while leaving final control feel open."
+    "A first-person camera can make crop scale, pull direction, leverage, and post-extraction handling legible with a compact control set.",
+    "One clearly signaled growth step can expose the early-versus-late wager without requiring a calendar, timer-driven season, or progression system.",
+    "One crop type, one small field, one completed harvest, and one newly presented decision are enough to test the repeated loop without requiring a second completed harvest.",
+    "Provisional geometry, material contrast, motion, and concise audio can communicate directional readiness, soil resistance, and damage before final visual production.",
+    "A deterministic crop state can preserve player uncertainty by exposing incomplete cues while still allowing reviewers to attribute counterfactual outcomes to chosen timing and handling.",
+    "Exaggerated but state-linked physical response can produce comedy in the graybox without making visual polish a condition of embodied acceptance."
   ],
   "openQuestions": [
-    "Which extraction model best creates controlled uncertainty without becoming a binary quick-time event?",
-    "Which visible cues make root tension and crop damage readable without explanation-heavy UI?",
-    "What immediate post-harvest choice best proves continuation: sell, replant, attempt a second crop, or another bounded option?",
-    "How should co-op, crop variety, weather, tools, and progression expand only if the first harvest is accepted?"
+    "Which direct extraction model best supports readable, continuous correction: free pull vectors, rocking, body bracing, leverage, ropes or tools, or another equally falsifiable approach?",
+    "Which combination of crop shape, motion, soil deformation, material, audio, and sparse interface cues communicates readiness and resistance without explanation-heavy panels?",
+    "What magnitude of added value and resistance makes the late harvest tempting without making early or late play dominant?",
+    "How should the next cue set change after an intact, damaged, or mishandled crop so the next decision reflects learning without introducing progression?",
+    "How should cooperation, crop variety, weather, tools, handling destinations, economy, and long-term progression expand only if loop.core is accepted?",
+    "Which original whole-screen art direction should later express the comedy without imitating protected content from a reference game?"
   ],
   "change": {
     "kind": "initial",
-    "rationale": "Initial bounded thesis for a Unity-first embodied harvest proof."
+    "rationale": "Initial convergence freezes only loop.core for first-playable. It preserves the supplied concept, commits to a coupled timing-and-handling harvest plan with attributable persistent consequence, and leaves the exact extraction solution and downstream production decisions open.",
+    "evidence": [
+      "The supplied concept directly requires visible crop and soil cues, safer early value versus riskier late value, physical extraction, persistent produce damage, and a single-player first proof.",
+      "The project slice contract consumes only loop.core and requires one embodied oversized-crop harvest, an understandable intact-or-damaged consequence, and another harvest choice.",
+      "An explicitly synthetic counterfactual walkthrough with illustrative crop-size, root-resistance, and soil-moisture values produced distinct early-steady, late-steady, and late-corrective outcomes. This supports falsifiability but is not human evidence of fun."
+    ],
+    "affectedClaims": [
+      "loop.core"
+    ],
+    "affectedSlices": [
+      "first-playable"
+    ]
   }
 }
