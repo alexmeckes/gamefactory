@@ -231,6 +231,46 @@ test("Unity scenario runner preserves engine-authoritative evidence from the bri
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test("Unity scenario runner retries while a newly started Pipeline Editor is still settling", async () => {
+  const root = await fixtureProject();
+  const calls: string[][] = [];
+  const waits: number[] = [];
+  let preparationAttempts = 0;
+  const fake: UnityProcessRunner = async (_binary, args) => {
+    calls.push(args);
+    if (args.includes("gamefactory_prepare_playmode")) {
+      preparationAttempts += 1;
+      if (preparationAttempts === 1) {
+        return {
+          exitCode: 6,
+          stdout: "Pipeline server returned 503 Service Unavailable: Server Busy. The Editor is still settling after startup.",
+          stderr: "",
+          timedOut: false
+        };
+      }
+      return { exitCode: 0, stdout: "play mode prepared", stderr: "", timedOut: false };
+    }
+    const outputFlag = args.lastIndexOf("--output");
+    const resultPath = args[outputFlag + 1]!;
+    await writeFile(resultPath, JSON.stringify({ status: "pass", metrics: {}, artifacts: [], violations: [] }));
+    return { exitCode: 0, stdout: "scenario complete", stderr: "", timedOut: false };
+  };
+  try {
+    const result = await new UnityScenarioRunner(fake, async (milliseconds) => { waits.push(milliseconds); }).run({
+      campaign: campaign(root),
+      projectRoot: root,
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "scenario-ready-retry",
+      scenario: { provider: "unity.pipeline/v1", version: "1", path: "Assets/GameFactory/scenario.json" },
+      signal: new AbortController().signal
+    });
+    assert.equal(result.status, "pass");
+    assert.equal(preparationAttempts, 2);
+    assert.deepEqual(waits, [1_000]);
+    assert.equal(calls.length, 3);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("Unity bridge registers a Pipeline command and injects Input System controls", async () => {
   const source = await readFile(resolve(process.cwd(), "bridges", "unity", "com.gamefactory.bridge", "Editor", "GameFactoryScenarioCommand.cs"), "utf8");
   assert.match(source, /CliCommand\("gamefactory_prepare_playmode"/);

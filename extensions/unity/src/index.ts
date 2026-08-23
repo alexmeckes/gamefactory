@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { access, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import type {
   AgentDriver,
@@ -49,6 +50,8 @@ export type UnityProcessRunner = (
   signal: AbortSignal,
   timeoutSeconds: number
 ) => Promise<UnityProcessResult>;
+
+export type UnityWait = (milliseconds: number, signal: AbortSignal) => Promise<void>;
 
 export interface UnityEmbodiedProofConfig {
   minimumDurationSeconds: number;
@@ -304,6 +307,20 @@ async function processLogs(directory: string, prefix: string, result: UnityProce
   ];
 }
 
+function pipelineServerBusy(result: UnityProcessResult): boolean {
+  const output = `${result.stdout}\n${result.stderr}`;
+  return /503 Service Unavailable/i.test(output) && /Server Busy|still settling|not serviceable yet/i.test(output);
+}
+
+function combineProcessResults(results: UnityProcessResult[]): UnityProcessResult {
+  const final = results.at(-1) ?? { exitCode: null, stdout: "", stderr: "", timedOut: false };
+  const join = (key: "stdout" | "stderr"): string => results
+    .map((result, index) => result[key].length > 0 ? `--- attempt ${index + 1} ---\n${result[key]}` : "")
+    .filter(Boolean)
+    .join("\n");
+  return { ...final, stdout: join("stdout"), stderr: join("stderr") };
+}
+
 export class UnityEngine implements EngineDriver {
   readonly id = "unity.engine";
   constructor(private readonly runProcess: UnityProcessRunner = executeUnity) {}
@@ -500,7 +517,25 @@ export async function verifyUnityEmbodiedArtifacts(
 
 export class UnityScenarioRunner implements ScenarioRunner {
   readonly id = "unity.scenario";
-  constructor(private readonly runProcess: UnityProcessRunner = executeUnity) {}
+  constructor(
+    private readonly runProcess: UnityProcessRunner = executeUnity,
+    private readonly wait: UnityWait = async (milliseconds, signal) => {
+      await delay(milliseconds, undefined, { signal });
+    }
+  ) {}
+
+  private async runPipelineWhenReady(binary: string, args: string[], cwd: string, signal: AbortSignal, timeoutSeconds: number): Promise<UnityProcessResult> {
+    const attempts: UnityProcessResult[] = [];
+    for (let attempt = 1; attempt <= 8; attempt += 1) {
+      const result = await this.runProcess(binary, args, cwd, signal, timeoutSeconds);
+      attempts.push(result);
+      if (!pipelineServerBusy(result) || result.timedOut || signal.aborted || attempt === 8) {
+        return combineProcessResults(attempts);
+      }
+      await this.wait(1_000, signal);
+    }
+    return combineProcessResults(attempts);
+  }
 
   async run(input: CandidateContext & { scenario: ScenarioReference }): Promise<ScenarioResult> {
     const settings = config(input.campaign);
@@ -528,12 +563,12 @@ export class UnityScenarioRunner implements ScenarioRunner {
     let processResult: UnityProcessResult;
     let artifacts: ArtifactReference[] = [];
     try {
-      const preparation = await this.runProcess(settings.cli, unityPrepareArgs(root, settings.prepareCommand, settings.timeoutSeconds, playModeStatePath, settings.connectedEditor), root, input.signal, settings.timeoutSeconds + 30);
+      const preparation = await this.runPipelineWhenReady(settings.cli, unityPrepareArgs(root, settings.prepareCommand, settings.timeoutSeconds, playModeStatePath, settings.connectedEditor), root, input.signal, settings.timeoutSeconds + 30);
       artifacts = await processLogs(output, "unity-playmode-prepare", preparation);
       if (preparation.exitCode !== 0 || preparation.timedOut) {
         return { status: "crash", metrics: {}, artifacts, violations: [{ code: "unity.playmode.prepare", message: `Unity play-mode preparation failed with exit code ${preparation.exitCode}.${settings.connectedEditor ? " Confirm the Editor is open and Pipeline status is ready." : ""}`, severity: "error" }] };
       }
-      processResult = await this.runProcess(settings.cli, unityScenarioArgs(root, settings.command, settings.timeoutSeconds, requestPath, resultPath, settings.connectedEditor), root, input.signal, settings.timeoutSeconds + 30);
+      processResult = await this.runPipelineWhenReady(settings.cli, unityScenarioArgs(root, settings.command, settings.timeoutSeconds, requestPath, resultPath, settings.connectedEditor), root, input.signal, settings.timeoutSeconds + 30);
     } catch (error) {
       return { status: "crash", metrics: {}, artifacts, violations: [{ code: "unity.launch", message: error instanceof Error ? error.message : String(error), severity: "error" }] };
     }
