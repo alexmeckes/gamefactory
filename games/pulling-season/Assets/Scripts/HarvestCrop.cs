@@ -41,7 +41,7 @@ namespace PullingSeason
         private float lastSoilMilestone;
         private float feedbackClock;
 
-        private float RequiredPullDistance => GrowthStage == "Late" ? 2.55f : 1.75f;
+        private float RequiredPullDistance => GrowthStage == "Late" ? 1.70f : 1.20f;
 
         public void Configure(NextHarvestDecision targetNextDecision, Transform targetVisual, Renderer targetBulbRenderer,
             Material targetEarlyMaterial, Material targetLateMaterial, Material targetDamagedMaterial,
@@ -249,12 +249,15 @@ namespace PullingSeason
             if (gripLine != null) gripLine.enabled = false;
             if (soilBurst != null) soilBurst.Emit(damaged ? 34 : 26);
 
-            cropBody.position += Vector3.up * 0.72f;
+            // Pop the result out toward the pulling player before releasing it to
+            // physics. It stays close enough to inspect and acknowledge even after
+            // the player finishes the sustained movement that caused extraction.
+            cropBody.position += Vector3.up * 0.72f + away * 0.45f;
             cropBody.isKinematic = false;
             cropBody.useGravity = true;
             cropBody.mass = GrowthStage == "Late" ? 3.2f : 2.0f;
             var sideways = damaged ? Vector3.forward * 1.6f : Vector3.zero;
-            cropBody.AddForce(Vector3.up * 4.2f + away * 1.6f + sideways, ForceMode.Impulse);
+            cropBody.AddForce(Vector3.up * 4.2f + away * 2.4f + sideways, ForceMode.Impulse);
             cropBody.AddTorque(damaged ? new Vector3(2f, 0f, 4f) : new Vector3(0f, 0f, 1.2f), ForceMode.Impulse);
         }
     }

@@ -14,6 +14,7 @@ namespace PullingSeason
 
         private Vector3 beaconRestScale;
         private Vector3 cueRestPosition;
+        private Quaternion cueRestRotation;
         private float revealClock;
 
         public void Configure(Renderer targetCueRenderer, Material targetDormantMaterial, Material targetAvailableMaterial,
@@ -33,7 +34,11 @@ namespace PullingSeason
             if (cueRenderer != null && dormantMaterial != null) cueRenderer.material = dormantMaterial;
             if (decisionLabel != null) decisionLabel.text = "NEXT BED\nObserve after harvest";
             if (cueBeacon != null) beaconRestScale = cueBeacon.transform.localScale;
-            if (cueRenderer != null) cueRestPosition = cueRenderer.transform.localPosition;
+            if (cueRenderer != null)
+            {
+                cueRestPosition = cueRenderer.transform.localPosition;
+                cueRestRotation = cueRenderer.transform.localRotation;
+            }
         }
 
         private void Update()
@@ -54,7 +59,23 @@ namespace PullingSeason
         {
             DecisionAvailable = true;
             if (cueBeacon != null) cueBeacon.SetActive(true);
-            if (cueRenderer != null && availableMaterial != null) cueRenderer.material = availableMaterial;
+            var lessonColor = previousDamaged
+                ? new Color(0.95f, 0.26f, 0.10f)
+                : (previousStage == "Late" ? new Color(1f, 0.72f, 0.16f) : new Color(0.56f, 0.88f, 0.20f));
+            if (cueRenderer != null)
+            {
+                if (availableMaterial != null) cueRenderer.material = availableMaterial;
+                cueRenderer.material.color = lessonColor;
+                cueRenderer.transform.localRotation = cueRestRotation
+                    * Quaternion.Euler(previousDamaged ? 0f : -5f, 0f, previousDamaged ? 18f : 0f);
+            }
+            if (cueBeacon != null)
+            {
+                var beaconRenderer = cueBeacon.GetComponent<Renderer>();
+                if (beaconRenderer != null) beaconRenderer.material.color = lessonColor;
+                cueBeacon.transform.localScale = beaconRestScale * (previousDamaged ? 1.35f : 1f);
+                beaconRestScale = cueBeacon.transform.localScale;
+            }
             if (decisionLabel != null)
             {
                 decisionLabel.text = previousDamaged

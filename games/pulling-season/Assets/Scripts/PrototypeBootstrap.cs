@@ -29,9 +29,6 @@ namespace PullingSeason
             var dormant = MakeMaterial("Dormant Bed", new Color(0.26f, 0.31f, 0.22f));
             var available = MakeMaterial("Available Bed", new Color(0.70f, 0.77f, 0.18f));
             var panel = MakeMaterial("Readout Panel", new Color(0.035f, 0.055f, 0.05f), true);
-            var earlyProgress = MakeMaterial("Early Progress", new Color(0.47f, 0.88f, 0.42f), true);
-            var lateProgress = MakeMaterial("Late Progress", new Color(1f, 0.67f, 0.20f), true);
-            var damageProgress = MakeMaterial("Damage Progress", new Color(1f, 0.26f, 0.18f), true);
 
             RenderSettings.ambientLight = new Color(0.43f, 0.48f, 0.50f);
             RenderSettings.fog = true;
@@ -84,7 +81,7 @@ namespace PullingSeason
                 lateCues, damageMarks, gripLine, soilBurst, soilResponse.transform);
 
             var player = AddPlayer(world.transform, playerMaterial, glove, harvest);
-            AddDisplay(player, harvest, nextDecision, panel, earlyProgress, lateProgress, damageProgress);
+            AddDisplay(player, harvest, nextDecision, panel);
             AddCropSign(world.transform, wood);
             world.SetActive(true);
         }
@@ -269,23 +266,16 @@ namespace PullingSeason
             return player;
         }
 
-        private static void AddDisplay(GameObject player, HarvestCrop crop, NextHarvestDecision nextDecision, Material panel,
-            Material earlyProgress, Material lateProgress, Material damageProgress)
+        private static void AddDisplay(GameObject player, HarvestCrop crop, NextHarvestDecision nextDecision, Material panel)
         {
             var camera = player.GetComponentInChildren<Camera>(true).transform;
             var root = new GameObject("FieldReadout");
             root.transform.SetParent(camera, false);
-            Panel("CuePanel", root.transform, new Vector3(-0.43f, 0.22f, 0.78f), new Vector3(0.56f, 0.26f, 1f), panel);
-            Panel("StatusPanel", root.transform, new Vector3(0.45f, 0.26f, 0.78f), new Vector3(0.43f, 0.18f, 1f), panel);
-            Panel("ControlPanel", root.transform, new Vector3(0f, -0.36f, 0.86f), new Vector3(1.15f, 0.105f, 1f), panel);
-            CameraText("Title", root.transform, "PULLING SEASON  //  EMBODIED FIELD TEST", new Vector3(-0.70f, 0.385f, 0.74f), TextAnchor.UpperLeft, 0.024f, new Color(1f, 0.83f, 0.37f));
-            var cue = CameraText("CueReadout", root.transform, "", new Vector3(-0.68f, 0.335f, 0.74f), TextAnchor.UpperLeft, 0.022f, new Color(0.86f, 0.95f, 0.81f));
-            var status = CameraText("PullStatus", root.transform, "", new Vector3(0.255f, 0.335f, 0.74f), TextAnchor.UpperLeft, 0.021f, new Color(0.82f, 1f, 0.72f));
-            var controls = CameraText("Controls", root.transform, "", new Vector3(0f, -0.325f, 0.82f), TextAnchor.MiddleCenter, 0.019f, new Color(0.88f, 0.92f, 0.85f));
-            var track = Panel("ProgressTrack", root.transform, new Vector3(0.445f, 0.175f, 0.735f), new Vector3(0.36f, 0.023f, 1f), panel);
-            var fill = Panel("ProgressFill", track.transform, new Vector3(-0.49f, 0f, -0.006f), new Vector3(0.02f, 0.55f, 1f), earlyProgress);
+            Panel("GuidanceStrip", root.transform, new Vector3(0f, 0.405f, 0.86f), new Vector3(1.16f, 0.070f, 1f), panel);
+            var guidance = CameraText("Guidance", root.transform, "", new Vector3(0f, 0.407f, 0.82f),
+                TextAnchor.MiddleCenter, 0.018f, new Color(0.90f, 0.96f, 0.78f));
             var display = root.AddComponent<PrototypeDisplay>();
-            display.Configure(crop, nextDecision, cue, status, controls, fill.transform, fill.GetComponent<Renderer>(), earlyProgress, lateProgress, damageProgress);
+            display.Configure(crop, nextDecision, guidance);
         }
 
         private static void AddCropSign(Transform world, Material wood)

@@ -11,7 +11,7 @@ namespace PullingSeason
         [SerializeField] private Transform leftHand;
         [SerializeField] private Transform rightHand;
         [SerializeField] private Transform gripAnchor;
-        [SerializeField] private float distancePerFrame = 0.02f;
+        [SerializeField] private float distancePerInputUpdate = 0.02f;
 
         private Rigidbody body;
         private Vector3 cameraRest;
@@ -59,11 +59,17 @@ namespace PullingSeason
             if (keyboard.wKey.isPressed) movement += Vector3.forward;
             if (keyboard.sKey.isPressed) movement += Vector3.back;
 
-            if (movement.sqrMagnitude > 0.01f && !crop.Harvested)
+            if (movement.sqrMagnitude > 0.01f)
             {
                 movement.Normalize();
-                plannedPosition += movement * distancePerFrame;
-                body.MovePosition(plannedPosition);
+                plannedPosition += movement * distancePerInputUpdate;
+
+                // The factory drives the shipping Input System from editor updates. A
+                // kinematic MovePosition can remain pending until a later physics tick,
+                // hiding real player motion from both the crop and the evidence capture.
+                // Setting the kinematic rigidbody pose keeps its collider authoritative
+                // while making every consumed input update immediately observable.
+                body.position = plannedPosition;
                 motionClock += 0.28f;
             }
             else
