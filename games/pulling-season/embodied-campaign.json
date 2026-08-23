@@ -104,7 +104,13 @@
             "timeoutSeconds": 1200,
             "dependsOn": ["embodied-prototype-builder"],
             "refreshAfterRepair": true,
-            "instructions": "Refresh Unity import, trusted host-bridge Input System replay, causal trace, and continuous engine camera evidence. Fail closed on compiler errors, a non-quiescent no-input settle, an untrusted bridge, or missing physical consequence."
+            "instructions": "Refresh Unity import, trusted host-bridge Input System replay, causal trace, and continuous engine camera evidence. Fail closed on compiler errors, a non-quiescent no-input settle, an untrusted bridge, or missing physical consequence.",
+            "repair": {
+              "target": "embodied-prototype-builder",
+              "outcomes": ["revise"],
+              "maximumAttempts": 2,
+              "allowedPaths": ["Assets/**", "ProjectSettings/**"]
+            }
           },
           {
             "id": "gemini-embodied-review",

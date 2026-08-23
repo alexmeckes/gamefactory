@@ -102,6 +102,48 @@ test("Unity import rejects compiler errors hidden behind a zero launcher exit", 
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test("Unity evidence returns a repairable revision with import diagnostics for candidate compile failures", async () => {
+  const root = await fixtureProject();
+  const fake: UnityProcessRunner = async (_binary, args) => {
+    const logPath = args[args.lastIndexOf("-logFile") + 1]!;
+    await writeFile(logPath, "Assets/Broken.cs(1,1): error CS1002: ; expected\n", "utf8");
+    return { exitCode: 0, stdout: "launcher completed", stderr: "", timedOut: false };
+  };
+  try {
+    const result = await new UnityEvidenceAgent(new UnityEngine(fake), null as never).run({
+      campaign: campaign(root, { importCheck: true }),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "import-repair",
+      history: [],
+      signal: new AbortController().signal
+    });
+    assert.equal(result.metadata?.outcome, "revise");
+    assert.equal((result.metadata?.structured as { status?: string }).status, "fail");
+    assert.ok(result.artifacts?.some((artifact) => artifact.label === "Unity import log"));
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("Unity evidence marks import timeouts as infrastructure and carries durable logs", async () => {
+  const root = await fixtureProject();
+  const fake: UnityProcessRunner = async () => ({ exitCode: 1, stdout: "", stderr: "licensing IPC unavailable", timedOut: true });
+  try {
+    await assert.rejects(
+      new UnityEvidenceAgent(new UnityEngine(fake), null as never).run({
+        campaign: campaign(root, { importCheck: true }),
+        candidate: { id: "candidate", root, metadata: {} },
+        experimentId: "import-infrastructure",
+        history: [],
+        signal: new AbortController().signal
+      }),
+      (error: unknown) => {
+        assert.equal((error as { failureClass?: string }).failureClass, "infrastructure");
+        assert.ok(((error as { artifacts?: unknown[] }).artifacts?.length ?? 0) >= 2);
+        return true;
+      }
+    );
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("Unity embodied verification rejects static proxy evidence and accepts factory input evidence", async () => {
   const root = await mkdtemp(resolve(tmpdir(), "gamefactory-unity-proof-"));
   try {

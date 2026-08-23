@@ -21,6 +21,7 @@ import type {
   ScenarioRunner,
   Violation
 } from "@gamefactory/core";
+import { InfrastructureFailureError } from "@gamefactory/core";
 import { combineDisposables, defineExtension } from "@gamefactory/extension-sdk";
 
 export const UNITY_SCENARIO_PROVIDER = "unity.pipeline/v1";
@@ -362,9 +363,20 @@ export class UnityEngine implements EngineDriver {
       if (importLog) artifacts.push({ kind: "log", path: logPath, mediaType: "text/plain", label: "Unity import log", metadata: { evidenceAuthority: ENGINE_EVIDENCE_AUTHORITY, engine: "unity" } });
       const hiddenErrors = unityLogHasErrors(`${result.stdout}\n${result.stderr}\n${importLog}`);
       const ok = result.exitCode === 0 && !result.timedOut && !hiddenErrors;
-      return { ok, exitCode: result.exitCode, stdout: result.stdout, stderr: `${result.stderr}${hiddenErrors ? `${result.stderr ? "\n" : ""}Unity logs contain compiler or batch-mode errors despite a successful launcher exit.` : ""}`, artifacts, metrics: { import_ok: ok ? 1 : 0 } };
+      return {
+        ok,
+        exitCode: result.exitCode,
+        stdout: result.stdout,
+        stderr: [
+          result.stderr,
+          hiddenErrors ? "Unity logs contain compiler or batch-mode errors despite a successful launcher exit." : "",
+          result.timedOut ? "Unity import process timed out." : ""
+        ].filter(Boolean).join("\n"),
+        artifacts,
+        metrics: { import_ok: ok ? 1 : 0, unity_process_timed_out: result.timedOut ? 1 : 0 }
+      };
     } catch (error) {
-      return { ok: false, exitCode: null, stdout: "", stderr: error instanceof Error ? error.message : String(error), artifacts: [], metrics: { import_ok: 0 } };
+      return { ok: false, exitCode: null, stdout: "", stderr: error instanceof Error ? error.message : String(error), artifacts: [], metrics: { import_ok: 0, unity_process_launch_failed: 1 } };
     }
   }
 }
@@ -610,7 +622,32 @@ export class UnityEvidenceAgent implements AgentDriver {
     if (settings.importCheck && this.engine.build) {
       const built = await this.engine.build({ campaign: request.campaign, projectRoot: request.candidate.root, candidate: request.candidate, experimentId: request.experimentId, signal: request.signal });
       artifacts.push(...built.artifacts);
-      if (!built.ok) throw new Error("Unity import or compile validation failed before scenario evidence.");
+      if (!built.ok) {
+        const detail = [built.stderr, built.stdout].filter(Boolean).join("\n").trim();
+        const infrastructure = built.exitCode === null
+          || built.metrics?.unity_process_timed_out === 1
+          || built.metrics?.unity_process_launch_failed === 1
+          || /licen[cs]|ipc|authentication|editor .*busy|connection (?:failed|refused)|timed? out/i.test(detail);
+        if (infrastructure) {
+          const error = new InfrastructureFailureError(`Unity import infrastructure failed before scenario evidence.${detail ? ` ${detail}` : ""}`) as InfrastructureFailureError & { artifacts: ArtifactReference[] };
+          error.artifacts = artifacts;
+          throw error;
+        }
+        return {
+          summary: `Unity import or compile validation failed before scenario evidence.${detail ? ` ${detail}` : ""}`,
+          artifacts,
+          metadata: {
+            outcome: "revise",
+            structured: {
+              status: "fail",
+              metrics: built.metrics ?? { import_ok: 0 },
+              violations: [{ code: "unity.import", message: "Unity import or compile validation failed.", severity: "error" }]
+            },
+            evidenceAuthority: ENGINE_EVIDENCE_AUTHORITY,
+            engine: "unity"
+          }
+        };
+      }
     }
     const run = await configuredEvidence({ campaign: request.campaign, candidate: request.candidate, experimentId: request.experimentId, signal: request.signal, runner: this.scenarios });
     artifacts.push(...run.artifacts);
