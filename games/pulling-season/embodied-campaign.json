@@ -1,6 +1,6 @@
 {
   "apiVersion": "gamefactory.dev/v1",
-  "id": "pulling-season-embodied-v4",
+  "id": "pulling-season-embodied-v5",
   "objective": "Prove one small player-complete Pulling Season experience in Unity 6 through shipping Input System events before visual production. Require a visible first-person actor, spatial approach, sustained player-caused crop extraction, visible physical consequence, and another harvest decision. Reject direct helper replay, context-button harvesting, invisible state, static scene plates, and presentation-only prototypes.",
   "projectRoot": ".",
   "workflow": "autoresearch",
@@ -87,7 +87,7 @@
             "reasoningEffort": "high",
             "timeoutSeconds": 3600,
             "dependsOn": ["mechanics-scout"],
-            "instructions": "Implement one small experiential Unity 6 slice, not a production-art pass. Use a visible first-person player driven by Unity Input System controls, colliders and rigidbodies, a separately addressable crop, readable provisional geometry/materials, world feedback, and a physical extracted crop that remains in the scene. The factory scenario contract is immutable at contracts/first-session.scenario.json. Preserve its exact scene and object paths: Assets/Scenes/Main.unity, World/Player, World/Crop. Implement an observable public boolean Harvested on a PullingSeason.HarvestCrop component. Pressing E may grab or attach, but must not itself complete the harvest; sustained player movement must create the extraction consequence. After extraction, present another visible harvest-related choice. Do not create candidate-owned evidence producers, weaken the scenario, invoke gameplay helpers from tests, use a whole-screen image as the world, add networking, or begin final art."
+            "instructions": "Implement one small experiential Unity 6 slice, not a production-art pass. Use a visible first-person player driven by Unity Input System controls, colliders and rigidbodies, a separately addressable crop, readable provisional geometry/materials, world feedback, and a physical extracted crop that remains in the scene. The versioned factory scenarios under contracts/*-v2.scenario.json are immutable. Preserve their exact scene and object paths: Assets/Scenes/Main.unity, World/Player, World/Crop, and World/NextCrop. PullingSeason.HarvestCrop must expose the observable public members Harvested, GripActive, PullProgress, GrowthStage, Condition, and Acknowledged; PullingSeason.NextHarvestDecision must expose DecisionAvailable. G makes the visible one-step late commitment, E attaches or regrips but never completes extraction, sustained directional movement creates the extraction consequence, and Space acknowledges the still-physical result. Ensure the three deterministic routes produce distinguishable early, late-controlled, and late-mishandled-recovery traces. Do not create candidate-owned evidence producers, weaken a scenario, invoke gameplay helpers from tests, use a whole-screen image as the world, add networking, or begin final art."
           },
           {
             "id": "gameplay-evidence",
@@ -216,10 +216,22 @@
       },
       "scenarios": [
         {
-          "id": "first-session",
+          "id": "early-controlled",
           "provider": "unity.pipeline/v1",
-          "version": "1",
-          "path": "contracts/first-session.scenario.json"
+          "version": "2",
+          "path": "contracts/early-controlled-v2.scenario.json"
+        },
+        {
+          "id": "late-controlled",
+          "provider": "unity.pipeline/v1",
+          "version": "2",
+          "path": "contracts/late-controlled-v2.scenario.json"
+        },
+        {
+          "id": "late-mishandled-recovery",
+          "provider": "unity.pipeline/v1",
+          "version": "2",
+          "path": "contracts/late-mishandled-recovery-v2.scenario.json"
         }
       ]
     }

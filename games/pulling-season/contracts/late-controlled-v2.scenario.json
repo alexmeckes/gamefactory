@@ -1,0 +1,32 @@
+{
+  "apiVersion": "gamefactory.unity-scenario/v1",
+  "id": "late-controlled",
+  "scenePath": "Assets/Scenes/Main.unity",
+  "actorPath": "World/Player",
+  "targetPath": "World/Crop",
+  "interactionRange": 3.5,
+  "captureEveryFrames": 10,
+  "captureWidth": 960,
+  "captureHeight": 540,
+  "stateObservations": [
+    {"id": "growth-stage", "path": "World/Crop", "component": "PullingSeason.HarvestCrop", "member": "GrowthStage", "state": "late-harvest-commitment"},
+    {"id": "grip-active", "path": "World/Crop", "component": "PullingSeason.HarvestCrop", "member": "GripActive", "state": "grip-contact"},
+    {"id": "pull-progress", "path": "World/Crop", "component": "PullingSeason.HarvestCrop", "member": "PullProgress", "state": "sustained-pull"},
+    {"id": "crop-extracted", "path": "World/Crop", "component": "PullingSeason.HarvestCrop", "member": "Harvested", "state": "core-consequence"},
+    {"id": "crop-condition", "path": "World/Crop", "component": "PullingSeason.HarvestCrop", "member": "Condition", "state": "crop-condition"},
+    {"id": "acknowledged", "path": "World/Crop", "component": "PullingSeason.HarvestCrop", "member": "Acknowledged", "state": "result-acknowledged"},
+    {"id": "next-decision", "path": "World/NextCrop", "component": "PullingSeason.NextHarvestDecision", "member": "DecisionAvailable", "state": "next-decision-available"}
+  ],
+  "steps": [
+    {"control": "<Keyboard>/g", "pressed": true, "value": 1, "frames": 2, "settleFrames": 4, "interaction": true},
+    {"control": "<Keyboard>/g", "pressed": false, "value": 0, "frames": 1, "settleFrames": 12, "interaction": false},
+    {"control": "<Keyboard>/d", "pressed": true, "value": 1, "frames": 100, "settleFrames": 0, "interaction": false},
+    {"control": "<Keyboard>/d", "pressed": false, "value": 0, "frames": 1, "settleFrames": 4, "interaction": false},
+    {"control": "<Keyboard>/e", "pressed": true, "value": 1, "frames": 2, "settleFrames": 2, "interaction": true},
+    {"control": "<Keyboard>/e", "pressed": false, "value": 0, "frames": 1, "settleFrames": 2, "interaction": false},
+    {"control": "<Keyboard>/a", "pressed": true, "value": 1, "frames": 155, "settleFrames": 0, "interaction": false},
+    {"control": "<Keyboard>/a", "pressed": false, "value": 0, "frames": 1, "settleFrames": 24, "interaction": false},
+    {"control": "<Keyboard>/space", "pressed": true, "value": 1, "frames": 2, "settleFrames": 4, "interaction": true},
+    {"control": "<Keyboard>/space", "pressed": false, "value": 0, "frames": 1, "settleFrames": 30, "interaction": false}
+  ]
+}

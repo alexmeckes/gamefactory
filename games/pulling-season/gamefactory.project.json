@@ -38,7 +38,7 @@
         "evidence/**"
       ],
       "evidence": {
-        "scenarios": ["first-session"],
+        "scenarios": ["early-controlled", "late-controlled", "late-mishandled-recovery"],
         "requireInteractionTrace": true,
         "requireEmbodiedGameplay": true,
         "requireEngineCapture": true,
@@ -57,7 +57,7 @@
       },
       "attempts": [
         {
-          "id": "embodied-v4",
+          "id": "embodied-v5",
           "campaign": "embodied-campaign.json",
           "config": "factory.json"
         }
