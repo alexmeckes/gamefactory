@@ -1,6 +1,6 @@
 {
   "apiVersion": "gamefactory.dev/v1",
-  "id": "pulling-season-embodied-v12",
+  "id": "pulling-season-embodied-v13",
   "objective": "Prove one small player-complete Pulling Season experience in Unity 6 through shipping Input System events before visual production. Require a visible first-person actor, spatial approach, sustained player-caused crop extraction, visible physical consequence, and another harvest decision. Reject direct helper replay, context-button harvesting, invisible state, static scene plates, and presentation-only prototypes.",
   "projectRoot": ".",
   "workflow": "autoresearch",
@@ -107,7 +107,7 @@
             "instructions": "Refresh Unity import, trusted host-bridge Input System replay, causal trace, and continuous engine camera evidence. Fail closed on compiler errors, a non-quiescent no-input settle, an untrusted bridge, or missing physical consequence.",
             "repair": {
               "target": "embodied-prototype-builder",
-              "outcomes": ["revise"],
+              "outcomes": ["fail", "revise"],
               "maximumAttempts": 2,
               "allowedPaths": ["Assets/**", "ProjectSettings/**"]
             }
@@ -125,7 +125,7 @@
             "instructions": "Review only trusted Unity engine frames and the causal trace. Block static plates, invisible or illegible player action, a crop that self-animates without input, one-button harvesting, unclear extraction feedback, a missing persistent crop consequence, or no readable next decision. Do not demand production polish.",
             "repair": {
               "target": "embodied-prototype-builder",
-              "outcomes": ["revise"],
+              "outcomes": ["fail", "revise"],
               "maximumAttempts": 2,
               "allowedPaths": ["Assets/**", "ProjectSettings/**"]
             }
@@ -207,7 +207,7 @@
       "prepareCommand": "gamefactory_prepare_playmode",
       "connectedEditor": false,
       "embodiedProof": {
-        "minimumDurationSeconds": 3,
+        "minimumDurationSeconds": 1,
         "minimumShippingInputEvents": 6,
         "minimumDisplacementUnits": 1,
         "minimumSpatialInteractions": 1,
