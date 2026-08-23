@@ -1,5 +1,5 @@
-import { lstat, mkdir, rename, rm } from "node:fs/promises";
-import { randomUUID } from "node:crypto";
+import { lstat, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
 import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
 import { spawn } from "node:child_process";
 import type { Campaign, Candidate, WorkspaceDriver } from "@gamefactory/core";
@@ -94,10 +94,43 @@ function worktreeParent(repositoryRoot: string, campaign: Campaign, runtimeWorkt
 
 function worktreeRoot(repositoryRoot: string, campaign: Campaign, experimentId: string, runtimeWorktreeRoot?: string): { parent: string; root: string } {
   const parent = worktreeParent(repositoryRoot, campaign, runtimeWorktreeRoot);
-  const root = resolve(parent, `${basename(repositoryRoot)}-${campaign.id}-${experimentId}-${process.pid}-${randomUUID().slice(0, 8)}`);
+  const readable = `${campaign.id}-${experimentId}`.replace(/[^a-zA-Z0-9._-]+/g, "-").slice(0, 80);
+  const identity = createHash("sha256").update(`${resolve(repositoryRoot)}\0${campaign.id}\0${experimentId}`).digest("hex").slice(0, 16);
+  const root = resolve(parent, `${basename(repositoryRoot)}-${readable}-${identity}`);
   const traversal = relative(parent, root);
   if (traversal.startsWith("..") || traversal === "") throw new Error("Unsafe worktree path");
   return { parent, root };
+}
+
+function processIsAlive(pid: number): boolean {
+  if (!Number.isSafeInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
+async function claimWorktree(ownerPath: string): Promise<void> {
+  await mkdir(dirname(ownerPath), { recursive: true });
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await writeFile(ownerPath, `${JSON.stringify({ pid: process.pid, createdAt: new Date().toISOString() })}\n`, { encoding: "utf8", flag: "wx" });
+      return;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      let ownerPid = 0;
+      try {
+        ownerPid = Number((JSON.parse(await readFile(ownerPath, "utf8")) as { pid?: unknown }).pid);
+      } catch {
+        ownerPid = 0;
+      }
+      if (processIsAlive(ownerPid)) throw new Error(`Candidate worktree is already owned by live process ${ownerPid}`);
+      await rm(ownerPath, { force: true });
+    }
+  }
+  throw new Error(`Unable to claim candidate worktree lease: ${ownerPath}`);
 }
 
 interface CleanupFileSystem {
@@ -172,7 +205,7 @@ export async function removeWorktreeTransactionally(
   }
 }
 
-function managedWorktree(campaign: Campaign, candidate: Candidate): { repositoryRoot: string; worktree: string } {
+function managedWorktree(campaign: Campaign, candidate: Candidate): { repositoryRoot: string; worktree: string; ownerPath: string } {
   if (candidate.metadata.provider !== "git.worktree") throw new Error(`Refusing Git operation for candidate not owned by git.worktree: ${candidate.id}`);
   if (typeof candidate.metadata.worktreeRoot !== "string" || typeof candidate.metadata.repositoryRoot !== "string") {
     throw new Error(`Candidate ${candidate.id} is missing managed worktree metadata`);
@@ -185,10 +218,30 @@ function managedWorktree(campaign: Campaign, candidate: Candidate): { repository
   const traversal = relative(managedParent, worktree);
   const campaignTraversal = relative(repositoryRoot, resolve(campaign.projectRoot));
   const candidateTraversal = relative(worktree, resolve(candidate.root));
-  if (!traversal || traversal.startsWith("..") || campaignTraversal.startsWith("..") || candidateTraversal.startsWith("..") || resolve(campaign.projectRoot).toLowerCase() === worktree.toLowerCase()) {
+  const ownerPath = typeof candidate.metadata.ownerPath === "string" ? resolve(candidate.metadata.ownerPath) : `${worktree}.owner.json`;
+  const ownerTraversal = relative(managedParent, ownerPath);
+  if (!traversal || traversal.startsWith("..") || !ownerTraversal || ownerTraversal.startsWith("..") || campaignTraversal.startsWith("..") || candidateTraversal.startsWith("..") || resolve(campaign.projectRoot).toLowerCase() === worktree.toLowerCase()) {
     throw new Error(`Candidate ${candidate.id} has an unsafe managed worktree path`);
   }
-  return { repositoryRoot, worktree };
+  return { repositoryRoot, worktree, ownerPath };
+}
+
+function operationToken(operationId: string): string {
+  return createHash("sha256").update(operationId).digest("hex");
+}
+
+async function acceptedOperationRevision(repositoryRoot: string, token: string, signal: AbortSignal): Promise<string | undefined> {
+  const result = await run("git", ["log", "-n", "1", "--format=%H", "--fixed-strings", `--grep=GameFactory-Operation: ${token}`, "HEAD"], repositoryRoot, signal);
+  return result.stdout || undefined;
+}
+
+async function hasCherryPickInProgress(repositoryRoot: string, signal: AbortSignal): Promise<boolean> {
+  try {
+    await run("git", ["rev-parse", "--verify", "CHERRY_PICK_HEAD"], repositoryRoot, signal);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export class GitWorktreeWorkspace implements WorkspaceDriver {
@@ -199,27 +252,61 @@ export class GitWorktreeWorkspace implements WorkspaceDriver {
     const baseRevision = (await run("git", ["rev-parse", "HEAD"], campaign.projectRoot, signal)).stdout;
     const managed = worktreeRoot(repositoryRoot, campaign, experimentId, runtime?.worktreeRoot);
     const worktree = managed.root;
+    const ownerPath = `${worktree}.owner.json`;
     await mkdir(dirname(worktree), { recursive: true });
-    await removeWorktreeTransactionally(repositoryRoot, worktree);
-    await run("git", ["worktree", "add", "--detach", worktree, baseRevision], repositoryRoot, signal);
+    await claimWorktree(ownerPath);
+    try {
+      await removeWorktreeTransactionally(repositoryRoot, worktree);
+      await run("git", ["worktree", "add", "--detach", worktree, baseRevision], repositoryRoot, signal);
+    } catch (error) {
+      await rm(ownerPath, { force: true });
+      throw error;
+    }
     const projectRelative = relative(repositoryRoot, campaign.projectRoot);
     const root = resolve(worktree, projectRelative);
-    return { id: experimentId, root, baseRevision, metadata: { isolated: true, provider: this.id, worktreeRoot: worktree, managedParent: managed.parent, repositoryRoot, projectRelative } };
+    return { id: experimentId, root, baseRevision, metadata: { isolated: true, provider: this.id, worktreeRoot: worktree, ownerPath, managedParent: managed.parent, repositoryRoot, projectRelative } };
   }
 
-  async acceptCandidate({ campaign, candidate, signal }: { campaign: Campaign; candidate: Candidate; signal: AbortSignal }): Promise<{ revision?: string; candidateRevision?: string; changed?: boolean }> {
-    const { worktree, repositoryRoot } = managedWorktree(campaign, candidate);
+  async acceptCandidate({ campaign, candidate, signal, operationId }: Parameters<WorkspaceDriver["acceptCandidate"]>[0]): Promise<{ revision?: string; candidateRevision?: string; changed?: boolean }> {
+    const { worktree, repositoryRoot, ownerPath } = managedWorktree(campaign, candidate);
+    const token = operationToken(operationId ?? `${campaign.id}/${candidate.id}/${worktree}`);
+    const alreadyAccepted = await acceptedOperationRevision(repositoryRoot, token, signal);
+    if (alreadyAccepted) {
+      await removeWorktreeTransactionally(repositoryRoot, worktree);
+      await rm(ownerPath, { force: true });
+      return { revision: alreadyAccepted, changed: true };
+    }
+    if (!(await pathExists(worktree))) {
+      throw new Error(`Candidate ${candidate.id} is missing and acceptance operation ${token} is not present in repository history`);
+    }
     const status = (await run("git", ["status", "--porcelain", "--untracked-files=all"], worktree, signal)).stdout;
-    const files = changedFiles(status).filter((path) => !isFactoryArtifact(path));
+    const headRevision = (await run("git", ["rev-parse", "HEAD"], worktree, signal)).stdout;
+    const committed = candidate.baseRevision && headRevision !== candidate.baseRevision
+      ? (await run("git", ["diff", "--name-only", candidate.baseRevision, headRevision], worktree, signal)).stdout.split(/\r?\n/).filter(Boolean).map(normalized)
+      : [];
+    const files = [...new Set([...changedFiles(status), ...committed])].filter((path) => !isFactoryArtifact(path));
     enforcePaths(campaign, candidate, files);
     if (files.length === 0) {
-      await removeWorktreeTransactionally(repositoryRoot, worktree);
       return { changed: false };
     }
-    await run("git", ["add", "--all", "--", ".", ":(exclude)**/.factory/**"], worktree, signal);
-    await run("git", ["-c", "user.name=GameFactory", "-c", "user.email=gamefactory@localhost", "commit", "-m", `gamefactory: accept ${campaign.id}/${candidate.id}`], worktree, signal);
-    const revision = (await run("git", ["rev-parse", "HEAD"], worktree, signal)).stdout;
+    const currentMessage = headRevision !== candidate.baseRevision
+      ? (await run("git", ["log", "-1", "--format=%B"], worktree, signal)).stdout
+      : "";
+    let revision = headRevision;
+    if (!currentMessage.includes(`GameFactory-Operation: ${token}`)) {
+      if (!candidate.baseRevision) throw new Error(`Candidate ${candidate.id} cannot be accepted idempotently without a base revision`);
+      if (headRevision !== candidate.baseRevision) await run("git", ["reset", "--soft", candidate.baseRevision], worktree, signal);
+      await run("git", ["add", "--all", "--", ".", ":(exclude)**/.factory/**"], worktree, signal);
+      await run("git", ["reset", "--", ":(glob)**/.factory/**"], worktree, signal);
+      await run("git", ["-c", "user.name=GameFactory", "-c", "user.email=gamefactory@localhost", "commit", "-m", `gamefactory: accept ${campaign.id}/${candidate.id}\n\nGameFactory-Operation: ${token}`], worktree, signal);
+      revision = (await run("git", ["rev-parse", "HEAD"], worktree, signal)).stdout;
+    }
     const acceptedRevision = await withRepositoryAcceptanceLock(repositoryRoot, async () => {
+      const completed = await acceptedOperationRevision(repositoryRoot, token, signal);
+      if (completed) return completed;
+      if (await hasCherryPickInProgress(repositoryRoot, signal)) {
+        await run("git", ["cherry-pick", "--abort"], repositoryRoot, signal);
+      }
       const mainStatus = (await run("git", ["status", "--porcelain"], repositoryRoot, signal)).stdout;
       if (mainStatus) throw new Error("Main worktree is dirty; refusing to cherry-pick an accepted candidate");
       const mainRevision = (await run("git", ["rev-parse", "HEAD"], repositoryRoot, signal)).stdout;
@@ -238,13 +325,15 @@ export class GitWorktreeWorkspace implements WorkspaceDriver {
       return (await run("git", ["rev-parse", "HEAD"], repositoryRoot, signal)).stdout;
     });
     await removeWorktreeTransactionally(repositoryRoot, worktree);
+    await rm(ownerPath, { force: true });
     return { revision: acceptedRevision, candidateRevision: revision, changed: true };
   }
 
-  async discardCandidate({ campaign, candidate, signal }: { campaign: Campaign; candidate: Candidate; signal: AbortSignal }): Promise<void> {
+  async discardCandidate({ campaign, candidate, signal }: Parameters<WorkspaceDriver["discardCandidate"]>[0]): Promise<void> {
     void signal;
-    const { worktree, repositoryRoot } = managedWorktree(campaign, candidate);
+    const { worktree, repositoryRoot, ownerPath } = managedWorktree(campaign, candidate);
     await removeWorktreeTransactionally(repositoryRoot, worktree);
+    await rm(ownerPath, { force: true });
   }
 }
 

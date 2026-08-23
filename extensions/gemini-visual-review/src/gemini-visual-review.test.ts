@@ -263,11 +263,75 @@ test("Gemini graph driver reads factory Godot evidence and exposes structured fi
     const result = await new GeminiVisualReviewAgent("production", evaluator).run({ campaign: campaign(root), candidate: { id: "candidate", root, metadata: {} }, experimentId: "exp-driver", history: [], signal: new AbortController().signal });
     assert.equal(result.metadata?.outcome, "revise");
     const structured = result.metadata?.structured as Record<string, unknown>;
-    assert.equal((structured.findings as Array<Record<string, unknown>>)[0]?.owner, "implementation");
+    const canonicalFinding = (structured.findings as Array<Record<string, unknown>>)[0];
+    assert.equal(canonicalFinding?.owner, "implementation");
+    assert.equal(canonicalFinding?.findingClass, "blocker");
+    assert.deepEqual(canonicalFinding?.claimIds, ["visual.production-fidelity"]);
+    assert.deepEqual(canonicalFinding?.evidence, ["runtime-image-003"]);
     assert.ok(Array.isArray(structured.evidence));
     assert.equal((structured.findings as unknown[]).length, 1);
     assert.equal(result.contributors?.[0]?.usage?.model, "gemini-3.7-flash");
   } finally { await rm(root, { recursive: true, force: true }); await rm(credentials.root, { recursive: true, force: true }); }
+});
+
+test("Gemini driver synthesizes a claim-linked blocker when the evaluator rejects without blocker-severity findings", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "gamefactory-gemini-evaluator-rejection-"));
+  const credentials = await credentialStore();
+  const prior = await evidence(root);
+  const experimentId = "exp-evaluator-rejection";
+  const manifestDirectory = resolve(root, ".factory", "runs", experimentId, "godot-evidence");
+  await mkdir(manifestDirectory, { recursive: true });
+  await writeFile(resolve(manifestDirectory, "result.json"), JSON.stringify({ status: "pass", artifacts: prior.artifacts }));
+  const opportunity = {
+    id: "minor-hierarchy-note",
+    severity: "minor",
+    owner: "implementation",
+    affectedState: "interaction",
+    evidenceIds: ["runtime-image-002"],
+    timestampSeconds: null,
+    violatedContract: "secondary hierarchy",
+    playerImpact: "A secondary label could be quieter.",
+    repair: "Reduce the secondary label emphasis.",
+    regressionEvidence: "Recapture the interaction frame."
+  };
+  const fetchImpl: typeof fetch = async () => new Response(JSON.stringify({ output_text: JSON.stringify(review({ verdict: "revise", findings: [opportunity] })) }), { status: 200 });
+  try {
+    const result = await new GeminiVisualReviewAgent("production", new GeminiVisualEvaluator({ fetchImpl, credentialStore: credentials.store })).run({
+      campaign: campaign(root), candidate: { id: "candidate", root, metadata: {} }, experimentId, history: [], signal: new AbortController().signal
+    });
+    assert.equal(result.metadata?.outcome, "revise");
+    const findings = ((result.metadata?.structured as Record<string, unknown>).findings as Array<Record<string, unknown>>);
+    assert.ok(findings.some((finding) => finding.id === "gemini-evaluator-rejection" && finding.findingClass === "blocker"));
+    assert.deepEqual(findings.find((finding) => finding.id === "gemini-evaluator-rejection")?.claimIds, ["visual.production-fidelity"]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(credentials.root, { recursive: true, force: true });
+  }
+});
+
+test("Gemini graph driver reads generic Unity engine-evidence manifests", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "gamefactory-gemini-unity-driver-"));
+  const credentials = await credentialStore();
+  const prior = await evidence(root);
+  for (const artifact of prior.artifacts) artifact.metadata = { ...(artifact.metadata ?? {}), evidenceAuthority: "factory-engine", engine: "unity" };
+  const manifestDirectory = resolve(root, ".factory", "runs", "exp-unity-driver", "engine-evidence");
+  await mkdir(manifestDirectory, { recursive: true });
+  await writeFile(resolve(manifestDirectory, "result.json"), JSON.stringify({ evaluator: "unity.scenario", engine: "unity", status: "pass", artifacts: prior.artifacts }));
+  const fetchImpl: typeof fetch = async () => new Response(JSON.stringify({ output_text: JSON.stringify(review()) }), { status: 200 });
+  try {
+    const result = await new GeminiVisualReviewAgent("embodied", new GeminiVisualEvaluator({ fetchImpl, credentialStore: credentials.store })).run({
+      campaign: campaign(root),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-unity-driver",
+      history: [],
+      signal: new AbortController().signal
+    });
+    assert.equal(result.metadata?.outcome, "pass");
+    assert.equal((result.metadata?.structured as Record<string, unknown>).verdict, "pass");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(credentials.root, { recursive: true, force: true });
+  }
 });
 
 test("Gemini graph driver routes target and spec contradictions away from implementation repair", async () => {

@@ -1,7 +1,8 @@
 import { isAbsolute, relative, resolve } from "node:path";
-import { decideAcceptance, flattenMetrics } from "@gamefactory/core";
+import { decideAcceptance, flattenMetrics, isInfrastructureFailure } from "@gamefactory/core";
 import type {
   AgentDriver,
+  AgentRequest,
   AgentResult,
   BudgetReservationLike,
   Campaign,
@@ -16,12 +17,15 @@ import type {
 import { defineExtension } from "@gamefactory/extension-sdk";
 import {
   agentJournalData,
+  agentFinalizationJournalData,
+  applyWorkspaceDecision,
   asObject,
   campaignResult,
   errorMessage,
   evaluateWaterfall,
   evaluatorPlans,
   failureAgentResult,
+  finalizeAgentDecision,
   isArtifactPreservationFailure,
   journalPhase,
   latestAcceptedEvaluations,
@@ -30,6 +34,7 @@ import {
   preserveAgentResult,
   recoverWorkflow,
   replayBudget,
+  workspaceDecisionOperationId,
   type EvaluatorPlan
 } from "@gamefactory/workflow-sdk";
 
@@ -75,12 +80,16 @@ interface CandidateRun {
   slot: number;
   startedAt: string;
   agentId: string;
+  agent: AgentDriver;
+  agentRequest?: AgentRequest;
   reservation: BudgetReservationLike;
   candidate?: Candidate;
   agentResult?: AgentResult;
   evaluations: Evaluation[];
   error?: string;
   preservationBlocked?: boolean;
+  retentionBlocked?: boolean;
+  failureClass?: "infrastructure" | "execution";
 }
 
 interface RankedCandidate {
@@ -130,10 +139,14 @@ export function parseTournamentParameters(context: WorkflowContext): TournamentP
 }
 
 function nextRound(experiments: ExperimentRecord[]): number {
+  const retryRounds = new Set(experiments.flatMap((record) => {
+    const tournament = asObject(record.metadata?.tournament);
+    return record.metadata?.failureClass === "infrastructure" && typeof tournament.round === "number" ? [tournament.round] : [];
+  }));
   let maximum = 0;
   for (const record of experiments) {
     const tournament = asObject(record.metadata?.tournament);
-    if (typeof tournament.round === "number" && Number.isSafeInteger(tournament.round)) maximum = Math.max(maximum, tournament.round);
+    if (typeof tournament.round === "number" && Number.isSafeInteger(tournament.round) && !retryRounds.has(tournament.round)) maximum = Math.max(maximum, tournament.round);
   }
   return maximum + 1;
 }
@@ -326,25 +339,32 @@ async function executeCandidate(
   slot: number,
   history: ExperimentRecord[],
   reservation: BudgetReservationLike,
-  agentCampaign: Campaign = context.campaign
+  agentCampaign: Campaign = context.campaign,
+  resume?: { sourceExperimentId: string; logicalExperimentId: string; attemptNumber: number; candidate: Candidate; startedAt: string }
 ): Promise<CandidateRun> {
-  const startedAt = new Date().toISOString();
-  let candidate: Candidate | undefined;
+  const startedAt = resume?.startedAt ?? new Date().toISOString();
+  let candidate: Candidate | undefined = resume?.candidate;
   let agentResult: AgentResult | undefined;
   let evaluations: Evaluation[] = [];
+  let agentRequest: AgentRequest | undefined;
   try {
     context.signal.throwIfAborted();
-    candidate = await workspace.createCandidate({ campaign: context.campaign, experimentId, signal: context.signal, ...(context.runtime ? { runtime: context.runtime } : {}) });
+    candidate ??= await workspace.createCandidate({ campaign: context.campaign, experimentId, signal: context.signal, ...(context.runtime ? { runtime: context.runtime } : {}) });
     await journalPhase(context, experimentId, "candidate-created", { candidate });
     context.signal.throwIfAborted();
-    agentResult = await preserveAgentResult(context, await agent.run({
+    agentRequest = {
       campaign: agentCampaign,
       candidate,
       experimentId,
+      logicalExperimentId: resume?.logicalExperimentId ?? experimentId,
+      attemptNumber: (resume?.attemptNumber ?? 0) + 1,
+      ...(resume ? { resumedFromExperimentId: resume.sourceExperimentId } : {}),
       history: [...history],
+      ...(context.runtime ? { runtime: context.runtime } : {}),
       signal: context.signal,
       ...(context.trace ? { trace: context.trace } : {})
-    }), experimentId);
+    };
+    agentResult = await preserveAgentResult(context, await agent.run(agentRequest), experimentId);
     await journalPhase(context, experimentId, "agent-finished", agentJournalData(agentResult));
     context.signal.throwIfAborted();
     const evaluationRun = await evaluateWaterfall(context, evaluatorConfig, candidate, experimentId);
@@ -357,6 +377,8 @@ async function executeCandidate(
       slot,
       startedAt,
       agentId,
+      agent,
+      agentRequest,
       reservation,
       candidate,
       agentResult,
@@ -377,12 +399,15 @@ async function executeCandidate(
       slot,
       startedAt,
       agentId,
+      agent,
+      ...(agentRequest ? { agentRequest } : {}),
       reservation,
       ...(candidate ? { candidate } : {}),
       ...(agentResult ? { agentResult } : {}),
       evaluations,
       error: errorMessage(outcomeError),
-      ...(isArtifactPreservationFailure(outcomeError) ? { preservationBlocked: true } : {})
+      ...(isArtifactPreservationFailure(outcomeError) ? { preservationBlocked: true } : {}),
+      ...(isInfrastructureFailure(outcomeError) ? { retentionBlocked: true, failureClass: "infrastructure" as const } : { failureClass: "execution" as const })
     };
   }
 }
@@ -409,7 +434,29 @@ export class TournamentWorkflow implements Workflow {
       const startedAt = new Date().toISOString();
       await journalPhase(context, "baseline", "reserved", { startedAt });
       await context.emit({ type: "experiment:start", campaignId: context.campaign.id, experimentId: "baseline", at: startedAt });
-      const baselineRun = await evaluateWaterfall(context, config.evaluators, null, "baseline");
+      let baselineRun;
+      try {
+        baselineRun = await evaluateWaterfall(context, config.evaluators, null, "baseline");
+      } catch (error) {
+        if (!isInfrastructureFailure(error)) throw error;
+        const message = errorMessage(error);
+        const record: ExperimentRecord = {
+          campaignId: context.campaign.id,
+          experimentId: "baseline",
+          startedAt,
+          finishedAt: new Date().toISOString(),
+          status: "blocked",
+          summary: message,
+          metrics: {},
+          evaluations: [],
+          metadata: { failureClass: "infrastructure", tournament: { baseline: true, baselineError: message } }
+        };
+        experiments.push(record);
+        await context.appendRecord(record);
+        await journalPhase(context, "baseline", "blocked", { record, candidateRetained: false, resumable: false, failureClass: "infrastructure" });
+        await journalPhase(context, "baseline", "cleaned", { retryableBaselineInfrastructureFailure: true });
+        return campaignResult(context, experiments, "blocked", message);
+      }
       baseline = baselineRun.evaluations;
       baselineError = baselineRun.error;
       await journalPhase(context, "baseline", "evaluated", { evaluations: baseline });
@@ -440,8 +487,14 @@ export class TournamentWorkflow implements Workflow {
 
     let round = nextRound(experiments);
     while (!context.signal.aborted) {
+      const resumableBySlot = new Map(recovery.resumableCandidates.flatMap((item) => {
+        const tournament = asObject(item.record?.metadata?.tournament);
+        const itemRound = typeof tournament.round === "number" ? tournament.round : item.reserved.round;
+        const slot = typeof tournament.slot === "number" ? tournament.slot : item.reserved.slot;
+        return itemRound === round && typeof slot === "number" && Number.isSafeInteger(slot) ? [[slot, item] as const] : [];
+      }));
       const remaining = context.budget.remainingExperiments();
-      const roundSize = Math.min(config.candidateCount, remaining);
+      const roundSize = Math.min(config.candidateCount, Math.max(remaining, resumableBySlot.size));
       if (roundSize <= 0) return campaignResult(context, experiments, "budget-exhausted", "maximum experiments reached");
       const allowance = context.budget.canStart(roundSize);
       if (!allowance.allowed) return campaignResult(context, experiments, "budget-exhausted", allowance.reason ?? "Budget exhausted.");
@@ -452,13 +505,18 @@ export class TournamentWorkflow implements Workflow {
         : undefined;
       const specifications = Array.from({ length: roundSize }, (_, index) => {
         const slot = index + 1;
-        const agent = agents[index % agents.length];
+        const resume = resumableBySlot.get(slot);
+        const retainedAgentId = asObject(resume?.record?.metadata?.tournament).agent;
+        const agent = typeof retainedAgentId === "string"
+          ? { id: retainedAgentId, driver: context.get<AgentDriver>("agent", retainedAgentId) }
+          : agents[index % agents.length];
         if (!agent) throw new Error("Tournament has no agent driver.");
         return {
-          experimentId: `tournament-r${String(round).padStart(4, "0")}-c${String(slot).padStart(3, "0")}`,
+          experimentId: resume ? `${resume.logicalExperimentId}-attempt-${String(resume.attemptNumber + 1).padStart(4, "0")}` : `tournament-r${String(round).padStart(4, "0")}-c${String(slot).padStart(3, "0")}`,
           slot,
           agent,
-          campaign: directedCampaign(context.campaign, framing, slot)
+          campaign: directedCampaign(context.campaign, framing, slot),
+          ...(resume ? { resume } : {})
         };
       });
 
@@ -478,12 +536,14 @@ export class TournamentWorkflow implements Workflow {
       }
 
       for (const specification of specifications) {
-        await journalPhase(context, specification.experimentId, "reserved", { round, slot: specification.slot });
+        if (specification.resume) await journalPhase(context, specification.resume.sourceExperimentId, "cleaned", { resumedAs: specification.experimentId, candidateRetained: true });
+        const attemptStartedAt = new Date().toISOString();
+        await journalPhase(context, specification.experimentId, "reserved", { round, slot: specification.slot, startedAt: specification.resume?.startedAt ?? attemptStartedAt, attemptStartedAt, logicalExperimentId: specification.resume?.logicalExperimentId ?? specification.experimentId, attemptNumber: (specification.resume?.attemptNumber ?? 0) + 1 });
         await context.emit({
           type: "experiment:start",
           campaignId: context.campaign.id,
           experimentId: specification.experimentId,
-          at: new Date().toISOString()
+          at: attemptStartedAt
         });
       }
 
@@ -499,39 +559,80 @@ export class TournamentWorkflow implements Workflow {
           specification.slot,
           history,
           reservations[specification.slot - 1]!,
-          specification.campaign
+          specification.campaign,
+          specification.resume
         ));
 
       const ranked: RankedCandidate[] = context.signal.aborted ? [] : rankCandidates(context, activeBaseline, runs);
       const synthesis = config.director && directorDriver && !context.signal.aborted
         ? await runDirector({ context, driver: directorDriver, config: config.director, phase: "synthesis", round, roundSize, history, baseline: activeBaseline, runs, ranked })
         : undefined;
-      const winner: RankedCandidate | undefined = context.signal.aborted || runs.some((run) => run.preservationBlocked) ? undefined : ranked[0];
+      const roundRetryRequired = runs.some((run) => run.preservationBlocked || run.retentionBlocked);
+      const winner: RankedCandidate | undefined = context.signal.aborted || roundRetryRequired ? undefined : ranked[0];
       const cleanupSignal = new AbortController().signal;
       const losers: CandidateRun[] = runs.filter((run) => run !== winner?.run).sort((left, right) => left.slot - right.slot);
       const finalizationOrder: CandidateRun[] = winner ? [...losers, winner.run] : losers;
-      let roundBlocked = runs.some((run) => run.preservationBlocked);
+      let roundBlocked = roundRetryRequired;
 
       for (const run of finalizationOrder) {
         const ranking = ranked.findIndex((item) => item.run === run);
         const decision = ranking >= 0 ? ranked[ranking]?.decision : undefined;
         const isWinner = winner?.run === run;
         const shouldAccept = isWinner && !roundBlocked;
-        let status: ExperimentRecord["status"] = run.preservationBlocked ? "blocked" : context.signal.aborted ? "cancelled" : run.error ? "crash" : shouldAccept ? "keep" : "discard";
+        let status: ExperimentRecord["status"] = roundRetryRequired || run.preservationBlocked || run.retentionBlocked ? "blocked" : context.signal.aborted ? "cancelled" : run.error ? "crash" : shouldAccept ? "keep" : "discard";
         let revision: string | undefined;
         let candidateRevision: string | undefined;
         let finalizationError: string | undefined;
 
-        if (run.candidate && !run.preservationBlocked) {
+        if (run.candidate && !roundRetryRequired && !run.preservationBlocked && !run.retentionBlocked) {
           try {
-            await journalPhase(context, run.experimentId, "acceptance-intent", { action: shouldAccept ? "accept" : "discard", round, slot: run.slot });
+            const predictedReason = shouldAccept ? "tournament-winner-accepted" : `tournament-candidate-rejected:round-${round}`;
+            const operationId = workspaceDecisionOperationId(context, run.experimentId, run.candidate);
+            await journalPhase(context, run.experimentId, "acceptance-intent", {
+              action: shouldAccept ? "accept" : "discard",
+              operationId,
+              round,
+              slot: run.slot,
+              recoveryMetadata: {
+                tournament: {
+                  round,
+                  slot: run.slot,
+                  roundSize,
+                  agent: run.agentId,
+                  evaluatorOrder: config.evaluators.map((item) => item.id),
+                  winner: shouldAccept,
+                  ...(ranking >= 0 ? { rank: ranking + 1 } : {}),
+                  ...(decision ? { decision } : {}),
+                  ...(framing ? { directorFraming: framing } : {}),
+                  ...(synthesis ? { directorSynthesis: synthesis } : {})
+                },
+                ...(run.agentResult?.metadata ? { agent: run.agentResult.metadata } : {}),
+                ...(run.failureClass ? { failureClass: run.failureClass } : {})
+              },
+              ...(run.agentRequest && run.agentResult ? {
+                finalization: agentFinalizationJournalData({ agent: run.agent, request: run.agentRequest, result: run.agentResult, evaluations: run.evaluations, accepted: shouldAccept, reason: predictedReason })
+              } : {})
+            });
             if (shouldAccept) {
-              const acceptance = await workspace.acceptCandidate({ campaign: context.campaign, candidate: run.candidate, signal: cleanupSignal });
+              const acceptance = await applyWorkspaceDecision(context, workspace, run.experimentId, { action: "accept", candidate: run.candidate, operationId, signal: cleanupSignal });
               revision = acceptance.revision;
               candidateRevision = acceptance.candidateRevision;
               if (acceptance.changed === false) status = "discard";
+              if (run.agentRequest && run.agentResult) {
+                await finalizeAgentDecision(context, run.experimentId, {
+                  agent: run.agent,
+                  request: run.agentRequest,
+                  result: run.agentResult,
+                  evaluations: run.evaluations,
+                  accepted: status === "keep",
+                  reason: status === "keep" ? predictedReason : "tournament-winner-produced-no-change"
+                });
+              }
             } else {
-              await workspace.discardCandidate({ campaign: context.campaign, candidate: run.candidate, signal: cleanupSignal });
+              await applyWorkspaceDecision(context, workspace, run.experimentId, { action: "discard", candidate: run.candidate, operationId, signal: cleanupSignal });
+              if (run.agentRequest && run.agentResult) {
+                await finalizeAgentDecision(context, run.experimentId, { agent: run.agent, request: run.agentRequest, result: run.agentResult, evaluations: run.evaluations, accepted: false, reason: predictedReason });
+              }
             }
           } catch (error) {
             finalizationError = errorMessage(error);
@@ -581,20 +682,22 @@ export class TournamentWorkflow implements Workflow {
               ...(framing ? { directorFraming: framing } : {}),
               ...(synthesis ? { directorSynthesis: synthesis } : {})
             },
-            ...(run.agentResult?.metadata ? { agent: run.agentResult.metadata } : {})
+            ...(run.agentResult?.metadata ? { agent: run.agentResult.metadata } : {}),
+            ...(roundRetryRequired ? { failureClass: "infrastructure" as const } : run.failureClass ? { failureClass: run.failureClass } : {})
           }
         };
 
         if (status === "keep") activeBaseline = run.evaluations;
-        const candidateBlocked = Boolean(run.preservationBlocked || finalizationError);
+        const candidateBlocked = Boolean(roundRetryRequired || run.preservationBlocked || run.retentionBlocked || finalizationError);
         if (candidateBlocked) {
           roundBlocked = true;
-          await journalPhase(context, run.experimentId, "blocked", { record, candidateRetained: Boolean(run.candidate) });
+          await journalPhase(context, run.experimentId, "blocked", { record, candidateRetained: Boolean(run.candidate), resumable: Boolean(run.candidate && roundRetryRequired), ...(roundRetryRequired ? { failureClass: "infrastructure" } : run.failureClass ? { failureClass: run.failureClass } : {}) });
         } else {
           await journalPhase(context, run.experimentId, "applied", { record });
         }
         experiments.push(record);
-        run.reservation.settle({ status, ...(run.agentResult?.usage?.costUsd !== undefined ? { actualCostUsd: run.agentResult.usage.costUsd } : {}) });
+        if (roundRetryRequired) run.reservation.cancel();
+        else run.reservation.settle({ status, ...(run.agentResult?.usage?.costUsd !== undefined ? { actualCostUsd: run.agentResult.usage.costUsd } : {}) });
         await context.appendRecord(record);
         if (!candidateBlocked) {
           await journalPhase(context, run.experimentId, "recorded", { status });

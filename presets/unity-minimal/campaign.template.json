@@ -1,0 +1,67 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "id": "replace-with-project-id-unity-slice-v1",
+  "objective": "Build one bounded Unity 6 experience in which shipping Input System events visibly move an actor through a spatial world, cause an attributable interaction and state consequence, and leave the player with another decision.",
+  "projectRoot": ".",
+  "workflow": "autoresearch",
+  "requires": [
+    "workflow:autoresearch",
+    "workspace:git.worktree",
+    "agent:command.agent",
+    "engine:unity.engine",
+    "evaluator:unity.scenario"
+  ],
+  "mutablePaths": [
+    "Assets/**",
+    "ProjectSettings/**",
+    "evidence/**"
+  ],
+  "immutablePaths": [
+    "Packages/com.gamefactory.bridge/**"
+  ],
+  "parameters": {
+    "workspace": "git.worktree",
+    "agent": "command.agent",
+    "evaluators": ["unity.scenario"],
+    "runtime": {
+      "engine": "unity.engine",
+      "scenarioRunner": "unity.scenario"
+    },
+    "unity": {
+      "importCheck": true,
+      "timeoutSeconds": 300,
+      "command": "gamefactory_run_scenario",
+      "prepareCommand": "gamefactory_prepare_playmode",
+      "connectedEditor": false,
+      "embodiedProof": {
+        "minimumDurationSeconds": 2,
+        "minimumShippingInputEvents": 4,
+        "minimumDisplacementUnits": 1,
+        "minimumSpatialInteractions": 1,
+        "minimumStateConsequences": 1,
+        "minimumDistinctFrames": 3
+      },
+      "scenarios": [
+        {
+          "id": "first-session",
+          "provider": "unity.pipeline/v1",
+          "version": "1",
+          "path": "Assets/GameFactory/first-session.scenario.json"
+        }
+      ]
+    }
+  },
+  "acceptance": {
+    "primaryMetric": "embodied_proof",
+    "direction": "maximize",
+    "minimumDelta": 1,
+    "comparison": "at-least",
+    "hardGates": ["unity.scenario"]
+  },
+  "budget": {
+    "maximumExperiments": 1,
+    "maximumConsecutiveCrashes": 2,
+    "wallTimeMinutes": 90
+  },
+  "humanGates": ["Approve the embodied Unity slice before production visual work."]
+}

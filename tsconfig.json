@@ -15,6 +15,7 @@
     { "path": "./extensions/agent-team" },
     { "path": "./extensions/git" },
     { "path": "./extensions/godot" },
+    { "path": "./extensions/unity" },
     { "path": "./extensions/tournament" },
     { "path": "./extensions/asset-foundry" },
     { "path": "./extensions/sam3" },

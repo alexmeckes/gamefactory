@@ -8,6 +8,7 @@ var _samples: Array = []
 var _artifacts: Array = []
 var _violations: Array = []
 var _captured_frames := 0
+var _max_state_latency_frames := 0
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -69,6 +70,16 @@ func _observe(subject: Node, definitions: Array) -> Dictionary:
 		var id := String(definition.get("id", node_path + "." + property_name))
 		observed[id] = node.get(property_name)
 	return observed
+
+func _state_changed(before_state: Dictionary, after_state: Dictionary, definitions: Array) -> bool:
+	for raw_definition in definitions:
+		if not raw_definition is Dictionary:
+			continue
+		var definition: Dictionary = raw_definition
+		var observation_id := String(definition.get("id", String(definition.get("nodePath", "")) + "." + String(definition.get("property", ""))))
+		if before_state.has(observation_id) and after_state.has(observation_id) and before_state[observation_id] != after_state[observation_id]:
+			return true
+	return false
 
 func _capture(frame_index: int) -> void:
 	await RenderingServer.frame_post_draw
@@ -143,6 +154,7 @@ func _run() -> void:
 	var physics_hz := maxi(1, int(parameters.get("physics_hz", 60)))
 	Engine.physics_ticks_per_second = physics_hz
 	var capture_every := maxi(1, int(probe.get("captureEveryFrames", 8)))
+	var default_settle_frames := clampi(int(probe.get("settleFrames", 0)), 0, 60)
 	var frame_index := 0
 	var before_state := _observe(subject, observations)
 	await physics_frame
@@ -178,6 +190,20 @@ func _run() -> void:
 			if frame_index % capture_every == 0:
 				await _capture(frame_index)
 		var after_state := _observe(subject, observations)
+		var latency_frames := 0
+		# Shipping actions can commit their visible consequence on the following
+		# physics tick. Observe a small, declared settle window so that consequence
+		# remains attributable to the input that caused it. This does not hide
+		# responsiveness: the measured latency is retained in the trace and metrics.
+		var settle_frames := clampi(int(step.get("settleFrames", default_settle_frames)), 0, 60) if kind == "action" and pressed else 0
+		while latency_frames < settle_frames and not _state_changed(before_state, after_state, observations):
+			await physics_frame
+			latency_frames += 1
+			frame_index += 1
+			if frame_index % capture_every == 0:
+				await _capture(frame_index)
+			after_state = _observe(subject, observations)
+		_max_state_latency_frames = maxi(_max_state_latency_frames, latency_frames if _state_changed(before_state, after_state, observations) else 0)
 		var events: Array = []
 		var changed := false
 		for raw_definition in observations:
@@ -190,7 +216,8 @@ func _run() -> void:
 					"cause": "player-input",
 					"state": String(definition.get("state", observation_id)),
 					"before": before_state[observation_id],
-					"after": after_state[observation_id]
+					"after": after_state[observation_id],
+					"latencyFrames": latency_frames
 				})
 		if action == interaction_action and pressed and target != null:
 			var actor_position: Vector2 = _node_position(actor)
@@ -243,6 +270,7 @@ func _run() -> void:
 			"embodied_probe_completed": 1,
 			"embodied_probe_input_events": steps.size(),
 			"embodied_probe_frames": _captured_frames,
+			"embodied_probe_max_consequence_latency_frames": _max_state_latency_frames,
 			"embodied_probe_seconds": float(frame_index) / float(physics_hz)
 		},
 		"artifacts": _artifacts,

@@ -1,0 +1,20 @@
+{
+  "name": "gamefactory.unity",
+  "version": "0.1.0",
+  "apiVersion": "1.0",
+  "entry": "dist/index.js",
+  "activation": [
+    "engine:unity.engine",
+    "scenario:unity.scenario",
+    "agent:unity.evidence",
+    "evaluator:unity.scenario"
+  ],
+  "contributes": {
+    "engine": ["unity.engine"],
+    "scenario": ["unity.scenario"],
+    "agent": ["unity.evidence"],
+    "evaluator": ["unity.scenario"]
+  },
+  "permissions": ["process:unity", "filesystem:artifacts"],
+  "description": "Unity 6 host adapter using Unity CLI and com.unity.pipeline for compile gates, deterministic scenarios, and trusted embodied evidence."
+}

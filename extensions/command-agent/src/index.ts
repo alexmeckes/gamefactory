@@ -272,7 +272,15 @@ function terminateProcessTree(child: ChildProcessWithoutNullStreams): void {
   if (child.pid === undefined || child.exitCode !== null || child.signalCode !== null) return;
   if (process.platform === "win32") {
     const killer = spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true });
+    const force = setTimeout(() => {
+      if (child.exitCode === null && child.signalCode === null) child.kill();
+    }, 500);
+    force.unref();
+    child.once("close", () => clearTimeout(force));
     killer.once("error", () => { child.kill(); });
+    killer.once("close", (code) => {
+      if (code !== 0 && child.exitCode === null && child.signalCode === null) child.kill();
+    });
     killer.unref();
     return;
   }

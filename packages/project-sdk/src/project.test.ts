@@ -286,7 +286,7 @@ function acceptedResult(campaignId: string, revision: string, metadata?: Record<
   return { campaignId, status: "complete", startedAt: "2026-01-01T00:00:00.000Z", finishedAt: "2026-01-01T00:00:01.000Z", bestMetrics: { score: 1 }, summary: "accepted", experiments: [{ campaignId, runId: `${campaignId}-run`, experimentId: `${campaignId}-candidate`, startedAt: "2026-01-01T00:00:00.000Z", finishedAt: "2026-01-01T00:00:01.000Z", status: "keep", revision, summary: "kept", metrics: { score: 1 }, evaluations: [], ...(metadata ? { metadata } : {}) }] };
 }
 
-function evidencedResult(campaign: Campaign, revision: string): CampaignResult {
+function evidencedResult(campaign: Campaign, revision: string, evaluator = "godot.scenario", engineAuthority = false): CampaignResult {
   const scenarioSha = "e".repeat(64);
   const interactionSha = "f".repeat(64);
   const captureSha = "d".repeat(64);
@@ -304,16 +304,17 @@ function evidencedResult(campaign: Campaign, revision: string): CampaignResult {
     specRevision: contract.specRevision,
     specFingerprint: contract.specFingerprint
   } });
+  const runtimeMetadata = engineAuthority ? { evidenceAuthority: "factory-engine", engine: "unity" } : {};
   result.experiments[0]!.agent = { summary: "real engine evidence", contributors: [], artifacts: [] };
   result.experiments[0]!.evaluations = [
-    { evaluator: "godot.scenario", version: "1", status: "pass", metrics: {}, violations: [], artifacts: [
-      { kind: "test-report", path: "evidence/first-errand-report.json", sha256: scenarioSha, metadata: { evidenceClass: "embodied-gameplay", verified: true } },
-      { kind: "replay", path: "evidence/first-errand-trace.json", sha256: interactionSha, metadata: { evidenceClass: "embodied-gameplay", verified: true } },
-      { kind: "test-report", path: "evidence/embodied-proof.json", sha256: embodiedSha, metadata: { evidenceClass: "embodied-gameplay", verified: true } }
+    { evaluator, version: "1", status: "pass", metrics: {}, violations: [], artifacts: [
+      { kind: "test-report", path: "evidence/first-errand-report.json", sha256: scenarioSha, metadata: { evidenceClass: "embodied-gameplay", verified: true, ...runtimeMetadata } },
+      { kind: "replay", path: "evidence/first-errand-trace.json", sha256: interactionSha, metadata: { evidenceClass: "embodied-gameplay", verified: true, ...runtimeMetadata } },
+      { kind: "test-report", path: "evidence/embodied-proof.json", sha256: embodiedSha, metadata: { evidenceClass: "embodied-gameplay", verified: true, ...runtimeMetadata } }
     ] },
-    { evaluator: "godot.scenario", version: "1", status: "pass", metrics: {}, violations: [], artifacts: [
-      { kind: "image", path: "evidence/current-engine.png", sha256: captureSha },
-      { kind: "video", path: "evidence/current-motion.mp4", sha256: motionSha }
+    { evaluator, version: "1", status: "pass", metrics: {}, violations: [], artifacts: [
+      { kind: "image", path: "evidence/current-engine.png", sha256: captureSha, metadata: runtimeMetadata },
+      { kind: "video", path: "evidence/current-motion.mp4", sha256: motionSha, metadata: runtimeMetadata }
     ] },
     { evaluator: "design.system", version: "1", status: "pass", metrics: {}, violations: [], artifacts: [
       { kind: "image", path: "evidence/approved-target.png", sha256: targetSha }
@@ -347,6 +348,23 @@ test("v2 validates a frozen claim-addressed spec and advances player-complete sl
     const specData = journey.find((event) => event.type === "spec-frozen")?.data as Record<string, unknown>;
     assert.match(String(specData.specArchivePath), /specs[\\/]r0001-/);
     assert.match(await readFile(String(specData.specArchivePath), "utf8"), /"revision":1/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("v2 accepts engine-neutral trusted Unity evidence without hard-coded evaluator ids", async () => {
+  const { root, manifestPath, specPath } = await v2Fixture();
+  try {
+    const spec = { apiVersion: "gamefactory.game-spec/v1", kind: "GameSpec", projectId: "v2-project", revision: 1, status: "frozen", concept: "A courier brews potions and walks them to villagers.", thesis: "Walking, brewing, and delivery are one causal loop.", claims: [{ id: "loop.first-errand", category: "loop", status: "required", statement: "The player walks, brews, and delivers one potion." }], slices: [{ id: "first-errand", playerOutcome: "Complete one delivery through direct world interaction.", primaryRisk: "The game becomes a static menu.", claimIds: ["loop.first-errand"] }], change: { kind: "initial", rationale: "Initial bounded thesis." } };
+    const runner = new ProjectRunner(await loadProject(manifestPath), { cwd: root, logger: new MemoryLogger(), executeCampaign: async ({ campaign }) => {
+      if (campaign.id === "spec-campaign") {
+        await writeFile(specPath, JSON.stringify(spec), "utf8");
+        return acceptedResult(campaign.id, "a".repeat(40));
+      }
+      return evidencedResult(campaign, "b".repeat(40), "unity.scenario", true);
+    } });
+    const result = await runner.run();
+    assert.equal(result.status, "complete");
+    assert.equal(result.phases.find((phase) => phase.phaseId === "first-errand")?.status, "complete");
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 

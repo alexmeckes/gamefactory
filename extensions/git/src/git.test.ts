@@ -158,10 +158,30 @@ test("Git workspace maps a subproject, enforces paths, and cherry-picks accepted
     openCandidates.push(accepted);
     assert.equal(accepted.root, resolve(String(accepted.metadata.worktreeRoot), "game"));
     await writeFile(resolve(accepted.root, "value.txt"), "new\n", "utf8");
-    const result = await workspace.acceptCandidate({ campaign, candidate: accepted, signal });
+    const result = await workspace.acceptCandidate({ campaign, candidate: accepted, signal, operationId: "git-contract:accept" });
     openCandidates.splice(openCandidates.indexOf(accepted), 1);
     assert.ok(result.revision);
     assert.equal((await readFile(resolve(projectRoot, "value.txt"), "utf8")).trim(), "new");
+    const retried = await workspace.acceptCandidate({ campaign, candidate: accepted, signal, operationId: "git-contract:accept" });
+    assert.equal(retried.revision, result.revision);
+    assert.equal(retried.changed, true);
+
+    const noChange = await workspace.createCandidate({ campaign, experimentId: "no-change", signal });
+    openCandidates.push(noChange);
+    assert.deepEqual(await workspace.acceptCandidate({ campaign, candidate: noChange, signal, operationId: "git-contract:no-change" }), { changed: false });
+    await access(String(noChange.metadata.worktreeRoot));
+    await workspace.discardCandidate({ campaign, candidate: noChange, signal, operationId: "git-contract:no-change" });
+    openCandidates.splice(openCandidates.indexOf(noChange), 1);
+
+    const leased = await workspace.createCandidate({ campaign, experimentId: "leased", signal });
+    openCandidates.push(leased);
+    await assert.rejects(() => workspace.createCandidate({ campaign, experimentId: "leased", signal }), /already owned by live process/);
+    await writeFile(String(leased.metadata.ownerPath), `${JSON.stringify({ pid: 2147483647 })}\n`, "utf8");
+    const reclaimed = await workspace.createCandidate({ campaign, experimentId: "leased", signal });
+    openCandidates.splice(openCandidates.indexOf(leased), 1, reclaimed);
+    assert.equal(reclaimed.metadata.worktreeRoot, leased.metadata.worktreeRoot);
+    await workspace.discardCandidate({ campaign, candidate: reclaimed, signal });
+    openCandidates.splice(openCandidates.indexOf(reclaimed), 1);
 
     const nested = await workspace.createCandidate({ campaign, experimentId: "nested", signal });
     openCandidates.push(nested);
@@ -192,8 +212,8 @@ test("Git workspace maps a subproject, enforces paths, and cherry-picks accepted
     openCandidates.splice(openCandidates.indexOf(stale), 1);
     await assert.rejects(() => access(staleRoot));
 
-    const raceA = await workspace.createCandidate({ campaign, experimentId: "race", signal });
-    const raceB = await workspace.createCandidate({ campaign, experimentId: "race", signal });
+    const raceA = await workspace.createCandidate({ campaign, experimentId: "race-a", signal });
+    const raceB = await workspace.createCandidate({ campaign, experimentId: "race-b", signal });
     openCandidates.push(raceA, raceB);
     assert.notEqual(raceA.metadata.worktreeRoot, raceB.metadata.worktreeRoot);
     await writeFile(resolve(raceA.root, "value.txt"), "race-a\n", "utf8");

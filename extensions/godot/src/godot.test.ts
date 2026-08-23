@@ -100,6 +100,47 @@ test("embodied campaigns reject unresolved probe template bindings before engine
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test("embodied campaigns reject an unbounded or fractional settle window before engine work", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "gamefactory-godot-probe-settle-"));
+  try {
+    const engine: EngineDriver = {
+      id: "fixture.engine",
+      async doctor() { return { ok: true, checks: [] }; },
+      async build() { throw new Error("engine must not run with an invalid settle window"); }
+    };
+    const scenarios: ScenarioRunner = {
+      id: "fixture.scenario",
+      async run() { throw new Error("scenario must not run with an invalid settle window"); }
+    };
+    const campaign: Campaign = {
+      apiVersion: "gamefactory.dev/v1",
+      id: "probe-settle-test",
+      objective: "fail before expensive work",
+      projectRoot: root,
+      workflow: "autoresearch",
+      requires: [],
+      mutablePaths: ["**"],
+      acceptance: { primaryMetric: "embodied_proof", direction: "maximize" },
+      parameters: { godot: {
+        embodiedProof: {},
+        embodiedProbe: {
+          actorPath: "Player",
+          settleFrames: 1.5,
+          stateObservations: [{ id: "state", nodePath: "Target", property: "active" }],
+          steps: [{ action: "interact", kind: "action", pressed: true, frames: 1 }]
+        }
+      } }
+    };
+    await assert.rejects(() => new GodotEvidenceAgent(engine, scenarios).run({
+      campaign,
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "invalid-settle",
+      history: [],
+      signal: new AbortController().signal
+    }), /settleFrames must be an integer from 0 to 60/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("factory-owned probe drives a real Godot scene through its shipping InputMap", { skip: !process.env.GODOT_BINARY }, async () => {
   const projectRoot = resolve("extensions", "godot", "test-fixtures", "embodied-probe");
   const campaign: Campaign = {
@@ -160,6 +201,14 @@ test("factory-owned probe supports a distinct trusted target for each interactio
   const source = await readFile(embodiedProbeScriptPath(), "utf8");
   assert.match(source, /step\.get\("targetPath", default_target_path\)/);
   assert.match(source, /subject\.get_node_or_null\(NodePath\(target_path\)\)/);
+});
+
+test("factory-owned probe attributes bounded late consequences and reports their latency", async () => {
+  const source = await readFile(embodiedProbeScriptPath(), "utf8");
+  assert.match(source, /probe\.get\("settleFrames", 0\)/);
+  assert.match(source, /while latency_frames < settle_frames and not _state_changed/);
+  assert.match(source, /"latencyFrames": latency_frames/);
+  assert.match(source, /"embodied_probe_max_consequence_latency_frames": _max_state_latency_frames/);
 });
 
 test("Godot scenario artifacts normalize candidate-defined kinds before crossing adapter boundaries", async () => {

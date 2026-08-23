@@ -20,6 +20,8 @@
     "agent:agent.team",
     "evaluator:game.spec",
     "agent:godot.evidence",
+    "agent:design.scene-target-contract",
+    "agent:design.scene-target-schema-repair",
     "evaluator:design.system",
     "agent:asset.command",
     "evaluator:asset.technical",

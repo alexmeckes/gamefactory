@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { lstat, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { extname, isAbsolute, relative, resolve } from "node:path";
 import {
+  InfrastructureFailureError,
   LocalCredentialStore,
   resolveCredential,
   type ArtifactReference,
@@ -36,12 +37,12 @@ const DIMENSIONS = [
 type Dimension = typeof DIMENSIONS[number];
 type Severity = "blocker" | "major" | "minor" | "opportunity";
 
-export class GeminiVisualReviewUnavailableError extends Error {
+export class GeminiVisualReviewUnavailableError extends InfrastructureFailureError {
+  readonly name = "GeminiVisualReviewUnavailableError";
   readonly artifacts: ArtifactReference[];
 
   constructor(message: string, artifacts: ArtifactReference[]) {
     super(message);
-    this.name = "GeminiVisualReviewUnavailableError";
     this.artifacts = artifacts;
   }
 }
@@ -63,6 +64,7 @@ interface Settings {
   evidencePaths: string[];
   contractPaths: string[];
   mediaResolution: "low" | "medium" | "high";
+  claimId: string;
 }
 
 interface EvidenceInput {
@@ -98,6 +100,22 @@ interface GeminiReview {
   notApplicable: Dimension[];
   strengths: string[];
   findings: Finding[];
+}
+
+function orchestrationFinding(finding: Finding, failureSeverities: ReadonlySet<Severity>, claimId: string): Record<string, unknown> {
+  return {
+    id: finding.id,
+    findingClass: failureSeverities.has(finding.severity) ? "blocker" : "opportunity",
+    claimIds: [claimId],
+    issue: `${finding.violatedContract}: ${finding.playerImpact}`,
+    evidence: finding.evidenceIds,
+    severity: finding.severity,
+    owner: finding.owner,
+    affectedState: finding.affectedState,
+    repair: finding.repair,
+    regressionEvidence: finding.regressionEvidence,
+    ...(finding.timestampSeconds === null ? {} : { timestampSeconds: finding.timestampSeconds })
+  };
 }
 
 function record(value: unknown, label: string): Record<string, unknown> {
@@ -156,7 +174,8 @@ function settings(campaign: Campaign): Settings {
     failureSeverities: (failureSeverities.length ? failureSeverities : checkpoint === "embodied" ? ["blocker"] : ["blocker", "major"]) as Severity[],
     evidencePaths: strings(value.evidencePaths, "parameters.geminiVisualReview.evidencePaths", 24),
     contractPaths: strings(value.contractPaths, "parameters.geminiVisualReview.contractPaths", 8),
-    mediaResolution
+    mediaResolution,
+    claimId: text(value.claimId, checkpoint === "embodied" ? "loop.core" : "visual.production-fidelity", "parameters.geminiVisualReview.claimId", 256)
   };
 }
 
@@ -195,9 +214,11 @@ function validateMedia(bytes: Buffer, type: string, label: string): void {
 function sha256(bytes: Buffer): string { return createHash("sha256").update(bytes).digest("hex"); }
 
 function visualReviewPaths(campaign: Campaign): string[] {
-  const godot = campaign.parameters?.godot;
-  if (!godot || typeof godot !== "object" || Array.isArray(godot)) return [];
-  const review = (godot as Record<string, unknown>).visualReview;
+  const parameters = campaign.parameters ?? {};
+  const runtime = parameters.runtime && typeof parameters.runtime === "object" && !Array.isArray(parameters.runtime) ? parameters.runtime as Record<string, unknown> : undefined;
+  const unity = parameters.unity && typeof parameters.unity === "object" && !Array.isArray(parameters.unity) ? parameters.unity as Record<string, unknown> : undefined;
+  const godot = parameters.godot && typeof parameters.godot === "object" && !Array.isArray(parameters.godot) ? parameters.godot as Record<string, unknown> : undefined;
+  const review = runtime?.visualReview ?? unity?.visualReview ?? godot?.visualReview;
   if (!review || typeof review !== "object" || Array.isArray(review)) return [];
   const config = review as Record<string, unknown>;
   const paths: string[] = [];
@@ -244,7 +265,10 @@ async function collectEvidence(input: Parameters<Evaluator["evaluate"]>[0], conf
   let trace = "";
   let traceArtifact: ArtifactReference | undefined;
   for (const evaluation of input.priorEvaluations) {
-    if (evaluation.evaluator !== "godot.scenario" && evaluation.evaluator !== "godot.visual") continue;
+    const trustedRuntimeEvaluation = evaluation.evaluator === "godot.scenario"
+      || evaluation.evaluator === "godot.visual"
+      || evaluation.artifacts.some((artifact) => artifact.metadata?.evidenceAuthority === "factory-engine");
+    if (!trustedRuntimeEvaluation) continue;
     for (const artifact of evaluation.artifacts) {
       if ((artifact.kind === "replay" || artifact.kind === "telemetry") && artifact.metadata?.protocol === TRACE_PROTOCOL && artifact.metadata?.evidenceClass === "embodied-gameplay" && artifact.metadata?.verified === true) {
         const bytes = await readFile(await realpath(artifact.path));
@@ -255,7 +279,7 @@ async function collectEvidence(input: Parameters<Evaluator["evaluate"]>[0], conf
       if (artifact.kind === "image" || artifact.kind === "video") sources.push({ path: artifact.path, ...(artifact.mediaType ? { declared: artifact.mediaType } : {}), label: artifact.label ?? `${evaluation.evaluator} ${artifact.kind}`, role: "runtime", metadata: artifact.metadata ?? {}, trustedPath: true, ...(artifact.sha256 ? { expectedSha256: artifact.sha256 } : {}) });
     }
   }
-  if (config.requireEmbodiedTrace && !traceArtifact) throw new Error("Gemini visual review requires an evaluator-verified embodied gameplay trace from godot.scenario");
+  if (config.requireEmbodiedTrace && !traceArtifact) throw new Error("Gemini visual review requires an evaluator-verified embodied gameplay trace from a trusted engine adapter");
   const configuredRuntimePaths = config.checkpoint === "production" ? visualReviewPaths(input.campaign) : [];
   for (const path of [...configuredRuntimePaths, ...config.evidencePaths]) sources.push({ path, label: `Configured runtime evidence: ${path}`, role: "runtime", metadata: {}, trustedPath: false });
   const contracts = await contractEvidence(input.candidate.root, config.contractPaths, config.maximumContractBytes);
@@ -530,7 +554,7 @@ export class GeminiVisualEvaluator implements Evaluator {
   }
 
   private failed(message: string, artifacts: ArtifactReference[] = [], model?: string): Evaluation {
-    return { evaluator: this.id, version: this.version, status: "fail", metrics: { gemini_visual_review: 0, gemini_visual_score: 0 }, violations: [{ code: "gemini.visual.unavailable", message, severity: "error" }], artifacts, confidence: 0, summary: `Gemini visual review failed closed: ${message}`, ...(model ? { usage: { provider: "google", model, billingMode: "metered", identitySource: "configured" } } : {}) };
+    return { evaluator: this.id, version: this.version, status: "fail", failureClass: "infrastructure", metrics: { gemini_visual_review: 0, gemini_visual_score: 0 }, violations: [{ code: "gemini.visual.unavailable", message, severity: "error" }], artifacts, confidence: 0, summary: `Gemini visual review failed closed: ${message}`, ...(model ? { usage: { provider: "google", model, billingMode: "metered", identitySource: "configured" } } : {}) };
   }
 }
 
@@ -547,18 +571,27 @@ export class GeminiVisualReviewAgent implements AgentDriver {
 
   async run(request: Parameters<AgentDriver["run"]>[0]): Promise<AgentResult> {
     const startedAt = new Date().toISOString();
-    const manifestPath = resolve(request.candidate.root, ".factory", "runs", request.experimentId, "godot-evidence", "result.json");
     let priorEvaluations: Evaluation[] = [];
-    try {
-      const manifest = record(JSON.parse(await readFile(manifestPath, "utf8")) as unknown, "Godot evidence manifest");
-      const status = manifest.status === "pass" ? "pass" : "fail";
-      const manifestArtifacts = Array.isArray(manifest.artifacts) ? manifest.artifacts.filter((item): item is ArtifactReference => Boolean(item && typeof item === "object" && !Array.isArray(item) && typeof (item as Record<string, unknown>).path === "string" && typeof (item as Record<string, unknown>).kind === "string")) : [];
-      priorEvaluations = [{ evaluator: "godot.scenario", version: "factory-evidence", status, metrics: {}, violations: [], artifacts: manifestArtifacts }];
-    } catch { /* evaluator reports the missing trusted trace with a preserved fail-closed report */ }
+    const manifestCandidates = [
+      resolve(request.candidate.root, ".factory", "runs", request.experimentId, "engine-evidence", "result.json"),
+      resolve(request.candidate.root, ".factory", "runs", request.experimentId, "godot-evidence", "result.json")
+    ];
+    for (const manifestPath of manifestCandidates) {
+      try {
+        const manifest = record(JSON.parse(await readFile(manifestPath, "utf8")) as unknown, "Engine evidence manifest");
+        const status = manifest.status === "pass" ? "pass" : "fail";
+        const manifestArtifacts = Array.isArray(manifest.artifacts) ? manifest.artifacts.filter((item): item is ArtifactReference => Boolean(item && typeof item === "object" && !Array.isArray(item) && typeof (item as Record<string, unknown>).path === "string" && typeof (item as Record<string, unknown>).kind === "string")) : [];
+        const evaluator = typeof manifest.evaluator === "string" ? manifest.evaluator : manifestPath.includes("godot-evidence") ? "godot.scenario" : "engine.scenario";
+        priorEvaluations = [{ evaluator, version: "factory-evidence", status, metrics: {}, violations: [], artifacts: manifestArtifacts }];
+        break;
+      } catch { /* try the next engine adapter manifest */ }
+    }
     const rawVisual = request.campaign.parameters?.geminiVisualReview;
     const visual = rawVisual && typeof rawVisual === "object" && !Array.isArray(rawVisual) ? rawVisual as Record<string, unknown> : {};
     const checkpointContractPaths = visual[`${this.checkpoint}ContractPaths`];
     const campaign: Campaign = { ...request.campaign, parameters: { ...(request.campaign.parameters ?? {}), geminiVisualReview: { ...visual, checkpoint: this.checkpoint, ...(Array.isArray(checkpointContractPaths) ? { contractPaths: checkpointContractPaths } : {}) } } };
+    const reviewSettings = settings(campaign);
+    const configuredFailureSeverities = new Set(reviewSettings.failureSeverities);
     const evaluation = await this.evaluator.evaluate({ campaign, candidate: request.candidate, experimentId: request.experimentId, priorEvaluations, signal: request.signal });
     const reportArtifact = evaluation.artifacts.find((artifact) => artifact.label === "Gemini multimodal visual review");
     let structured: Record<string, unknown> = { findings: [], metrics: evaluation.metrics };
@@ -566,8 +599,10 @@ export class GeminiVisualReviewAgent implements AgentDriver {
       try {
         const report = record(JSON.parse(await readFile(reportArtifact.path, "utf8")) as unknown, "Gemini visual report");
         const review = report.review && typeof report.review === "object" && !Array.isArray(report.review) ? report.review as Record<string, unknown> : {};
+        const providerFindings = Array.isArray(review.findings) ? review.findings : [];
         structured = {
-          findings: Array.isArray(review.findings) ? review.findings : [],
+          findings: providerFindings.map((finding) => orchestrationFinding(finding as Finding, configuredFailureSeverities, reviewSettings.claimId)),
+          providerFindings,
           scores: review.scores ?? {},
           strengths: review.strengths ?? [],
           evidence: Array.isArray(report.evidence) ? report.evidence : [],
@@ -584,15 +619,32 @@ export class GeminiVisualReviewAgent implements AgentDriver {
         evaluation.artifacts
       );
     }
-    const configuredFailureSeverities = new Set(settings(campaign).failureSeverities);
-    const ownedFailures = Array.isArray(structured.findings)
-      ? structured.findings.filter((finding): finding is Finding => Boolean(
+    const providerFindings = Array.isArray(structured.providerFindings) ? structured.providerFindings : [];
+    const ownedFailures = providerFindings
+      .filter((finding): finding is Finding => Boolean(
         finding
         && typeof finding === "object"
         && !Array.isArray(finding)
         && configuredFailureSeverities.has((finding as Finding).severity)
-      ))
-      : [];
+      ));
+    const canonicalFindings = Array.isArray(structured.findings) ? structured.findings : [];
+    if (evaluation.status === "fail" && !canonicalFindings.some((finding) => Boolean(
+      finding && typeof finding === "object" && !Array.isArray(finding)
+      && (finding as Record<string, unknown>).findingClass === "blocker"
+    ))) {
+      canonicalFindings.push({
+        id: "gemini-evaluator-rejection",
+        findingClass: "blocker",
+        claimIds: [reviewSettings.claimId],
+        issue: evaluation.summary ?? `${this.checkpoint} visual evaluation failed its configured score or verdict gate`,
+        evidence: evaluation.artifacts.map((artifact) => artifact.path),
+        severity: "major",
+        owner: "implementation",
+        repair: "Address the evaluator-level rejection and recapture the same trusted runtime evidence.",
+        regressionEvidence: `Re-run the ${this.checkpoint} Gemini review against refreshed engine evidence.`
+      });
+      structured.findings = canonicalFindings;
+    }
     const outcome = evaluation.status === "pass"
       ? "pass"
       : ownedFailures.some((finding) => finding.owner === "spec")
@@ -602,7 +654,7 @@ export class GeminiVisualReviewAgent implements AgentDriver {
             : "revise";
     const finishedAt = new Date().toISOString();
     const contributor: AgentContribution = {
-      agentId: `google:${settings(campaign).model}`,
+      agentId: `google:${reviewSettings.model}`,
       role: "critic",
       status: "complete",
       startedAt,

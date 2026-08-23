@@ -93,12 +93,36 @@ test("tournament resumes from JSONL without repeating its baseline or round ids"
   }
 });
 
+test("tournament retries an infrastructure-interrupted round from retained candidates", async () => {
+  const projectRoot = await mkdtemp(resolve(tmpdir(), "gamefactory-tournament-infrastructure-resume-"));
+  const instance = await runner(projectRoot);
+  const retryCampaign = campaign(projectRoot);
+  retryCampaign.budget = { maximumExperiments: 3 };
+  retryCampaign.parameters = { ...retryCampaign.parameters, mockInfrastructureFailure: true };
+  try {
+    const interrupted = await instance.run(retryCampaign);
+    assert.equal(interrupted.status, "blocked");
+    assert.equal(interrupted.experiments.filter((record) => record.metadata?.failureClass === "infrastructure").length, 3);
+
+    const resumed = await instance.run(retryCampaign);
+    assert.equal(resumed.status, "budget-exhausted");
+    const completed = resumed.experiments.filter((record) => record.status !== "baseline" && record.metadata?.failureClass !== "infrastructure");
+    assert.equal(completed.length, 3);
+    assert.ok(completed.every((record) => record.experimentId.includes("-attempt-0002")));
+    assert.equal(new Set(completed.map((record) => (record.metadata?.tournament as { round?: number } | undefined)?.round)).size, 1);
+  } finally {
+    await instance.dispose();
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
 test("tournament bounds agent concurrency, stops its evaluator waterfall, and serializes finalization", async () => {
   const projectRoot = await mkdtemp(resolve(tmpdir(), "gamefactory-tournament-contract-"));
   const records: ExperimentRecord[] = [];
   const accepted: string[] = [];
   const discarded: string[] = [];
   const expensiveCalls: string[] = [];
+  const agentFinalizations: Array<{ id: string; accepted: boolean }> = [];
   let activeAgents = 0;
   let maximumActiveAgents = 0;
   let activeFinalizations = 0;
@@ -127,6 +151,7 @@ test("tournament bounds agent concurrency, stops its evaluator waterfall, and se
   };
   const agent: AgentDriver = {
     id: "test.agent",
+    async finalize(input) { agentFinalizations.push({ id: input.experimentId, accepted: input.accepted }); },
     async run(request) {
       activeAgents += 1;
       maximumActiveAgents = Math.max(maximumActiveAgents, activeAgents);
@@ -207,6 +232,10 @@ test("tournament bounds agent concurrency, stops its evaluator waterfall, and se
     assert.deepEqual(expensiveCalls, ["baseline", "tournament-r0001-c001"]);
     assert.deepEqual(accepted, ["tournament-r0001-c001"]);
     assert.deepEqual(discarded.sort(), ["tournament-r0001-c002", "tournament-r0001-c003"]);
+    assert.deepEqual(agentFinalizations, [
+      { id: "tournament-r0001-c002", accepted: false },
+      { id: "tournament-r0001-c001", accepted: true }
+    ]);
     assert.deepEqual(records.map((record) => record.status), ["baseline", "discard", "crash", "keep"]);
   } finally {
     await rm(projectRoot, { recursive: true, force: true });

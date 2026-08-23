@@ -2,7 +2,7 @@
   "apiVersion": "gamefactory.game-spec/v1",
   "kind": "GameSpec",
   "projectId": "alchemy-delivery-boys-v3",
-  "revision": 1,
+  "revision": 2,
   "status": "frozen",
   "concept": "alchemy delivery boys, you mix potions and bring them to villagers\n",
   "thesis": "Each order is one readable prediction: the player reads a villager's need, commits to a potion mix and delivery approach whose qualities interact, directly carries it through a compact place, and uses the villager's causal reaction to make a better next delivery choice.",
@@ -19,6 +19,18 @@
         "The villager provides only an opaque score, success label, or unrelated reaction, so the player cannot connect the need, starting mix, journey effect, and delivered state.",
         "The next delivery choice is unchanged by knowledge or consequence from the completed delivery, leaving no reason to apply what was learned.",
         "Unsignaled randomness dominates the result strongly enough that a deterministic first-session trace cannot attribute outcome changes to counterfactual player choices."
+      ]
+    },
+    {
+      "id": "visual.production-fidelity",
+      "category": "visual",
+      "statement": "The production encounter presents the proven delivery loop as an intentionally authored, spatially coherent, animated runtime scene whose actors, interactive props, potion state, villager consequence, interface hierarchy, and scene life remain independently rendered and visibly attributable to the approved whole-screen target.",
+      "status": "required",
+      "falsifiers": [
+        "The shipping runtime is primarily a static plate, primitive greybox, or monolithic image instead of independently rendered world and interaction consumers.",
+        "The player cannot visually distinguish the controlled actor, interactable stations, carried potion state, delivery consequence, or next choice at the shipping camera.",
+        "Runtime captures materially contradict the approved target's geometry, hierarchy, scale, typography, or state-specific feedback.",
+        "The encounter passes causal input evidence but remains visually frozen, provisional, or disconnected from the state changes proved by that evidence."
       ]
     }
   ],
@@ -71,7 +83,8 @@
       "playerOutcome": "Play the accepted delivery loop as a coherent, animated, readable production encounter whose world, characters, potion state, villager response, and interface feel intentionally authored.",
       "primaryRisk": "Visual production replaces the proven world with static plates, introduces incoherent scale or UI, or leaves the scene lifeless and procedurally provisional.",
       "claimIds": [
-        "loop.core"
+        "loop.core",
+        "visual.production-fidelity"
       ]
     }
   ],
@@ -89,19 +102,23 @@
     "How should multiple delivery boys, broader village relationships, recipes, and progression shape later rounds if the core loop is accepted?",
     "Which visual, audio, motion, camera, and interface language should communicate potion state and villager reaction during the later production encounter?"
   ],
+  "supersedes": {
+    "revision": 1,
+    "sha256": "f1730d0149ae8db65d20f60288f5842d707802f571662df8134625ef13a6159e"
+  },
   "change": {
-    "kind": "initial",
-    "rationale": "Initial frozen revision. No earlier GameSpec exists in this project lineage, so there is no supersedes entry. This revision freezes only the causal loop required by the contracted slices and leaves team structure, exact journey pressure, content, progression, and presentation unresolved.",
+    "kind": "user-amendment",
+    "rationale": "Revision 2 preserves the accepted causal loop and adds an explicit production-fidelity claim so trusted multimodal reviewers can reject static, provisional, or target-incoherent runtime presentation without misattributing those findings to loop.core.",
     "evidence": [
       "The supplied concept verbatim requires alchemy delivery boys who mix potions and bring them to villagers.",
       "The project contract requires first-playable to include personal mixing, direct carrying through a compact navigable place, delivery, understandable consequence, and an immediate next meaningful choice while consuming loop.core.",
-      "An explicitly synthetic counterfactual walkthrough with illustrative warmth and fizz values produced one attributable successful plan and distinct failures when either its mix or journey was changed; this supports falsifiability but is not human evidence of fun."
+      "An explicitly synthetic counterfactual walkthrough with illustrative warmth and fizz values produced one attributable successful plan and distinct failures when either its mix or journey was changed; this supports falsifiability but is not human evidence of fun.",
+      "Production-v7 demonstrated that causal Godot evidence can pass while a later multimodal review still finds primitive runtime presentation and target-fidelity failure; this claim makes that independent acceptance dimension explicit."
     ],
     "affectedClaims": [
-      "loop.core"
+      "visual.production-fidelity"
     ],
     "affectedSlices": [
-      "first-playable",
       "production-encounter"
     ]
   }

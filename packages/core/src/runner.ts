@@ -21,6 +21,7 @@ export interface RunnerOptions {
   cwd: string;
   dataRoot?: string;
   worktreeRoot?: string;
+  implementationFingerprint?: string;
   onTraceEvent?: (event: FactoryTraceEvent) => Promise<void> | void;
   config: FactoryConfig;
   logger: Logger;
@@ -315,6 +316,7 @@ export class FactoryRunner {
         const runtime: FactoryRuntimeContext = {
           ...(this.options.dataRoot ? { dataRoot: this.options.dataRoot } : {}),
           ...(this.options.worktreeRoot ? { worktreeRoot: this.options.worktreeRoot } : {}),
+          ...(this.options.implementationFingerprint ? { implementationFingerprint: this.options.implementationFingerprint } : {})
         };
         result = await workflow.run({
         campaign,

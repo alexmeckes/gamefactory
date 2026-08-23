@@ -28,7 +28,7 @@
         "requireMotionEvidence": true
       },
       "attemptPolicy": { "executionRetries": 2, "creativeRepairs": 2, "specAmendments": 1, "advisorEscalations": 1 },
-      "gate": { "requireAcceptedRevision": true },
+      "gate": { "requireAcceptedRevision": true, "requireHumanApproval": true },
       "attempts": [{ "id": "embodied-v1", "campaign": "embodied-campaign.json", "config": "factory.json" }]
     },
     {

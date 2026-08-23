@@ -14,6 +14,7 @@ The legacy configuration runs read-only scouts in parallel, one read-only planne
       "maximumParallel": 4,
       "maxOutputCharacters": 20000,
       "handoffCharacters": 10000,
+      "maximumHandoffArtifacts": 24,
       "historyLimit": 6,
       "provider": "openai",
       "model": "your-model-id",
@@ -44,9 +45,16 @@ Use `agentTeam.graph` when the director needs a task-specific team instead of th
     "agentTeam": {
       "maximumParallel": 4,
       "maxOutputCharacters": 20000,
+      "handoffCharacters": 12000,
+      "maximumHandoffArtifacts": 24,
       "graph": {
+        "enforceWriteContracts": true,
+        "reuseCheckpoints": true,
         "maximumTotalAttempts": 24,
         "maximumRepairAttempts": 2,
+        "externalInvalidationTargets": {
+          "evaluator:runtime-proof": ["builder"]
+        },
         "context": [
           { "kind": "other", "path": "design/GAME.md", "label": "game intent" }
         ],
@@ -67,6 +75,7 @@ Use `agentTeam.graph` when the director needs a task-specific team instead of th
             "id": "builder",
             "role": "implementer",
             "permissions": "write",
+            "writePaths": ["src/**", "assets/**"],
             "dependsOn": ["mechanics", "telemetry"],
             "command": ["pi", "--mode", "write"]
           },
@@ -115,6 +124,7 @@ Node fields:
 - `threadRetention` controls Codex conversation persistence for App Server nodes. `ephemeral` is the default: one blank candidate root feeds in-memory worker forks, finished workers unsubscribe immediately, and the root plus shared App Server process are removed when the last parallel candidate finishes. `archive` persists each worker but moves it out of the active task list after completion. `debug` persists workers in the active task list while still unsubscribing them from live events. It may be set once on `agentTeam` and overridden per node.
 - `role` is one of `scout`, `planner`, `implementer`, `critic`, `judge`, or `worker`. It defaults to `worker`.
 - `permissions` is `read` or `write`. `readOnly` is accepted as an equivalent boolean. An implementer defaults to write; every other role defaults to read.
+- `writePaths` is the canonical mutation contract for a writer or factory-native driver. With graph-level `enforceWriteContracts: true`, every writer must declare it, repair scopes must cover the target writer contract, driver-declared side effects must fit it, and mutations outside it fail before downstream work proceeds. Legacy `driverWritePaths` is read only for migration.
 - `authority` is `observe`, `propose`, `mutate-candidate`, `mutate-spec`, or `approve`. It defaults from the role and permission. Mutation authority requires write permission; all other authorities require read permission. A graph may have at most one spec owner.
 - `dependsOn` names predecessor nodes.
 - `when` conditionally runs a node after a direct predecessor produces one of the named outcomes. It can be one condition or an array, for example `{ "node": "review", "outcomes": ["revise"] }`.
@@ -125,15 +135,20 @@ Node fields:
 - `timeoutSeconds` sets a per-attempt safety backstop and defaults to 900. Long-running Sol/xhigh writers and visual reviewers can override it without forcing every scout to inherit the same runway. The value must be positive and no greater than 86400.
 - `required: false` permits a failed optional node without failing the whole graph. Dependents can use `when` with the `failed` outcome to run a fallback.
 - `repair` lets a read-only reviewer route `revise` (or configured outcomes) back to a directly preceding writer. The writer receives the review as an additional structured input, then derived evidence and reviewers rerun in dependency order. Optional `allowedPaths` fails closed if the repair mutates another surface. Optional `preserve` names direct read-only contracts whose accepted outcomes are included as frozen constraints and must survive re-evaluation.
+- `invalidationTargets` maps terminal rejection outcomes to the upstream writer checkpoints made stale by that outcome. Each named writer is a causal seed, so writer checkpoints downstream of it are invalidated too. An explicit empty list preserves all writer checkpoints, as for a spec-amendment return edge. Without a mapping, only the nearest upstream writers and their writer descendants are invalidated. External mappings accept either an evaluator id or the more precise `evaluator#violation-code`; evaluator-provided `causalNodeIds` take precedence.
 - `refreshAfterRepair: true` remains accepted as an explicit documentation hint. Refresh is now automatic: repairing a writer increments its generation and reruns every completed dependent writer, evidence node, reviewer, and judge in dependency order. Required nodes cannot complete against stale writer generations.
-- `adapter: "agent-driver"` plus `driver: "<agent capability>"` invokes another lazily activated GameFactory agent extension inside the graph. This is intended for bounded tools such as `sam3.segment`; it cannot recursively invoke `agent.team`, and its artifacts and metadata join the ordinary handoff/provenance stream.
+- `adapter: "agent-driver"` plus `driver: "<agent capability>"` invokes another lazily activated GameFactory agent extension inside the graph. This is intended for bounded tools such as `sam3.segment`; it cannot recursively invoke `agent.team`, and its artifacts and metadata join the ordinary handoff/provenance stream. The delegated `AgentRequest.invocation` carries the node id, concrete attempt, reason, instructions, and provider-neutral upstream inputs, including output-contract retry feedback.
 - `provider` and `model` identify the configured invocation backend. `billingMode` is `subscription`, `credits`, `metered`, or `unknown`. These may be set once on `agentTeam` and overridden per contributor. Configured identity is labeled as configured rather than presented as provider-verified telemetry.
 
 `maximumTotalAttempts` caps every subprocess invocation, including retries and reviews. `maximumRepairAttempts` caps total writer revision rounds across the graph. Each repair edge also has its own `maximumAttempts`. An unresolved required repair fails the gate and dependency-blocks required downstream work instead of creating an unbounded loop.
 
+Graph-level `reuseCheckpoints: true` stores each successful writer's contracted output delta, declared evidence, structured handoff, semantic node identity, stable dependency identity, exact write-scope input/output state, and full candidate read-state before and after the writer below the factory data root. Semantic identity includes every execution-defining field: command/driver routing and candidate-local command-file contents, model settings, campaign and slice contracts, orchestration runtime fingerprint, role charter, project instructions, loaded skill-directory hashes, repair/invalidation policy, write scope, and referenced context contents. Every save has an exact generation id and remains provisional when the agent graph returns. The outer workflow promotes generations only after all hard evaluators accept the candidate. A graph rejection invalidates the causally named writer generations and their writer descendants immediately; an external evaluator rejection uses violation attribution or `externalInvalidationTargets` as causal seeds while accepting independent work. An unknown external rejection is conservative and invalidates all writer generations.
+
+Provisional generations can resume across infrastructure attempts only in the same retained candidate and logical experiment lineage. An accepted generation may restore into another worktree only when its recorded write-scope input and full candidate read-state hashes match that worktree exactly; restoration applies a verified delta, preserves unrelated files, and checks the final output and read-state hashes. Same-worktree edits anywhere the writer could have read force execution again. Checkpoints are saved only after write-scope enforcement passes. Checkpoint, provider-availability, evaluator-availability, and write-guard failures are infrastructure failures, so workflows retain the candidate instead of recording a creative rejection; autoresearch also avoids charging a creative experiment or plateau step.
+
 Graph-level `claimIds` declares the frozen contract claims visible to reviewers. When `enforceClaimedBlockers` is true—or any node declares authority explicitly—a rejecting `propose` or `approve` node must return structured blocker findings with existing `claimIds`. New scope is an `opportunity`, not a forced repair. Metadata reports `executionRetries`, creative `repairAttempts`, `advisorEscalations`, each writer generation, and the input generations reviewed by every node.
 
-`handoffCharacters` separately bounds upstream context (default 12000, capped by `maxOutputCharacters`), while `historyLimit` keeps only the newest experiment summaries (default 6; zero disables history). Structured results are passed without duplicating their raw stdout, and oversized structured payloads become a bounded summary with a pointer to the preserved full output.
+`handoffCharacters` is one total upstream-context budget for a node (default 12000, capped by `maxOutputCharacters`), divided across direct dependencies and compacted experiment history rather than granted separately to every source. `maximumHandoffArtifacts` is likewise one total artifact-reference allowance (default 24). `historyLimit` keeps only the newest experiment summaries (default 6; zero disables history); nested extension drivers receive the same compact history, not the original full records. Structured handoffs omit duplicated raw stdout, usage telemetry, and artifact arrays; artifacts travel through their separately bounded channel. Oversized structured payloads become a bounded summary with a pointer to the preserved full output. The complete effective instruction manifest is stored beside the request and referenced by path instead of embedded into every request body; an agent reads it only when it needs instruction-source audit details or bound skill content.
 
 The App Server adapter streams turn/item events, subscription token usage,
 provider model reroutes, and native Codex collaboration calls. Collaboration

@@ -6,6 +6,7 @@ import type {
 } from "./journal.js";
 import type { TraceSink } from "./trace.js";
 import type { InvocationUsage } from "./usage.js";
+import type { FailureClass } from "./failures.js";
 
 export type CapabilityKind =
   | "workspace"
@@ -45,6 +46,8 @@ export interface Violation {
   message: string;
   severity: "info" | "warning" | "error";
   location?: string;
+  /** Optional graph writer ids causally responsible for this violation. */
+  causalNodeIds?: string[];
 }
 
 export interface Evaluation {
@@ -57,6 +60,8 @@ export interface Evaluation {
   confidence?: number;
   summary?: string;
   usage?: InvocationUsage;
+  /** Separates evaluator availability from an honest candidate verdict. */
+  failureClass?: FailureClass;
 }
 
 export interface BudgetConfig {
@@ -112,26 +117,64 @@ export interface WorkspaceDriver {
     campaign: Campaign;
     candidate: Candidate;
     signal: AbortSignal;
+    /** Stable identity used to make a retried acceptance idempotent. */
+    operationId?: string;
   }): Promise<{ revision?: string; candidateRevision?: string; changed?: boolean }>;
   discardCandidate(input: {
     campaign: Campaign;
     candidate: Candidate;
     signal: AbortSignal;
+    /** Stable identity used to associate cleanup with a durable decision. */
+    operationId?: string;
   }): Promise<void>;
 }
 
 export interface FactoryRuntimeContext {
   dataRoot?: string;
   worktreeRoot?: string;
+  /** Hash of the activated orchestration/runtime implementation for durable reuse. */
+  implementationFingerprint?: string;
+}
+
+export interface AgentInvocationInput {
+  contributorId: string;
+  nodeId: string;
+  role: AgentRole;
+  attempt: number;
+  outcome: string;
+  summary: string;
+  structured?: Record<string, unknown>;
+  artifacts: ArtifactReference[];
+}
+
+export interface AgentInvocationContext {
+  nodeId: string;
+  attempt: number;
+  instructions: string;
+  reason: {
+    kind: "initial" | "retry" | "repair" | "review" | "advisor";
+    source?: string;
+    repairAttempt?: number;
+  };
+  inputs: AgentInvocationInput[];
 }
 
 export interface AgentRequest {
   campaign: Campaign;
   candidate: Candidate;
   experimentId: string;
+  /** Stable experiment lineage shared by infrastructure-recovery attempts. */
+  logicalExperimentId?: string;
+  /** One-based attempt within the logical experiment lineage. */
+  attemptNumber?: number;
+  /** Concrete prior attempt that retained this candidate for infrastructure recovery. */
+  resumedFromExperimentId?: string;
   history: ExperimentRecord[];
+  runtime?: FactoryRuntimeContext;
   signal: AbortSignal;
   trace?: TraceSink;
+  /** Provider-neutral graph handoff supplied when an orchestration adapter invokes this driver. */
+  invocation?: AgentInvocationContext;
 }
 
 export interface AgentResult {
@@ -160,7 +203,22 @@ export interface AgentContribution {
 
 export interface AgentDriver {
   id: string;
+  /** Candidate-relative paths the driver may generate as a factory-owned side effect. */
+  readonly writePaths?: readonly string[];
   run(request: AgentRequest): Promise<AgentResult>;
+  /**
+   * Finalizes durable work only after the enclosing workflow has made its
+   * acceptance decision. Drivers that checkpoint intermediate work must keep
+   * it provisional until this hook is called. Implementations must be
+   * idempotent for an identical experiment, candidate, result, and decision:
+   * recovery may repeat a finalization whose completion was not journaled.
+   */
+  finalize?(request: AgentRequest & {
+    result: AgentResult;
+    evaluations: Evaluation[];
+    accepted: boolean;
+    reason: string;
+  }): Promise<void>;
 }
 
 export interface EngineDriver {

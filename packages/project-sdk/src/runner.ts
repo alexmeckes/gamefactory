@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -27,7 +27,7 @@ export interface ProjectRunnerOptions {
   journeyIndex?: ProjectJourneyIndex;
   logger: Logger;
   signal?: AbortSignal;
-  executeCampaign?: (input: { campaign: Campaign; config: FactoryConfig; signal: AbortSignal }) => Promise<CampaignResult>;
+  executeCampaign?: (input: { campaign: Campaign; config: FactoryConfig; implementationFingerprint: string; signal: AbortSignal }) => Promise<CampaignResult>;
 }
 
 async function gitRevision(root: string): Promise<string | undefined> {
@@ -193,11 +193,67 @@ async function campaignSkillFingerprint(campaign: Campaign): Promise<string> {
     }
   }
   const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../../.agents/skills");
+  const skillFiles = async (skillRoot: string, current = skillRoot): Promise<Array<[string, string]>> => {
+    const entries = await readdir(current, { withFileTypes: true });
+    const output: Array<[string, string]> = [];
+    for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+      const path = resolve(current, entry.name);
+      if (entry.isDirectory()) output.push(...await skillFiles(skillRoot, path));
+      else if (entry.isFile()) output.push([relative(skillRoot, path).replaceAll("\\", "/"), createHash("sha256").update(await readFile(path)).digest("hex")]);
+    }
+    return output;
+  };
   const entries = await Promise.all([...names].sort().map(async (name) => {
-    try { return [name, createHash("sha256").update(await readFile(resolve(root, name, "SKILL.md"), "utf8")).digest("hex")] as const; }
+    try { return [name, hash(await skillFiles(resolve(root, name)))] as const; }
     catch { return [name, "missing"] as const; }
   }));
   return hash(entries);
+}
+
+async function extensionImplementationFingerprint(config: FactoryConfig, configPath: string, campaign: Campaign): Promise<string> {
+  const ignored = new Set([".git", ".factory", "coverage", "node_modules"]);
+  const files = async (root: string, current = root): Promise<Array<[string, string]>> => {
+    const stats = await lstat(current);
+    if (stats.isFile()) return [[relative(root, current).replaceAll("\\", "/") || "<entry>", createHash("sha256").update(await readFile(current)).digest("hex")]];
+    if (!stats.isDirectory()) return [];
+    const entries = await readdir(current, { withFileTypes: true });
+    const nested: Array<[string, string]> = [];
+    for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+      if (ignored.has(entry.name) || /\.test\.[cm]?[jt]s$/.test(entry.name) || entry.name.endsWith(".map")) continue;
+      nested.push(...await files(root, resolve(current, entry.name)));
+    }
+    return nested;
+  };
+  const demanded = new Set([`workflow:${campaign.workflow}`, ...campaign.requires, ...(campaign.optional ?? [])]);
+  const selected = (await Promise.all(config.extensions.map(async (extension) => {
+    const root = resolve(dirname(configPath), extension);
+    try {
+      const stats = await lstat(root);
+      const manifestPath = stats.isDirectory() ? resolve(root, "factory.extension.json") : resolve(dirname(root), "factory.extension.json");
+      const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as { activation?: unknown };
+      const activation = Array.isArray(manifest.activation) ? manifest.activation.filter((item): item is string => typeof item === "string") : [];
+      if (activation.length > 0 && !activation.some((capability) => demanded.has(capability))) return undefined;
+    } catch {
+      // Unknown manifests are included conservatively.
+    }
+    return [extension.replaceAll("\\", "/"), await files(root)] as const;
+  }))).filter((entry): entry is readonly [string, Array<[string, string]>] => entry !== undefined);
+  const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+  const shared = await Promise.all([
+    "packages/core/src",
+    "packages/workflow-sdk/src"
+  ].map(async (entry) => [entry, await files(resolve(repositoryRoot, entry))] as const));
+  return hash({ extensions: selected, shared });
+}
+
+async function revisionContains(projectRoot: string, currentRevision: string | undefined, requiredRevision: string | undefined): Promise<boolean> {
+  if (!currentRevision || !requiredRevision) return false;
+  try {
+    await execFileAsync("git", ["merge-base", "--is-ancestor", requiredRevision, currentRevision], { cwd: projectRoot, windowsHide: true });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function keptRecord(result: CampaignResult) {
@@ -242,19 +298,29 @@ function evidenceReasons(phase: LoadedProjectPhase, result: CampaignResult, froz
   const evidence = metadata && typeof metadata === "object" && !Array.isArray(metadata) ? metadata as Record<string, unknown> : {};
   const artifacts = trustedFactoryArtifacts(result);
   const artifactByHash = new Map(artifacts.filter((entry) => entry.artifact.sha256).map((entry) => [entry.artifact.sha256!, entry]));
-  const scenarioEvaluators = new Set(["evaluator:godot.scenario", "agent-driver:godot.evidence"]);
-  const captureEvaluators = new Set(["evaluator:godot.scenario", "evaluator:godot.visual", "agent-driver:godot.evidence"]);
+  const legacyScenarioProducers = new Set(["evaluator:godot.scenario", "agent-driver:godot.evidence"]);
+  const legacyCaptureProducers = new Set(["evaluator:godot.scenario", "evaluator:godot.visual", "agent-driver:godot.evidence"]);
+  const factoryEngineArtifact = (entry: (typeof artifacts)[number] | undefined): boolean => Boolean(
+    entry
+    && (entry.artifact.metadata?.evidenceAuthority === "factory-engine"
+      || legacyCaptureProducers.has(entry.producer))
+  );
   const hasReference = (value: unknown, kinds?: Set<string>, producers?: Set<string>): boolean => {
     const sha256 = evidenceReference(value);
     const entry = sha256 ? artifactByHash.get(sha256) : undefined;
     return Boolean(entry && (!kinds || kinds.has(entry.artifact.kind)) && (!producers || producers.has(entry.producer)));
+  };
+  const hasFactoryEngineReference = (value: unknown, kinds?: Set<string>): boolean => {
+    const sha256 = evidenceReference(value);
+    const entry = sha256 ? artifactByHash.get(sha256) : undefined;
+    return Boolean(entry && factoryEngineArtifact(entry) && (!kinds || kinds.has(entry.artifact.kind)));
   };
   const hasVerifiedEmbodiedReference = (value: unknown): boolean => {
     const sha256 = evidenceReference(value);
     const entry = sha256 ? artifactByHash.get(sha256) : undefined;
     return Boolean(
       entry
-      && scenarioEvaluators.has(entry.producer)
+      && (entry.artifact.metadata?.evidenceAuthority === "factory-engine" || legacyScenarioProducers.has(entry.producer))
       && (entry.artifact.kind === "test-report" || entry.artifact.kind === "replay" || entry.artifact.kind === "telemetry")
       && entry.artifact.metadata?.evidenceClass === "embodied-gameplay"
       && entry.artifact.metadata?.verified === true
@@ -266,13 +332,13 @@ function evidenceReasons(phase: LoadedProjectPhase, result: CampaignResult, froz
   if (Array.isArray(evidence.scenarios)) for (const item of evidence.scenarios) {
     if (item && typeof item === "object" && !Array.isArray(item) && typeof (item as Record<string, unknown>).id === "string") scenarioEvidence.set((item as Record<string, unknown>).id as string, item);
   }
-  for (const scenario of phase.evidence.scenarios ?? []) if (!hasReference(scenarioEvidence.get(scenario), new Set(["replay", "telemetry", "test-report", "log"]), scenarioEvaluators)) reasons.push(`Required slice scenario ${scenario} is not linked to a trusted engine scenario artifact.`);
-  if (phase.evidence.requireInteractionTrace && !hasReference(evidence.interactionTrace, new Set(["replay", "telemetry"]), scenarioEvaluators)) reasons.push("Slice requires a trusted real interaction trace artifact.");
+  for (const scenario of phase.evidence.scenarios ?? []) if (!hasFactoryEngineReference(scenarioEvidence.get(scenario), new Set(["replay", "telemetry", "test-report", "log"]))) reasons.push(`Required slice scenario ${scenario} is not linked to a trusted engine scenario artifact.`);
+  if (phase.evidence.requireInteractionTrace && !hasFactoryEngineReference(evidence.interactionTrace, new Set(["replay", "telemetry"]))) reasons.push("Slice requires a trusted real interaction trace artifact.");
   const scenarioReferences = [...scenarioEvidence.values()];
   if (phase.evidence.requireEmbodiedGameplay && ![evidence.embodiedGameplay, evidence.interactionTrace, ...scenarioReferences].some(hasVerifiedEmbodiedReference)) reasons.push("Slice requires evaluator-verified embodied gameplay evidence from shipping input through visible motion and spatial consequence.");
   const captureBundle = evidence.engineCapture && typeof evidence.engineCapture === "object" && !Array.isArray(evidence.engineCapture) ? evidence.engineCapture as Record<string, unknown> : undefined;
   const representativeFrames = Array.isArray(captureBundle?.representativeFrames) ? captureBundle.representativeFrames : [];
-  if (phase.evidence.requireEngineCapture && ![evidence.engineCapture, ...representativeFrames].some((value) => hasReference(value, new Set(["image", "video"]), captureEvaluators))) reasons.push("Slice requires a trusted current engine capture artifact.");
+  if (phase.evidence.requireEngineCapture && ![evidence.engineCapture, ...representativeFrames].some((value) => hasFactoryEngineReference(value, new Set(["image", "video"])))) reasons.push("Slice requires a trusted current engine capture artifact.");
   if (phase.evidence.targetApprovalNode && !hasReference(evidence.targetSha256, new Set(["image"]), new Set(["evaluator:design.system"]))) reasons.push("Slice engine evidence is not bound to a design-system-verified target image hash.");
   if (phase.evidence.targetApprovalNode) {
     const targetHash = evidenceReference(evidence.targetSha256);
@@ -282,13 +348,18 @@ function evidenceReasons(phase: LoadedProjectPhase, result: CampaignResult, froz
     const approvedHash = findings && typeof findings === "object" && !Array.isArray(findings) ? (findings as Record<string, unknown>).selectedTargetSha256 : undefined;
     if (!approval || typeof approvedHash !== "string" || approvedHash !== targetHash) reasons.push(`Scene target hash is not bound to the in-memory pass verdict from ${phase.evidence.targetApprovalNode}.`);
   }
-  if (phase.evidence.requireMotionEvidence && ![evidence.motionEvidence, evidence.interactionTrace].some((value) => hasReference(value, new Set(["video", "replay"]), captureEvaluators))) reasons.push("Slice requires trusted current runtime motion evidence.");
+  if (phase.evidence.requireMotionEvidence && ![evidence.motionEvidence, evidence.interactionTrace].some((value) => hasFactoryEngineReference(value, new Set(["video", "replay"])))) reasons.push("Slice requires trusted current runtime motion evidence.");
   const runtimeEvidence = new Map<string, unknown>();
   if (Array.isArray(evidence.runtimeAssets)) for (const item of evidence.runtimeAssets) {
     if (item && typeof item === "object" && !Array.isArray(item) && typeof (item as Record<string, unknown>).id === "string" && typeof (item as Record<string, unknown>).consumer === "string") runtimeEvidence.set((item as Record<string, unknown>).id as string, item);
   }
   const assetEvaluators = new Set(["evaluator:design.system", "evaluator:pixel-motion.quality", "agent-driver:godot.evidence", "agent-driver:pixel-motion.compile", "agent-driver:sam3.segment", "agent-driver:sam3.track"]);
-  for (const asset of phase.evidence.requireRuntimeAssets ?? []) if (!hasReference(runtimeEvidence.get(asset), undefined, assetEvaluators)) reasons.push(`Required runtime asset family ${asset} is not linked to a trusted evaluator artifact and runtime consumer.`);
+  const hasRuntimeAssetReference = (value: unknown): boolean => {
+    const sha256 = evidenceReference(value);
+    const entry = sha256 ? artifactByHash.get(sha256) : undefined;
+    return Boolean(entry && (assetEvaluators.has(entry.producer) || factoryEngineArtifact(entry)));
+  };
+  for (const asset of phase.evidence.requireRuntimeAssets ?? []) if (!hasRuntimeAssetReference(runtimeEvidence.get(asset))) reasons.push(`Required runtime asset family ${asset} is not linked to a trusted evaluator artifact and runtime consumer.`);
   const recordAgent = keptRecord(result)?.metadata?.agent;
   const actualWriterGenerations = recordAgent && typeof recordAgent === "object" && !Array.isArray(recordAgent) ? (recordAgent as Record<string, unknown>).writerGenerations : undefined;
   if (actualWriterGenerations && JSON.stringify(evidence.writerGenerations) !== JSON.stringify(actualWriterGenerations)) reasons.push("Slice evidence writer generations do not match the accepted agent execution.");
@@ -372,7 +443,7 @@ async function validateSpecLineageAndArchive(input: {
   return { ...frozen, archivePath };
 }
 
-async function unitFingerprint(input: { phase: LoadedProjectPhase; campaign: Campaign; config: FactoryConfig; project: LoadedGameFactoryProject; dependencies: Record<string, string | undefined>; frozenSpec?: { spec: GameSpec; fingerprint: string } }): Promise<{ fingerprint: string; spec?: { spec: GameSpec; fingerprint: string }; claimFingerprint?: string }> {
+async function unitFingerprint(input: { phase: LoadedProjectPhase; campaign: Campaign; config: FactoryConfig; implementationFingerprint: string; project: LoadedGameFactoryProject; dependencies: Record<string, string | undefined>; frozenSpec?: { spec: GameSpec; fingerprint: string } }): Promise<{ fingerprint: string; spec?: { spec: GameSpec; fingerprint: string }; claimFingerprint?: string }> {
   let identityCampaign = input.campaign;
   if (input.phase.workKind === "vertical-slice") {
     const projectSlice = input.campaign.parameters?.projectSlice;
@@ -386,7 +457,7 @@ async function unitFingerprint(input: { phase: LoadedProjectPhase; campaign: Cam
   if (input.phase.workKind === "spec-convergence") {
     const concept = input.project.preproduction ? await readFile(input.project.preproduction.conceptPath, "utf8") : "";
     const maximumConvergencePasses = input.project.preproduction?.maximumConvergencePasses ?? input.project.preproduction?.maximumRevisions ?? 3;
-    return { fingerprint: hash({ kind: "spec-convergence", concept: createHash("sha256").update(concept).digest("hex"), runId, maximumConvergencePasses, skillFingerprint }) };
+    return { fingerprint: hash({ kind: "spec-convergence", concept: createHash("sha256").update(concept).digest("hex"), runId, maximumConvergencePasses, skillFingerprint, implementationFingerprint: input.implementationFingerprint }) };
   }
   if (input.phase.workKind === "vertical-slice") {
     const frozenSpec = input.frozenSpec ?? await validateFrozenSpec(input.project);
@@ -405,6 +476,7 @@ async function unitFingerprint(input: { phase: LoadedProjectPhase; campaign: Cam
       kind: "vertical-slice",
       runId,
       skillFingerprint,
+      implementationFingerprint: input.implementationFingerprint,
       claimFingerprint,
       dependencies: implementationDependencies,
       playerOutcome: input.phase.playerOutcome,
@@ -416,7 +488,7 @@ async function unitFingerprint(input: { phase: LoadedProjectPhase; campaign: Cam
       attemptPolicy: input.phase.attemptPolicy ?? {}
     }), spec: frozenSpec, claimFingerprint };
   }
-  return { fingerprint: hash({ kind: "legacy-phase", runId, skillFingerprint, manifest: projectManifestFingerprint(rawProject(input.project)) }) };
+  return { fingerprint: hash({ kind: "legacy-phase", runId, skillFingerprint, implementationFingerprint: input.implementationFingerprint, manifest: projectManifestFingerprint(rawProject(input.project)) }) };
 }
 
 export class ProjectRunner {
@@ -591,12 +663,17 @@ export class ProjectRunner {
         const [loadedCampaign, config] = await Promise.all([loadCampaign(attempt.campaignPath), loadFactoryConfig(attempt.configPath)]);
         const campaign = campaignForPhase(loadedCampaign, phase, this.project, phase.workKind === "spec-convergence" ? pendingAmendment : undefined, frozenSpec);
         const runId = resolveCampaignRunIdentity(campaign, config).runId;
+        const implementationFingerprint = await extensionImplementationFingerprint(config, attempt.configPath, campaign);
         const dependencies = Object.fromEntries((phase.dependsOn ?? []).map((id) => [id, acceptedByPhase.get(id)]));
-        const unit = await unitFingerprint({ phase, campaign, config, project: this.project, dependencies, ...(frozenSpec ? { frozenSpec } : {}) });
+        const unit = await unitFingerprint({ phase, campaign, config, implementationFingerprint, project: this.project, dependencies, ...(frozenSpec ? { frozenSpec } : {}) });
         const phaseKind = phase.workKind ?? "legacy-phase";
         const currentCompletion = [...currentEvents].reverse().find((event) => event.projectRunId === projectRunId && event.phaseId === phase.id && completionTypes.has(event.type) && (phaseKind === "legacy-phase" || event.unitFingerprint === unit.fingerprint));
         let reusable = currentCompletion;
         if (!reusable && phaseKind !== "legacy-phase") reusable = [...currentEvents].reverse().find((event) => event.phaseId === phase.id && completionTypes.has(event.type) && event.unitFingerprint === unit.fingerprint);
+        if (reusable && reusable.projectRunId !== projectRunId) {
+          const currentRevision = await gitRevision(this.project.root);
+          if (currentRevision && reusable.resultingRevision && !await revisionContains(this.project.root, currentRevision, reusable.resultingRevision)) reusable = undefined;
+        }
         if (reusable && phaseKind === "spec-convergence") {
           try {
             frozenSpec = await validateFrozenSpec(this.project);
@@ -629,9 +706,9 @@ export class ProjectRunner {
           await this.journal.append({ projectId: this.project.id, projectRunId, type: "campaign-linked", idempotencyKey: `${phaseKey}:campaign-linked`, manifestFingerprint: this.manifestFingerprint, phaseId: phase.id, phaseAttemptId: attempt.id, workKind: phaseKind, unitFingerprint: unit.fingerprint, campaignId: campaign.id, runId, actor: { kind: "factory" } });
         }
         let campaignResult: CampaignResult;
-        if (this.options.executeCampaign) campaignResult = await this.options.executeCampaign({ campaign, config, signal: controller.signal });
+        if (this.options.executeCampaign) campaignResult = await this.options.executeCampaign({ campaign, config, implementationFingerprint, signal: controller.signal });
         else {
-          const runner = new FactoryRunner({ cwd: this.project.root, ...(this.options.dataRoot ? { dataRoot: this.options.dataRoot } : {}), ...(this.options.worktreeRoot ? { worktreeRoot: this.options.worktreeRoot } : {}), ...(this.options.onTraceEvent ? { onTraceEvent: this.options.onTraceEvent } : {}), config, logger: this.options.logger, signal: controller.signal });
+          const runner = new FactoryRunner({ cwd: this.project.root, ...(this.options.dataRoot ? { dataRoot: this.options.dataRoot } : {}), ...(this.options.worktreeRoot ? { worktreeRoot: this.options.worktreeRoot } : {}), implementationFingerprint, ...(this.options.onTraceEvent ? { onTraceEvent: this.options.onTraceEvent } : {}), config, logger: this.options.logger, signal: controller.signal });
           try { await runner.initialize(); campaignResult = await runner.run(campaign); }
           finally { await runner.dispose(); }
         }

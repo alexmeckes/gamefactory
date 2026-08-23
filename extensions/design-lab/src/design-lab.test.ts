@@ -6,9 +6,64 @@ import { resolve } from "node:path";
 import test from "node:test";
 import { designIntentSha256, parseDesignIntent } from "@gamefactory/design-sdk";
 import type { Campaign, Candidate, EngineDriver, ScenarioRunner } from "@gamefactory/core";
-import { AgentPlaytestEvaluator, DesignIntentEvaluator, DesignSystemEvaluator, HumanPlaytestEvaluator } from "./index.js";
+import { AgentPlaytestEvaluator, DesignIntentEvaluator, DesignSystemEvaluator, HumanPlaytestEvaluator, SceneTargetContractAgent, SceneTargetSchemaRepairAgent } from "./index.js";
 
 const sha256 = (value: string | Buffer): string => createHash("sha256").update(value).digest("hex");
+
+test("deterministic scene-target contract returns a claim-linked repair before qualitative review", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "gamefactory-scene-target-contract-"));
+  try {
+    const campaign: Campaign = {
+      apiVersion: "gamefactory.dev/v1",
+      id: "scene-target-contract",
+      objective: "validate a whole-screen target",
+      projectRoot: root,
+      workflow: "autoresearch",
+      requires: [],
+      parameters: { designSystem: { sceneTargetPath: "design/scene-targets/scene-target.json" } },
+      mutablePaths: ["design/**"],
+      acceptance: { primaryMetric: "score", direction: "maximize" }
+    };
+    const result = await new SceneTargetContractAgent().run({ campaign, candidate: { id: "candidate", root, metadata: {} }, experimentId: "exp-lint", history: [], signal: new AbortController().signal });
+    assert.equal(result.metadata?.outcome, "revise");
+    const findings = (result.metadata?.structured as { findings: Array<Record<string, unknown>> }).findings;
+    assert.equal(findings[0]?.findingClass, "blocker");
+    assert.deepEqual(findings[0]?.claimIds, ["visual.production-fidelity"]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("scene-target schema repair normalizes structured approval findings without creative mutation", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "gamefactory-scene-target-schema-repair-"));
+  try {
+    const relativePath = "design/scene-targets/scene-target.json";
+    await mkdir(resolve(root, "design/scene-targets"), { recursive: true });
+    await writeFile(resolve(root, relativePath), JSON.stringify({
+      apiVersion: "gamefactory.scene-target/v1",
+      selectedCandidateId: "candidate-a",
+      candidates: [],
+      approval: { status: "pending", findings: [{ issue: "Increase actor contrast", owner: "target" }] }
+    }), "utf8");
+    const campaign: Campaign = {
+      apiVersion: "gamefactory.dev/v1",
+      id: "scene-target-schema-repair",
+      objective: "normalize mechanical schema drift",
+      projectRoot: root,
+      workflow: "autoresearch",
+      requires: [],
+      parameters: { designSystem: { sceneTargetPath: relativePath } },
+      mutablePaths: ["design/**"],
+      acceptance: { primaryMetric: "score", direction: "maximize" }
+    };
+    const result = await new SceneTargetSchemaRepairAgent().run({ campaign, candidate: { id: "candidate", root, metadata: {} }, experimentId: "exp-schema", history: [], signal: new AbortController().signal });
+    assert.equal(result.metadata?.outcome, "pass");
+    const repaired = JSON.parse(await readFile(resolve(root, relativePath), "utf8")) as { approval: { findings: unknown[] } };
+    assert.deepEqual(repaired.approval.findings, ["Increase actor contrast"]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 function intentFixture() {
   return {

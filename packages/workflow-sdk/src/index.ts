@@ -1,4 +1,7 @@
+import { flattenMetrics, InfrastructureFailureError, isInfrastructureFailure } from "@gamefactory/core";
 import type {
+  AgentDriver,
+  AgentRequest,
   AgentResult,
   ArtifactReference,
   CampaignResult,
@@ -8,6 +11,7 @@ import type {
   ExperimentRecord,
   FactoryTraceEventInput,
   JournalJsonValue,
+  WorkspaceDriver,
   WorkflowContext,
   WorkflowJournalPhase
 } from "@gamefactory/core";
@@ -56,6 +60,17 @@ export interface EvaluationRun {
   error?: string;
 }
 
+export interface ResumableCandidate {
+  sourceExperimentId: string;
+  logicalExperimentId: string;
+  attemptNumber: number;
+  candidate: Candidate;
+  startedAt: string;
+  phase: WorkflowJournalPhase;
+  reserved: Record<string, unknown>;
+  record?: ExperimentRecord;
+}
+
 function journalData(value: unknown): JournalJsonValue {
   return JSON.parse(JSON.stringify(value)) as JournalJsonValue;
 }
@@ -101,6 +116,7 @@ export function agentJournalData(result: AgentResult): Record<string, unknown> {
     summary: result.summary,
     usage: result.usage ?? null,
     artifactCount: result.artifacts?.length ?? 0,
+    metadata: result.metadata ?? null,
     contributors: (result.contributors ?? []).map((contributor) => ({
       agentId: contributor.agentId,
       role: contributor.role,
@@ -116,20 +132,138 @@ export function agentJournalData(result: AgentResult): Record<string, unknown> {
   };
 }
 
+export function agentFinalizationJournalData(input: {
+  agent: AgentDriver;
+  request: AgentRequest;
+  result: AgentResult;
+  evaluations: Evaluation[];
+  accepted: boolean;
+  reason: string;
+}): Record<string, unknown> {
+  return {
+    agentId: input.agent.id,
+    candidate: input.request.candidate,
+    accepted: input.accepted,
+    reason: input.reason,
+    evaluations: input.evaluations,
+    result: input.result
+  };
+}
+
+/** Journal and execute a driver finalization decision as one recoverable protocol. */
+export async function finalizeAgentDecision(
+  context: WorkflowContext,
+  experimentId: string,
+  input: {
+    agent: AgentDriver;
+    request: AgentRequest;
+    result: AgentResult;
+    evaluations: Evaluation[];
+    accepted: boolean;
+    reason: string;
+  }
+): Promise<void> {
+  await journalPhase(context, experimentId, "agent-finalization-intent", agentFinalizationJournalData(input));
+  await input.agent.finalize?.({
+    ...input.request,
+    result: input.result,
+    evaluations: input.evaluations,
+    accepted: input.accepted,
+    reason: input.reason
+  });
+  await journalPhase(context, experimentId, "agent-finalized", {
+    agentId: input.agent.id,
+    accepted: input.accepted,
+    reason: input.reason
+  });
+}
+
+export function workspaceDecisionOperationId(context: WorkflowContext, experimentId: string, candidate: Candidate): string {
+  const workspaceIdentity = typeof candidate.metadata.worktreeRoot === "string" ? candidate.metadata.worktreeRoot : candidate.root;
+  return `${context.journal?.runId ?? context.campaign.id}:${experimentId}:${candidate.id}:${candidate.baseRevision ?? "unversioned"}:${workspaceIdentity}:workspace-decision`;
+}
+
+/** Apply and durably acknowledge one idempotent workspace decision. */
+export async function applyWorkspaceDecision(
+  context: WorkflowContext,
+  workspace: WorkspaceDriver,
+  experimentId: string,
+  input: { action: "accept" | "discard"; candidate: Candidate; operationId: string; signal?: AbortSignal }
+): Promise<{ revision?: string; candidateRevision?: string; changed?: boolean }> {
+  const signal = input.signal ?? new AbortController().signal;
+  const result: { revision?: string; candidateRevision?: string; changed?: boolean } = input.action === "accept"
+    ? await workspace.acceptCandidate({ campaign: context.campaign, candidate: input.candidate, signal, operationId: input.operationId })
+    : await workspace.discardCandidate({ campaign: context.campaign, candidate: input.candidate, signal, operationId: input.operationId }).then(() => ({}));
+  await journalPhase(context, experimentId, "workspace-applied", {
+    action: input.action,
+    operationId: input.operationId,
+    result
+  });
+  if (input.action === "accept" && result.changed === false) {
+    await workspace.discardCandidate({ campaign: context.campaign, candidate: input.candidate, signal, operationId: input.operationId });
+  }
+  return result;
+}
+
+function recoveredDecisionRecord(
+  context: WorkflowContext,
+  experimentId: string,
+  candidate: Candidate,
+  finalization: Record<string, unknown>,
+  workspaceResult: Record<string, unknown>,
+  startedAt: string,
+  recoveryMetadata: Record<string, unknown>,
+  recoveryArtifacts: ArtifactReference[]
+): ExperimentRecord | undefined {
+  const result = asObject(finalization.result) as unknown as AgentResult;
+  const evaluations = Array.isArray(finalization.evaluations) ? finalization.evaluations as Evaluation[] : undefined;
+  if (typeof result.summary !== "string" || !evaluations) return undefined;
+  const accepted = finalization.accepted === true;
+  const candidateRevision = typeof workspaceResult.candidateRevision === "string" ? workspaceResult.candidateRevision : undefined;
+  const artifacts = [...(result.artifacts ?? []), ...recoveryArtifacts].filter((artifact, index, all) => all.findIndex((item) => item.path === artifact.path && item.sha256 === artifact.sha256) === index);
+  return {
+    campaignId: context.campaign.id,
+    experimentId,
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    status: accepted ? "keep" : "discard",
+    candidateId: candidate.id,
+    ...(typeof workspaceResult.revision === "string" ? { revision: workspaceResult.revision } : {}),
+    summary: `${result.summary} Recovered durable ${accepted ? "acceptance" : "rejection"} after an interrupted decision.`,
+    metrics: flattenMetrics(evaluations),
+    evaluations,
+    ...((result.contributors?.length ?? 0) > 0 || artifacts.length > 0 ? {
+      agent: { summary: result.summary, contributors: result.contributors ?? [], artifacts }
+    } : {}),
+    ...(result.usage ? { usage: result.usage } : {}),
+    metadata: {
+      ...recoveryMetadata,
+      recoveredDecision: true,
+      ...(candidateRevision ? { candidateRevision } : {}),
+      ...(result.metadata ? { agent: result.metadata } : {})
+    }
+  };
+}
+
 export async function recoverWorkflow(
   context: WorkflowContext,
-  workspace: { discardCandidate(input: { campaign: WorkflowContext["campaign"]; candidate: Candidate; signal: AbortSignal }): Promise<void> }
-): Promise<{ recoveredRecords: ExperimentRecord[]; blocked?: string }> {
+  workspace: WorkspaceDriver
+): Promise<{
+  recoveredRecords: ExperimentRecord[];
+  resumableCandidates: ResumableCandidate[];
+  blocked?: string;
+}> {
   const journal = context.journal;
-  if (!journal) return { recoveredRecords: [] };
+  if (!journal) return { recoveredRecords: [], resumableCandidates: [] };
   const recovery = await journal.recover();
   const incompatible = recovery.experiments.find((item) => item.campaignId === context.campaign.id
     && (item.runId !== journal.runId
       || Object.entries(journal.fingerprints).some(([key, value]) => item.latestEntry.fingerprints[key] !== value)));
   if (incompatible) {
-    return { recoveredRecords: [], blocked: `Campaign ${context.campaign.id} has journal state from an incompatible run or configuration.` };
+    return { recoveredRecords: [], resumableCandidates: [], blocked: `Campaign ${context.campaign.id} has journal state from an incompatible run or configuration.` };
   }
   const recoveredRecords: ExperimentRecord[] = [];
+  const resumableCandidates: ResumableCandidate[] = [];
   const blockers: string[] = [];
   for (const state of recovery.incomplete.filter((item) => item.runId === journal.runId && item.campaignId === context.campaign.id)) {
     let lastReservedIndex = -1;
@@ -143,12 +277,128 @@ export async function recoverWorkflow(
     const candidate = typeof candidateValue.id === "string" && typeof candidateValue.root === "string"
       ? candidateValue as unknown as Candidate
       : undefined;
+    const reservedData = asObject(attemptEntries.find((entry) => entry.phase === "reserved")?.data);
     if (state.latestPhase === "blocked") {
-      blockers.push(`Experiment ${state.experimentId} is blocked with its candidate retained for evidence recovery.`);
+      const blockedData = asObject(state.latestEntry.data);
+      const blockedRecord = asObject(blockedData.record);
+      const blockedMetadata = asObject(blockedRecord.metadata);
+      if (blockedData.resumable === true
+        && blockedData.candidateRetained === true
+        && (blockedMetadata.failureClass === "infrastructure" || blockedMetadata.failureClass === "validation")
+        && candidate
+        && typeof blockedRecord.startedAt === "string") {
+        const logicalExperimentId = typeof blockedMetadata.logicalExperimentId === "string"
+          ? blockedMetadata.logicalExperimentId
+          : state.experimentId.replace(/-attempt-\d+$/, "");
+        const attemptNumber = typeof blockedMetadata.attemptNumber === "number" && Number.isSafeInteger(blockedMetadata.attemptNumber)
+          ? blockedMetadata.attemptNumber
+          : 1;
+        resumableCandidates.push({
+          sourceExperimentId: state.experimentId,
+          logicalExperimentId,
+          attemptNumber,
+          candidate,
+          startedAt: blockedRecord.startedAt,
+          phase: state.latestPhase,
+          reserved: reservedData,
+          record: blockedRecord as unknown as ExperimentRecord
+        });
+        continue;
+      }
+      blockers.push(`Experiment ${state.experimentId} is blocked with its candidate retained for recovery.`);
       continue;
     }
-    if (state.latestPhase === "acceptance-intent") {
-      blockers.push(`Experiment ${state.experimentId} stopped during acceptance and requires workspace reconciliation.`);
+    if (candidate && ["candidate-created", "agent-finished", "evaluated", "evidence-preserved"].includes(state.latestPhase)) {
+      const logicalExperimentId = typeof reservedData.logicalExperimentId === "string"
+        ? reservedData.logicalExperimentId
+        : state.experimentId.replace(/-attempt-\d+$/, "");
+      const attemptNumber = typeof reservedData.attemptNumber === "number" && Number.isSafeInteger(reservedData.attemptNumber)
+        ? reservedData.attemptNumber
+        : Math.max(1, attemptEntries.filter((entry) => entry.phase === "reserved").length);
+      resumableCandidates.push({
+        sourceExperimentId: state.experimentId,
+        logicalExperimentId,
+        attemptNumber,
+        candidate,
+        startedAt: typeof reservedData.startedAt === "string" ? reservedData.startedAt : state.latestEntry.timestamp,
+        phase: state.latestPhase,
+        reserved: reservedData
+      });
+      continue;
+    }
+    if (["acceptance-intent", "workspace-applied", "agent-finalization-intent", "agent-finalized"].includes(state.latestPhase)) {
+      const acceptanceEntry = attemptEntries.find((entry) => entry.phase === "acceptance-intent");
+      const acceptanceIntent = asObject(acceptanceEntry?.data);
+      const action = acceptanceIntent.action;
+      const operationId = acceptanceIntent.operationId;
+      const storedFinalization = asObject(acceptanceIntent.finalization);
+      const reservedData = asObject(attemptEntries.find((entry) => entry.phase === "reserved")?.data);
+      if (!candidate || (action !== "accept" && action !== "discard") || typeof operationId !== "string" || Object.keys(storedFinalization).length === 0) {
+        blockers.push(`Experiment ${state.experimentId} has a legacy or incomplete decision intent and requires manual reconciliation.`);
+        continue;
+      }
+      const workspaceEntry = attemptEntries.find((entry) => entry.phase === "workspace-applied");
+      const evidenceData = asObject(attemptEntries.find((entry) => entry.phase === "evidence-preserved")?.data);
+      const patchArtifact = asObject(evidenceData.patch);
+      const recoveryArtifacts = typeof patchArtifact.path === "string" ? [patchArtifact as unknown as ArtifactReference] : [];
+      let workspaceData = asObject(workspaceEntry?.data);
+      let workspaceResult = asObject(workspaceData.result);
+      try {
+        if (!workspaceEntry) {
+          const result = await applyWorkspaceDecision(context, workspace, state.experimentId, { action, candidate, operationId });
+          workspaceData = { action, operationId, result };
+          workspaceResult = asObject(result);
+        } else if (workspaceData.action !== action || workspaceData.operationId !== operationId) {
+          throw new Error("Workspace acknowledgement does not match its decision intent");
+        }
+        const accepted = action === "accept" && workspaceResult.changed !== false;
+        const reason = accepted
+          ? typeof storedFinalization.reason === "string" ? storedFinalization.reason : "candidate-accepted"
+          : action === "accept" ? "candidate-produced-no-change" : typeof storedFinalization.reason === "string" ? storedFinalization.reason : "candidate-rejected";
+        const reconciledFinalization = { ...storedFinalization, accepted, reason };
+        if (state.latestPhase === "agent-finalized" && asObject(state.latestEntry.data).accepted !== accepted) {
+          throw new Error("Agent finalization acknowledgement does not match the applied workspace decision");
+        }
+        if (state.latestPhase !== "agent-finalized") {
+          const agentId = storedFinalization.agentId;
+          const result = storedFinalization.result as AgentResult;
+          const evaluations = storedFinalization.evaluations as Evaluation[];
+          if (typeof agentId !== "string" || !result || !Array.isArray(evaluations)) throw new Error("Decision intent is missing recoverable agent finalization data");
+          const agent = context.get<AgentDriver>("agent", agentId);
+          const request: AgentRequest = {
+            campaign: context.campaign,
+            candidate,
+            experimentId: state.experimentId,
+            history: await context.readRecords(),
+            ...(context.runtime ? { runtime: context.runtime } : {}),
+            signal: new AbortController().signal,
+            ...(context.trace ? { trace: context.trace } : {})
+          };
+          await finalizeAgentDecision(context, state.experimentId, { agent, request, result, evaluations, accepted, reason });
+        }
+        const record = recoveredDecisionRecord(
+          context,
+          state.experimentId,
+          candidate,
+          reconciledFinalization,
+          workspaceResult,
+          typeof reservedData.startedAt === "string" ? reservedData.startedAt : state.latestEntry.timestamp,
+          asObject(acceptanceIntent.recoveryMetadata),
+          recoveryArtifacts
+        );
+        if (!record) throw new Error("Decision intent cannot reconstruct an experiment record");
+        await journalPhase(context, state.experimentId, "applied", { record, recovered: true });
+        const existing = (await context.readRecords()).some((item) => item.experimentId === record.experimentId);
+        if (!existing) {
+          await context.appendRecord(record);
+          recoveredRecords.push(record);
+        }
+        await journalPhase(context, state.experimentId, "recorded", { recovered: true, status: record.status });
+        if (!accepted) await workspace.discardCandidate({ campaign: context.campaign, candidate, signal: new AbortController().signal, operationId });
+        await journalPhase(context, state.experimentId, "cleaned", { recovered: true, previousPhase: state.latestPhase });
+      } catch (error) {
+        blockers.push(`Experiment ${state.experimentId} decision reconciliation failed closed: ${errorMessage(error)}`);
+      }
       continue;
     }
     if (state.latestPhase === "applied") {
@@ -178,6 +428,7 @@ export async function recoverWorkflow(
   }
   return {
     recoveredRecords,
+    resumableCandidates,
     ...(blockers.length > 0 ? { blocked: blockers.join(" ") } : {})
   };
 }
@@ -200,14 +451,19 @@ export function errorMessage(error: unknown): string {
 
 export function failureAgentResult(error: unknown): AgentResult | undefined {
   if (!error || typeof error !== "object") return undefined;
-  const value = error as { artifacts?: unknown; provenance?: unknown };
+  const value = error as { artifacts?: unknown; provenance?: unknown; projectDisposition?: unknown };
   if (!Array.isArray(value.artifacts)) return undefined;
   const artifacts = value.artifacts.filter((artifact): artifact is ArtifactReference =>
     Boolean(artifact && typeof artifact === "object" && typeof (artifact as { path?: unknown }).path === "string"));
   return {
     summary: errorMessage(error),
     artifacts,
-    metadata: { failure: value.provenance ?? null }
+    metadata: {
+      failure: value.provenance ?? null,
+      ...(value.projectDisposition && typeof value.projectDisposition === "object" && !Array.isArray(value.projectDisposition)
+        ? { projectDisposition: value.projectDisposition }
+        : {})
+    }
   };
 }
 
@@ -286,6 +542,11 @@ export async function evaluateWaterfall(
         ...raw,
         artifacts: await context.preserveArtifacts(raw.artifacts, `${experimentId}/evaluator-${raw.evaluator}`)
       };
+      if (evaluation.failureClass === "infrastructure") {
+        const message = evaluation.summary ?? `${evaluation.evaluator} was unavailable`;
+        await emitTrace(context, { type: "node:failed", nodeId, experimentId, label: plan.id, role: "evaluator", status: "crash", message });
+        throw new InfrastructureFailureError(message, { cause: evaluation });
+      }
       evaluations.push(evaluation);
       await emitTrace(context, {
         type: evaluation.status === "fail" ? "node:failed" : "node:completed",
@@ -316,16 +577,8 @@ export async function evaluateWaterfall(
         throw error;
       }
       await emitTrace(context, { type: "node:failed", nodeId, experimentId, label: plan.id, role: "evaluator", status: "crash", message });
-      evaluations.push({
-        evaluator: evaluator.id,
-        version: evaluator.version,
-        status: "fail",
-        metrics: {},
-        violations: [{ code: "evaluator-crash", message, severity: "error" }],
-        artifacts: [],
-        summary: `Evaluator crashed: ${message}`
-      });
-      return { evaluations, error: message };
+      if (isInfrastructureFailure(error)) throw error;
+      throw new InfrastructureFailureError(`Evaluator ${evaluator.id} crashed: ${message}`, { cause: error });
     }
   }
   return { evaluations };
@@ -352,6 +605,7 @@ export async function preserveAgentResult(
 
 export function replayBudget(context: WorkflowContext, experiments: readonly ExperimentRecord[]): void {
   for (const experiment of experiments) {
+    if (experiment.metadata?.failureClass === "infrastructure") continue;
     context.budget.record({
       status: experiment.status,
       ...(experiment.usage?.costUsd !== undefined ? { costUsd: experiment.usage.costUsd } : {})

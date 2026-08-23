@@ -1,6 +1,6 @@
 {
   "apiVersion": "gamefactory.dev/v1",
-  "id": "alchemy-delivery-boys-v3-production-v7",
+  "id": "alchemy-delivery-boys-v3-production-v8",
   "objective": "Promote the already accepted embodied core revision into one visually production-ready Godot encounter. Re-verify the accepted core with factory-owned shipping-input evidence, approve coherent whole-scene targets derived from that live scene, activate only the asset lanes required by the selected target, integrate production assets and state-linked motion, then refresh trusted runtime evidence before multimodal and Sol judgment. Use a separate tournament campaign only for a named unresolved fork. Do not rebuild the core game, present proxy state logic, use static scene plates as runtime worlds, or describe concept art, generated source, extracted source, or engine-ready assets as production.",
   "projectRoot": ".",
   "workflow": "autoresearch",
@@ -9,6 +9,8 @@
     "agent:agent.team",
     "agent:godot.evidence",
     "agent:gemini.visual-production",
+    "agent:design.scene-target-contract",
+    "agent:design.scene-target-schema-repair",
     "evaluator:design.system",
     "evaluator:godot.scenario",
     "evaluator:godot.visual"
@@ -27,7 +29,10 @@
     ".factory/**"
   ],
   "parameters": {
-    "productionContractRevision": 7,
+    "productionContractRevision": 8,
+    "autoresearch": {
+      "stopAfterAccepted": true
+    },
     "workspace": "git.worktree",
     "agent": "agent.team",
     "evaluators": [
@@ -41,7 +46,45 @@
       "threadRetention": "ephemeral",
       "maximumParallel": 3,
       "historyLimit": 3,
+      "handoffCharacters": 12000,
+      "maximumHandoffArtifacts": 24,
       "graph": {
+        "claimIds": [
+          "loop.core",
+          "visual.production-fidelity"
+        ],
+        "enforceWriteContracts": true,
+        "reuseCheckpoints": true,
+        "externalInvalidationTargets": {
+          "design.system": [
+            "scene-target-builder",
+            "scene-target-schema-repair",
+            "scene-target-approval-recorder",
+            "asset-lane-planner",
+            "sam3-component-extraction",
+            "omni-motion-study",
+            "sam3-motion-tracking",
+            "pixel-motion-compiler",
+            "production-slice-builder"
+          ],
+          "design.system#design.system.invalid": [
+            "scene-target-builder",
+            "scene-target-schema-repair",
+            "scene-target-approval-recorder",
+            "asset-lane-planner",
+            "sam3-component-extraction",
+            "omni-motion-study",
+            "sam3-motion-tracking",
+            "pixel-motion-compiler",
+            "production-slice-builder"
+          ],
+          "godot.scenario": [
+            "production-slice-builder"
+          ],
+          "godot.visual": [
+            "production-slice-builder"
+          ]
+        },
         "maximumTotalAttempts": 28,
         "maximumRepairAttempts": 6,
         "context": [
@@ -65,7 +108,7 @@
             "driver": "godot.evidence",
             "role": "worker",
             "permissions": "read",
-            "driverWritePaths": [
+            "writePaths": [
               "evidence/**",
               "game/**/*.uid"
             ],
@@ -80,6 +123,11 @@
             "adapter": "codex-app-server",
             "role": "implementer",
             "permissions": "write",
+            "writePaths": [
+              "design-system.json",
+              "design/scene-targets/**",
+              "evidence/**"
+            ],
             "model": "gpt-5.6-sol",
             "reasoningEffort": "xhigh",
             "timeoutSeconds": 3600,
@@ -87,6 +135,47 @@
             "dependsOn": [
               "accepted-core-evidence"
             ]
+          },
+          {
+            "id": "scene-target-schema-repair",
+            "adapter": "agent-driver",
+            "driver": "design.scene-target-schema-repair",
+            "role": "implementer",
+            "permissions": "write",
+            "writePaths": [
+              "design/scene-targets/scene-target.json"
+            ],
+            "timeoutSeconds": 60,
+            "instructions": "Apply only deterministic, lossless schema normalization to the scene-target manifest before contract lint. Do not change art direction, geometry, motion, hashes, candidates, or approval meaning.",
+            "dependsOn": [
+              "scene-target-builder"
+            ]
+          },
+          {
+            "id": "scene-target-contract-lint",
+            "adapter": "agent-driver",
+            "driver": "design.scene-target-contract",
+            "role": "critic",
+            "authority": "propose",
+            "permissions": "read",
+            "timeoutSeconds": 60,
+            "instructions": "Run the deterministic scene-target contract before expensive qualitative review. Reject missing required states, viewport escapes, undeclared same-state region overlaps, broken view hashes, incomplete motion-kind coverage, or motion references to unknown views. Do not invent creative changes; return the exact contract failure to scene-target-builder.",
+            "dependsOn": [
+              "scene-target-builder",
+              "scene-target-schema-repair"
+            ],
+            "repair": {
+              "target": "scene-target-builder",
+              "outcomes": [
+                "revise"
+              ],
+              "maximumAttempts": 2,
+              "allowedPaths": [
+                "design-system.json",
+                "design/scene-targets/**",
+                "evidence/**"
+              ]
+            }
           },
           {
             "id": "scene-target-gate",
@@ -109,6 +198,7 @@
               "pass"
             ],
             "dependsOn": [
+              "scene-target-contract-lint",
               "scene-target-builder",
               "accepted-core-evidence"
             ],
@@ -130,6 +220,10 @@
             "adapter": "codex-app-server",
             "role": "implementer",
             "permissions": "write",
+            "writePaths": [
+              "design/scene-targets/scene-target.json",
+              "design/scene-targets/validation.json"
+            ],
             "model": "gpt-5.6-luna",
             "reasoningEffort": "high",
             "instructions": "Record the passed scene-target-gate decision without changing its creative work. Read the gate's selected target id, selected primary-view hash, and findings. Atomically bind the decision into both design/scene-targets/scene-target.json and design/scene-targets/validation.json when that validation manifest exists. In scene-target.json update only approval: status approved, reviewer scene-target-gate, selectedTargetSha256 equal to the gate-approved primary-view hash, findings copied from the review, and approvedAt as the current ISO timestamp. In validation.json mirror status, reviewer, selectedTargetId, selectedTargetSha256, and the identical approvedAt without changing measured checks. Validate scene-target.json as gamefactory.scene-target/v1 and fail if either manifest disagrees with the gate, selected view, or each other. Do not alter candidates, prompts, geometry, component maps, hashes, assets, or non-approval validation results.",
@@ -145,6 +239,13 @@
             "adapter": "codex-app-server",
             "role": "implementer",
             "permissions": "write",
+            "writePaths": [
+              "design/asset-lanes/**",
+              "sam3.request.json",
+              "sam3.video.request.json",
+              "video.request.json",
+              "pixel-motion.request.json"
+            ],
             "model": "gpt-5.6-sol",
             "reasoningEffort": "high",
             "instructions": "Choose the smallest production method that can faithfully realize the approved scene target. Preserve creative latitude: return exactly one outcome from direct, segment, motion_study, pixel_motion, or segment_pixel_motion. Use direct for code-native work or assets that need neither segmentation nor generated motion. Use segment only when approved whole-scene imagery should be decomposed with SAM 3. Use motion_study only when an external generated video is useful as non-runtime motion reference. Use pixel_motion when a generated motion study should be tracked and compiled into palette-locked runtime frames; add segmentation only when static scene components also need extraction. Before selecting a provider lane, verify its configured request path and prerequisites are available; never select a paid or credentialed provider merely because it exists. Write design/asset-lanes/decision.json with rationale, selected outcome, required components, source scene ids and hashes, and expected outputs. For every selected lane, also write its valid candidate-local request: sam3.request.json, video.request.json, sam3.video.request.json, and/or pixel-motion.request.json. Pin the approved scene images as references and choose contained output directories. Do not generate or integrate assets in this node.",
@@ -158,6 +259,11 @@
             "driver": "sam3.segment",
             "role": "worker",
             "permissions": "write",
+            "writePaths": [
+              "design/**",
+              "evidence/**",
+              "sam3.request.json"
+            ],
             "timeoutSeconds": 1800,
             "dependsOn": [
               "asset-lane-planner"
@@ -176,6 +282,11 @@
             "driver": "video.google-omni",
             "role": "worker",
             "permissions": "write",
+            "writePaths": [
+              "design/**",
+              "evidence/**",
+              "video.request.json"
+            ],
             "timeoutSeconds": 3600,
             "dependsOn": [
               "asset-lane-planner"
@@ -195,6 +306,11 @@
             "driver": "sam3.track",
             "role": "worker",
             "permissions": "write",
+            "writePaths": [
+              "design/**",
+              "evidence/**",
+              "sam3.video.request.json"
+            ],
             "timeoutSeconds": 1800,
             "dependsOn": [
               "asset-lane-planner",
@@ -214,6 +330,12 @@
             "driver": "pixel-motion.compile",
             "role": "worker",
             "permissions": "write",
+            "writePaths": [
+              "game/**",
+              "design/**",
+              "evidence/**",
+              "pixel-motion.request.json"
+            ],
             "timeoutSeconds": 1200,
             "dependsOn": [
               "asset-lane-planner",
@@ -237,6 +359,10 @@
             "adapter": "codex-app-server",
             "role": "implementer",
             "permissions": "write",
+            "writePaths": [
+              "game/**",
+              "evidence/**"
+            ],
             "model": "gpt-5.6-sol",
             "reasoningEffort": "xhigh",
             "timeoutSeconds": 7200,
@@ -288,7 +414,7 @@
             "driver": "godot.evidence",
             "role": "worker",
             "permissions": "read",
-            "driverWritePaths": [
+            "writePaths": [
               "evidence/**",
               "game/**/*.uid"
             ],
@@ -298,6 +424,11 @@
               "production-slice-builder"
             ],
             "refreshAfterRepair": true,
+            "invalidationTargets": {
+              "revise": [
+                "production-slice-builder"
+              ]
+            },
             "repair": {
               "target": "production-slice-builder",
               "outcomes": [
@@ -324,6 +455,15 @@
               "production-gameplay-evidence"
             ],
             "refreshAfterRepair": true,
+            "invalidationTargets": {
+              "revise": [
+                "production-slice-builder"
+              ],
+              "target_revision": [
+                "scene-target-builder"
+              ],
+              "spec_amendment": []
+            },
             "repair": {
               "target": "production-slice-builder",
               "outcomes": [
@@ -363,6 +503,15 @@
               "production-gameplay-evidence",
               "gemini-production-review"
             ],
+            "invalidationTargets": {
+              "revise": [
+                "production-slice-builder"
+              ],
+              "target_revision": [
+                "scene-target-builder"
+              ],
+              "spec_amendment": []
+            },
             "repair": {
               "target": "production-slice-builder",
               "outcomes": [
@@ -383,6 +532,7 @@
     "geminiVisualReview": {
       "checkpoint": "production",
       "model": "gemini-3.7-flash",
+      "claimId": "visual.production-fidelity",
       "credentialName": "google.gemini",
       "apiKeyEnvironment": "GEMINI_API_KEY",
       "minimumImages": 5,
@@ -394,7 +544,7 @@
         "major"
       ],
       "requireEmbodiedTrace": true,
-      "maximumReviews": 3,
+      "maximumReviews": 4,
       "contractPaths": [
         "game-spec.json",
         "design/scene-targets/scene-target.json"
@@ -464,6 +614,7 @@
         "minimumDistinctFrames": 12
       },
       "embodiedProbe": {
+        "settleFrames": 2,
         "actorPath": "World/Player",
         "targetPath": "World/BrewStation",
         "interactionAction": "interact",

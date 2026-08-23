@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review Embodied Gameplay"
+  short_description: "Audit multimodal engine evidence for real player embodiment"
+  default_prompt: "Review the supplied engine captures and interaction trace for embodied gameplay, causal feedback, and static-plate failure."

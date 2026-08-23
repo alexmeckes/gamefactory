@@ -36,6 +36,8 @@
     "agentTeam": {
       "context": [],
       "graph": {
+        "enforceWriteContracts": true,
+        "reuseCheckpoints": true,
         "maximumConcurrency": 2,
         "maximumTotalAttempts": 14,
         "nodes": [
@@ -49,6 +51,7 @@
             ],
             "role": "worker",
             "permissions": "write",
+            "writePaths": ["evidence/**"],
             "timeoutSeconds": 60,
             "maximumAttempts": 1,
             "instructions": "Record the current recovered source identity before any bounded repair. This is provenance, not gameplay evidence."
@@ -61,6 +64,7 @@
             "adapter": "codex-app-server",
             "role": "implementer",
             "permissions": "write",
+            "writePaths": ["game/**"],
             "model": "gpt-5.6-sol",
             "reasoningEffort": "high",
             "timeoutSeconds": 1800,
@@ -75,8 +79,9 @@
             "driver": "godot.evidence",
             "role": "worker",
             "permissions": "read",
-            "driverWritePaths": [
-              "evidence/**"
+            "writePaths": [
+              "evidence/**",
+              "game/**/*.uid"
             ],
             "timeoutSeconds": 900,
             "dependsOn": [
@@ -233,7 +238,8 @@
             "mode": "first-session",
             "seed": 314159,
             "physics_hz": 60,
-            "embodiedProbe": {
+      "embodiedProbe": {
+        "settleFrames": 2,
               "actorPath": "World/Player",
               "targetPath": "World/BrewStation",
               "interactionAction": "interact",

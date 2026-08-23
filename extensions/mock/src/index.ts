@@ -1,11 +1,14 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { dirname, resolve } from "node:path";
+import { CandidateInvalidatedError, InfrastructureFailureError } from "@gamefactory/core";
 import type { AgentDriver, Campaign, Candidate, Evaluation, Evaluator, WorkspaceDriver } from "@gamefactory/core";
 import { combineDisposables, defineExtension } from "@gamefactory/extension-sdk";
 
 const BASELINE = ".factory/mock-baseline.json";
 const CANDIDATES = ".factory/mock-candidates";
 const PROPOSAL = ".factory-candidate.json";
+const DECISIONS = ".factory/mock-workspace-decisions";
 
 async function readScore(path: string, fallback = 0.5): Promise<number> {
   try {
@@ -26,13 +29,26 @@ export class MockWorkspace implements WorkspaceDriver {
     return { id: experimentId, root, metadata: { isolated: true } };
   }
 
-  async acceptCandidate({ campaign, candidate }: { campaign: Campaign; candidate: Candidate; signal: AbortSignal }): Promise<{ revision?: string; changed?: boolean }> {
-    const score = await readScore(resolve(candidate.root, PROPOSAL));
+  async acceptCandidate({ campaign, candidate, operationId }: Parameters<WorkspaceDriver["acceptCandidate"]>[0]): Promise<{ revision?: string; changed?: boolean }> {
+    const key = createHash("sha256").update(operationId ?? `${campaign.id}/${candidate.id}/${candidate.root}`).digest("hex");
+    const decisionPath = resolve(campaign.projectRoot, DECISIONS, `${key}.json`);
+    let stored: { score: number; revision: string; applied: boolean } | undefined;
+    try {
+      stored = JSON.parse(await readFile(decisionPath, "utf8")) as typeof stored;
+    } catch {
+      stored = undefined;
+    }
+    if (stored?.applied) return { revision: stored.revision, changed: true };
+    const score = stored?.score ?? await readScore(resolve(candidate.root, PROPOSAL));
+    const revision = stored?.revision ?? `mock-${candidate.id}`;
+    await mkdir(dirname(decisionPath), { recursive: true });
+    await writeFile(decisionPath, `${JSON.stringify({ score, revision, applied: false })}\n`, "utf8");
     const path = resolve(campaign.projectRoot, BASELINE);
     await mkdir(dirname(path), { recursive: true });
     await writeFile(path, `${JSON.stringify({ score }, null, 2)}\n`, "utf8");
+    await writeFile(decisionPath, `${JSON.stringify({ score, revision, applied: true })}\n`, "utf8");
     await rm(candidate.root, { recursive: true, force: true });
-    return { revision: `mock-${candidate.id}`, changed: true };
+    return { revision, changed: true };
   }
 
   async discardCandidate({ candidate }: { campaign: Campaign; candidate: Candidate; signal: AbortSignal }): Promise<void> {
@@ -49,6 +65,35 @@ export class MockAgent implements AgentDriver {
     const delta = number % 3 === 0 ? -0.02 : 0.05;
     const score = Number((baseline + delta).toFixed(4));
     await writeFile(resolve(request.candidate.root, PROPOSAL), `${JSON.stringify({ score, delta }, null, 2)}\n`, "utf8");
+    if (request.campaign.parameters?.mockInfrastructureFailure === true) {
+      const marker = resolve(request.candidate.root, ".factory-infrastructure-retry");
+      try {
+        await readFile(marker, "utf8");
+      } catch {
+        await writeFile(marker, "retry\n", "utf8");
+        throw new InfrastructureFailureError("Simulated recoverable adapter failure");
+      }
+    }
+    if (request.campaign.parameters?.mockCandidateInvalidation === true) {
+      const marker = resolve(request.candidate.root, ".factory-validation-retry");
+      try {
+        await readFile(marker, "utf8");
+      } catch {
+        await writeFile(marker, "repair required\n", "utf8");
+        throw new CandidateInvalidatedError("Simulated evidence-backed candidate invalidation");
+      }
+    }
+    if (request.campaign.parameters?.mockProjectDisposition === true) {
+      const evidencePath = resolve(request.candidate.root, "spec-amendment-evidence.json");
+      await writeFile(evidencePath, `${JSON.stringify({ claimId: "loop.first-errand", observation: "The preserved loop is inert." })}\n`, "utf8");
+      const error = new CandidateInvalidatedError("Simulated evidence-backed spec amendment");
+      Object.assign(error, {
+        projectDisposition: { kind: "spec-amendment", rationale: "The preserved loop is inert.", claimIds: ["loop.first-errand"], evidenceReferences: ["spec-amendment-evidence.json"] },
+        artifacts: [{ kind: "test-report", path: evidencePath, mediaType: "application/json", label: "Spec amendment evidence" }],
+        provenance: { contributor: "mock.agent" }
+      });
+      throw error;
+    }
     return { summary: `Proposed deterministic score ${score}.`, usage: { inputTokens: 10, outputTokens: 5, costUsd: 0 } };
   }
 }

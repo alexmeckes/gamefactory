@@ -477,6 +477,12 @@ function entryNote(entry: WorkflowJournalEntry): string {
       const action = stringValue(data?.action);
       return action ? `${action === "accept" ? "Accept" : "Discard"} decision recorded` : "Finalization decision recorded";
     }
+    case "workspace-applied":
+      return "Workspace decision applied";
+    case "agent-finalization-intent":
+      return "Agent checkpoint finalization intent recorded";
+    case "agent-finalized":
+      return data?.accepted === true ? "Agent checkpoints accepted" : "Agent checkpoints invalidated or preserved";
     case "applied": {
       const record = asObject(data?.record);
       return stringValue(record?.status) ? `Outcome applied: ${stringValue(record?.status)}` : "Outcome applied";

@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
-import type { AgentDriver, Campaign, FactoryTraceEventInput } from "@gamefactory/core";
-import { AgentTeam, AgentTeamExecutionError, validateAgentTeamConfiguration } from "./index.js";
+import { InfrastructureFailureError, type AgentDriver, type AgentResult, type Campaign, type FactoryTraceEventInput } from "@gamefactory/core";
+import { AgentTeam, AgentTeamExecutionError, AgentTeamInfrastructureError, AgentTeamInvalidatedError, validateAgentTeamConfiguration } from "./index.js";
 
 const exec = promisify(execFile);
 
@@ -55,12 +55,12 @@ assert.equal(Number(process.env.GAMEFACTORY_ATTEMPT), request.attempt);
 const timingRoot = dirname(process.env.GAMEFACTORY_REQUEST);
 await mkdir(timingRoot, { recursive: true });
 const started = Date.now();
-if (["alpha", "beta"].includes(request.nodeId)) {
+if (["alpha", "beta", "large-alpha", "large-beta"].includes(request.nodeId)) {
   await new Promise((resolve) => setTimeout(resolve, 120));
   console.log(JSON.stringify({
     summary: request.nodeId + " complete",
     outcome: "pass",
-    context: { source: request.nodeId },
+    context: { source: request.nodeId, ...(request.nodeId.startsWith("large-") ? { blob: "x".repeat(4000) } : {}) },
     usage: { inputTokens: 100, outputTokens: 25, costUsd: 0.01, costSource: "provider-reported" },
     artifacts: [{ kind: "other", path: "value.txt", label: request.nodeId + " evidence" }]
   }));
@@ -70,6 +70,11 @@ if (["alpha", "beta"].includes(request.nodeId)) {
   assert.ok(request.inputs.every((input) => input.artifacts[0].path.endsWith("value.txt")));
   assert.ok(request.inputs.every((input) => input.output === ""), "structured handoffs should not duplicate raw stdout");
   console.log(JSON.stringify({ summary: "joined structured findings", outcome: "pass", projectEvidence: { scenarios: [], targetSha256: "a".repeat(64) } }));
+} else if (request.nodeId === "large-join") {
+  assert.deepEqual(request.inputs.map((input) => input.nodeId).sort(), ["large-alpha", "large-beta"]);
+  assert.ok(request.inputs.every((input) => input.structured.context.handoffTruncated === true));
+  assert.ok(JSON.stringify(request.inputs).length < 3000, "combined handoff must remain globally bounded");
+  console.log(JSON.stringify({ summary: "bounded large handoffs", outcome: "pass" }));
 } else if (request.nodeId === "discover") {
   console.log("human-readable prelude");
   console.log(JSON.stringify({ summary: "found hypothesis", outcome: "ready", context: { hypothesis: "raise-value" } }));
@@ -78,7 +83,7 @@ if (["alpha", "beta"].includes(request.nodeId)) {
   assert.equal(discovery.structured.context.hypothesis, "raise-value");
   const repairing = request.reason.kind === "repair";
   if (repairing) {
-    const review = request.inputs.find((input) => ["reviewer", "alias-reviewer", "requested-alias-reviewer", "needs-work-reviewer", "rejected-reviewer", "visual-reviewer"].includes(input.nodeId));
+    const review = request.inputs.find((input) => ["reviewer", "alias-reviewer", "requested-alias-reviewer", "needs-work-reviewer", "rejected-reviewer", "visual-reviewer", "checkpoint-reviewer"].includes(input.nodeId));
     assert.ok(["revise", "revision_required", "revision_requested", "needs-work", "rejected"].includes(review.structured.outcome));
   }
   await writeFile("value.txt", repairing ? "repaired\\n" : "implemented\\n", "utf8");
@@ -115,6 +120,19 @@ if (["alpha", "beta"].includes(request.nodeId)) {
       opportunities: [{ classification: "opportunity", finding: "Explore a second coherent direction." }]
     }
   }));
+} else if (["contract-retry-reviewer", "contract-exhausted-reviewer"].includes(request.nodeId)) {
+  if (request.attempt > 1) {
+    const rejected = request.inputs.find((input) => input.nodeId === request.nodeId);
+    assert.match(rejected.summary, /OUTPUT CONTRACT REJECTED/);
+  }
+  console.log(JSON.stringify(request.nodeId === "contract-retry-reviewer" && request.attempt > 1
+    ? { summary: "review contract repaired", outcome: "pass", findings: [] }
+    : { summary: "visual concern without claim attribution", outcome: "revise", findings: [{ findingClass: "opportunity", issue: "consider more polish" }] }));
+} else if (request.nodeId === "checkpoint-reviewer") {
+  const value = await readFile("value.txt", "utf8");
+  console.log(JSON.stringify(value === "repaired\\n"
+    ? { summary: "repaired checkpoint accepted", outcome: "pass", findings: [] }
+    : { summary: "checkpoint invalidated", outcome: "revise", findings: [{ findingClass: "blocker", claimIds: ["loop.first-errand"], issue: "value is not repaired", evidence: ["value.txt"], diagnosticBlob: "x".repeat(4000) }] }));
 } else if (request.nodeId === "nested-plan-consumer") {
   const plan = request.inputs.find((input) => input.nodeId === "nested-blocker-reviewer");
   assert.equal(plan.structured.outcome, "revise");
@@ -151,7 +169,7 @@ if (["alpha", "beta"].includes(request.nodeId)) {
   console.log(JSON.stringify({
     summary: owner + " contract must be revised outside implementation",
     outcome: owner === "target" ? "target_revision" : "spec_amendment",
-    findings: [{ owner, issue: "the controlling contract is incoherent" }]
+    findings: [{ findingClass: "blocker", claimIds: ["loop.first-errand"], owner, issue: "the controlling contract is incoherent", evidence: ["value.txt"] }]
   }));
 } else if (request.nodeId === "downstream") {
   assert.equal(await readFile("value.txt", "utf8"), "repaired\\n", "downstream must not run against work rejected by its gate");
@@ -180,9 +198,9 @@ if (["alpha", "beta"].includes(request.nodeId)) {
     if (request.nodeId === "advisor-failure") assert.match(primary.output + " " + primary.summary, /failed|scout/i);
     console.log(JSON.stringify({ summary: "Sol advisor resolved the gap", outcome: "pass", findings: { inheritedEvidence: true } }));
   }
-} else if (["writer-a", "writer-b"].includes(request.nodeId)) {
+} else if (["writer-a", "writer-b", "writer-c"].includes(request.nodeId)) {
   await new Promise((resolve) => setTimeout(resolve, 100));
-  await writeFile(request.nodeId + ".txt", "written\\n", "utf8");
+  await writeFile(request.nodeId + ".txt", (process.argv[2] ?? "written") + "\\n", "utf8");
   console.log(JSON.stringify({ summary: request.nodeId + " complete", outcome: "complete" }));
 } else {
   throw new Error("unknown graph fixture node " + request.nodeId);
@@ -264,7 +282,7 @@ function graphCampaign(projectRoot: string, nodes: Record<string, unknown>[], gr
     projectRoot,
     workflow: "autoresearch",
     requires: [],
-    mutablePaths: ["value.txt", "writer-a.txt", "writer-b.txt"],
+    mutablePaths: ["value.txt", "writer-a.txt", "writer-b.txt", "writer-c.txt"],
     acceptance: { primaryMetric: "score", direction: "maximize" },
     parameters: {
       agentTeam: {
@@ -278,6 +296,21 @@ function graphCampaign(projectRoot: string, nodes: Record<string, unknown>[], gr
 
 function graphCommand(id: string, options: Record<string, unknown> = {}): Record<string, unknown> {
   return { id, command: [process.execPath, "graph-fixture.mjs"], ...options };
+}
+
+async function acceptTeamCheckpoints(team: AgentTeam, campaign: Campaign, root: string, experimentId: string, result: AgentResult, dataRoot: string): Promise<void> {
+  await team.finalize({
+    campaign,
+    candidate: { id: experimentId, root, metadata: {} },
+    experimentId,
+    history: [],
+    runtime: { dataRoot },
+    signal: new AbortController().signal,
+    result,
+    evaluations: [{ evaluator: "fixture.final", version: "1", status: "pass", metrics: {}, violations: [], artifacts: [] }],
+    accepted: true,
+    reason: "test-accepted"
+  });
 }
 
 async function repository(): Promise<string> {
@@ -330,10 +363,11 @@ test("agent team runs parallel read-only stages around a single writer and retur
     const quality = await timing(root, "exp-1", "critic", "quality");
     assert.ok(Math.max(safety.started, quality.started) < Math.min(safety.finished, quality.finished), "critics should overlap");
 
-    const plannerRequest = JSON.parse(await readFile(resolve(root, ".factory", "agent-team", "exp-1", "planner", "lead", "request.json"), "utf8")) as { inputs: Array<{ output: string }>; effectivePrompt: { layers: Array<{ kind: string }> } };
+    const plannerRequest = JSON.parse(await readFile(resolve(root, ".factory", "agent-team", "exp-1", "planner", "lead", "request.json"), "utf8")) as { inputs: Array<{ output: string }>; effectivePromptManifestPath: string };
     assert.equal(plannerRequest.inputs.length, 2);
     assert.ok(plannerRequest.inputs.every((input) => input.output.includes("finding from")));
-    assert.ok(plannerRequest.effectivePrompt.layers.some((layer) => layer.kind === "role"));
+    const plannerManifest = JSON.parse(await readFile(plannerRequest.effectivePromptManifestPath, "utf8")) as { layers: Array<{ kind: string }> };
+    assert.ok(plannerManifest.layers.some((layer) => layer.kind === "role"));
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -503,6 +537,47 @@ test("explicit reviewer authority rejects unknown claims in nested blocker findi
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test("reviewer output-contract failures retry locally without rerunning upstream work", async () => {
+  const root = await repository();
+  try {
+    const result = await new AgentTeam().run({
+      campaign: graphCampaign(root, [
+        graphCommand("discover", { role: "scout", permissions: "read" }),
+        graphCommand("builder", { role: "implementer", permissions: "write", dependsOn: ["discover"] }),
+        graphCommand("contract-retry-reviewer", { role: "critic", permissions: "read", authority: "propose", dependsOn: ["builder"] })
+      ], { claimIds: ["loop.first-errand"] }),
+      candidate: { id: "candidate", root, metadata: {} }, experimentId: "exp-contract-retry", history: [], signal: new AbortController().signal
+    });
+    const metadata = result.metadata as { executionRetries: number; nodes: Record<string, { attempts: number; outputContractRetries: number }> };
+    assert.equal(metadata.nodes.builder?.attempts, 1);
+    assert.equal(metadata.nodes["contract-retry-reviewer"]?.attempts, 2);
+    assert.equal(metadata.nodes["contract-retry-reviewer"]?.outputContractRetries, 1);
+    assert.equal(metadata.executionRetries, 1);
+    assert.equal(result.contributors?.filter((item) => item.agentId === "builder").length, 1);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("exhausted reviewer output-contract retries retain upstream work as infrastructure recovery", async () => {
+  const root = await repository();
+  try {
+    await assert.rejects(() => new AgentTeam().run({
+      campaign: graphCampaign(root, [
+        graphCommand("discover", { role: "scout", permissions: "read" }),
+        graphCommand("builder", { role: "implementer", permissions: "write", dependsOn: ["discover"] }),
+        graphCommand("contract-exhausted-reviewer", { role: "critic", permissions: "read", authority: "propose", dependsOn: ["builder"] })
+      ], { claimIds: ["loop.first-errand"] }),
+      candidate: { id: "candidate", root, metadata: {} }, experimentId: "exp-contract-exhausted", history: [], signal: new AbortController().signal
+    }), (error: unknown) => {
+      assert.equal((error as { failureClass?: unknown }).failureClass, "infrastructure");
+      assert.match((error as Error).message, /without a blocker.*after 1 bounded contract retry/);
+      assert.equal((error as AgentTeamExecutionError).runs.filter((run) => run.provenance.contributorId === "builder").length, 1);
+      assert.equal((error as AgentTeamExecutionError).runs.filter((run) => run.provenance.contributorId === "contract-exhausted-reviewer").length, 2);
+      return true;
+    });
+    assert.equal(await readFile(resolve(root, "value.txt"), "utf8"), "implemented\n");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("agent team rejects unsupported Codex thread retention before launching adapters", async () => {
   const root = await repository();
   try {
@@ -565,6 +640,27 @@ test("agent graph runs independent readers in parallel and honors dependency ord
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test("graph handoffs share one character and artifact budget across direct dependencies", async () => {
+  const root = await repository();
+  try {
+    const campaign = graphCampaign(root, [
+      graphCommand("large-alpha", { role: "scout", permissions: "read" }),
+      graphCommand("large-beta", { role: "scout", permissions: "read" }),
+      graphCommand("large-join", { role: "judge", permissions: "read", dependsOn: ["large-alpha", "large-beta"] })
+    ]);
+    campaign.parameters = { ...campaign.parameters, agentTeam: { ...(campaign.parameters!.agentTeam as Record<string, unknown>), handoffCharacters: 512, maximumHandoffArtifacts: 1 } };
+    await new AgentTeam().run({
+      campaign,
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-bounded-handoffs",
+      history: [],
+      signal: new AbortController().signal
+    });
+    const request = JSON.parse(await readFile(resolve(root, ".factory/agent-team/exp-bounded-handoffs/graph/large-join/attempt-1/request.json"), "utf8")) as { inputs: Array<{ artifacts: unknown[] }> };
+    assert.equal(request.inputs.reduce((total, input) => total + input.artifacts.length, 0), 1);
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test("agent graph escalates an explicit Luna capability gap to a bounded Sol advisor with preserved evidence", async () => {
@@ -691,7 +787,8 @@ test("agent graph fails closed when a required judge requests revision without a
       history: [],
       signal: new AbortController().signal
     }), (error: unknown) => {
-      assert.ok(error instanceof AgentTeamExecutionError);
+      assert.ok(error instanceof AgentTeamInvalidatedError);
+      assert.equal(error.failureClass, "validation");
       assert.match(error.message, /reviewer: needs repair/);
       assert.ok(error.runs.some((run) => run.provenance.contributorId === "builder"));
       return true;
@@ -1033,9 +1130,9 @@ test("agent graph canonicalizes qualified blocked outcomes and prevents downstre
       history: [],
       signal: new AbortController().signal
     }), (error: unknown) => {
-      assert.ok(error instanceof AgentTeamExecutionError);
+      assert.ok(error instanceof AgentTeamInvalidatedError);
       assert.doesNotMatch(error.message, /unknown control outcome/);
-      assert.match(error.message, /required nodes failed.*blocked-reviewer.*writer/);
+      assert.match(error.message, /candidate invalidated.*blocked-reviewer.*writer/);
       const blockedRun = error.runs.find((run) => run.provenance.contributorId === "blocked-reviewer");
       assert.equal(blockedRun?.provenance.outcome, "blocked");
       assert.equal(blockedRun?.provenance.reportedOutcome, "blocked_missing_runtime_evidence");
@@ -1061,8 +1158,14 @@ test("agent graph blocks target and spec return edges instead of treating them a
         history: [],
         signal: new AbortController().signal
       }), (error: unknown) => {
-        assert.ok(error instanceof AgentTeamExecutionError);
-        assert.match(error.message, new RegExp(`required nodes failed.*${reviewer}.*writer`));
+        assert.ok(error instanceof AgentTeamInvalidatedError);
+        assert.match(error.message, new RegExp(`candidate invalidated.*${reviewer}.*writer`));
+        assert.deepEqual(error.projectDisposition, {
+          kind: outcome === "target_revision" ? "target-revision" : "spec-amendment",
+          rationale: `${reviewer === "target-owner-reviewer" ? "target" : "spec"} contract must be revised outside implementation`,
+          claimIds: ["loop.first-errand"],
+          evidenceReferences: ["value.txt"]
+        });
         const review = error.runs.find((run) => run.provenance.contributorId === reviewer);
         assert.equal(review?.provenance.outcome, outcome);
         assert.equal(error.runs.some((run) => run.provenance.contributorId === "writer"), false);
@@ -1088,6 +1191,7 @@ test("agent graph preserves successful upstream evidence when a downstream requi
       signal: new AbortController().signal
     }), (error: unknown) => {
       assert.ok(error instanceof AgentTeamExecutionError);
+      assert.equal(error instanceof AgentTeamInvalidatedError, false);
       assert.ok(error.artifacts.some((artifact) => artifact.label?.includes("alpha stdout")));
       assert.ok(error.provenance.contributors instanceof Array);
       return true;
@@ -1358,6 +1462,7 @@ test("read-only extension drivers may refresh only explicitly declared candidate
   try {
     const extensionDriver: AgentDriver = {
       id: "fixture.evidence",
+      writePaths: ["evidence/**"],
       async run(request) {
         const output = resolve(request.candidate.root, "evidence", "result.json");
         await mkdir(resolve(request.candidate.root, "evidence"), { recursive: true });
@@ -1376,7 +1481,7 @@ test("read-only extension drivers may refresh only explicitly declared candidate
       driver: "fixture.evidence",
       role: "worker",
       permissions: "read",
-      driverWritePaths: ["evidence/**"]
+      writePaths: ["evidence/**"]
     }]);
     campaign.mutablePaths = ["evidence/**"];
     const result = await team.run({
@@ -1388,7 +1493,7 @@ test("read-only extension drivers may refresh only explicitly declared candidate
     });
     assert.equal(await readFile(resolve(root, "evidence", "result.json"), "utf8"), "{}\n");
     assert.match(result.summary, /evidence refreshed/);
-    assert.deepEqual((result.metadata as { nodes: Record<string, { driverWritePaths?: string[] }> }).nodes["refresh-evidence"]?.driverWritePaths, ["evidence/**"]);
+    assert.deepEqual((result.metadata as { nodes: Record<string, { writePaths?: string[] }> }).nodes["refresh-evidence"]?.writePaths, ["evidence/**"]);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -1431,6 +1536,7 @@ test("read-only extension driver write allowlists fail closed outside declared e
   try {
     const extensionDriver: AgentDriver = {
       id: "fixture.rogue-evidence",
+      writePaths: ["evidence/**"],
       async run(request) {
         await mkdir(resolve(request.candidate.root, "evidence"), { recursive: true });
         await writeFile(resolve(request.candidate.root, "evidence", "result.json"), "{}\n", "utf8");
@@ -1439,15 +1545,17 @@ test("read-only extension driver write allowlists fail closed outside declared e
       }
     };
     const team = new AgentTeam(() => extensionDriver);
+    const configured = graphCampaign(root, [{
+      id: "refresh-evidence",
+      adapter: "agent-driver",
+      driver: "fixture.rogue-evidence",
+      role: "worker",
+      permissions: "read",
+      writePaths: ["evidence/**"]
+    }]);
+    configured.mutablePaths = ["value.txt", "evidence/**"];
     await assert.rejects(team.run({
-      campaign: graphCampaign(root, [{
-        id: "refresh-evidence",
-        adapter: "agent-driver",
-        driver: "fixture.rogue-evidence",
-        role: "worker",
-        permissions: "read",
-        driverWritePaths: ["evidence/**"]
-      }]),
+      campaign: configured,
       candidate: { id: "candidate", root, metadata: {} },
       experimentId: "exp-rogue-evidence-driver",
       history: [],
@@ -1459,5 +1567,567 @@ test("read-only extension driver write allowlists fail closed outside declared e
     });
   } finally {
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("strict graph preflight requires one write contract for every writer", () => {
+  const configured = graphCampaign(".", [
+    graphCommand("builder", { role: "implementer", permissions: "write" })
+  ], { enforceWriteContracts: true });
+  assert.throws(() => validateAgentTeamConfiguration(configured), /builder must declare writePaths/);
+});
+
+test("strict graph preflight rejects a repair scope narrower than its writer contract", () => {
+  const configured = graphCampaign(".", [
+    graphCommand("builder", { role: "implementer", permissions: "write", writePaths: ["value.txt", "writer-a.txt"] }),
+    graphCommand("reviewer", {
+      role: "critic",
+      permissions: "read",
+      dependsOn: ["builder"],
+      repair: { target: "builder", outcomes: ["revise"], maximumAttempts: 1, allowedPaths: ["value.txt"] }
+    })
+  ], { enforceWriteContracts: true });
+  assert.throws(() => validateAgentTeamConfiguration(configured), /repair allowedPaths do not cover builder\.writePaths: writer-a\.txt/);
+});
+
+test("factory-native driver side effects are checked before any node executes", async () => {
+  const root = await repository();
+  let ran = false;
+  try {
+    const extensionDriver: AgentDriver = {
+      id: "fixture.preflight-side-effects",
+      writePaths: ["game/**/*.uid"],
+      async run() {
+        ran = true;
+        return { summary: "should not run", metadata: { outcome: "pass" } };
+      }
+    };
+    const configured = graphCampaign(root, [{
+      id: "refresh-evidence",
+      adapter: "agent-driver",
+      driver: extensionDriver.id,
+      role: "worker",
+      permissions: "read",
+      writePaths: ["evidence/**"]
+    }], { enforceWriteContracts: true });
+    configured.mutablePaths = ["evidence/**", "game/**"];
+    await assert.rejects(new AgentTeam(() => extensionDriver).run({
+      campaign: configured,
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-driver-preflight",
+      history: [],
+      signal: new AbortController().signal
+    }), (error: unknown) => {
+      assert.equal((error as { failureClass?: unknown }).failureClass, "infrastructure");
+      assert.match((error as Error).message, /do not cover factory-native driver .* side effects: game\/\*\*\/\*\.uid/);
+      return true;
+    });
+    assert.equal(ran, false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("durable writer checkpoints reuse matching outputs without invoking the writer again", async () => {
+  const root = await repository();
+  const freshRoot = await repository();
+  const changedBaseRoot = await repository();
+  const dataRoot = await mkdtemp(resolve(tmpdir(), "gamefactory-agent-checkpoints-"));
+  try {
+    const configured = graphCampaign(root, [
+      graphCommand("discover", { role: "planner", permissions: "read" }),
+      graphCommand("builder", { role: "implementer", permissions: "write", writePaths: ["value.txt"], dependsOn: ["discover"] })
+    ], { enforceWriteContracts: true, reuseCheckpoints: true });
+    configured.parameters = { ...configured.parameters, projectSlice: { projectId: "checkpoint-project" } };
+    const team = new AgentTeam();
+    const first = await team.run({
+      campaign: configured,
+      candidate: { id: "candidate-1", root, metadata: {} },
+      experimentId: "exp-checkpoint-1",
+      history: [],
+      runtime: { dataRoot },
+      signal: new AbortController().signal
+    });
+    assert.equal((first.metadata as { nodes: Record<string, { checkpointReused?: boolean }> }).nodes.builder?.checkpointReused, undefined);
+    await acceptTeamCheckpoints(team, configured, root, "exp-checkpoint-1", first, dataRoot);
+    const checkpointFiles = (await readdir(dataRoot, { recursive: true })).filter((path) => path.endsWith(".json") && !path.includes(".files"));
+    assert.equal(checkpointFiles.length, 1);
+
+    const second = await team.run({
+      campaign: configured,
+      candidate: { id: "candidate-2", root, metadata: {} },
+      experimentId: "exp-checkpoint-2",
+      history: [],
+      runtime: { dataRoot },
+      signal: new AbortController().signal
+    });
+    assert.equal((second.metadata as { nodes: Record<string, { checkpointReused?: boolean }> }).nodes.builder?.checkpointReused, true);
+    assert.equal(second.contributors?.find((item) => item.agentId === "builder")?.metadata?.checkpointReused, true);
+
+    await writeFile(resolve(root, "external-context.txt"), "new upstream context\n", "utf8");
+    const externalContextChanged = await team.run({
+      campaign: configured,
+      candidate: { id: "candidate-external-context", root, metadata: {} },
+      experimentId: "exp-checkpoint-external-context",
+      history: [],
+      runtime: { dataRoot },
+      signal: new AbortController().signal
+    });
+    assert.equal((externalContextChanged.metadata as { nodes: Record<string, { checkpointReused?: boolean }> }).nodes.builder?.checkpointReused, undefined, "changing a file outside writePaths must invalidate a writer that could have read it");
+
+    const changedObjective = { ...configured, objective: "coordinate a materially revised bounded graph" };
+    const instructionChanged = await team.run({
+      campaign: changedObjective,
+      candidate: { id: "candidate-instruction-change", root, metadata: {} },
+      experimentId: "exp-checkpoint-instruction-change",
+      history: [],
+      runtime: { dataRoot },
+      signal: new AbortController().signal
+    });
+    assert.equal((instructionChanged.metadata as { nodes: Record<string, { checkpointReused?: boolean }> }).nodes.builder?.checkpointReused, undefined);
+
+    const changedCommand = graphCampaign(root, [
+      graphCommand("discover", { role: "planner", permissions: "read" }),
+      graphCommand("builder", { command: [process.execPath, "graph-fixture.mjs", "changed-contract"], role: "implementer", permissions: "write", writePaths: ["value.txt"], dependsOn: ["discover"] })
+    ], { enforceWriteContracts: true, reuseCheckpoints: true });
+    changedCommand.parameters = { ...changedCommand.parameters, projectSlice: { projectId: "checkpoint-project" } };
+    const commandChanged = await team.run({
+      campaign: changedCommand,
+      candidate: { id: "candidate-command-change", root, metadata: {} },
+      experimentId: "exp-checkpoint-command-change",
+      history: [],
+      runtime: { dataRoot },
+      signal: new AbortController().signal
+    });
+    assert.equal((commandChanged.metadata as { nodes: Record<string, { checkpointReused?: boolean }> }).nodes.builder?.checkpointReused, undefined, "changing the executable contract must invalidate reuse");
+
+    const freshConfigured = graphCampaign(freshRoot, [
+      graphCommand("discover", { role: "planner", permissions: "read" }),
+      graphCommand("builder", { role: "implementer", permissions: "write", writePaths: ["value.txt"], dependsOn: ["discover"] })
+    ], { enforceWriteContracts: true, reuseCheckpoints: true });
+    freshConfigured.parameters = { ...freshConfigured.parameters, projectSlice: { projectId: "checkpoint-project" } };
+    const restored = await team.run({
+      campaign: freshConfigured,
+      candidate: { id: "candidate-restored", root: freshRoot, metadata: {} },
+      experimentId: "exp-checkpoint-restored",
+      history: [],
+      runtime: { dataRoot },
+      signal: new AbortController().signal
+    });
+    assert.equal((restored.metadata as { nodes: Record<string, { checkpointReused?: boolean }> }).nodes.builder?.checkpointReused, true);
+    assert.equal(await readFile(resolve(freshRoot, "value.txt"), "utf8"), "implemented\n");
+
+    await writeFile(resolve(changedBaseRoot, "value.txt"), "newer authored baseline\n", "utf8");
+    const changedBaseConfigured = graphCampaign(changedBaseRoot, [
+      graphCommand("discover", { role: "planner", permissions: "read" }),
+      graphCommand("builder", { role: "implementer", permissions: "write", writePaths: ["value.txt"], dependsOn: ["discover"] })
+    ], { enforceWriteContracts: true, reuseCheckpoints: true });
+    changedBaseConfigured.parameters = { ...changedBaseConfigured.parameters, projectSlice: { projectId: "checkpoint-project" } };
+    const changedBase = await team.run({
+      campaign: changedBaseConfigured,
+      candidate: { id: "candidate-newer-base", root: changedBaseRoot, metadata: {} },
+      experimentId: "exp-checkpoint-newer-base",
+      history: [],
+      runtime: { dataRoot },
+      signal: new AbortController().signal
+    });
+    assert.equal((changedBase.metadata as { nodes: Record<string, { checkpointReused?: boolean }> }).nodes.builder?.checkpointReused, undefined, "a checkpoint must not overwrite a changed pre-image");
+
+    await writeFile(resolve(root, "value.txt"), "externally changed\n", "utf8");
+    const third = await team.run({
+      campaign: configured,
+      candidate: { id: "candidate-3", root, metadata: {} },
+      experimentId: "exp-checkpoint-3",
+      history: [],
+      runtime: { dataRoot },
+      signal: new AbortController().signal
+    });
+    assert.equal((third.metadata as { nodes: Record<string, { checkpointReused?: boolean }> }).nodes.builder?.checkpointReused, undefined);
+    assert.equal(await readFile(resolve(root, "value.txt"), "utf8"), "implemented\n");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(freshRoot, { recursive: true, force: true });
+    await rm(changedBaseRoot, { recursive: true, force: true });
+    await rm(dataRoot, { recursive: true, force: true });
+  }
+});
+
+test("runtime implementation changes invalidate otherwise matching writer checkpoints", async () => {
+  const root = await repository();
+  const dataRoot = await mkdtemp(resolve(tmpdir(), "gamefactory-runtime-checkpoint-"));
+  try {
+    const configured = graphCampaign(root, [
+      graphCommand("discover", { role: "planner", permissions: "read" }),
+      graphCommand("builder", { role: "implementer", permissions: "write", writePaths: ["value.txt"], dependsOn: ["discover"] })
+    ], { enforceWriteContracts: true, reuseCheckpoints: true });
+    configured.parameters = { ...configured.parameters, projectSlice: { projectId: "runtime-fingerprint-project" } };
+    const team = new AgentTeam();
+    const first = await team.run({ campaign: configured, candidate: { id: "first", root, metadata: {} }, experimentId: "exp-runtime-1", history: [], runtime: { dataRoot, implementationFingerprint: "runtime-a" }, signal: new AbortController().signal });
+    await team.finalize({ campaign: configured, candidate: { id: "first", root, metadata: {} }, experimentId: "exp-runtime-1", history: [], runtime: { dataRoot, implementationFingerprint: "runtime-a" }, signal: new AbortController().signal, result: first, evaluations: [], accepted: true, reason: "test" });
+    const second = await team.run({ campaign: configured, candidate: { id: "second", root, metadata: {} }, experimentId: "exp-runtime-2", history: [], runtime: { dataRoot, implementationFingerprint: "runtime-b" }, signal: new AbortController().signal });
+    assert.equal((second.metadata as { nodes: Record<string, { checkpointReused?: boolean }> }).nodes.builder?.checkpointReused, undefined);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(dataRoot, { recursive: true, force: true });
+  }
+});
+
+test("infrastructure recovery reuses provisional writer work within the same logical experiment", async () => {
+  const root = await repository();
+  const dataRoot = await mkdtemp(resolve(tmpdir(), "gamefactory-provisional-checkpoint-recovery-"));
+  let calls = 0;
+  const driver: AgentDriver = {
+    id: "fixture.transient-review",
+    async run() {
+      calls += 1;
+      if (calls === 1) throw new InfrastructureFailureError("transient provider outage after writer completion");
+      return { summary: "review recovered", artifacts: [], metadata: { outcome: "pass", structured: { findings: [] } } };
+    }
+  };
+  try {
+    const configured = graphCampaign(root, [
+      graphCommand("discover", { role: "planner", permissions: "read" }),
+      graphCommand("builder", { role: "implementer", permissions: "write", writePaths: ["value.txt"], dependsOn: ["discover"] }),
+      { id: "native-review", adapter: "agent-driver", driver: driver.id, role: "critic", permissions: "read", dependsOn: ["builder"] }
+    ], { enforceWriteContracts: true, reuseCheckpoints: true });
+    configured.parameters = { ...configured.parameters, projectSlice: { projectId: "provisional-recovery-project" } };
+    const team = new AgentTeam(() => driver);
+    await assert.rejects(() => team.run({
+      campaign: configured,
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-0001",
+      logicalExperimentId: "exp-0001",
+      attemptNumber: 1,
+      history: [],
+      runtime: { dataRoot },
+      signal: new AbortController().signal
+    }), AgentTeamInfrastructureError);
+    const recovered = await team.run({
+      campaign: configured,
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-0001-attempt-0002",
+      logicalExperimentId: "exp-0001",
+      attemptNumber: 2,
+      resumedFromExperimentId: "exp-0001",
+      history: [],
+      runtime: { dataRoot },
+      signal: new AbortController().signal
+    });
+    assert.equal((recovered.metadata as { nodes: Record<string, { checkpointReused?: boolean; checkpointValidationState?: string }> }).nodes.builder?.checkpointReused, true);
+    assert.equal(recovered.contributors?.find((contributor) => contributor.agentId === "builder")?.metadata?.checkpointValidationState, "provisional");
+    assert.equal(calls, 2);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(dataRoot, { recursive: true, force: true });
+  }
+});
+
+test("terminal rejection invalidates only explicitly causal writer checkpoints", async () => {
+  const root = await repository();
+  const dataRoot = await mkdtemp(resolve(tmpdir(), "gamefactory-causal-checkpoint-invalidation-"));
+  try {
+    const configured = graphCampaign(root, [
+      graphCommand("writer-a", { role: "implementer", permissions: "write", writePaths: ["writer-a.txt"] }),
+      graphCommand("writer-b", { role: "implementer", permissions: "write", writePaths: ["writer-b.txt"], dependsOn: ["writer-a"] }),
+      graphCommand("nested-blocker-reviewer", {
+        role: "critic",
+        permissions: "read",
+        authority: "propose",
+        dependsOn: ["writer-b"],
+        invalidationTargets: { revise: ["writer-b"] }
+      })
+    ], { claimIds: ["loop.first-errand"], enforceWriteContracts: true, reuseCheckpoints: true });
+    configured.parameters = { ...configured.parameters, projectSlice: { projectId: "causal-invalidation-project" } };
+    await assert.rejects(() => new AgentTeam().run({
+      campaign: configured,
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-causal",
+      logicalExperimentId: "exp-causal",
+      history: [],
+      runtime: { dataRoot },
+      signal: new AbortController().signal
+    }), AgentTeamInvalidatedError);
+    const manifests = await Promise.all((await readdir(dataRoot, { recursive: true }))
+      .filter((path) => path.endsWith(".json") && !path.includes(".files"))
+      .map(async (path) => JSON.parse(await readFile(resolve(dataRoot, path), "utf8")) as { nodeId: string; validationState: string }));
+    assert.deepEqual(manifests.filter((item) => item.nodeId === "writer-a").map((item) => item.validationState), ["provisional"]);
+    assert.deepEqual(manifests.filter((item) => item.nodeId === "writer-b").map((item) => item.validationState), ["invalidated"]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(dataRoot, { recursive: true, force: true });
+  }
+});
+
+test("external hard-gate finalization invalidates a mapped writer's causal descendants but preserves independent work", async () => {
+  const root = await repository();
+  const dataRoot = await mkdtemp(resolve(tmpdir(), "gamefactory-external-finalization-"));
+  try {
+    const configured = graphCampaign(root, [
+      graphCommand("writer-a", { role: "implementer", permissions: "write", writePaths: ["writer-a.txt"] }),
+      graphCommand("writer-b", { role: "implementer", permissions: "write", writePaths: ["writer-b.txt"], dependsOn: ["writer-a"] }),
+      graphCommand("writer-c", { role: "implementer", permissions: "write", writePaths: ["writer-c.txt"] })
+    ], { enforceWriteContracts: true, reuseCheckpoints: true, externalInvalidationTargets: { "fixture.gate#rejected": ["writer-a"] } });
+    configured.parameters = { ...configured.parameters, projectSlice: { projectId: "external-finalization-project" } };
+    const team = new AgentTeam();
+    const request = { campaign: configured, candidate: { id: "candidate", root, metadata: {} }, experimentId: "exp-external-finalization", history: [], runtime: { dataRoot }, signal: new AbortController().signal };
+    const result = await team.run(request);
+    let manifests = await Promise.all((await readdir(dataRoot, { recursive: true }))
+      .filter((path) => path.endsWith(".json") && !path.includes(".files"))
+      .map(async (path) => JSON.parse(await readFile(resolve(dataRoot, path), "utf8")) as { nodeId: string; validationState: string }));
+    assert.ok(manifests.every((manifest) => manifest.validationState === "provisional"));
+    await team.finalize({
+      ...request,
+      result,
+      evaluations: [{ evaluator: "fixture.gate", version: "1", status: "fail", metrics: {}, violations: [{ code: "rejected", message: "writer-a failed", severity: "error" }], artifacts: [] }],
+      accepted: false,
+      reason: "test-hard-gate"
+    });
+    manifests = await Promise.all((await readdir(dataRoot, { recursive: true }))
+      .filter((path) => path.endsWith(".json") && !path.includes(".files"))
+      .map(async (path) => JSON.parse(await readFile(resolve(dataRoot, path), "utf8")) as { nodeId: string; validationState: string }));
+    assert.deepEqual(manifests.filter((item) => item.nodeId === "writer-a").map((item) => item.validationState), ["invalidated"]);
+    assert.deepEqual(manifests.filter((item) => item.nodeId === "writer-b").map((item) => item.validationState), ["invalidated"]);
+    assert.deepEqual(manifests.filter((item) => item.nodeId === "writer-c").map((item) => item.validationState), ["accepted"]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(dataRoot, { recursive: true, force: true });
+  }
+});
+
+test("downstream checkpoints bind to the actual upstream writer output hash", async () => {
+  const root = await repository();
+  const dataRoot = await mkdtemp(resolve(tmpdir(), "gamefactory-dependency-output-checkpoint-"));
+  try {
+    const nodes = [
+      graphCommand("writer-a", { role: "implementer", permissions: "write", writePaths: ["writer-a.txt"] }),
+      graphCommand("writer-b", { role: "implementer", permissions: "write", writePaths: ["writer-b.txt"], dependsOn: ["writer-a"] })
+    ];
+    const configured = graphCampaign(root, nodes, { enforceWriteContracts: true, reuseCheckpoints: true });
+    configured.parameters = { ...configured.parameters, projectSlice: { projectId: "dependency-output-project" } };
+    const team = new AgentTeam();
+    const first = await team.run({ campaign: configured, candidate: { id: "first", root, metadata: {} }, experimentId: "exp-dependency-output-1", history: [], runtime: { dataRoot }, signal: new AbortController().signal });
+    await acceptTeamCheckpoints(team, configured, root, "exp-dependency-output-1", first, dataRoot);
+
+    const changed = graphCampaign(root, [
+      graphCommand("writer-a", { command: [process.execPath, "graph-fixture.mjs", "changed-upstream"], role: "implementer", permissions: "write", writePaths: ["writer-a.txt"] }),
+      graphCommand("writer-b", { role: "implementer", permissions: "write", writePaths: ["writer-b.txt"], dependsOn: ["writer-a"] })
+    ], { enforceWriteContracts: true, reuseCheckpoints: true });
+    changed.parameters = { ...changed.parameters, projectSlice: { projectId: "dependency-output-project" } };
+    const second = await team.run({ campaign: changed, candidate: { id: "second", root, metadata: {} }, experimentId: "exp-dependency-output-2", history: [], runtime: { dataRoot }, signal: new AbortController().signal });
+    const metadata = second.metadata as { nodes: Record<string, { checkpointReused?: boolean }> };
+    assert.equal(metadata.nodes["writer-a"]?.checkpointReused, undefined);
+    assert.equal(metadata.nodes["writer-b"]?.checkpointReused, undefined, "downstream work must rerun when its writer dependency changes bytes");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(dataRoot, { recursive: true, force: true });
+  }
+});
+
+test("valid review invalidates the rejected checkpoint and reuses only the accepted repair", async () => {
+  const root = await repository();
+  const freshRoot = await repository();
+  const dataRoot = await mkdtemp(resolve(tmpdir(), "gamefactory-invalidated-checkpoints-"));
+  try {
+    const nodes = [
+      graphCommand("discover", { role: "planner", permissions: "read" }),
+      graphCommand("builder", { role: "implementer", permissions: "write", writePaths: ["value.txt"], dependsOn: ["discover"] }),
+      graphCommand("checkpoint-reviewer", {
+        role: "critic",
+        permissions: "read",
+        authority: "propose",
+        dependsOn: ["builder"],
+        repair: { target: "builder", outcomes: ["revise"], maximumAttempts: 1, allowedPaths: ["value.txt"] }
+      })
+    ];
+    const configured = graphCampaign(root, nodes, {
+      claimIds: ["loop.first-errand"],
+      maximumRepairAttempts: 1,
+      enforceWriteContracts: true,
+      reuseCheckpoints: true
+    });
+    configured.parameters = { ...configured.parameters, projectSlice: { projectId: "invalidated-checkpoint-project" } };
+    (configured.parameters!.agentTeam as Record<string, unknown>).handoffCharacters = 512;
+    (configured.parameters!.agentTeam as Record<string, unknown>).maximumHandoffArtifacts = 1;
+    const first = await new AgentTeam().run({
+      campaign: configured,
+      candidate: { id: "candidate-1", root, metadata: {} },
+      experimentId: "exp-invalidated-checkpoint-1",
+      history: [],
+      runtime: { dataRoot },
+      signal: new AbortController().signal
+    });
+    assert.equal(await readFile(resolve(root, "value.txt"), "utf8"), "repaired\n");
+    assert.equal((first.metadata as { nodes: Record<string, { attempts: number }> }).nodes.builder?.attempts, 2);
+    const repairRequest = JSON.parse(await readFile(resolve(root, ".factory", "agent-team", "exp-invalidated-checkpoint-1", "graph", "builder", "attempt-2", "request.json"), "utf8")) as { inputs: Array<{ nodeId: string; structured?: { context?: unknown } }> };
+    assert.equal(repairRequest.inputs.find((input) => input.nodeId === "checkpoint-reviewer")?.structured?.context && (repairRequest.inputs.find((input) => input.nodeId === "checkpoint-reviewer")!.structured!.context as Record<string, unknown>).handoffTruncated, true);
+    assert.ok(JSON.stringify(repairRequest.inputs).length < 1800, "repair feedback and dependency inputs must share the final invocation budget");
+    await acceptTeamCheckpoints(new AgentTeam(), configured, root, "exp-invalidated-checkpoint-1", first, dataRoot);
+    const manifests = await Promise.all((await readdir(dataRoot, { recursive: true }))
+      .filter((path) => path.endsWith(".json") && !path.includes(".files"))
+      .map(async (path) => JSON.parse(await readFile(resolve(dataRoot, path), "utf8")) as { nodeId: string; validationState: string }));
+    assert.deepEqual(manifests.filter((item) => item.nodeId === "builder").map((item) => item.validationState).sort(), ["accepted", "invalidated"]);
+
+    const freshConfigured = graphCampaign(freshRoot, nodes, {
+      claimIds: ["loop.first-errand"],
+      maximumRepairAttempts: 1,
+      enforceWriteContracts: true,
+      reuseCheckpoints: true
+    });
+    freshConfigured.parameters = { ...freshConfigured.parameters, projectSlice: { projectId: "invalidated-checkpoint-project" } };
+    (freshConfigured.parameters!.agentTeam as Record<string, unknown>).handoffCharacters = 512;
+    (freshConfigured.parameters!.agentTeam as Record<string, unknown>).maximumHandoffArtifacts = 1;
+    // A repair checkpoint is a delta against the rejected writer's exact output.
+    // Materialize that base before proving the accepted repair can be reused.
+    await writeFile(resolve(freshRoot, "value.txt"), "implemented\n", "utf8");
+    const reused = await new AgentTeam().run({
+      campaign: freshConfigured,
+      candidate: { id: "candidate-2", root: freshRoot, metadata: {} },
+      experimentId: "exp-invalidated-checkpoint-2",
+      history: [],
+      runtime: { dataRoot },
+      signal: new AbortController().signal
+    });
+    assert.equal(await readFile(resolve(freshRoot, "value.txt"), "utf8"), "repaired\n");
+    assert.equal((reused.metadata as { nodes: Record<string, { checkpointReused?: boolean; attempts: number }> }).nodes.builder?.checkpointReused, true);
+    assert.equal((reused.metadata as { nodes: Record<string, { attempts: number }> }).nodes.builder?.attempts, 1);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(freshRoot, { recursive: true, force: true });
+    await rm(dataRoot, { recursive: true, force: true });
+  }
+});
+
+test("factory-native UID allowlists cover root and nested Godot sidecars", async () => {
+  const root = await repository();
+  try {
+    const driver: AgentDriver = {
+      id: "fixture.godot-uids",
+      writePaths: ["game/**/*.uid"],
+      async run(request) {
+        await mkdir(resolve(request.candidate.root, "game", "ui"), { recursive: true });
+        const rootUid = resolve(request.candidate.root, "game", "runtime.gd.uid");
+        const nestedUid = resolve(request.candidate.root, "game", "ui", "hud.gd.uid");
+        await writeFile(rootUid, "uid://root\n", "utf8");
+        await writeFile(nestedUid, "uid://nested\n", "utf8");
+        return { summary: "Godot UID import sidecars created", artifacts: [], metadata: { outcome: "pass" } };
+      }
+    };
+    const campaign = graphCampaign(root, [{
+      id: "godot-uids",
+      adapter: "agent-driver",
+      driver: driver.id,
+      role: "worker",
+      permissions: "read",
+      writePaths: ["game/**/*.uid"]
+    }]);
+    campaign.mutablePaths = ["game/**"];
+    const result = await new AgentTeam(() => driver).run({
+      campaign,
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-godot-uids",
+      history: [],
+      signal: new AbortController().signal
+    });
+    assert.match(result.summary, /Godot UID import sidecars created/);
+    assert.equal(await readFile(resolve(root, "game", "runtime.gd.uid"), "utf8"), "uid://root\n");
+    assert.equal(await readFile(resolve(root, "game", "ui", "hud.gd.uid"), "utf8"), "uid://nested\n");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("agent-driver provider outages remain infrastructure failures instead of candidate invalidation", async () => {
+  const root = await repository();
+  try {
+    const driver: AgentDriver = {
+      id: "fixture.provider-outage",
+      async run() { throw new InfrastructureFailureError("provider temporarily unavailable"); }
+    };
+    await assert.rejects(() => new AgentTeam(() => driver).run({
+      campaign: graphCampaign(root, [{ id: "provider-review", adapter: "agent-driver", driver: driver.id, role: "critic", permissions: "read" }]),
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-provider-outage",
+      history: [],
+      signal: new AbortController().signal
+    }), (error: unknown) => {
+      assert.ok(error instanceof AgentTeamInfrastructureError);
+      assert.equal(error instanceof AgentTeamInvalidatedError, false);
+      assert.match(error.message, /provider-review/);
+      return true;
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("agent-driver invocations receive provider-neutral graph handoffs", async () => {
+  const root = await repository();
+  try {
+    const driver: AgentDriver = {
+      id: "fixture.handoff",
+      async run(request) {
+        assert.equal(request.invocation?.nodeId, "native-review");
+        assert.equal(request.invocation?.attempt, 1);
+        assert.equal(request.invocation?.reason.kind, "initial");
+        assert.equal(request.invocation?.inputs[0]?.nodeId, "alpha");
+        assert.match(request.invocation?.inputs[0]?.summary ?? "", /alpha/);
+        assert.equal(request.history.length, 1);
+        assert.equal(request.history[0]?.experimentId, "history-2");
+        assert.equal(request.history[0]?.evaluations.length, 0);
+        assert.ok((request.history[0]?.summary.length ?? 0) < 1000);
+        return { summary: "native handoff received", artifacts: [], metadata: { outcome: "pass", structured: { findings: [] } } };
+      }
+    };
+    const campaign = graphCampaign(root, [
+      graphCommand("alpha", { permissions: "read" }),
+      { id: "native-review", adapter: "agent-driver", driver: driver.id, role: "critic", permissions: "read", dependsOn: ["alpha"] }
+    ]);
+    const teamSettings = campaign.parameters!.agentTeam as Record<string, unknown>;
+    teamSettings.historyLimit = 1;
+    teamSettings.handoffCharacters = 1200;
+    const result = await new AgentTeam(() => driver).run({
+      campaign,
+      candidate: { id: "candidate", root, metadata: {} },
+      experimentId: "exp-native-handoff",
+      history: [1, 2].map((index) => ({ campaignId: campaign.id, experimentId: `history-${index}`, startedAt: new Date(index).toISOString(), finishedAt: new Date(index + 1).toISOString(), status: "discard" as const, summary: "history ".repeat(1000), metrics: { score: index }, evaluations: [{ evaluator: "fixture", version: "1", status: "pass" as const, metrics: { score: index }, violations: [], artifacts: [] }] })),
+      signal: new AbortController().signal
+    });
+    assert.match(result.summary, /native handoff received/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("terminal trusted rejection invalidates the exact writer checkpoint generation", async () => {
+  const root = await repository();
+  const freshRoot = await repository();
+  const dataRoot = await mkdtemp(resolve(tmpdir(), "gamefactory-terminal-rejection-checkpoints-"));
+  const nodes = [
+    graphCommand("discover", { role: "planner", permissions: "read" }),
+    graphCommand("builder", { role: "implementer", permissions: "write", writePaths: ["value.txt"], dependsOn: ["discover"] }),
+    graphCommand("nested-blocker-reviewer", { role: "critic", permissions: "read", authority: "propose", dependsOn: ["builder"] })
+  ];
+  const run = async (candidateRoot: string, experimentId: string) => {
+    const campaign = graphCampaign(candidateRoot, nodes, { claimIds: ["loop.first-errand"], enforceWriteContracts: true, reuseCheckpoints: true });
+    campaign.parameters = { ...campaign.parameters, projectSlice: { projectId: "terminal-rejection-project" } };
+    return new AgentTeam().run({ campaign, candidate: { id: experimentId, root: candidateRoot, metadata: {} }, experimentId, history: [], runtime: { dataRoot }, signal: new AbortController().signal });
+  };
+  try {
+    await assert.rejects(() => run(root, "exp-terminal-rejection-1"), AgentTeamInvalidatedError);
+    let second: AgentTeamInvalidatedError | undefined;
+    await assert.rejects(() => run(freshRoot, "exp-terminal-rejection-2"), (error: unknown) => {
+      assert.ok(error instanceof AgentTeamInvalidatedError);
+      second = error;
+      return true;
+    });
+    assert.equal(second?.runs.find((item) => item.provenance.nodeId === "builder")?.provenance.checkpointReused, undefined);
+    const manifests = await Promise.all((await readdir(dataRoot, { recursive: true }))
+      .filter((path) => path.endsWith(".json") && !path.includes(".files"))
+      .map(async (path) => JSON.parse(await readFile(resolve(dataRoot, path), "utf8")) as { nodeId: string; validationState: string }));
+    assert.ok(manifests.filter((item) => item.nodeId === "builder").every((item) => item.validationState === "invalidated"));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(freshRoot, { recursive: true, force: true });
+    await rm(dataRoot, { recursive: true, force: true });
   }
 });

@@ -31,7 +31,17 @@
       "threadRetention": "ephemeral",
       "maximumParallel": 3,
       "historyLimit": 3,
+      "handoffCharacters": 12000,
+      "maximumHandoffArtifacts": 24,
       "graph": {
+        "enforceWriteContracts": true,
+        "reuseCheckpoints": true,
+        "externalInvalidationTargets": {
+          "design.system": ["scene-target-builder", "scene-target-approval-recorder", "asset-lane-planner", "sam3-component-extraction", "omni-motion-study", "sam3-motion-tracking", "pixel-motion-compiler", "production-slice-builder"],
+          "design.system#design.system.invalid": ["scene-target-builder", "scene-target-approval-recorder", "asset-lane-planner", "sam3-component-extraction", "omni-motion-study", "sam3-motion-tracking", "pixel-motion-compiler", "production-slice-builder"],
+          "godot.scenario": ["production-slice-builder"],
+          "godot.visual": ["production-slice-builder"]
+        },
         "maximumTotalAttempts": 28,
         "maximumRepairAttempts": 6,
         "context": [
@@ -45,7 +55,7 @@
             "driver": "godot.evidence",
             "role": "worker",
             "permissions": "read",
-            "driverWritePaths": ["evidence/**"],
+            "writePaths": ["evidence/**", "game/**/*.uid"],
             "timeoutSeconds": 600,
             "instructions": "Re-run the factory-owned Godot probe against the promoted core revision before visual work begins. Fail closed if shipping input, visible movement, spatial interaction, state consequence, or continuous engine evidence no longer matches the accepted slice contract. Write only factory evidence and do not modify the game. This is the immutable production baseline; the separate post-integration evidence node refreshes after writer repairs."
           },
@@ -55,6 +65,7 @@
             "adapter": "codex-app-server",
             "role": "implementer",
             "permissions": "write",
+            "writePaths": ["design-system.json", "design/scene-targets/**", "evidence/**"],
             "model": "gpt-5.6-sol",
             "reasoningEffort": "xhigh",
             "timeoutSeconds": 3600,
@@ -74,13 +85,14 @@
             "requiredOutputFields": ["findings.selectedTargetId", "findings.selectedTargetSha256"],
             "requiredOutputFieldsOn": ["pass"],
             "dependsOn": ["scene-target-builder", "accepted-core-evidence"],
-            "repair": { "target": "scene-target-builder", "outcomes": ["revise"], "maximumAttempts": 2, "allowedPaths": ["design-system.json", "design/scene-targets/**"] }
+            "repair": { "target": "scene-target-builder", "outcomes": ["revise"], "maximumAttempts": 2, "allowedPaths": ["design-system.json", "design/scene-targets/**", "evidence/**"] }
           },
           {
             "id": "scene-target-approval-recorder",
             "adapter": "codex-app-server",
             "role": "implementer",
             "permissions": "write",
+            "writePaths": ["design/scene-targets/scene-target.json", "design/scene-targets/validation.json"],
             "model": "gpt-5.6-luna",
             "reasoningEffort": "high",
             "instructions": "Record the passed scene-target-gate decision without changing its creative work. Read the gate's selected target id, selected primary-view hash, and findings. Atomically bind the decision into both design/scene-targets/scene-target.json and design/scene-targets/validation.json when that validation manifest exists. In scene-target.json update only approval: status approved, reviewer scene-target-gate, selectedTargetSha256 equal to the gate-approved primary-view hash, findings copied from the review, and approvedAt as the current ISO timestamp. In validation.json mirror status, reviewer, selectedTargetId, selectedTargetSha256, and the identical approvedAt without changing measured checks. Validate scene-target.json as gamefactory.scene-target/v1 and fail if either manifest disagrees with the gate, selected view, or each other. Do not alter candidates, prompts, geometry, component maps, hashes, assets, or non-approval validation results.",
@@ -92,6 +104,7 @@
             "adapter": "codex-app-server",
             "role": "implementer",
             "permissions": "write",
+            "writePaths": ["design/asset-lanes/**", "sam3.request.json", "sam3.video.request.json", "video.request.json", "pixel-motion.request.json"],
             "model": "gpt-5.6-sol",
             "reasoningEffort": "high",
             "instructions": "Choose the smallest production method that can faithfully realize the approved scene target. Preserve creative latitude: return exactly one outcome from direct, segment, motion_study, pixel_motion, or segment_pixel_motion. Use direct for code-native work or assets that need neither segmentation nor generated motion. Use segment only when approved whole-scene imagery should be decomposed with SAM 3. Use motion_study only when an external generated video is useful as non-runtime motion reference. Use pixel_motion when a generated motion study should be tracked and compiled into palette-locked runtime frames; add segmentation only when static scene components also need extraction. Before selecting a provider lane, verify its configured request path and prerequisites are available; never select a paid or credentialed provider merely because it exists. Write design/asset-lanes/decision.json with rationale, selected outcome, required components, source scene ids and hashes, and expected outputs. For every selected lane, also write its valid candidate-local request: sam3.request.json, video.request.json, sam3.video.request.json, and/or pixel-motion.request.json. Pin the approved scene images as references and choose contained output directories. Do not generate or integrate assets in this node.",
@@ -103,6 +116,7 @@
             "driver": "sam3.segment",
             "role": "worker",
             "permissions": "write",
+            "writePaths": ["design/**", "evidence/**", "sam3.request.json"],
             "timeoutSeconds": 1800,
             "dependsOn": ["asset-lane-planner"],
             "when": { "node": "asset-lane-planner", "outcomes": ["segment", "segment_pixel_motion"] }
@@ -113,6 +127,7 @@
             "driver": "video.google-omni",
             "role": "worker",
             "permissions": "write",
+            "writePaths": ["design/**", "evidence/**", "video.request.json"],
             "timeoutSeconds": 3600,
             "dependsOn": ["asset-lane-planner"],
             "when": { "node": "asset-lane-planner", "outcomes": ["motion_study", "pixel_motion", "segment_pixel_motion"] }
@@ -123,6 +138,7 @@
             "driver": "sam3.track",
             "role": "worker",
             "permissions": "write",
+            "writePaths": ["design/**", "evidence/**", "sam3.video.request.json"],
             "timeoutSeconds": 1800,
             "dependsOn": ["asset-lane-planner", "omni-motion-study"],
             "when": { "node": "asset-lane-planner", "outcomes": ["pixel_motion", "segment_pixel_motion"] }
@@ -133,6 +149,7 @@
             "driver": "pixel-motion.compile",
             "role": "worker",
             "permissions": "write",
+            "writePaths": ["game/**", "design/**", "evidence/**", "pixel-motion.request.json"],
             "timeoutSeconds": 1200,
             "dependsOn": ["asset-lane-planner", "sam3-motion-tracking"],
             "when": { "node": "asset-lane-planner", "outcomes": ["pixel_motion", "segment_pixel_motion"] }
@@ -143,6 +160,7 @@
             "adapter": "codex-app-server",
             "role": "implementer",
             "permissions": "write",
+            "writePaths": ["game/**", "evidence/**"],
             "model": "gpt-5.6-sol",
             "reasoningEffort": "xhigh",
             "timeoutSeconds": 7200,
@@ -161,7 +179,7 @@
             "driver": "godot.evidence",
             "role": "worker",
             "permissions": "read",
-            "driverWritePaths": ["evidence/**"],
+            "writePaths": ["evidence/**", "game/**/*.uid"],
             "timeoutSeconds": 600,
             "instructions": "After every production integration or repair, rerun the factory-owned Godot import, shipping-input scenarios, causal trace, and continuous engine-frame capture. This evidence supersedes the pre-production baseline for all downstream reviews. Write only factory evidence; never repair the game or trust candidate-authored proof claims.",
             "dependsOn": ["production-slice-builder"],
@@ -241,6 +259,7 @@
         "minimumDistinctFrames": 5
       },
       "embodiedProbe": {
+        "settleFrames": 2,
         "actorPath": "__REPLACE_WITH_RUNTIME_ACTOR_NODE_PATH__",
         "targetPath": "__REPLACE_WITH_INTERACTION_TARGET_NODE_PATH__",
         "interactionAction": "interact",

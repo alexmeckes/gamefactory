@@ -27,6 +27,8 @@ import {
   type SceneTargetManifest
 } from "@gamefactory/design-sdk";
 import type {
+  AgentDriver,
+  AgentResult,
   ArtifactReference,
   Candidate,
   EngineDriver,
@@ -299,6 +301,131 @@ function artifact(path: string, kind: ArtifactReference["kind"], label: string, 
   return { path, kind, label, mediaType };
 }
 
+function rectanglesOverlap(left: { x: number; y: number; width: number; height: number }, right: { x: number; y: number; width: number; height: number }): boolean {
+  return left.x < right.x + right.width && left.x + left.width > right.x && left.y < right.y + right.height && left.y + left.height > right.y;
+}
+
+function assertSceneTargetContract(manifest: SceneTargetManifest): void {
+  const selected = manifest.candidates.find((candidate) => candidate.id === manifest.selectedCandidateId);
+  if (!selected) throw new Error(`selected candidate ${manifest.selectedCandidateId} does not exist`);
+  const requiredStates = new Set(selected.views.filter((view) => view.required).map((view) => view.state));
+  if (requiredStates.size < 3) throw new Error("selected scene direction must include at least three required runtime states");
+  if (!manifest.experience) throw new Error("scene target lacks its composition, typography, and motion contract");
+  const viewport = manifest.nativeGeometry.viewport;
+  for (const region of manifest.experience.composition.regions) {
+    if (region.rect.x < 0 || region.rect.y < 0 || region.rect.x + region.rect.width > viewport.width || region.rect.y + region.rect.height > viewport.height) {
+      throw new Error(`composition region ${region.id} escapes the ${viewport.width}x${viewport.height} viewport`);
+    }
+  }
+  for (const state of requiredStates) {
+    const visible = manifest.experience.composition.regions.filter((region) => region.stateIds.length === 0 || region.stateIds.includes(state));
+    if (visible.length === 0) throw new Error(`required state ${state} has no declared composition region`);
+    for (let leftIndex = 0; leftIndex < visible.length; leftIndex += 1) {
+      for (let rightIndex = leftIndex + 1; rightIndex < visible.length; rightIndex += 1) {
+        const left = visible[leftIndex]!;
+        const right = visible[rightIndex]!;
+        const allowed = left.allowsOverlapWith.includes(right.id) || right.allowsOverlapWith.includes(left.id);
+        if (!allowed && rectanglesOverlap(left.rect, right.rect)) throw new Error(`required state ${state} has undeclared overlap between ${left.id} and ${right.id}`);
+      }
+    }
+  }
+  const motionKinds = new Set(manifest.experience.motion.beats.flatMap((beat) => beat.stateIds.some((state) => requiredStates.has(state)) ? [beat.kind] : []));
+  const missingMotion = (["ambient", "interaction", "gameplay", "transition"] as const).filter((kind) => !motionKinds.has(kind));
+  if (missingMotion.length > 0) throw new Error(`required states lack motion coverage for ${missingMotion.join(", ")}`);
+  const selectedViewIds = new Set(selected.views.map((view) => view.id));
+  for (const beat of manifest.experience.motion.beats) {
+    if (beat.startViewId && !selectedViewIds.has(beat.startViewId)) throw new Error(`motion beat ${beat.id} references unknown start view ${beat.startViewId}`);
+    if (beat.endViewId && !selectedViewIds.has(beat.endViewId)) throw new Error(`motion beat ${beat.id} references unknown end view ${beat.endViewId}`);
+  }
+}
+
+export class SceneTargetContractAgent implements AgentDriver {
+  readonly id = "design.scene-target-contract";
+
+  async run(request: Parameters<AgentDriver["run"]>[0]): Promise<AgentResult> {
+    const configured = designSystemConfig(request.campaign);
+    const configuredPath = configured.sceneTargetPath ?? "design/scene-targets/scene-target.json";
+    const path = resolveDesignPath(request.candidate.root, configuredPath);
+    try {
+      const bytes = await readFile(path);
+      const manifest = parseSceneTarget(JSON.parse(bytes.toString("utf8")) as unknown);
+      assertSceneTargetContract(manifest);
+      const selected = manifest.candidates.find((candidate) => candidate.id === manifest.selectedCandidateId)!;
+      for (const view of selected.views.filter((item) => item.required)) {
+        const viewPath = resolveDesignPath(request.candidate.root, view.path);
+        const actual = createHash("sha256").update(await readFile(viewPath)).digest("hex");
+        if (actual !== view.sha256) throw new Error(`required view ${view.id} hash does not match ${view.path}`);
+      }
+      return {
+        summary: `Scene-target contract passed for ${manifest.selectedCandidateId}.`,
+        artifacts: [artifact(path, "test-report", "Deterministic scene-target contract", "application/json")],
+        metadata: { outcome: "pass", structured: { findings: [], selectedTargetId: manifest.selectedCandidateId } }
+      };
+    } catch (error) {
+      const issue = error instanceof Error ? error.message : String(error);
+      return {
+        summary: `Scene-target contract requires repair: ${issue}`,
+        artifacts: [],
+        metadata: {
+          outcome: "revise",
+          structured: { findings: [{ findingClass: "blocker", claimIds: ["visual.production-fidelity"], issue, evidence: [configuredPath] }] }
+        }
+      };
+    }
+  }
+}
+
+function approvalFindingText(value: unknown): string | undefined {
+  if (typeof value === "string") return value.trim() || undefined;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const finding = value as Record<string, unknown>;
+  for (const key of ["issue", "playerImpact", "summary", "message", "repair"]) {
+    if (typeof finding[key] === "string" && finding[key].trim()) return finding[key].trim();
+  }
+  const serialized = JSON.stringify(value);
+  return serialized.length <= 512 ? serialized : `${serialized.slice(0, 509)}...`;
+}
+
+/** Performs only lossless, mechanical schema normalization before qualitative scene review. */
+export class SceneTargetSchemaRepairAgent implements AgentDriver {
+  readonly id = "design.scene-target-schema-repair";
+  readonly writePaths = ["design/scene-targets/scene-target.json"] as const;
+
+  async run(request: Parameters<AgentDriver["run"]>[0]): Promise<AgentResult> {
+    const configured = designSystemConfig(request.campaign);
+    const configuredPath = configured.sceneTargetPath ?? "design/scene-targets/scene-target.json";
+    const path = resolveDesignPath(request.candidate.root, configuredPath);
+    const changes: string[] = [];
+    let unresolved: string | undefined;
+    try {
+      const raw = JSON.parse(await readFile(path, "utf8")) as unknown;
+      if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+        const approval = (raw as Record<string, unknown>).approval;
+        if (approval && typeof approval === "object" && !Array.isArray(approval)) {
+          const record = approval as Record<string, unknown>;
+          if (!Array.isArray(record.findings) || !record.findings.every((finding) => typeof finding === "string")) {
+            const source = Array.isArray(record.findings) ? record.findings : record.findings === undefined ? [] : [record.findings];
+            record.findings = source.flatMap((finding) => approvalFindingText(finding) ?? []).slice(0, 128);
+            changes.push("approval.findings normalized to strings");
+            await writeFile(path, `${JSON.stringify(raw, null, 2)}\n`, "utf8");
+          }
+        }
+      }
+      try { parseSceneTarget(JSON.parse(await readFile(path, "utf8")) as unknown); }
+      catch (error) { unresolved = error instanceof Error ? error.message : String(error); }
+    } catch (error) {
+      unresolved = error instanceof Error ? error.message : String(error);
+    }
+    return {
+      summary: changes.length
+        ? `Applied mechanical scene-target schema repair: ${changes.join(", ")}.`
+        : unresolved ? `No safe mechanical scene-target repair applied; qualitative contract lint remains authoritative: ${unresolved}` : "Scene-target schema required no mechanical repair.",
+      artifacts: await lstat(path).then(() => [artifact(path, "other", "Normalized scene-target manifest", "application/json")], () => []),
+      metadata: { outcome: "pass", structured: { changes, ...(unresolved ? { unresolved } : {}) } }
+    };
+  }
+}
+
 function sanitize(value: string): string {
   return value.replace(/[^a-zA-Z0-9_.-]+/g, "-");
 }
@@ -421,8 +548,13 @@ export class AgentPlaytestEvaluator implements Evaluator {
       };
     }
     const settings = object(input.campaign.parameters?.playtest);
-    const scenarioRunnerId = typeof settings.scenarioRunner === "string" ? settings.scenarioRunner : "godot.scenario";
-    const engineId = typeof settings.engine === "string" ? settings.engine : "godot.engine";
+    const runtime = object(input.campaign.parameters?.runtime);
+    const scenarioRunnerId = typeof settings.scenarioRunner === "string" ? settings.scenarioRunner
+      : typeof runtime.scenarioRunner === "string" ? runtime.scenarioRunner
+        : "godot.scenario";
+    const engineId = typeof settings.engine === "string" ? settings.engine
+      : typeof runtime.engine === "string" ? runtime.engine
+        : "godot.engine";
     const importCheck = settings.importCheck !== false;
     const maximumRuns = typeof settings.maximumRuns === "number" && Number.isSafeInteger(settings.maximumRuns)
       ? Math.max(1, Math.min(512, settings.maximumRuns))
@@ -731,6 +863,8 @@ export class HumanPlaytestEvaluator implements Evaluator {
 }
 
 export default defineExtension((api) => combineDisposables(
+  api.register("agent", "design.scene-target-contract", new SceneTargetContractAgent()),
+  api.register("agent", "design.scene-target-schema-repair", new SceneTargetSchemaRepairAgent()),
   api.register("evaluator", "design.system", new DesignSystemEvaluator()),
   api.register("evaluator", "design.intent", new DesignIntentEvaluator()),
   api.register("evaluator", "playtest.agents", new AgentPlaytestEvaluator(

@@ -54,6 +54,7 @@
       },
       "gate": {
         "requireAcceptedRevision": true,
+        "requireHumanApproval": true,
         "allowBudgetExhaustedAfterAcceptance": true
       },
       "attempts": [
@@ -103,7 +104,8 @@
         "first-playable"
       ],
       "consumesClaims": [
-        "loop.core"
+        "loop.core",
+        "visual.production-fidelity"
       ],
       "playerOutcome": "Play the accepted delivery loop as a coherent, animated, readable production encounter whose world, characters, potion state, villager response, and interface feel intentionally authored.",
       "primaryRisk": "Visual production replaces the proven world with static plates, introduces incoherent scale or UI, or leaves the scene lifeless and procedurally provisional.",
@@ -147,11 +149,12 @@
       },
       "gate": {
         "requireAcceptedRevision": true,
+        "requireHumanApproval": true,
         "allowBudgetExhaustedAfterAcceptance": true
       },
       "attempts": [
         {
-          "id": "production-v1",
+          "id": "production-v8",
           "campaign": "campaign.json",
           "config": "factory.json"
         }

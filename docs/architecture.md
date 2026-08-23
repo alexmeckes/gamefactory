@@ -121,13 +121,44 @@ and reruns completed dependent writers, evidence collectors, critics, and judges
 a required node cannot approve stale output. Execution retries, creative repair
 rounds, and advisor escalations are reported separately.
 
+Writer checkpoints use two-phase validation. The graph records a provisional,
+content-addressed delta after write-scope enforcement; only the outer workflow can
+promote it after every hard evaluator accepts. A late rejection invalidates its
+configured causal writers without discarding unrelated accepted upstream work,
+while an unmapped rejection fails conservatively. Violation-level causal writer
+ids or `evaluator#violation-code` mappings can narrow invalidation without preserving
+the writer that produced the defect. Cross-worktree restore requires exact declared
+write-scope and full candidate read-state matches, applies only the verified delta
+(including explicit deletions), and verifies the resulting output and read-state
+hashes. Project phase reuse also binds to the activated extension and shared workflow
+runtime implementation and will not apply a result whose Git
+revision is outside the current revision's ancestry.
+
+Agent handoffs carry only direct dependency outputs. Dependency handoffs and
+compacted experiment history share one per-node character budget; artifacts share
+a separate cap. Raw stdout, usage telemetry, and
+duplicate artifact arrays are omitted from structured handoffs. The full effective
+prompt manifest remains a separate preserved audit artifact, so ordinary agents do
+not ingest every instruction layer merely because provenance must retain it.
+
 Every run also writes an fsync-backed phase journal. An experiment advances
 through `reserved`, `candidate-created`, `agent-finished`, `evaluated`,
-`evidence-preserved`, `acceptance-intent`, `applied`, `recorded`, and `cleaned`.
+`evidence-preserved`, `acceptance-intent`, `workspace-applied`, `agent-finalization-intent`,
+`agent-finalized`, `applied`, `recorded`, and `cleaned`.
 Journal entries carry campaign/configuration fingerprints and idempotency keys.
-On restart, pre-acceptance candidates are cleaned, applied-but-unrecorded results
-are completed, and an interrupted acceptance blocks for reconciliation rather
-than silently repeating a potentially destructive transition.
+On restart, an empty reservation is cleaned, but any candidate that reached
+`candidate-created` is retained and resumed as a bounded new attempt. Discovery
+and tournament retry the whole interrupted comparison batch so a transient
+provider failure cannot turn healthy peers into discarded work. Applied-but-unrecorded
+results are completed, and an interrupted decision resumes from its last acknowledged
+boundary. Workspace acceptance uses a stable per-candidate operation identity;
+the Git adapter carries its hash in the accepted commit and safely retries an
+interrupted commit or cherry-pick. Git worktree locations are deterministic and
+guarded by a small process lease, allowing a dead creator's orphaned worktree to
+be reclaimed without deleting a live duplicate. Agent finalizers are required to be idempotent,
+so a crash before their completion acknowledgement can repeat finalization without
+discarding accepted upstream checkpoints. Legacy decision intents without these
+identities still fail closed for manual reconciliation.
 
 ## Artifact model
 
@@ -147,3 +178,14 @@ import gate, controls timeouts, and reads results. `addons/gamefactory` is the
 in-engine bridge. It owns Godot-specific scene loading, fixed physics ticks,
 input hooks, telemetry, and optional frames. Other engines should use the same
 split instead of teaching the core their APIs.
+
+## Unity split
+
+The Unity extension follows the same boundary. Its host adapter discovers and
+launches Unity 6 through the Unity CLI, performs compile/import gates, invokes
+`com.unity.pipeline`, normalizes artifacts, and verifies evidence. The embedded
+`com.gamefactory.bridge` package is the in-engine bridge: it owns scene loading,
+Unity Input System event injection, runtime observation, camera capture, and the
+factory-authored evidence manifest. Project gates recognize the generic
+`factory-engine` evidence authority, so adding Unity does not add Unity behavior
+to the kernel.

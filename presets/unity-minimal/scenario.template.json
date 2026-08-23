@@ -1,0 +1,26 @@
+{
+  "apiVersion": "gamefactory.unity-scenario/v1",
+  "id": "first-session",
+  "scenePath": "Assets/Scenes/Main.unity",
+  "actorPath": "World/Player",
+  "targetPath": "World/Target",
+  "interactionRange": 2,
+  "captureEveryFrames": 10,
+  "captureWidth": 960,
+  "captureHeight": 540,
+  "stateObservations": [
+    {
+      "id": "core-consequence",
+      "path": "World/Target",
+      "component": "Replace.With.Runtime.Component",
+      "member": "ReplaceWithObservableMember",
+      "state": "core-consequence"
+    }
+  ],
+  "steps": [
+    { "control": "<Keyboard>/d", "pressed": true, "value": 1, "frames": 90, "settleFrames": 0, "interaction": false },
+    { "control": "<Keyboard>/d", "pressed": false, "value": 0, "frames": 1, "settleFrames": 0, "interaction": false },
+    { "control": "<Keyboard>/e", "pressed": true, "value": 1, "frames": 2, "settleFrames": 2, "interaction": true },
+    { "control": "<Keyboard>/e", "pressed": false, "value": 0, "frames": 20, "settleFrames": 0, "interaction": false }
+  ]
+}

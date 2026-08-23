@@ -1,0 +1,19 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "name": "unity-minimal",
+  "extensions": [
+    "../../extensions/autoresearch",
+    "../../extensions/git",
+    "../../extensions/command-agent",
+    "../../extensions/unity"
+  ],
+  "capabilities": [
+    "workflow:autoresearch",
+    "workspace:git.worktree",
+    "agent:command.agent",
+    "engine:unity.engine",
+    "scenario:unity.scenario",
+    "agent:unity.evidence",
+    "evaluator:unity.scenario"
+  ]
+}

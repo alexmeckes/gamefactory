@@ -21,6 +21,8 @@
     "agentTeam": {
       "context": [],
       "graph": {
+        "enforceWriteContracts": true,
+        "reuseCheckpoints": true,
         "maximumConcurrency": 2,
         "maximumTotalAttempts": 11,
         "nodes": [
@@ -53,6 +55,7 @@
             "adapter": "codex-app-server",
             "role": "implementer",
             "permissions": "write",
+            "writePaths": ["game/**"],
             "model": "gpt-5.6-sol",
             "reasoningEffort": "high",
             "timeoutSeconds": 3600,
@@ -65,7 +68,7 @@
             "driver": "godot.evidence",
             "role": "worker",
             "permissions": "read",
-            "driverWritePaths": ["evidence/**"],
+            "writePaths": ["evidence/**", "game/**/*.uid"],
             "timeoutSeconds": 900,
             "dependsOn": ["embodied-prototype-builder"],
             "refreshAfterRepair": true,
@@ -150,7 +153,8 @@
             "mode": "first-session",
             "seed": 314159,
             "physics_hz": 60,
-            "embodiedProbe": {
+      "embodiedProbe": {
+        "settleFrames": 2,
               "actorPath": "__REPLACE_WITH_RUNTIME_ACTOR_NODE_PATH__",
               "targetPath": "__REPLACE_WITH_INTERACTION_TARGET_NODE_PATH__",
               "interactionAction": "interact",

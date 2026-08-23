@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { lstat, mkdir, readFile, readdir, readlink, realpath, writeFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { copyFile, lstat, mkdir, readFile, readdir, readlink, realpath, unlink, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type {
@@ -62,6 +63,8 @@ interface LegacyAgentTeamConfig {
   implementer: ContributorConfig;
   critics: ContributorConfig[];
   maxOutputCharacters: number;
+  handoffCharacters: number;
+  maximumHandoffArtifacts: number;
   maximumParallel: number;
 }
 
@@ -96,18 +99,21 @@ interface AdvisorConfig extends ContributorConfig {
 interface GraphNodeConfig extends ContributorConfig {
   role: AgentRole;
   readOnly: boolean;
-  driverWritePaths: string[];
+  writePaths: string[];
+  writePathsExplicit: boolean;
   dependsOn: string[];
   when: GraphCondition[];
   instructions?: string;
   context: ContextReferenceConfig[];
   inheritContext: boolean;
   maximumAttempts: number;
+  outputContractRetries: number;
   required: boolean;
   refreshAfterRepair: boolean;
   requiredOutputFields: string[];
   requiredOutputFieldsOn: string[];
   repair?: RepairEdge;
+  invalidationTargets: Record<string, string[]>;
   advisor?: AdvisorConfig;
   authority: NodeAuthority;
   authorityExplicit: boolean;
@@ -119,12 +125,16 @@ interface GraphAgentTeamConfig {
   context: ContextReferenceConfig[];
   maxOutputCharacters: number;
   handoffCharacters: number;
+  maximumHandoffArtifacts: number;
   historyLimit: number;
   maximumParallel: number;
   maximumTotalAttempts: number;
   maximumRepairAttempts: number;
   claimIds: string[];
   enforceClaimedBlockers: boolean;
+  enforceWriteContracts: boolean;
+  reuseCheckpoints: boolean;
+  externalInvalidationTargets: Record<string, string[]>;
   maximumExecutionRetries: number;
   maximumAdvisorEscalations: number;
 }
@@ -183,6 +193,33 @@ export interface ContributorProvenance {
   providerTurnId?: string;
   adapter: ContributorConfig["adapter"];
   driver?: string;
+  checkpointReused?: boolean;
+  checkpointValidationState?: "provisional" | "accepted";
+  failureKind?: "output-contract" | "infrastructure" | "execution" | "validation";
+}
+
+interface NodeCheckpointManifest {
+  version: 6;
+  checkpointId: string;
+  projectKey: string;
+  nodeId: string;
+  semanticSha256: string;
+  dependenciesSha256: string;
+  inputSha256: string;
+  outputSha256: string;
+  readInputSha256: string;
+  readOutputSha256: string;
+  snapshotSha256: string;
+  candidateRoot: string;
+  experimentId: string;
+  logicalExperimentId: string;
+  outputFiles: string[];
+  deletedFiles: string[];
+  artifactFiles: string[];
+  validationState: "provisional" | "accepted" | "invalidated";
+  validationUpdatedAt?: string;
+  validationSource?: string;
+  run: ContributorRun;
 }
 
 interface ContributorRun {
@@ -195,7 +232,7 @@ interface ContributorRun {
 }
 
 export class AgentTeamExecutionError extends Error {
-  readonly name = "AgentTeamExecutionError";
+  readonly name: string = "AgentTeamExecutionError";
 
   constructor(message: string, readonly runs: ContributorRun[]) {
     super(message);
@@ -210,12 +247,31 @@ export class AgentTeamExecutionError extends Error {
   }
 }
 
+export class AgentTeamInfrastructureError extends AgentTeamExecutionError {
+  readonly name: string = "AgentTeamInfrastructureError";
+  readonly failureClass = "infrastructure" as const;
+}
+
+export class AgentTeamOutputContractError extends AgentTeamInfrastructureError {
+  readonly name = "AgentTeamOutputContractError";
+}
+
+export class AgentTeamInvalidatedError extends AgentTeamExecutionError {
+  readonly name = "AgentTeamInvalidatedError";
+  readonly failureClass = "validation" as const;
+
+  constructor(message: string, runs: ContributorRun[], readonly projectDisposition?: Record<string, unknown>) {
+    super(message, runs);
+  }
+}
+
 interface ProcessResult {
   code: number | null;
   stdout: string;
   stderr: string;
   spawnError?: Error;
   failure?: "cancelled" | "timeout" | "output-limit";
+  failureClass?: "infrastructure" | "execution" | "validation";
   appServer?: CodexAppServerRunResult;
 }
 
@@ -233,6 +289,8 @@ interface InvocationOptions {
   context: ContextReferenceConfig[];
   reason: InvocationReason;
   historyLimit?: number;
+  handoffCharacters: number;
+  maximumHandoffArtifacts: number;
 }
 
 interface GraphNodeState {
@@ -242,6 +300,10 @@ interface GraphNodeState {
   summary: string;
   runs: ContributorRun[];
   inputGenerations: Record<string, number>;
+  outputContractRetries: number;
+  reused?: boolean;
+  checkpointId?: string;
+  checkpointOutputSha256?: string;
 }
 
 const ROLES = new Set<AgentRole>(["scout", "planner", "implementer", "critic", "judge", "worker"]);
@@ -303,6 +365,7 @@ async function ensureAgentTraceNode(request: AgentRequest, config: ContributorCo
   return nodeId;
 }
 const OUTCOME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+const INVALIDATION_KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*(?:#[A-Za-z0-9][A-Za-z0-9._-]*)?$/;
 const CONTROL_OUTCOME_ALIASES = new Map<string, string>([
   ["revision_required", "revise"],
   ["revision_requested", "revise"],
@@ -395,10 +458,22 @@ interface RoleCharter {
   version?: string;
 }
 
-const roleCharters = new Map<TeamStage, Promise<RoleCharter>>();
-
 function sha256(content: string): string {
   return createHash("sha256").update(content).digest("hex");
+}
+
+async function directorySha256(root: string, current = root): Promise<string> {
+  const entries = await readdir(current, { withFileTypes: true });
+  const records: Array<[string, string]> = [];
+  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+    const path = resolve(current, entry.name);
+    if (entry.isDirectory()) {
+      records.push([`${relative(root, path).replaceAll("\\", "/")}/`, await directorySha256(root, path)]);
+    } else if (entry.isFile()) {
+      records.push([relative(root, path).replaceAll("\\", "/"), createHash("sha256").update(await readFile(path)).digest("hex")]);
+    }
+  }
+  return sha256(JSON.stringify(records));
 }
 
 function journalValue(value: unknown): JournalJsonValue {
@@ -448,8 +523,9 @@ async function loadSkills(config: ContributorConfig): Promise<LoadedSkill[]> {
   for (const binding of config.skills) {
     const source = resolve(DEFAULT_SKILL_ROOT, binding.name, "SKILL.md");
     let content: string;
+    let canonical: string;
     try {
-      const canonical = await realpath(source);
+      canonical = await realpath(source);
       const traversal = relative(root, canonical);
       if (traversal.startsWith("..") || isAbsolute(traversal)) throw new Error("resolved outside the GameFactory skill catalog");
       content = await readFile(canonical, "utf8");
@@ -458,8 +534,9 @@ async function loadSkills(config: ContributorConfig): Promise<LoadedSkill[]> {
       throw new Error(`Required skill ${binding.name} is unavailable at ${source}: ${error instanceof Error ? error.message : String(error)}`);
     }
     if (skillFrontmatterName(content) !== binding.name) throw new Error(`Skill ${binding.name} frontmatter name does not match its catalog directory`);
-    const resolvedSha256 = sha256(content);
-    if (binding.sha256 && binding.sha256 !== resolvedSha256) throw new Error(`Skill ${binding.name} SHA-256 does not match its pinned binding`);
+    const skillMarkdownSha256 = sha256(content);
+    if (binding.sha256 && binding.sha256 !== skillMarkdownSha256) throw new Error(`Skill ${binding.name} SHA-256 does not match its pinned binding`);
+    const resolvedSha256 = await directorySha256(dirname(canonical));
     loaded.push({ ...binding, source, content, resolvedSha256 });
   }
   config.loadedSkills = loaded;
@@ -473,10 +550,24 @@ async function preflightSkills(config: AgentTeamConfig): Promise<void> {
   await Promise.all(contributors.map((contributor) => loadSkills(contributor)));
 }
 
+function preflightDriverWriteContracts(config: AgentTeamConfig, request: AgentRequest): void {
+  if (config.kind !== "graph") return;
+  const resolver = agentDriverResolvers.get(request);
+  for (const node of config.nodes.filter((candidate) => candidate.adapter === "agent-driver")) {
+    if (!resolver || !node.driver) throw new AgentTeamInfrastructureError(`agent-driver node ${node.id} cannot resolve ${node.driver ?? "an unspecified driver"} during preflight`, []);
+    const driver = resolver(node.driver);
+    const declared = pathPatternList(driver.writePaths === undefined ? undefined : [...driver.writePaths], `agent driver ${driver.id}.writePaths`);
+    if (!node.writePathsExplicit && declared.length > 0) node.writePaths = declared;
+    const uncovered = declared.filter((path) => !node.writePaths.some((allowed) => simplePatternContains(allowed, path)));
+    if (uncovered.length > 0) {
+      throw new AgentTeamInfrastructureError(`graph node ${node.id}.writePaths do not cover factory-native driver ${driver.id} side effects: ${uncovered.join(", ")}`, []);
+    }
+  }
+  validateGraph(config.nodes, request.campaign, config.enforceWriteContracts);
+}
+
 function loadRoleCharter(stage: TeamStage): Promise<RoleCharter> {
-  const existing = roleCharters.get(stage);
-  if (existing) return existing;
-  const loading = (async () => {
+  return (async () => {
     const path = fileURLToPath(new URL(`../instructions/${stage}.md`, import.meta.url));
     try {
       const content = await readFile(path, "utf8");
@@ -486,8 +577,6 @@ function loadRoleCharter(stage: TeamStage): Promise<RoleCharter> {
       return { content: INSTRUCTIONS[stage], path: "builtin:agent-team-defaults", version: "0.1.0" };
     }
   })();
-  roleCharters.set(stage, loading);
-  return loading;
 }
 
 async function projectInstructionLayers(candidateRoot: string): Promise<{ layers: PromptLayer[]; sources: string[] }> {
@@ -546,8 +635,8 @@ async function effectivePromptManifest(input: {
     mutablePaths: input.request.campaign.mutablePaths ?? [],
     immutablePaths: input.request.campaign.immutablePaths ?? [],
     permissions: input.readOnly ? "read" : "write",
-    ...("driverWritePaths" in input.config && Array.isArray(input.config.driverWritePaths) && input.config.driverWritePaths.length > 0
-      ? { driverWritePaths: input.config.driverWritePaths }
+    ...("writePaths" in input.config && Array.isArray(input.config.writePaths) && input.config.writePaths.length > 0
+      ? { writePaths: input.config.writePaths }
       : {})
   }, null, 2);
   const upstream = JSON.stringify(input.inputs.map((item) => ({
@@ -617,7 +706,7 @@ async function effectivePromptManifest(input: {
 function codexTaskPrompt(requestPath: string, manifest: EffectivePromptManifest): string {
   return [
     `You are the ${manifest.context.role} contributor ${manifest.context.contributorId} in a GameFactory experiment.`,
-    `Read the complete factory request at ${requestPath}. It contains your role charter, bounded task, permissions, upstream handoffs, context references, and history.`,
+    `Read the complete factory request at ${requestPath}. It contains your role charter, bounded task, permissions, upstream handoffs, context references, and history. Its effectivePromptManifestPath points to a separate provenance manifest; load that manifest only when you need to audit an instruction source or read a bound skill.`,
     manifest.skills?.length ? `Follow these explicitly bound GameFactory skills as procedural instruction layers: ${manifest.skills.map((skill) => `$${skill.name}`).join(", ")}. Their exact content and SHA-256 identities are recorded in the request prompt manifest.` : "No task-specific GameFactory skill is bound to this invocation.",
     manifest.context.readOnly
       ? "This is a read-only contribution. Inspect and reason, but do not modify project files."
@@ -846,6 +935,15 @@ function repairEdge(value: unknown, location: string): RepairEdge | undefined {
   };
 }
 
+function invalidationTargets(value: unknown, location: string): Record<string, string[]> {
+  if (value === undefined) return {};
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${location} must be an outcome-to-writer map`);
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([outcome, targets]) => {
+    if (!INVALIDATION_KEY_PATTERN.test(outcome)) throw new Error(`${location} keys must be evaluator ids or evaluator#violation-code selectors`);
+    return [outcome, stringList(targets, `${location}.${outcome}`)];
+  }));
+}
+
 function graphNode(value: unknown, index: number, defaults: Pick<ContributorConfig, "provider" | "model" | "reasoningEffort" | "billingMode" | "threadRetention"> & Partial<Pick<ContributorConfig, "timeoutSeconds">> = { threadRetention: "ephemeral" }): GraphNodeConfig {
   const location = `parameters.agentTeam.graph.nodes[${index}]`;
   const base = contributor(value, `node-${index + 1}`, location, defaults);
@@ -878,20 +976,27 @@ function graphNode(value: unknown, index: number, defaults: Pick<ContributorConf
   if ((authority === "mutate-candidate" || authority === "mutate-spec") === readOnly) throw new Error(`${location}.authority ${authority} conflicts with ${readOnly ? "read" : "write"} permission`);
   if (record.requiredOutputFields !== undefined && (!Array.isArray(record.requiredOutputFields) || record.requiredOutputFields.length > 64 || record.requiredOutputFields.some((field) => typeof field !== "string" || !/^[A-Za-z][A-Za-z0-9_-]*(?:\.[A-Za-z][A-Za-z0-9_-]*)*$/.test(field)))) throw new Error(`${location}.requiredOutputFields contains an invalid field path`);
   const requiredOutputFields = [...new Set((record.requiredOutputFields ?? []) as string[])];
+  if (record.writePaths !== undefined && record.driverWritePaths !== undefined) {
+    throw new Error(`${location} must use writePaths, not both writePaths and legacy driverWritePaths`);
+  }
+  const configuredWritePaths = pathPatternList(record.writePaths ?? record.driverWritePaths, `${location}.${record.writePaths !== undefined ? "writePaths" : "driverWritePaths"}`);
   const result: GraphNodeConfig = {
     ...base,
     role,
     readOnly,
-    driverWritePaths: pathPatternList(record.driverWritePaths, `${location}.driverWritePaths`),
+    writePaths: configuredWritePaths,
+    writePathsExplicit: record.writePaths !== undefined || record.driverWritePaths !== undefined,
     dependsOn: stringList(record.dependsOn ?? record.dependencies, `${location}.dependsOn`),
     when: conditions(record.when, `${location}.when`),
     context: contextList(record.context, `${location}.context`),
     inheritContext: record.inheritContext !== false,
     maximumAttempts: integer(record.maximumAttempts, 1, 1, 8, `${location}.maximumAttempts`),
+    outputContractRetries: integer(record.outputContractRetries, base.adapter !== "agent-driver" && readOnly && (authority === "propose" || authority === "approve") ? 1 : 0, 0, 3, `${location}.outputContractRetries`),
     required: record.required !== false,
     refreshAfterRepair: record.refreshAfterRepair === true,
     requiredOutputFields,
     requiredOutputFieldsOn: record.requiredOutputFieldsOn === undefined ? [] : outcomeList(record.requiredOutputFieldsOn, ["pass"], `${location}.requiredOutputFieldsOn`),
+    invalidationTargets: invalidationTargets(record.invalidationTargets, `${location}.invalidationTargets`),
     authority,
     authorityExplicit: record.authority !== undefined
   };
@@ -917,10 +1022,19 @@ function validateRequiredOutputFields(node: GraphNodeConfig, run: ContributorRun
     }
     return current === undefined || current === null;
   });
-  if (missing.length) throw new Error(`${node.id} structured output is missing required fields: ${missing.join(", ")}`);
+  if (missing.length) throw new AgentTeamOutputContractError(`${node.id} structured output is missing required fields: ${missing.join(", ")}`, [run]);
 }
 
-function validateGraph(nodes: GraphNodeConfig[]): void {
+function simplePatternContains(outer: string, inner: string): boolean {
+  const normalizedOuter = outer.replaceAll("\\", "/").replace(/^\.\//, "");
+  const normalizedInner = inner.replaceAll("\\", "/").replace(/^\.\//, "");
+  if (normalizedOuter === "**" || normalizedOuter === normalizedInner) return true;
+  if (!normalizedOuter.endsWith("/**")) return false;
+  const prefix = normalizedOuter.slice(0, -3).replace(/\/$/, "");
+  return normalizedInner === prefix || normalizedInner.startsWith(`${prefix}/`);
+}
+
+function validateGraph(nodes: GraphNodeConfig[], campaign: AgentRequest["campaign"], enforceWriteContracts: boolean): void {
   const byId = new Map<string, GraphNodeConfig>();
   const contributorIds = new Set<string>();
   for (const node of nodes) {
@@ -943,18 +1057,27 @@ function validateGraph(nodes: GraphNodeConfig[]): void {
     for (const condition of node.when) {
       if (!node.dependsOn.includes(condition.node)) throw new Error(`graph node ${node.id} condition ${condition.node} must also appear in dependsOn`);
     }
-    if (node.driverWritePaths.length > 0) {
-      if (node.adapter !== "agent-driver" || !node.readOnly) throw new Error(`graph node ${node.id} driverWritePaths requires a read-only agent-driver`);
+    if (node.writePaths.length > 0 && node.readOnly && node.adapter !== "agent-driver") {
+      throw new Error(`graph node ${node.id} writePaths requires write permission or a factory-native agent-driver`);
+    }
+    if (node.writePaths.length > 0) {
       const protectedPaths = [
         ".git/config",
         `nested/.git/config`,
         `.factory/agent-team/exp/graph/${node.id}/output.json`,
         `nested/.factory/agent-team/exp/graph/${node.id}/output.json`
       ];
-      if (node.driverWritePaths.some((pattern) => protectedPaths.some((path) => matchesPath(path, pattern)))) {
-        throw new Error(`graph node ${node.id} driverWritePaths cannot include Git or agent-team control files`);
+      if (node.writePaths.some((pattern) => protectedPaths.some((path) => matchesPath(path, pattern)))) {
+        throw new Error(`graph node ${node.id} writePaths cannot include Git or agent-team control files`);
       }
     }
+    if (enforceWriteContracts && !node.readOnly && !node.writePathsExplicit) {
+      throw new Error(`graph node ${node.id} must declare writePaths when enforceWriteContracts is enabled`);
+    }
+    const outsideCampaign = node.writePaths.filter((path) => !(campaign.mutablePaths ?? []).some((allowed) => simplePatternContains(allowed, path)));
+    if (outsideCampaign.length > 0) throw new Error(`graph node ${node.id} writePaths exceed campaign mutablePaths: ${outsideCampaign.join(", ")}`);
+    const immutable = node.writePaths.filter((path) => (campaign.immutablePaths ?? []).some((blocked) => simplePatternContains(blocked, path) || simplePatternContains(path, blocked)));
+    if (immutable.length > 0) throw new Error(`graph node ${node.id} writePaths overlap campaign immutablePaths: ${immutable.join(", ")}`);
     if (node.repair) {
       const target = byId.get(node.repair.target);
       if (!target) throw new Error(`graph node ${node.id} repairs unknown node ${node.repair.target}`);
@@ -962,11 +1085,24 @@ function validateGraph(nodes: GraphNodeConfig[]): void {
       if (target.authority !== "mutate-candidate" && target.authority !== "mutate-spec") throw new Error(`graph node ${node.id} repair target ${target.id} lacks mutation authority`);
       if (!node.readOnly) throw new Error(`graph repair source ${node.id} must be read-only`);
       if (!node.dependsOn.includes(target.id)) throw new Error(`graph repair source ${node.id} must depend directly on writer ${target.id}`);
+      if (enforceWriteContracts) {
+        if (node.repair.allowedPaths.length === 0) node.repair.allowedPaths = [...target.writePaths];
+        const uncovered = target.writePaths.filter((path) => !node.repair!.allowedPaths.some((allowed) => simplePatternContains(allowed, path)));
+        if (uncovered.length > 0) throw new Error(`graph node ${node.id} repair allowedPaths do not cover ${target.id}.writePaths: ${uncovered.join(", ")}`);
+      }
       for (const preserved of node.repair.preserve) {
         const contract = byId.get(preserved);
         if (!contract) throw new Error(`graph node ${node.id} preserves unknown node ${preserved}`);
         if (!contract.readOnly) throw new Error(`graph node ${node.id} preserved contract ${preserved} must be read-only`);
         if (!contract.dependsOn.includes(target.id)) throw new Error(`graph node ${node.id} preserved contract ${preserved} must depend directly on writer ${target.id}`);
+      }
+    }
+    for (const [outcome, targets] of Object.entries(node.invalidationTargets)) {
+      for (const targetId of targets) {
+        const target = byId.get(targetId);
+        if (!target) throw new Error(`graph node ${node.id} invalidationTargets.${outcome} names unknown node ${targetId}`);
+        if (target.readOnly) throw new Error(`graph node ${node.id} invalidationTargets.${outcome} target ${targetId} must be a writer`);
+        if (!dependsTransitively(node.id, targetId, byId)) throw new Error(`graph node ${node.id} invalidationTargets.${outcome} target ${targetId} must be upstream`);
       }
     }
     if (node.refreshAfterRepair) {
@@ -1021,6 +1157,7 @@ function readConfig(request: Pick<AgentRequest, "campaign">): AgentTeamConfig {
   };
   const maxOutputCharacters = integer(record.maxOutputCharacters, 20_000, 1, 1_000_000, "parameters.agentTeam.maxOutputCharacters");
   const handoffCharacters = integer(record.handoffCharacters, Math.min(maxOutputCharacters, 12_000), 512, 100_000, "parameters.agentTeam.handoffCharacters");
+  const maximumHandoffArtifacts = integer(record.maximumHandoffArtifacts, 24, 0, 256, "parameters.agentTeam.maximumHandoffArtifacts");
   const historyLimit = integer(record.historyLimit, 6, 0, 100, "parameters.agentTeam.historyLimit");
   const maximumParallel = integer(record.maximumParallel, 4, 1, 32, "parameters.agentTeam.maximumParallel");
   if (record.graph !== undefined) {
@@ -1029,11 +1166,23 @@ function readConfig(request: Pick<AgentRequest, "campaign">): AgentTeamConfig {
     }
     const graph = record.graph as Record<string, unknown>;
     if (graph.enforceClaimedBlockers !== undefined && typeof graph.enforceClaimedBlockers !== "boolean") throw new Error("parameters.agentTeam.graph.enforceClaimedBlockers must be a boolean");
+    if (graph.enforceWriteContracts !== undefined && typeof graph.enforceWriteContracts !== "boolean") throw new Error("parameters.agentTeam.graph.enforceWriteContracts must be a boolean");
+    if (graph.reuseCheckpoints !== undefined && typeof graph.reuseCheckpoints !== "boolean") throw new Error("parameters.agentTeam.graph.reuseCheckpoints must be a boolean");
     if (!Array.isArray(graph.nodes) || graph.nodes.length === 0 || graph.nodes.length > 64) {
       throw new Error("parameters.agentTeam.graph.nodes must contain from 1 to 64 nodes");
     }
     const nodes = graph.nodes.map((node, index) => graphNode(node, index, defaults));
-    validateGraph(nodes);
+    const enforceWriteContracts = graph.enforceWriteContracts === true;
+    validateGraph(nodes, request.campaign, enforceWriteContracts);
+    const externalInvalidationTargets = invalidationTargets(graph.externalInvalidationTargets, "parameters.agentTeam.graph.externalInvalidationTargets");
+    const nodesById = new Map(nodes.map((node) => [node.id, node]));
+    for (const [evaluator, targets] of Object.entries(externalInvalidationTargets)) {
+      for (const targetId of targets) {
+        const target = nodesById.get(targetId);
+        if (!target) throw new Error(`parameters.agentTeam.graph.externalInvalidationTargets.${evaluator} names unknown node ${targetId}`);
+        if (target.readOnly) throw new Error(`parameters.agentTeam.graph.externalInvalidationTargets.${evaluator} target ${targetId} must be a writer`);
+      }
+    }
     const rawAttemptPolicy = graph.attemptPolicy;
     if (rawAttemptPolicy !== undefined && (!rawAttemptPolicy || typeof rawAttemptPolicy !== "object" || Array.isArray(rawAttemptPolicy))) throw new Error("parameters.agentTeam.graph.attemptPolicy must be an object");
     const policy = (rawAttemptPolicy ?? {}) as Record<string, unknown>;
@@ -1044,12 +1193,16 @@ function readConfig(request: Pick<AgentRequest, "campaign">): AgentTeamConfig {
       context: contextList(graph.context, "parameters.agentTeam.graph.context"),
       maxOutputCharacters,
       handoffCharacters,
+      maximumHandoffArtifacts,
       historyLimit,
       maximumParallel,
       maximumTotalAttempts: integer(graph.maximumTotalAttempts, Math.max(64, nodes.length * 4), 1, 1_000, "parameters.agentTeam.graph.maximumTotalAttempts"),
       maximumRepairAttempts,
       claimIds: stringList(graph.claimIds, "parameters.agentTeam.graph.claimIds"),
       enforceClaimedBlockers: graph.enforceClaimedBlockers === true || nodes.some((node) => node.authorityExplicit),
+      enforceWriteContracts,
+      reuseCheckpoints: graph.reuseCheckpoints === true,
+      externalInvalidationTargets,
       maximumExecutionRetries: integer(policy.executionRetries, Math.max(16, nodes.length * 2), 0, 1_000, "parameters.agentTeam.graph.attemptPolicy.executionRetries"),
       maximumAdvisorEscalations: integer(policy.advisorEscalations, Math.max(4, nodes.length), 0, 1_000, "parameters.agentTeam.graph.attemptPolicy.advisorEscalations")
     };
@@ -1061,6 +1214,8 @@ function readConfig(request: Pick<AgentRequest, "campaign">): AgentTeamConfig {
     implementer: contributor(record.implementer, "implementer", "parameters.agentTeam.implementer", defaults),
     critics: contributorList(record.critics, "critic", defaults),
     maxOutputCharacters,
+    handoffCharacters,
+    maximumHandoffArtifacts,
     maximumParallel
   };
 }
@@ -1200,8 +1355,10 @@ function lastLine(output: string, fallback: string): string {
 }
 
 function boundedOutput(output: string, maximum: number): string {
+  if (maximum <= 0) return "";
   if (output.length <= maximum) return output;
-  return `[truncated ${output.length - maximum} characters]\n${output.slice(-maximum)}`;
+  const marker = `[truncated ${output.length - maximum} characters]\n`;
+  return marker.length >= maximum ? output.slice(-maximum) : `${marker}${output.slice(-(maximum - marker.length))}`;
 }
 
 function parseJsonObject(value: string): Record<string, unknown> | undefined {
@@ -1265,8 +1422,8 @@ async function structuredOutput(stdout: string, root: string): Promise<Structure
   return normalized;
 }
 
-function priorOutput(run: ContributorRun, maximum: number): PriorOutput {
-  let structured = run.structured;
+function priorOutput(run: ContributorRun, maximum: number, maximumArtifacts = 24): PriorOutput {
+  let structured = run.structured ? Object.fromEntries(Object.entries(run.structured).filter(([key]) => key !== "artifacts" && key !== "usage")) as StructuredNodeOutput : undefined;
   if (structured && JSON.stringify(structured).length > maximum) {
     structured = {
       ...(structured.summary ? { summary: structured.summary } : {}),
@@ -1284,10 +1441,75 @@ function priorOutput(run: ContributorRun, maximum: number): PriorOutput {
     summary: run.provenance.summary,
     output: structured ? "" : boundedOutput(run.stdout, maximum),
     stdoutPath: run.provenance.stdoutPath,
-    artifacts: run.declaredArtifacts
+    artifacts: run.declaredArtifacts.slice(0, maximumArtifacts)
   };
   if (structured) output.structured = structured;
   return output;
+}
+
+function boundedPriorInput(input: PriorOutput, maximum: number, maximumArtifacts: number): PriorOutput {
+  const summaryBudget = Math.min(512, Math.max(1, Math.floor(maximum / 4)));
+  const summary = boundedOutput(input.summary, summaryBudget);
+  const detailBudget = Math.max(1, maximum - summary.length);
+  let structured = input.structured
+    ? Object.fromEntries(Object.entries(input.structured).filter(([key]) => key !== "artifacts" && key !== "usage" && key !== "summary")) as StructuredNodeOutput
+    : undefined;
+  if (structured && JSON.stringify(structured).length > detailBudget) {
+    const details = JSON.stringify(structured.findings ?? structured.context ?? structured);
+    structured = {
+      ...(structured.outcome ? { outcome: structured.outcome } : {}),
+      findings: boundedOutput(details, detailBudget),
+      context: { handoffTruncated: true, availableAt: input.stdoutPath }
+    };
+  }
+  return {
+    ...input,
+    summary,
+    output: structured ? "" : boundedOutput(input.output, detailBudget),
+    artifacts: input.artifacts.slice(0, maximumArtifacts),
+    ...(structured ? { structured } : {})
+  };
+}
+
+function boundedPriorInputs(inputs: PriorOutput[], maximum: number, maximumArtifacts: number): PriorOutput[] {
+  if (inputs.length === 0) return [];
+  const baseCharacters = Math.floor(maximum / inputs.length);
+  let characterRemainder = maximum % inputs.length;
+  const baseArtifacts = Math.floor(maximumArtifacts / inputs.length);
+  let artifactRemainder = maximumArtifacts % inputs.length;
+  return inputs.map((input) => boundedPriorInput(
+    input,
+    Math.max(1, baseCharacters + (characterRemainder-- > 0 ? 1 : 0)),
+    baseArtifacts + (artifactRemainder-- > 0 ? 1 : 0)
+  ));
+}
+
+function boundedHistoryRecords(history: AgentRequest["history"], maximum: number): AgentRequest["history"] {
+  const compact = history.map((record) => ({
+    campaignId: record.campaignId,
+    ...(record.runId ? { runId: record.runId } : {}),
+    experimentId: record.experimentId,
+    startedAt: record.startedAt,
+    finishedAt: record.finishedAt,
+    status: record.status,
+    ...(record.revision ? { revision: record.revision } : {}),
+    summary: "",
+    metrics: Object.fromEntries(Object.entries(record.metrics).sort(([left], [right]) => left.localeCompare(right)).slice(0, 16)),
+    evaluations: []
+  }));
+  while (compact.length > 1 && JSON.stringify(compact).length > maximum) compact.shift();
+  if (compact.length === 0) return [];
+  const fixed = JSON.stringify(compact).length;
+  const available = Math.max(0, maximum - fixed);
+  const each = Math.floor(available / compact.length);
+  for (let index = 0; index < compact.length; index += 1) {
+    compact[index]!.summary = boundedOutput(history[history.length - compact.length + index]!.summary, each);
+  }
+  while (JSON.stringify(compact).length > maximum && compact.some((record) => record.summary.length > 0)) {
+    const longest = compact.reduce((best, record) => record.summary.length > best.summary.length ? record : best, compact[0]!);
+    longest.summary = longest.summary.slice(0, Math.max(0, longest.summary.length - 32));
+  }
+  return compact;
 }
 
 async function invokeContributor(
@@ -1298,6 +1520,12 @@ async function invokeContributor(
   inputs: PriorOutput[],
   options: InvocationOptions
 ): Promise<ContributorRun> {
+  const selectedHistory = options.historyLimit === undefined
+    ? request.history
+    : options.historyLimit === 0 ? [] : request.history.slice(-options.historyLimit);
+  const historyBudget = inputs.length > 0 && selectedHistory.length > 0 ? Math.floor(options.handoffCharacters / 4) : selectedHistory.length > 0 ? options.handoffCharacters : 0;
+  const inputBudget = selectedHistory.length > 0 && inputs.length > 0 ? options.handoffCharacters - historyBudget : options.handoffCharacters;
+  inputs = boundedPriorInputs(inputs, inputBudget, options.maximumHandoffArtifacts);
   const launcher = config.adapter === "codex-app-server" && config.command === undefined
     ? await defaultCodexLauncher()
     : config.command ?? [];
@@ -1320,9 +1548,7 @@ async function invokeContributor(
   const promptManifestPath = resolve(outputDirectory, "prompt-manifest.json");
   const contextReferences = await normalizeContext(options.context, request.candidate.root);
   const roleCharter = await loadRoleCharter(stage);
-  const history = options.historyLimit === undefined
-    ? request.history
-    : options.historyLimit === 0 ? [] : request.history.slice(-options.historyLimit);
+  const history = boundedHistoryRecords(selectedHistory, historyBudget);
   const invocationRequest = history === request.history ? request : { ...request, history };
   let promptManifest = await effectivePromptManifest({ config, stage, readOnly, request: invocationRequest, inputs, instructions: options.instructions, contextReferences });
   const payload = {
@@ -1347,8 +1573,8 @@ async function invokeContributor(
     ...(config.provider || config.model || config.reasoningEffort ? { identitySource: "configured" } : {}),
     readOnly,
     permissions: readOnly ? "read" : "write",
-    ...("driverWritePaths" in config && Array.isArray(config.driverWritePaths) && config.driverWritePaths.length > 0
-      ? { driverWritePaths: config.driverWritePaths }
+    ...("writePaths" in config && Array.isArray(config.writePaths) && config.writePaths.length > 0
+      ? { writePaths: config.writePaths }
       : {}),
     reason: options.reason,
     roleCharter: roleCharter.content,
@@ -1361,7 +1587,7 @@ async function invokeContributor(
       summary: item.summary,
       metrics: item.metrics
     })),
-    effectivePrompt: promptManifest
+    effectivePromptManifestPath: promptManifestPath
   };
   await Promise.all([
     writeFile(requestPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8"),
@@ -1406,7 +1632,26 @@ async function invokeContributor(
       const timer = setTimeout(() => controller.abort(new Error(`agent-driver ${config.driver} timed out`)), config.timeoutSeconds * 1000);
       let delegated: AgentResult;
       try {
-        delegated = await resolver(config.driver).run({ ...request, signal: controller.signal });
+        delegated = await resolver(config.driver).run({
+          ...invocationRequest,
+          signal: controller.signal,
+          invocation: {
+            nodeId: options.nodeId,
+            attempt: options.attempt,
+            instructions: options.instructions,
+            reason: options.reason,
+            inputs: inputs.map((input) => ({
+              contributorId: input.contributorId,
+              nodeId: input.nodeId,
+              role: input.stage,
+              attempt: input.attempt,
+              outcome: input.outcome,
+              summary: input.summary,
+              ...(input.structured ? { structured: input.structured } : {}),
+              artifacts: input.artifacts
+            }))
+          }
+        });
       } finally {
         clearTimeout(timer);
         request.signal.removeEventListener("abort", relay);
@@ -1437,7 +1682,10 @@ async function invokeContributor(
         ? (error as { artifacts: unknown[] }).artifacts
         : [];
       agentDriverArtifacts = await Promise.all(rawArtifacts.map((item, index) => normalizeArtifact(item, request.candidate.root, `agent-driver failure artifacts[${index}]`)));
-      result = { code: 1, stdout: "", stderr: error instanceof Error ? error.stack ?? error.message : String(error) };
+      const failureClass = error && typeof error === "object" && ["infrastructure", "execution", "validation"].includes(String((error as { failureClass?: unknown }).failureClass))
+        ? (error as { failureClass: "infrastructure" | "execution" | "validation" }).failureClass
+        : "execution";
+      result = { code: 1, stdout: "", stderr: error instanceof Error ? error.stack ?? error.message : String(error), failureClass };
     }
   } else if (config.adapter === "codex-app-server") {
     const announcedProviderItems = new Set<string>();
@@ -1633,6 +1881,11 @@ async function invokeContributor(
     exitCode: result.code,
     status,
     outcome,
+    ...(parseFailure
+      ? { failureKind: "output-contract" as const }
+      : status === "failed"
+        ? { failureKind: result.failureClass ?? "execution" }
+        : {}),
     ...(reportedOutcome !== outcome ? { reportedOutcome } : {}),
     summary,
     requestPath,
@@ -1696,21 +1949,41 @@ function meaningfulStatusPaths(output: string, experimentId: string, allowedPatt
 }
 
 function matchesPath(path: string, pattern: string): boolean {
-  const escaped = pattern.replaceAll("\\", "/").replace(/^\.\//, "")
-    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
-    .replaceAll("**", "\u0000")
-    .replaceAll("*", "[^/]*")
-    .replaceAll("\u0000", ".*");
-  return new RegExp(`^${escaped}$`).test(path.replaceAll("\\", "/"));
+  const normalized = pattern.replaceAll("\\", "/").replace(/^\.\//, "");
+  let expression = "";
+  for (let index = 0; index < normalized.length; index += 1) {
+    const character = normalized[index]!;
+    if (character === "*" && normalized[index + 1] === "*") {
+      if (normalized[index + 2] === "/") {
+        expression += "(?:.*/)?";
+        index += 2;
+      } else {
+        expression += ".*";
+        index += 1;
+      }
+      continue;
+    }
+    if (character === "*") {
+      expression += "[^/]*";
+      continue;
+    }
+    expression += /[.+^${}()|[\]\\]/.test(character) ? `\\${character}` : character;
+  }
+  return new RegExp(`^${expression}$`).test(path.replaceAll("\\", "/").replace(/^\.\//, ""));
 }
 
 async function gitOutput(request: AgentRequest, args: string[], operation: string): Promise<string> {
-  const result = await processCommand("git", args, "", request, "scout", "read-only-guard");
-  if (result.code !== 0 || result.spawnError) {
-    const detail = result.spawnError?.message ?? result.stderr.trim();
-    throw new Error(`agent.team requires a Git candidate for read-only enforcement (${operation}): ${detail}`);
+  const failures: string[] = [];
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const result = await processCommand("git", args, "", request, "scout", "read-only-guard");
+    if (result.code === 0 && !result.spawnError) return result.stdout;
+    const detail = result.spawnError?.message ?? (result.stderr.trim() || `exit code ${String(result.code)} with no stderr`);
+    failures.push(`attempt ${attempt}: ${detail}`);
   }
-  return result.stdout;
+  throw new AgentTeamInfrastructureError(
+    `agent.team requires a Git candidate for read-only enforcement (${operation}) after 3 bounded attempts: ${failures.join("; ")}`,
+    []
+  );
 }
 
 async function fingerprint(path: string): Promise<string> {
@@ -1721,7 +1994,16 @@ async function fingerprint(path: string): Promise<string> {
     throw error;
   }
   if (stats.isSymbolicLink()) return `link:${await readlink(path)}`;
-  if (stats.isFile()) return `file:${createHash("sha256").update(await readFile(path)).digest("hex")}`;
+  if (stats.isFile()) {
+    const hash = createHash("sha256");
+    await new Promise<void>((resolvePromise, reject) => {
+      const stream = createReadStream(path);
+      stream.on("data", (chunk) => hash.update(chunk));
+      stream.on("error", reject);
+      stream.on("end", resolvePromise);
+    });
+    return `file:${hash.digest("hex")}`;
+  }
   return `other:${stats.mode}:${stats.size}`;
 }
 
@@ -1760,6 +2042,381 @@ async function gitSnapshot(request: AgentRequest, allowedPatterns: string[] = []
   return JSON.stringify({ status: meaningfulStatus(rawStatus, request.experimentId, allowedPatterns), files });
 }
 
+function checkpointProjectKey(request: AgentRequest): string {
+  const slice = request.campaign.parameters?.projectSlice;
+  const raw = slice && typeof slice === "object" && !Array.isArray(slice) && typeof (slice as Record<string, unknown>).projectId === "string"
+    ? (slice as Record<string, unknown>).projectId as string
+    : `project-${sha256(resolve(request.campaign.projectRoot)).slice(0, 16)}`;
+  return raw.replace(/[^A-Za-z0-9._-]/g, "-").slice(0, 128);
+}
+
+async function checkpointSemanticSha256(node: GraphNodeConfig, request: AgentRequest, graph: GraphAgentTeamConfig): Promise<string> {
+  const roleCharter = await loadRoleCharter(node.role);
+  const projectInstructions = await projectInstructionLayers(request.candidate.root);
+  const context = node.inheritContext ? [...graph.context, ...node.context] : node.context;
+  const contextFingerprints = await Promise.all(context.map(async (reference) => {
+    const path = candidatePath(request.candidate.root, reference.path, "checkpoint context");
+    return { ...reference, path: reference.path.replaceAll("\\", "/"), sha256: await fingerprint(path) };
+  }));
+  const commandFiles = (await Promise.all((node.command ?? []).map(async (argument) => {
+    const path = isAbsolute(argument) ? resolve(argument) : resolve(request.candidate.root, argument);
+    const traversal = relative(request.candidate.root, path);
+    if (!traversal || traversal.startsWith("..") || isAbsolute(traversal)) return undefined;
+    try {
+      if (!(await lstat(path)).isFile()) return undefined;
+      return { argument, path: traversal.replaceAll("\\", "/"), sha256: await fingerprint(path) };
+    } catch {
+      return undefined;
+    }
+  }))).filter((value): value is { argument: string; path: string; sha256: string } => value !== undefined);
+  const history = boundedHistoryRecords(graph.historyLimit === 0 ? [] : request.history
+    .filter((record) => (record.metadata?.logicalExperimentId ?? record.experimentId) !== (request.logicalExperimentId ?? request.experimentId))
+    .slice(-graph.historyLimit), graph.handoffCharacters);
+  return sha256(JSON.stringify({
+    version: 3,
+    id: node.id,
+    adapter: node.adapter,
+    command: node.command,
+    commandFiles,
+    driver: node.driver,
+    provider: node.provider,
+    model: node.model,
+    reasoningEffort: node.reasoningEffort,
+    billingMode: node.billingMode,
+    threadRetention: node.threadRetention,
+    timeoutSeconds: node.timeoutSeconds,
+    skills: (node.loadedSkills ?? []).map((skill) => ({ name: skill.name, required: skill.required, sha256: skill.resolvedSha256 })),
+    role: node.role,
+    roleCharterSha256: sha256(roleCharter.content),
+    projectInstructionLayers: projectInstructions.layers.map((layer) => ({ id: layer.id, sha256: layer.sha256 })),
+    campaignObjective: request.campaign.objective,
+    runtimeImplementationFingerprint: request.runtime?.implementationFingerprint,
+    projectSlice: request.campaign.parameters?.projectSlice,
+    projectSpec: request.campaign.parameters?.projectSpec,
+    history,
+    readOnly: node.readOnly,
+    writePaths: node.writePaths,
+    outputContractRetries: node.outputContractRetries,
+    maximumAttempts: node.maximumAttempts,
+    required: node.required,
+    refreshAfterRepair: node.refreshAfterRepair,
+    repair: node.repair,
+    advisor: node.advisor ? {
+      id: node.advisor.id,
+      adapter: node.advisor.adapter,
+      command: node.advisor.command,
+      driver: node.advisor.driver,
+      provider: node.advisor.provider,
+      model: node.advisor.model,
+      reasoningEffort: node.advisor.reasoningEffort,
+      billingMode: node.advisor.billingMode,
+      threadRetention: node.advisor.threadRetention,
+      timeoutSeconds: node.advisor.timeoutSeconds,
+      outcomes: node.advisor.outcomes,
+      onFailure: node.advisor.onFailure,
+      maximumAttempts: node.advisor.maximumAttempts,
+      instructions: node.advisor.instructions,
+      skills: node.advisor.skills
+    } : undefined,
+    dependsOn: node.dependsOn,
+    when: node.when,
+    instructions: node.instructions,
+    context: contextFingerprints,
+    inheritContext: node.inheritContext,
+    requiredOutputFields: node.requiredOutputFields,
+    requiredOutputFieldsOn: node.requiredOutputFieldsOn,
+    authority: node.authority,
+    invalidationTargets: node.invalidationTargets,
+    checkpointPolicy: {
+      enforceWriteContracts: graph.enforceWriteContracts,
+      externalInvalidationTargets: graph.externalInvalidationTargets,
+      handoffCharacters: graph.handoffCharacters,
+      maximumHandoffArtifacts: graph.maximumHandoffArtifacts,
+      historyLimit: graph.historyLimit
+    }
+  }));
+}
+
+async function checkpointArtifactIdentity(artifact: ArtifactReference, candidateRoot: string): Promise<Record<string, unknown>> {
+  const traversal = relative(candidateRoot, artifact.path).replaceAll("\\", "/");
+  const contained = traversal && !traversal.startsWith("..") && !isAbsolute(traversal);
+  const contentSha256 = artifact.sha256 ?? (contained ? await fingerprint(resolve(candidateRoot, traversal)).catch(() => "missing") : "out-of-scope");
+  return { kind: artifact.kind, path: contained ? traversal : artifact.path, sha256: contentSha256, label: artifact.label, mediaType: artifact.mediaType };
+}
+
+const TRANSIENT_CHECKPOINT_KEYS = new Set([
+  "approvedAt", "finishedAt", "generatedAt", "manifestPath", "promptManifestPath", "requestPath", "startedAt", "stderrPath", "stdoutPath", "structuredOutputPath"
+]);
+
+function checkpointStableValue(value: unknown, request: AgentRequest, key?: string): unknown {
+  if (key && TRANSIENT_CHECKPOINT_KEYS.has(key)) return undefined;
+  if (typeof value === "string") {
+    const normalizedRoot = resolve(request.candidate.root).replaceAll("\\", "/");
+    return value.replaceAll("\\", "/")
+      .replaceAll(normalizedRoot, "<candidate-root>")
+      .replaceAll(request.experimentId, "<experiment-id>");
+  }
+  if (Array.isArray(value)) return value.map((item) => checkpointStableValue(item, request));
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.keys(value as Record<string, unknown>).sort().flatMap((childKey) => {
+    const normalized = checkpointStableValue((value as Record<string, unknown>)[childKey], request, childKey);
+    return normalized === undefined ? [] : [[childKey, normalized]];
+  }));
+}
+
+async function checkpointDependenciesSha256(node: GraphNodeConfig, states: Map<string, GraphNodeState>, request: AgentRequest): Promise<string> {
+  return sha256(JSON.stringify(await Promise.all(node.dependsOn.map(async (dependency) => {
+    const state = states.get(dependency)!;
+    const run = latestRun(state);
+    return {
+      id: dependency,
+      outcome: state.outcome,
+      ...(state.checkpointOutputSha256 ? { writerOutputSha256: state.checkpointOutputSha256 } : {}),
+      structured: checkpointStableValue(run?.structured, request),
+      summary: checkpointStableValue(run?.provenance.summary, request),
+      stdout: run?.structured ? undefined : checkpointStableValue(run?.stdout, request),
+      artifacts: run ? await Promise.all(run.declaredArtifacts.map((artifact) => checkpointArtifactIdentity(artifact, request.candidate.root))) : []
+    };
+  }))));
+}
+
+async function scopedContentFiles(request: AgentRequest, patterns: string[]): Promise<string[]> {
+  const inventory = await gitOutput(request, [
+    "-c", "core.quotepath=false",
+    "ls-files", "-co", "--exclude-standard", "-z"
+  ], "checkpoint inventory");
+  return [...new Set(inventory.split("\0")
+    .map((path) => path.replaceAll("\\", "/"))
+    .filter(Boolean)
+    .filter((path) => !path.startsWith(".factory/") && patterns.some((pattern) => matchesPath(path, pattern))))].sort();
+}
+
+async function scopedContentSha256(request: AgentRequest, patterns: string[]): Promise<string> {
+  return contentStateSha256(await scopedContentState(request, patterns));
+}
+
+async function scopedContentState(request: AgentRequest, patterns: string[]): Promise<Map<string, string>> {
+  const paths = await scopedContentFiles(request, patterns);
+  return new Map(await Promise.all(paths.map(async (path) => [path, await fingerprint(resolve(request.candidate.root, path))] as const)));
+}
+
+function contentStateSha256(state: Map<string, string>): string {
+  return sha256(JSON.stringify([...state.entries()].sort(([left], [right]) => left.localeCompare(right))));
+}
+
+async function copyCheckpointFiles(
+  sourceRoot: string,
+  targetRoot: string,
+  paths: readonly string[],
+  targetPath: (path: string) => string = (path) => path
+): Promise<void> {
+  for (const path of paths) {
+    const source = resolve(sourceRoot, path);
+    const target = resolve(targetRoot, targetPath(path));
+    const traversal = relative(targetRoot, target);
+    if (traversal.startsWith("..") || isAbsolute(traversal)) throw new Error(`Checkpoint path escapes its root: ${path}`);
+    const stats = await lstat(source);
+    if (!stats.isFile()) throw new Error(`Checkpoint only supports regular files: ${path}`);
+    await mkdir(dirname(target), { recursive: true });
+    await copyFile(source, target);
+  }
+}
+
+async function checkpointArtifactFiles(run: ContributorRun, candidateRoot: string): Promise<string[]> {
+  const paths = run.artifacts.flatMap((artifact): string[] => {
+    const traversal = relative(candidateRoot, artifact.path);
+    return traversal && !traversal.startsWith("..") && !isAbsolute(traversal) ? [traversal.replaceAll("\\", "/")] : [];
+  });
+  const existing: string[] = [];
+  for (const path of [...new Set(paths)].sort()) {
+    try {
+      if ((await lstat(resolve(candidateRoot, path))).isFile()) existing.push(path);
+    } catch {
+      // Missing optional contributor artifacts are already handled by preservation.
+    }
+  }
+  return existing;
+}
+
+function remapExperimentPath(path: string, fromExperimentId: string, toExperimentId: string): string {
+  return path
+    .replaceAll(`.factory/agent-team/${fromExperimentId}/`, `.factory/agent-team/${toExperimentId}/`)
+    .replaceAll(`.factory\\agent-team\\${fromExperimentId}\\`, `.factory\\agent-team\\${toExperimentId}\\`);
+}
+
+function remapCheckpointValue(value: unknown, fromRoot: string, toRoot: string, fromExperimentId: string, toExperimentId: string): unknown {
+  if (typeof value === "string") {
+    const from = process.platform === "win32" ? fromRoot.toLowerCase() : fromRoot;
+    const candidate = process.platform === "win32" ? value.toLowerCase() : value;
+    const rooted = candidate === from || candidate.startsWith(`${from}${process.platform === "win32" ? "\\" : "/"}`)
+      ? resolve(toRoot, relative(fromRoot, value))
+      : value;
+    return remapExperimentPath(rooted, fromExperimentId, toExperimentId);
+  }
+  if (Array.isArray(value)) return value.map((item) => remapCheckpointValue(item, fromRoot, toRoot, fromExperimentId, toExperimentId));
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, remapCheckpointValue(item, fromRoot, toRoot, fromExperimentId, toExperimentId)]));
+}
+
+function checkpointNodeDirectory(request: AgentRequest, node: GraphNodeConfig): string | undefined {
+  if (!request.runtime?.dataRoot) return undefined;
+  return resolve(request.runtime.dataRoot, ".factory", "agent-team-checkpoints", checkpointProjectKey(request), node.id);
+}
+
+async function deleteCheckpointFiles(targetRoot: string, paths: readonly string[]): Promise<void> {
+  for (const path of paths) {
+    const target = resolve(targetRoot, path);
+    const traversal = relative(targetRoot, target);
+    if (!traversal || traversal.startsWith("..") || isAbsolute(traversal)) throw new Error(`Checkpoint delete path escapes its root: ${path}`);
+    try {
+      if (!(await lstat(target)).isFile()) throw new Error(`Checkpoint only deletes regular files: ${path}`);
+      await unlink(target);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+  }
+}
+
+async function loadNodeCheckpoint(node: GraphNodeConfig, states: Map<string, GraphNodeState>, request: AgentRequest, graph: GraphAgentTeamConfig): Promise<{ run: ContributorRun; checkpointId: string; outputSha256: string; validationState: "provisional" | "accepted" } | undefined> {
+  const directory = checkpointNodeDirectory(request, node);
+  if (!directory) return undefined;
+  const semanticSha256 = await checkpointSemanticSha256(node, request, graph);
+  const dependenciesSha256 = await checkpointDependenciesSha256(node, states, request);
+  const entries = await readdir(directory, { withFileTypes: true }).catch(() => []);
+  const manifests = await Promise.all(entries.filter((item) => item.isFile() && item.name.endsWith(".json")).map(async (entry) => {
+    try { return JSON.parse(await readFile(resolve(directory, entry.name), "utf8")) as NodeCheckpointManifest; }
+    catch { return undefined; }
+  }));
+  manifests.sort((left, right) => Number(right?.validationState === "accepted") - Number(left?.validationState === "accepted"));
+  for (const manifest of manifests) {
+    try {
+      if (!manifest || manifest.version !== 6 || manifest.nodeId !== node.id || manifest.semanticSha256 !== semanticSha256 || manifest.dependenciesSha256 !== dependenciesSha256) continue;
+      const validationState = manifest.validationState ?? "provisional";
+      if (validationState === "invalidated") continue;
+      if (validationState === "provisional" && (
+        resolve(manifest.candidateRoot) !== resolve(request.candidate.root)
+        || manifest.logicalExperimentId !== (request.logicalExperimentId ?? request.experimentId)
+      )) continue;
+      let outputSha256 = await scopedContentSha256(request, node.writePaths);
+      let readStateSha256 = await scopedContentSha256(request, ["**"]);
+      if (outputSha256 === manifest.outputSha256 && readStateSha256 !== manifest.readOutputSha256) continue;
+      if (manifest.outputSha256 !== outputSha256) {
+        if (resolve(manifest.candidateRoot) === resolve(request.candidate.root)) continue;
+        if (outputSha256 !== manifest.inputSha256) continue;
+        if (readStateSha256 !== manifest.readInputSha256) continue;
+        const snapshotRoot = resolve(directory, `${manifest.checkpointId}.files`, "output");
+        const snapshotHash = sha256(JSON.stringify(await Promise.all(manifest.outputFiles.map(async (path) => [path, await fingerprint(resolve(snapshotRoot, path))] as const))));
+        if (snapshotHash !== manifest.snapshotSha256) continue;
+        await copyCheckpointFiles(snapshotRoot, request.candidate.root, manifest.outputFiles);
+        await deleteCheckpointFiles(request.candidate.root, manifest.deletedFiles);
+        outputSha256 = await scopedContentSha256(request, node.writePaths);
+        if (manifest.outputSha256 !== outputSha256) continue;
+        readStateSha256 = await scopedContentSha256(request, ["**"]);
+        if (manifest.readOutputSha256 !== readStateSha256) continue;
+      }
+      await copyCheckpointFiles(
+        resolve(directory, `${manifest.checkpointId}.files`, "artifacts"),
+        request.candidate.root,
+        manifest.artifactFiles,
+        (path) => remapExperimentPath(path, manifest.experimentId, request.experimentId)
+      );
+      const run = remapCheckpointValue(manifest.run, manifest.candidateRoot, request.candidate.root, manifest.experimentId, request.experimentId) as ContributorRun;
+      if (run.provenance?.status !== "complete") continue;
+      run.provenance.invocationId = contributorTraceNode(request, node.id, 1);
+      run.provenance.parentInvocationId = agentGraphTraceNode(request, node.id);
+      run.provenance.reason = { kind: "initial" };
+      run.provenance.checkpointReused = true;
+      run.provenance.checkpointValidationState = validationState;
+      return { run, checkpointId: manifest.checkpointId, outputSha256: manifest.outputSha256, validationState };
+    } catch {
+      // A malformed or stale checkpoint is ignored and the node executes normally.
+    }
+  }
+  return undefined;
+}
+
+async function saveNodeCheckpoint(node: GraphNodeConfig, states: Map<string, GraphNodeState>, request: AgentRequest, run: ContributorRun, graph: GraphAgentTeamConfig, inputState: Map<string, string>, readInputState: Map<string, string>): Promise<{ checkpointId: string; outputSha256: string } | undefined> {
+  const directory = checkpointNodeDirectory(request, node);
+  if (!directory) return undefined;
+  const outputState = await scopedContentState(request, node.writePaths);
+  const outputFiles = [...outputState].filter(([path, digest]) => inputState.get(path) !== digest).map(([path]) => path).sort();
+  const deletedFiles = [...inputState.keys()].filter((path) => !outputState.has(path)).sort();
+  const artifactFiles = await checkpointArtifactFiles(run, request.candidate.root);
+  const semanticSha256 = await checkpointSemanticSha256(node, request, graph);
+  const dependenciesSha256 = await checkpointDependenciesSha256(node, states, request);
+  const inputSha256 = contentStateSha256(inputState);
+  const outputSha256 = contentStateSha256(outputState);
+  const readInputSha256 = contentStateSha256(readInputState);
+  const readOutputSha256 = await scopedContentSha256(request, ["**"]);
+  const snapshotSha256 = sha256(JSON.stringify(outputFiles.map((path) => [path, outputState.get(path)!])));
+  const checkpointId = sha256(JSON.stringify({
+    semanticSha256,
+    dependenciesSha256,
+    inputSha256,
+    outputSha256,
+    readInputSha256,
+    readOutputSha256,
+    experimentId: request.experimentId,
+    invocationId: run.provenance.invocationId,
+    finishedAt: run.provenance.finishedAt
+  }));
+  const manifest: NodeCheckpointManifest = {
+    version: 6,
+    checkpointId,
+    projectKey: checkpointProjectKey(request),
+    nodeId: node.id,
+    semanticSha256,
+    dependenciesSha256,
+    inputSha256,
+    outputSha256,
+    readInputSha256,
+    readOutputSha256,
+    snapshotSha256,
+    candidateRoot: request.candidate.root,
+    experimentId: request.experimentId,
+    logicalExperimentId: request.logicalExperimentId ?? request.experimentId,
+    outputFiles,
+    deletedFiles,
+    artifactFiles,
+    validationState: "provisional",
+    run
+  };
+  try {
+    await mkdir(directory, { recursive: true });
+    const snapshot = resolve(directory, `${checkpointId}.files`);
+    await copyCheckpointFiles(request.candidate.root, resolve(snapshot, "output"), outputFiles);
+    await copyCheckpointFiles(request.candidate.root, resolve(snapshot, "artifacts"), artifactFiles);
+    await writeFile(resolve(directory, `${checkpointId}.json`), JSON.stringify(manifest, null, 2), "utf8");
+    return { checkpointId, outputSha256 };
+  } catch (error) {
+    throw new AgentTeamInfrastructureError(`Could not persist durable checkpoint for ${node.id}: ${error instanceof Error ? error.message : String(error)}`, [run]);
+  }
+}
+
+async function updateNodeCheckpointValidationState(
+  node: GraphNodeConfig,
+  request: AgentRequest,
+  checkpointId: string,
+  validationState: "accepted" | "invalidated",
+  validationSource: string
+): Promise<void> {
+  const directory = checkpointNodeDirectory(request, node);
+  if (!directory) return;
+  const path = resolve(directory, `${checkpointId}.json`);
+  try {
+    const manifest = JSON.parse(await readFile(path, "utf8")) as NodeCheckpointManifest;
+    if (manifest.version !== 6 || manifest.nodeId !== node.id || manifest.checkpointId !== checkpointId) {
+      throw new Error(`checkpoint identity ${checkpointId} does not match ${node.id}`);
+    }
+    manifest.validationState = validationState;
+    manifest.validationUpdatedAt = new Date().toISOString();
+    manifest.validationSource = validationSource;
+    await writeFile(path, JSON.stringify(manifest, null, 2), "utf8");
+  } catch (error) {
+    throw new AgentTeamInfrastructureError(`Could not mark checkpoint ${node.id}@${checkpointId.slice(0, 12)} ${validationState}: ${error instanceof Error ? error.message : String(error)}`, []);
+  }
+}
+
 function assertRunsSucceeded(stage: TeamStage, runs: ContributorRun[]): void {
   const failures = runs.filter((run) => run.provenance.status === "failed");
   if (failures.length === 0) return;
@@ -1790,7 +2447,9 @@ async function runReadOnlyBatch(
   contributors: ContributorConfig[],
   request: AgentRequest,
   inputs: PriorOutput[],
-  maximumParallel: number
+  maximumParallel: number,
+  handoffCharacters: number,
+  maximumHandoffArtifacts: number
 ): Promise<ContributorRun[]> {
   const before = await gitSnapshot(request);
   const runs = await mapParallel(contributors, maximumParallel, (item) => invokeContributor(item, stage, true, request, inputs, {
@@ -1799,7 +2458,9 @@ async function runReadOnlyBatch(
     attempt: 1,
     instructions: INSTRUCTIONS[stage],
     context: [],
-    reason: { kind: "initial" }
+    reason: { kind: "initial" },
+    handoffCharacters,
+    maximumHandoffArtifacts
   }));
   const after = await gitSnapshot(request);
   if (before !== after) throw new AgentTeamExecutionError(`agent.team read-only ${stage} stage modified meaningful candidate files`, runs);
@@ -1810,7 +2471,9 @@ async function runReadOnlyBatch(
 async function runReadOnlySingle(
   config: ContributorConfig,
   request: AgentRequest,
-  inputs: PriorOutput[]
+  inputs: PriorOutput[],
+  handoffCharacters: number,
+  maximumHandoffArtifacts: number
 ): Promise<ContributorRun> {
   const before = await gitSnapshot(request);
   const run = await invokeContributor(config, "planner", true, request, inputs, {
@@ -1819,7 +2482,9 @@ async function runReadOnlySingle(
     attempt: 1,
     instructions: INSTRUCTIONS.planner,
     context: [],
-    reason: { kind: "initial" }
+    reason: { kind: "initial" },
+    handoffCharacters,
+    maximumHandoffArtifacts
   });
   const after = await gitSnapshot(request);
   if (before !== after) throw new AgentTeamExecutionError("agent.team read-only planner stage modified meaningful candidate files", [run]);
@@ -1849,6 +2514,8 @@ function contribution(run: ContributorRun): AgentContribution {
       command: run.provenance.command,
       adapter: run.provenance.adapter,
       ...(run.provenance.driver ? { driver: run.provenance.driver } : {}),
+      ...(run.provenance.checkpointReused ? { checkpointReused: true } : {}),
+      ...(run.provenance.checkpointValidationState ? { checkpointValidationState: run.provenance.checkpointValidationState } : {}),
       durationMs: run.provenance.durationMs,
       exitCode: run.provenance.exitCode,
       requestPath: run.provenance.requestPath,
@@ -1886,9 +2553,9 @@ function legacyResult(runs: ContributorRun[], scouts: ContributorRun[], planner:
 }
 
 async function runLegacy(config: LegacyAgentTeamConfig, request: AgentRequest): Promise<AgentResult> {
-  const scouts = await runReadOnlyBatch("scout", config.scouts, request, [], config.maximumParallel);
+  const scouts = await runReadOnlyBatch("scout", config.scouts, request, [], config.maximumParallel, config.handoffCharacters, config.maximumHandoffArtifacts);
   const scoutOutputs = scouts.map((run) => priorOutput(run, config.maxOutputCharacters));
-  const planner = await runReadOnlySingle(config.planner, request, scoutOutputs);
+  const planner = await runReadOnlySingle(config.planner, request, scoutOutputs, config.handoffCharacters, config.maximumHandoffArtifacts);
   const implementationInputs = [...scoutOutputs, priorOutput(planner, config.maxOutputCharacters)];
   const implementer = await invokeContributor(config.implementer, "implementer", false, request, implementationInputs, {
     mode: "legacy",
@@ -1896,11 +2563,13 @@ async function runLegacy(config: LegacyAgentTeamConfig, request: AgentRequest): 
     attempt: 1,
     instructions: INSTRUCTIONS.implementer,
     context: [],
-    reason: { kind: "initial" }
+    reason: { kind: "initial" },
+    handoffCharacters: config.handoffCharacters,
+    maximumHandoffArtifacts: config.maximumHandoffArtifacts
   });
   assertRunsSucceeded("implementer", [implementer]);
   const criticInputs = [...implementationInputs, priorOutput(implementer, config.maxOutputCharacters)];
-  const critics = await runReadOnlyBatch("critic", config.critics, request, criticInputs, config.maximumParallel);
+  const critics = await runReadOnlyBatch("critic", config.critics, request, criticInputs, config.maximumParallel, config.handoffCharacters, config.maximumHandoffArtifacts);
   const runs = [...scouts, planner, implementer, ...critics];
   return legacyResult(runs, scouts, planner, implementer, critics);
 }
@@ -1926,10 +2595,15 @@ function dependencyAllows(node: GraphNodeConfig, states: Map<string, GraphNodeSt
   });
 }
 
-function graphInputs(node: GraphNodeConfig, states: Map<string, GraphNodeState>, maximum: number): PriorOutput[] {
+function graphInputs(node: GraphNodeConfig, states: Map<string, GraphNodeState>, maximum: number, maximumArtifacts: number): PriorOutput[] {
+  const count = Math.max(1, node.dependsOn.length);
+  const perInputCharacters = Math.max(1, Math.floor(maximum / count));
+  const baseArtifacts = Math.floor(maximumArtifacts / count);
+  let artifactRemainder = maximumArtifacts % count;
   return node.dependsOn.flatMap((dependency) => {
     const run = latestRun(states.get(dependency)!);
-    return run ? [priorOutput(run, maximum)] : [];
+    const artifactAllowance = baseArtifacts + (artifactRemainder-- > 0 ? 1 : 0);
+    return run ? [priorOutput(run, perInputCharacters, artifactAllowance)] : [];
   });
 }
 
@@ -1945,19 +2619,73 @@ function dependencyWriterIds(node: GraphNodeConfig, nodes: Map<string, GraphNode
   return [...nodes.values()].filter((candidate) => !candidate.readOnly && dependsTransitively(node.id, candidate.id, nodes)).map((candidate) => candidate.id).sort();
 }
 
+function nearestDependencyWriterIds(node: GraphNodeConfig, nodes: Map<string, GraphNodeConfig>): string[] {
+  const writers = new Set<string>();
+  const visit = (nodeId: string): void => {
+    const current = nodes.get(nodeId);
+    if (!current) return;
+    for (const dependencyId of current.dependsOn) {
+      const dependency = nodes.get(dependencyId);
+      if (!dependency) continue;
+      if (!dependency.readOnly) writers.add(dependency.id);
+      else visit(dependency.id);
+    }
+  };
+  visit(node.id);
+  return [...writers].sort();
+}
+
+function writerInvalidationClosure(targets: Iterable<string>, nodes: Map<string, GraphNodeConfig>): Set<string> {
+  const seeds = new Set(targets);
+  return new Set([...nodes.values()].flatMap((node) => !node.readOnly && (
+    seeds.has(node.id) || [...seeds].some((seed) => dependsTransitively(node.id, seed, nodes))
+  ) ? [node.id] : []));
+}
+
+function blockerFindings(run: ContributorRun | undefined): Array<Record<string, unknown>> {
+  const findings = run?.structured?.findings;
+  const nested = findings && typeof findings === "object" && !Array.isArray(findings)
+    ? (findings as Record<string, unknown>).blockers
+    : undefined;
+  const list = Array.isArray(findings) ? findings : Array.isArray(nested) ? nested : [];
+  return list.filter((finding): finding is Record<string, unknown> => Boolean(
+    finding && typeof finding === "object" && !Array.isArray(finding)
+    && ((finding as Record<string, unknown>).findingClass === "blocker" || (finding as Record<string, unknown>).classification === "blocker")
+  ));
+}
+
+function rejectionDisposition(states: GraphNodeState[]): Record<string, unknown> | undefined {
+  const selected = states.find((state) => state.outcome.toLowerCase() === "spec_amendment")
+    ?? states.find((state) => state.outcome.toLowerCase() === "target_revision");
+  if (!selected) return undefined;
+  const blockers = blockerFindings(latestRun(selected));
+  const claimIds = [...new Set(blockers.flatMap((finding) => Array.isArray(finding.claimIds)
+    ? finding.claimIds.filter((claim): claim is string => typeof claim === "string")
+    : []))];
+  const evidenceReferences = [...new Set(blockers.flatMap((finding) => Array.isArray(finding.evidence)
+    ? finding.evidence.filter((reference): reference is string => typeof reference === "string" && reference.trim().length > 0)
+    : []))];
+  return {
+    kind: selected.outcome.toLowerCase() === "spec_amendment" ? "spec-amendment" : "target-revision",
+    rationale: selected.summary,
+    claimIds,
+    evidenceReferences
+  };
+}
+
 function validateAuthorityOutput(config: GraphAgentTeamConfig, node: GraphNodeConfig, run: ContributorRun): void {
   if (!config.enforceClaimedBlockers || run.provenance.status !== "complete") return;
   if (node.authority !== "propose" && node.authority !== "approve") return;
   const controlOutcome = run.provenance.outcome.toLowerCase();
   const rejecting = REJECTING_CONTROL_OUTCOMES.has(controlOutcome);
-  if (!rejecting && !POSITIVE_CONTROL_OUTCOMES.has(controlOutcome)) throw new AgentTeamExecutionError(`${node.id} returned unknown control outcome ${run.provenance.outcome}`, [run]);
+  if (!rejecting && !POSITIVE_CONTROL_OUTCOMES.has(controlOutcome)) throw new AgentTeamOutputContractError(`${node.id} returned unknown control outcome ${run.provenance.outcome}`, [run]);
   if (!rejecting) return;
   const findings = run.structured?.findings;
   const nestedBlockers = findings && typeof findings === "object" && !Array.isArray(findings)
     ? (findings as Record<string, unknown>).blockers
     : undefined;
   const findingList = Array.isArray(findings) ? findings : Array.isArray(nestedBlockers) ? nestedBlockers : undefined;
-  if (!findingList) throw new AgentTeamExecutionError(`${node.id} returned ${run.provenance.outcome} without structured findings`, [run]);
+  if (!findingList) throw new AgentTeamOutputContractError(`${node.id} returned ${run.provenance.outcome} without structured findings`, [run]);
   const blockers = findingList.filter((finding) => {
     if (!finding || typeof finding !== "object" || Array.isArray(finding)) return false;
     const record = finding as Record<string, unknown>;
@@ -1966,12 +2694,12 @@ function validateAuthorityOutput(config: GraphAgentTeamConfig, node: GraphNodeCo
     }
     return Array.isArray(nestedBlockers);
   }) as Array<Record<string, unknown>>;
-  if (blockers.length === 0) throw new AgentTeamExecutionError(`${node.id} returned ${run.provenance.outcome} without a blocker; new scope must be reported as an opportunity`, [run]);
+  if (blockers.length === 0) throw new AgentTeamOutputContractError(`${node.id} returned ${run.provenance.outcome} without a blocker; new scope must be reported as an opportunity`, [run]);
   for (const [index, finding] of blockers.entries()) {
     const claimIds = finding.claimIds;
-    if (!Array.isArray(claimIds) || claimIds.length === 0 || claimIds.some((claim) => typeof claim !== "string")) throw new AgentTeamExecutionError(`${node.id} blocker ${index + 1} must cite at least one claimId`, [run]);
+    if (!Array.isArray(claimIds) || claimIds.length === 0 || claimIds.some((claim) => typeof claim !== "string")) throw new AgentTeamOutputContractError(`${node.id} blocker ${index + 1} must cite at least one claimId`, [run]);
     const unknown = config.claimIds.length > 0 ? (claimIds as string[]).filter((claim) => !config.claimIds.includes(claim)) : [];
-    if (unknown.length > 0) throw new AgentTeamExecutionError(`${node.id} blocker ${index + 1} cites unknown claim(s): ${unknown.join(", ")}`, [run]);
+    if (unknown.length > 0) throw new AgentTeamOutputContractError(`${node.id} blocker ${index + 1} cites unknown claim(s): ${unknown.join(", ")}`, [run]);
   }
 }
 
@@ -1995,7 +2723,8 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
     outcome: "pending",
     summary: "pending",
     runs: [],
-    inputGenerations: {}
+    inputGenerations: {},
+    outputContractRetries: 0
   }]));
   let totalAttempts = 0;
   let repairAttempts = 0;
@@ -2072,7 +2801,7 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
       advisorEscalations += 1;
       const attempt = state.runs.length + 1;
       const advisorRun = await invokeContributor(advisor, state.config.role, state.config.readOnly, request, [
-        ...graphInputs(state.config, states, config.handoffCharacters),
+        ...graphInputs(state.config, states, config.handoffCharacters, config.maximumHandoffArtifacts),
         ...extraInputs,
         priorOutput(triggeringRun, config.handoffCharacters),
         ...priorAdvisorRuns
@@ -2091,7 +2820,9 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
           kind: "advisor",
           source: state.config.id,
           ...(reason.repairAttempt !== undefined ? { repairAttempt: reason.repairAttempt } : {})
-        }
+        },
+        handoffCharacters: config.handoffCharacters,
+        maximumHandoffArtifacts: config.maximumHandoffArtifacts
       });
       state.runs.push(advisorRun);
       state.outcome = advisorRun.provenance.outcome;
@@ -2112,20 +2843,77 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
     reason: InvocationReason,
     extraInputs: PriorOutput[] = []
   ): Promise<void> => {
+    if (config.reuseCheckpoints && reason.kind === "initial" && !state.config.readOnly && state.config.writePaths.length > 0) {
+      const checkpoint = await loadNodeCheckpoint(state.config, states, request, config);
+      if (checkpoint) {
+        state.runs.push(checkpoint.run);
+        state.outcome = checkpoint.run.provenance.outcome;
+        state.summary = checkpoint.run.provenance.summary;
+        state.checkpointId = checkpoint.checkpointId;
+        state.checkpointOutputSha256 = checkpoint.outputSha256;
+        validateAuthorityOutput(config, state.config, checkpoint.run);
+        validateRequiredOutputFields(state.config, checkpoint.run);
+        completeState(state);
+        state.reused = true;
+        await emitAgentTrace(request, {
+          type: "node:progress",
+          nodeId: agentGraphTraceNode(request, state.config.id),
+          experimentId: request.experimentId,
+          label: state.config.id,
+          role: state.config.role,
+          status: "complete",
+          message: "Reused durable writer checkpoint",
+          data: { checkpointReused: true, outcome: state.outcome }
+        });
+        return;
+      }
+    }
+    state.reused = false;
+    delete state.checkpointId;
+    delete state.checkpointOutputSha256;
     state.status = "running";
-    for (let localAttempt = 1; localAttempt <= state.config.maximumAttempts; localAttempt += 1) {
-      if (localAttempt > 1 && executionRetries >= config.maximumExecutionRetries) break;
+    let remainingAttempts = state.config.maximumAttempts;
+    let remainingOutputContractRetries = state.config.outputContractRetries;
+    let activationAttempt = 0;
+    let lastOutputContractError: AgentTeamOutputContractError | undefined;
+    let outputContractInputs: PriorOutput[] = [];
+    const retryOutputContract = async (error: AgentTeamOutputContractError, run: ContributorRun): Promise<boolean> => {
+      lastOutputContractError = error;
+      if (!state.config.readOnly || remainingOutputContractRetries <= 0 || executionRetries >= config.maximumExecutionRetries) return false;
+      remainingOutputContractRetries -= 1;
+      remainingAttempts += 1;
+      state.outputContractRetries += 1;
+      const feedback = priorOutput(run, config.handoffCharacters);
+      feedback.summary = `OUTPUT CONTRACT REJECTED — preserve the evidence, but do not repeat this invalid verdict: ${error.message}`;
+      outputContractInputs = [feedback];
+      await emitAgentTrace(request, {
+        type: "node:progress",
+        nodeId: agentGraphTraceNode(request, state.config.id),
+        experimentId: request.experimentId,
+        label: state.config.id,
+        role: state.config.role,
+        status: "running",
+        message: "Reviewer output contract rejected; retrying without invalidating upstream work",
+        data: { outputContractRetry: state.outputContractRetries, error: error.message }
+      });
+      return true;
+    };
+    while (remainingAttempts > 0) {
+      if (activationAttempt > 0 && executionRetries >= config.maximumExecutionRetries) break;
       reserveAttempt();
-      if (localAttempt > 1) executionRetries += 1;
+      if (activationAttempt > 0) executionRetries += 1;
+      activationAttempt += 1;
+      remainingAttempts -= 1;
       const attempt = state.runs.length + 1;
-      const invocationReason: InvocationReason = localAttempt === 1 ? reason : {
+      const invocationReason: InvocationReason = activationAttempt === 1 ? reason : {
         kind: "retry",
         ...(reason.source ? { source: reason.source } : {}),
         ...(reason.repairAttempt !== undefined ? { repairAttempt: reason.repairAttempt } : {})
       };
       const run = await invokeContributor(state.config, state.config.role, state.config.readOnly, request, [
-        ...graphInputs(state.config, states, config.handoffCharacters),
-        ...extraInputs
+        ...graphInputs(state.config, states, config.handoffCharacters, config.maximumHandoffArtifacts),
+        ...extraInputs,
+        ...outputContractInputs
       ], {
         mode: "graph",
         nodeId: state.config.id,
@@ -2137,11 +2925,18 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
         ].join("\n\n") : [state.config.instructions ?? INSTRUCTIONS[state.config.role], authorityOutputInstruction(config, state.config)].join("\n\n"),
         context: [...(state.config.inheritContext ? config.context : []), ...state.config.context],
         historyLimit: config.historyLimit,
-        reason: invocationReason
+        reason: invocationReason,
+        handoffCharacters: config.handoffCharacters,
+        maximumHandoffArtifacts: config.maximumHandoffArtifacts
       });
       state.runs.push(run);
       state.outcome = run.provenance.outcome;
       state.summary = run.provenance.summary;
+      if (run.provenance.failureKind === "output-contract") {
+        const error = new AgentTeamOutputContractError(`${state.config.id} returned malformed structured output`, [run]);
+        if (await retryOutputContract(error, run)) continue;
+        throw new AgentTeamOutputContractError(`${error.message} after ${state.outputContractRetries} bounded contract retr${state.outputContractRetries === 1 ? "y" : "ies"}`, state.runs);
+      }
       const advisorRequested = state.config.advisor?.outcomes.includes(run.provenance.outcome) === true;
       const advisorForFailure = state.config.advisor?.onFailure === true && run.provenance.status === "failed" && !request.signal.aborted;
       if (advisorRequested || advisorForFailure) {
@@ -2149,11 +2944,20 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
         return;
       }
       if (run.provenance.status === "complete") {
-        validateAuthorityOutput(config, state.config, run);
-        validateRequiredOutputFields(state.config, run);
+        try {
+          validateAuthorityOutput(config, state.config, run);
+          validateRequiredOutputFields(state.config, run);
+        } catch (error) {
+          if (!(error instanceof AgentTeamOutputContractError)) throw error;
+          if (await retryOutputContract(error, run)) continue;
+          throw new AgentTeamOutputContractError(`${error.message} after ${state.outputContractRetries} bounded contract retr${state.outputContractRetries === 1 ? "y" : "ies"}`, state.runs);
+        }
         completeState(state);
         return;
       }
+    }
+    if (lastOutputContractError) {
+      throw new AgentTeamOutputContractError(`${lastOutputContractError.message}; retry budget exhausted`, state.runs);
     }
     state.status = "failed";
   };
@@ -2168,20 +2972,27 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
     if (!readers && batch.length !== 1) throw new Error("agent.team internal error: writer batch must contain exactly one node");
     const trustedDrivers = readers ? batch.filter((state) => state.config.adapter === "agent-driver") : [];
     const guarded = readers ? batch.filter((state) => state.config.adapter !== "agent-driver") : batch;
-    const before = guarded.length > 0 && readers ? await gitSnapshot(request) : undefined;
+    let before: string | undefined;
+    let writerState: Map<string, string> | undefined;
+    let writerInputState: Map<string, string> | undefined;
+    let writerReadInputState: Map<string, string> | undefined;
     try {
+      before = guarded.length > 0 && readers ? await gitSnapshot(request) : undefined;
+      writerState = !readers && config.enforceWriteContracts ? await meaningfulFileState(request) : undefined;
+      writerInputState = !readers && config.reuseCheckpoints ? await scopedContentState(request, batch[0]!.config.writePaths) : undefined;
+      writerReadInputState = !readers && config.reuseCheckpoints ? await scopedContentState(request, ["**"]) : undefined;
       for (const state of trustedDrivers) {
         const allowedEvidence = [
           `.factory/runs/${request.experimentId}*/**`,
           `**/.factory/runs/${request.experimentId}*/**`,
-          ...state.config.driverWritePaths
+          ...state.config.writePaths
         ];
         const driverBefore = await meaningfulFileState(request);
         await runActivation(state, reason, extras.get(state.config.id) ?? []);
         const driverAfter = await meaningfulFileState(request);
         const outside = changedSince(driverBefore, driverAfter).filter((path) => !allowedEvidence.some((pattern) => matchesPath(path, pattern)));
         if (outside.length > 0) {
-          throw new AgentTeamExecutionError(
+          throw new AgentTeamInfrastructureError(
             `factory-native read-only driver ${state.config.driver} modified files outside its declared write paths: ${outside.join(", ")}`,
             state.runs
           );
@@ -2190,6 +3001,8 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
       await mapParallel(guarded, readers ? config.maximumParallel : 1, (state) => runActivation(state, reason, extras.get(state.config.id) ?? []));
     } catch (error) {
       const runs = [...states.values()].flatMap((state) => state.runs);
+      if (error instanceof AgentTeamInfrastructureError) throw new AgentTeamInfrastructureError(error.message, runs);
+      if (error instanceof AgentTeamInvalidatedError) throw new AgentTeamInvalidatedError(error.message, runs, error.projectDisposition);
       if (error instanceof AgentTeamExecutionError) throw new AgentTeamExecutionError(error.message, runs);
       if (runs.length > 0) throw new AgentTeamExecutionError(error instanceof Error ? error.message : String(error), runs);
       throw error;
@@ -2197,10 +3010,35 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
     if (before !== undefined) {
       const after = await gitSnapshot(request);
       if (before !== after) {
-        throw new AgentTeamExecutionError(
+        throw new AgentTeamInfrastructureError(
           `agent.team read-only graph nodes modified meaningful candidate files: ${batch.map((state) => state.config.id).join(", ")}`,
           batch.flatMap((state) => state.runs)
         );
+      }
+    }
+    if (writerState) {
+      const writer = batch[0]!;
+      const changed = changedSince(writerState, await meaningfulFileState(request));
+      const outside = changed.filter((path) => !writer.config.writePaths.some((pattern) => matchesPath(path, pattern)));
+      if (outside.length > 0) {
+        throw new AgentTeamInfrastructureError(
+          `graph writer ${writer.config.id} modified files outside its writePaths: ${outside.join(", ")}`,
+          writer.runs
+        );
+      }
+    }
+    if (!readers && config.reuseCheckpoints) {
+      const writer = batch[0]!;
+      const run = latestRun(writer);
+      if (!writer.reused && writer.status === "complete" && run && writer.config.writePaths.length > 0) {
+        const checkpoint = await saveNodeCheckpoint(writer.config, states, request, run, config, writerInputState ?? new Map(), writerReadInputState ?? new Map());
+        if (checkpoint) {
+          writer.checkpointId = checkpoint.checkpointId;
+          writer.checkpointOutputSha256 = checkpoint.outputSha256;
+        } else {
+          delete writer.checkpointId;
+          delete writer.checkpointOutputSha256;
+        }
       }
     }
   };
@@ -2219,6 +3057,9 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
     if (!sourceRun) return false;
     const edgeAttempt = (repairCounts.get(source.id) ?? 0) + 1;
     const targetState = states.get(source.repair.target)!;
+    if (config.reuseCheckpoints && targetState.checkpointId) {
+      await updateNodeCheckpointValidationState(targetState.config, request, targetState.checkpointId, "invalidated", source.id);
+    }
     const repairScopeBefore = source.repair.allowedPaths.length > 0 ? await meaningfulFileState(request) : undefined;
     const preserved = source.repair.preserve.flatMap((nodeId): Array<{ id: string; outcome: string; input: PriorOutput }> => {
       const preservedState = states.get(nodeId)!;
@@ -2242,7 +3083,7 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
       const changed = changedSince(repairScopeBefore, await meaningfulFileState(request));
       const outside = changed.filter((path) => !source.repair!.allowedPaths.some((pattern) => matchesPath(path, pattern)));
       if (outside.length > 0) {
-        throw new AgentTeamExecutionError(
+        throw new AgentTeamInfrastructureError(
           `Repair from ${source.id} changed files outside its allowedPaths: ${outside.join(", ")}`,
           [...states.values()].flatMap((state) => state.runs)
         );
@@ -2352,6 +3193,28 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
   if (requiredFailures.length > 0) {
     const details = requiredFailures.map((state) => `${state.config.id}: ${state.summary}`).join("; ");
     const completedAndFailedRuns = [...states.values()].flatMap((state) => state.runs);
+    const trustedRejections = requiredFailures.filter((state) => {
+      const run = latestRun(state);
+      return run?.provenance.status === "complete"
+        && run.provenance.outcome === state.outcome
+        && REJECTING_CONTROL_OUTCOMES.has(state.outcome.toLowerCase());
+    });
+    if (trustedRejections.length > 0) {
+      if (config.reuseCheckpoints) {
+        const causalWriters = writerInvalidationClosure(trustedRejections.flatMap((state) => {
+          const explicit = state.config.invalidationTargets[state.outcome.toLowerCase()];
+          return explicit ?? nearestDependencyWriterIds(state.config, nodesById);
+        }), nodesById);
+        for (const writerId of causalWriters) {
+          const writer = states.get(writerId);
+          if (writer?.checkpointId) await updateNodeCheckpointValidationState(writer.config, request, writer.checkpointId, "invalidated", trustedRejections.map((state) => state.config.id).join(","));
+        }
+      }
+      throw new AgentTeamInvalidatedError(`agent.team candidate invalidated by trusted review: ${details}`, completedAndFailedRuns, rejectionDisposition(trustedRejections));
+    }
+    if (requiredFailures.some((state) => latestRun(state)?.provenance.failureKind === "infrastructure")) {
+      throw new AgentTeamInfrastructureError(`agent.team graph infrastructure failed: ${details}`, completedAndFailedRuns);
+    }
     throw new AgentTeamExecutionError(`agent.team graph required nodes failed: ${details}`, completedAndFailedRuns);
   }
 
@@ -2398,6 +3261,9 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
     metadata: {
       pipeline: "agent.team",
       mode: "graph",
+      checkpointSet: Object.fromEntries([...states.values()].flatMap((state) => !state.config.readOnly && state.checkpointId
+        ? [[state.config.id, { checkpointId: state.checkpointId, outputSha256: state.checkpointOutputSha256 }]]
+        : [])),
       ...(projectEvidence ? { projectEvidence } : {}),
       ...(finalStructured?.projectDisposition && typeof finalStructured.projectDisposition === "object" && !Array.isArray(finalStructured.projectDisposition) ? { projectDisposition: finalStructured.projectDisposition } : {}),
       maximumParallel: config.maximumParallel,
@@ -2412,12 +3278,14 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
         return [node.id, {
           role: node.role,
           readOnly: node.readOnly,
-          ...(node.driverWritePaths.length > 0 ? { driverWritePaths: node.driverWritePaths } : {}),
+          ...(node.writePaths.length > 0 ? { writePaths: node.writePaths } : {}),
           authority: node.authority,
           dependsOn: node.dependsOn,
           status: state.status,
           outcome: state.outcome,
+          ...(state.reused ? { checkpointReused: true } : {}),
           attempts: state.runs.length,
+          outputContractRetries: state.outputContractRetries,
           advisorInvocations: state.runs.filter((run) => run.provenance.reason.kind === "advisor").length,
           inputGenerations: state.inputGenerations,
           skills: node.skills.map((skill) => skill.name),
@@ -2433,6 +3301,45 @@ export class AgentTeam implements AgentDriver {
 
   constructor(private readonly resolveAgent?: (id: string) => AgentDriver) {}
 
+  async finalize(request: AgentRequest & { result: AgentResult; evaluations: import("@gamefactory/core").Evaluation[]; accepted: boolean; reason: string }): Promise<void> {
+    const config = readConfig(request);
+    if (config.kind !== "graph" || !config.reuseCheckpoints) return;
+    const rawSet = request.result.metadata?.checkpointSet;
+    if (!rawSet || typeof rawSet !== "object" || Array.isArray(rawSet)) return;
+    const checkpointSet = rawSet as Record<string, unknown>;
+    const writers = new Map(config.nodes.filter((node) => !node.readOnly).map((node) => [node.id, node]));
+    const nodes = new Map(config.nodes.map((node) => [node.id, node]));
+    const failedEvaluations = request.evaluations.filter((evaluation) => evaluation.status !== "pass");
+    const mappedSeeds = new Set<string>();
+    let mappingsComplete = failedEvaluations.length > 0;
+    for (const evaluation of failedEvaluations) {
+      const violations = evaluation.violations.filter((violation) => violation.severity === "error");
+      const causes = violations.length > 0 ? violations : [{ code: "<evaluation>", severity: "error" as const, message: evaluation.summary ?? evaluation.evaluator }];
+      for (const violation of causes) {
+        const attributed = violation.causalNodeIds?.filter((nodeId) => writers.has(nodeId)) ?? [];
+        const exactKey = `${evaluation.evaluator}#${violation.code}`;
+        const configured = attributed.length > 0
+          ? attributed
+          : config.externalInvalidationTargets[exactKey] ?? config.externalInvalidationTargets[evaluation.evaluator];
+        if (!configured) mappingsComplete = false;
+        else for (const nodeId of configured) mappedSeeds.add(nodeId);
+      }
+    }
+    const causalSeeds = request.accepted
+      ? new Set<string>()
+      : mappingsComplete
+        ? mappedSeeds
+        : new Set(writers.keys());
+    const causalTargets = writerInvalidationClosure(causalSeeds, nodes);
+    for (const [nodeId, raw] of Object.entries(checkpointSet)) {
+      const node = writers.get(nodeId);
+      const entry = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : undefined;
+      if (!node || typeof entry?.checkpointId !== "string") continue;
+      const validationState = request.accepted || !causalTargets.has(nodeId) ? "accepted" : "invalidated";
+      await updateNodeCheckpointValidationState(node, request, entry.checkpointId, validationState, `workflow:${request.reason}`);
+    }
+  }
+
   async run(request: AgentRequest): Promise<AgentResult> {
     const releaseAppServerSession = await codexAppServers.beginSession();
     try {
@@ -2443,8 +3350,15 @@ export class AgentTeam implements AgentDriver {
       return await serializeCandidate(request.candidate.root, async () => {
         await emitAgentTrace(request, { type: "node:started", nodeId, experimentId: request.experimentId, label: "Agent team", role: "agent-team" });
         try {
-          const config = readConfig(request);
-          await preflightSkills(config);
+          let config: AgentTeamConfig;
+          try {
+            config = readConfig(request);
+            await preflightSkills(config);
+            preflightDriverWriteContracts(config, request);
+          } catch (error) {
+            if (error instanceof AgentTeamInfrastructureError) throw error;
+            throw new AgentTeamInfrastructureError(`agent.team preflight failed: ${error instanceof Error ? error.message : String(error)}`, []);
+          }
           const result = config.kind === "legacy" ? await runLegacy(config, request) : await runGraph(config, request);
           for (const contributor of result.contributors ?? []) {
             await emitAgentTrace(request, {

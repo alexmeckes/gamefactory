@@ -3,8 +3,9 @@
   "version": "0.1.0",
   "apiVersion": "1.0",
   "entry": "dist/index.js",
-  "activation": ["evaluator:design.intent", "evaluator:design.system", "evaluator:playtest.agents", "evaluator:playtest.human"],
+  "activation": ["agent:design.scene-target-contract", "agent:design.scene-target-schema-repair", "evaluator:design.intent", "evaluator:design.system", "evaluator:playtest.agents", "evaluator:playtest.human"],
   "contributes": {
+    "agent": ["design.scene-target-contract", "design.scene-target-schema-repair"],
     "evaluator": ["design.intent", "design.system", "playtest.agents", "playtest.human"]
   },
   "permissions": ["filesystem:candidate", "scenario:configured-runner"],

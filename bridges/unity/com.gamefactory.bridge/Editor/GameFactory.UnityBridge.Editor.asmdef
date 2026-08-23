@@ -1,0 +1,12 @@
+{
+  "name": "GameFactory.UnityBridge.Editor",
+  "rootNamespace": "GameFactory.UnityBridge",
+  "references": [
+    "Unity.Pipeline",
+    "Unity.InputSystem"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "autoReferenced": true
+}

@@ -79,6 +79,23 @@ function hasTemplatePlaceholder(value: unknown): boolean {
   return Object.values(value as Record<string, unknown>).some(hasTemplatePlaceholder);
 }
 
+function validateProbeSettleFrames(probe: unknown, path: string): void {
+  if (!probe || typeof probe !== "object" || Array.isArray(probe)) return;
+  const value = probe as Record<string, unknown>;
+  const validate = (candidate: unknown, candidatePath: string): void => {
+    if (candidate === undefined) return;
+    if (typeof candidate !== "number" || !Number.isInteger(candidate) || candidate < 0 || candidate > 60) {
+      throw new Error(`${candidatePath} must be an integer from 0 to 60`);
+    }
+  };
+  validate(value.settleFrames, `${path}.settleFrames`);
+  if (!Array.isArray(value.steps)) return;
+  for (const [index, rawStep] of value.steps.entries()) {
+    if (!rawStep || typeof rawStep !== "object" || Array.isArray(rawStep)) continue;
+    validate((rawStep as Record<string, unknown>).settleFrames, `${path}.steps[${index}].settleFrames`);
+  }
+}
+
 function finiteNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
@@ -337,11 +354,13 @@ function config(campaign: Campaign): GodotConfig {
   if (embodiedProbe && hasTemplatePlaceholder(embodiedProbe)) {
     throw new Error("parameters.godot.embodiedProbe contains unresolved __REPLACE_*__ template values");
   }
+  validateProbeSettleFrames(embodiedProbe, "parameters.godot.embodiedProbe");
   for (const scenario of scenarios) {
     const override = scenario.reference.parameters?.embodiedProbe;
     if (override && hasTemplatePlaceholder(override)) {
       throw new Error(`parameters.godot.scenarios.${scenario.id}.embodiedProbe contains unresolved __REPLACE_*__ template values`);
     }
+    validateProbeSettleFrames(override, `parameters.godot.scenarios.${scenario.id}.embodiedProbe`);
   }
   return {
     binary: typeof value.binary === "string" ? value.binary : process.env.GODOT_BINARY ?? "godot",
@@ -682,6 +701,7 @@ export class GodotScenarioEvaluator implements Evaluator {
  */
 export class GodotEvidenceAgent implements AgentDriver {
   readonly id = "godot.evidence";
+  readonly writePaths = ["evidence/**", "game/**/*.uid"] as const;
 
   constructor(
     private readonly engine: EngineDriver,
@@ -779,7 +799,7 @@ export class GodotVisualEvaluator implements Evaluator {
     }
     const settings = visualReviewConfig(input.campaign);
     if (!settings) {
-      return { evaluator: this.id, version: this.version, status: "fail", metrics: { visual_quality: 0 }, violations: [{ code: "godot.visual.config", message: "Visual review is not configured.", severity: "error" }], artifacts: [], confidence: 1 };
+      return { evaluator: this.id, version: this.version, status: "fail", failureClass: "infrastructure", metrics: { visual_quality: 0 }, violations: [{ code: "godot.visual.config", message: "Visual review is not configured.", severity: "error" }], artifacts: [], confidence: 1 };
     }
     const violations: Evaluation["violations"] = [];
     const artifacts: ArtifactReference[] = [];
@@ -788,7 +808,7 @@ export class GodotVisualEvaluator implements Evaluator {
       review = await latestReviewOutput(input.candidate.root, input.experimentId, settings.reviewNode);
       artifacts.push({ kind: "test-report", path: review.path, mediaType: "application/json", label: "Semantic visual review" });
     } catch (error) {
-      return { evaluator: this.id, version: this.version, status: "fail", metrics: { visual_quality: 0 }, violations: [{ code: "godot.visual.review-missing", message: error instanceof Error ? error.message : String(error), severity: "error" }], artifacts, confidence: 1 };
+      return { evaluator: this.id, version: this.version, status: "fail", failureClass: "infrastructure", metrics: { visual_quality: 0 }, violations: [{ code: "godot.visual.review-missing", message: error instanceof Error ? error.message : String(error), severity: "error" }], artifacts, confidence: 1 };
     }
 
     const findings = review.value.findings && typeof review.value.findings === "object" && !Array.isArray(review.value.findings)

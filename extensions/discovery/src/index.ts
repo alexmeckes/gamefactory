@@ -3,9 +3,10 @@ import { createHash } from "node:crypto";
 import { lstat, mkdir, readFile, readlink, realpath, writeFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 import { promisify } from "node:util";
-import { decideAcceptance, flattenMetrics } from "@gamefactory/core";
+import { decideAcceptance, flattenMetrics, isInfrastructureFailure } from "@gamefactory/core";
 import type {
   AgentDriver,
+  AgentRequest,
   AgentResult,
   ArtifactReference,
   BudgetReservationLike,
@@ -20,12 +21,15 @@ import type {
 import { defineExtension } from "@gamefactory/extension-sdk";
 import {
   agentJournalData,
+  agentFinalizationJournalData,
+  applyWorkspaceDecision,
   asObject,
   campaignResult as createCampaignResult,
   errorMessage,
   evaluateWaterfall,
   evaluatorPlans,
   failureAgentResult,
+  finalizeAgentDecision,
   isArtifactPreservationFailure,
   journalPhase,
   mapBounded,
@@ -33,6 +37,7 @@ import {
   preserveAgentResult,
   recoverWorkflow,
   replayBudget,
+  workspaceDecisionOperationId,
   type EvaluatorPlan
 } from "@gamefactory/workflow-sdk";
 
@@ -53,6 +58,8 @@ interface PrototypeRun {
   slot: number;
   startedAt: string;
   agentId: string;
+  agent: AgentDriver;
+  agentRequest?: AgentRequest;
   reservation: BudgetReservationLike;
   candidate?: Candidate;
   agentResult?: AgentResult;
@@ -60,6 +67,8 @@ interface PrototypeRun {
   patch?: ArtifactReference;
   error?: string;
   preservationBlocked?: boolean;
+  retentionBlocked?: boolean;
+  failureClass?: "infrastructure" | "execution";
 }
 
 export function parseDiscoveryConfig(context: WorkflowContext): DiscoveryConfig {
@@ -146,28 +155,43 @@ export class DiscoveryWorkflow implements Workflow {
     const experiments = await context.readRecords();
     if (recovery.blocked) return createCampaignResult(context, experiments, "blocked", recovery.blocked);
     replayBudget(context, experiments);
-    const previous = experiments.filter((record) => asObject(record.metadata?.discovery).prototype === true);
-    if (previous.length >= config.prototypeCount) {
+    const previous = experiments.filter((record) => asObject(record.metadata?.discovery).prototype === true && record.metadata?.failureClass !== "infrastructure");
+    const completedSlots = new Set(previous.flatMap((record) => {
+      const slot = asObject(record.metadata?.discovery).slot;
+      return typeof slot === "number" && Number.isSafeInteger(slot) ? [slot] : [];
+    }));
+    if (completedSlots.size >= config.prototypeCount) {
       const recommended = previous.find((record) => asObject(record.metadata?.discovery).recommended === true);
       return discoveryResult(context, experiments, recommended?.metrics ?? {}, "Discovery batch already completed; no prototypes were repeated.");
     }
-    const available = Math.min(config.prototypeCount - previous.length, context.budget.remainingExperiments());
-    const specifications: Array<{ slot: number; experimentId: string; agentId: string; agent: AgentDriver; reservation: BudgetReservationLike }> = [];
-    for (let index = 0; index < available; index += 1) {
-      const slot = previous.length + index + 1;
-      const experimentId = `discovery-p${String(slot).padStart(3, "0")}`;
+    const resumableBySlot = new Map(recovery.resumableCandidates.flatMap((item) => {
+      const recordSlot = asObject(item.record?.metadata?.discovery).slot;
+      const candidateSlot = asObject(item.candidate.metadata.discovery).slot;
+      const slot = typeof recordSlot === "number" ? recordSlot : typeof item.reserved.slot === "number" ? item.reserved.slot : candidateSlot;
+      return typeof slot === "number" && Number.isSafeInteger(slot) ? [[slot, item] as const] : [];
+    }));
+    const pendingSlots = Array.from({ length: config.prototypeCount }, (_, index) => index + 1).filter((slot) => !completedSlots.has(slot));
+    const available = Math.min(pendingSlots.length, context.budget.remainingExperiments());
+    const specifications: Array<{ slot: number; experimentId: string; agentId: string; agent: AgentDriver; reservation: BudgetReservationLike; resume?: (typeof recovery.resumableCandidates)[number] }> = [];
+    for (const slot of pendingSlots.slice(0, available)) {
+      const resume = resumableBySlot.get(slot);
+      const experimentId = resume ? `${resume.logicalExperimentId}-attempt-${String(resume.attemptNumber + 1).padStart(4, "0")}` : `discovery-p${String(slot).padStart(3, "0")}`;
       const reservation = context.budget.tryReserve({ experimentId });
       if (!reservation) break;
-      const agentId = config.agents[index % config.agents.length]!;
-      specifications.push({ slot, experimentId, agentId, agent: context.get<AgentDriver>("agent", agentId), reservation });
+      const retainedAgent = asObject(resume?.record?.metadata?.discovery).agent;
+      const agentId = typeof retainedAgent === "string" ? retainedAgent : config.agents[(slot - 1) % config.agents.length]!;
+      specifications.push({ slot, experimentId, agentId, agent: context.get<AgentDriver>("agent", agentId), reservation, ...(resume ? { resume } : {}) });
     }
     const runs = await mapBounded(specifications, config.concurrency, async (specification): Promise<PrototypeRun> => {
-      const startedAt = new Date().toISOString();
-      let candidate: Candidate | undefined;
+      const attemptStartedAt = new Date().toISOString();
+      const startedAt = specification.resume?.startedAt ?? attemptStartedAt;
+      let candidate: Candidate | undefined = specification.resume?.candidate;
+      let agentRequest: AgentRequest | undefined;
       try {
-        await journalPhase(context, specification.experimentId, "reserved", { startedAt, slot: specification.slot });
-        await context.emit({ type: "experiment:start", campaignId: context.campaign.id, experimentId: specification.experimentId, at: startedAt });
-        candidate = await workspace.createCandidate({ campaign: context.campaign, experimentId: specification.experimentId, signal: context.signal, ...(context.runtime ? { runtime: context.runtime } : {}) });
+        if (specification.resume) await journalPhase(context, specification.resume.sourceExperimentId, "cleaned", { resumedAs: specification.experimentId, candidateRetained: true });
+        await journalPhase(context, specification.experimentId, "reserved", { startedAt, attemptStartedAt, slot: specification.slot, logicalExperimentId: specification.resume?.logicalExperimentId ?? specification.experimentId, attemptNumber: (specification.resume?.attemptNumber ?? 0) + 1 });
+        await context.emit({ type: "experiment:start", campaignId: context.campaign.id, experimentId: specification.experimentId, at: attemptStartedAt });
+        candidate ??= await workspace.createCandidate({ campaign: context.campaign, experimentId: specification.experimentId, signal: context.signal, ...(context.runtime ? { runtime: context.runtime } : {}) });
         candidate = {
           ...candidate,
           metadata: {
@@ -180,7 +204,8 @@ export class DiscoveryWorkflow implements Workflow {
           }
         };
         await journalPhase(context, specification.experimentId, "candidate-created", { candidate });
-        const agentResult = await preserveAgentResult(context, await specification.agent.run({ campaign: context.campaign, candidate, experimentId: specification.experimentId, history: [...experiments], signal: context.signal, ...(context.trace ? { trace: context.trace } : {}) }), specification.experimentId);
+        agentRequest = { campaign: context.campaign, candidate, experimentId: specification.experimentId, logicalExperimentId: specification.resume?.logicalExperimentId ?? specification.experimentId, attemptNumber: (specification.resume?.attemptNumber ?? 0) + 1, ...(specification.resume ? { resumedFromExperimentId: specification.resume.sourceExperimentId } : {}), history: [...experiments], ...(context.runtime ? { runtime: context.runtime } : {}), signal: context.signal, ...(context.trace ? { trace: context.trace } : {}) };
+        const agentResult = await preserveAgentResult(context, await specification.agent.run(agentRequest), specification.experimentId);
         await journalPhase(context, specification.experimentId, "agent-finished", agentJournalData(agentResult));
         let preservedPatch: ArtifactReference | undefined;
         try {
@@ -192,6 +217,8 @@ export class DiscoveryWorkflow implements Workflow {
             slot: specification.slot,
             startedAt,
             agentId: specification.agentId,
+            agent: specification.agent,
+            agentRequest,
             reservation: specification.reservation,
             candidate,
             agentResult,
@@ -208,6 +235,8 @@ export class DiscoveryWorkflow implements Workflow {
           slot: specification.slot,
           startedAt,
           agentId: specification.agentId,
+          agent: specification.agent,
+          agentRequest,
           reservation: specification.reservation,
           candidate,
           agentResult,
@@ -228,12 +257,15 @@ export class DiscoveryWorkflow implements Workflow {
           slot: specification.slot,
           startedAt,
           agentId: specification.agentId,
+          agent: specification.agent,
+          ...(agentRequest ? { agentRequest } : {}),
           reservation: specification.reservation,
           ...(candidate ? { candidate } : {}),
           ...(agentResult ? { agentResult } : {}),
           evaluations: [],
           error: errorMessage(outcomeError),
-          ...(isArtifactPreservationFailure(outcomeError) ? { preservationBlocked: true } : {})
+          ...(isArtifactPreservationFailure(outcomeError) ? { preservationBlocked: true } : {}),
+          ...(isInfrastructureFailure(outcomeError) ? { retentionBlocked: true, failureClass: "infrastructure" as const } : { failureClass: "execution" as const })
         };
       }
     });
@@ -249,7 +281,8 @@ export class DiscoveryWorkflow implements Workflow {
     const recommendation = ranked[0];
     const shortlist = ranked.slice(0, config.shortlistCount);
     const cleanupSignal = new AbortController().signal;
-    let workflowBlocked = runs.some((run) => run.preservationBlocked);
+    const batchRetryRequired = runs.some((run) => run.preservationBlocked || run.retentionBlocked);
+    let workflowBlocked = batchRetryRequired;
     const orderedRuns = [...runs].sort((left, right) => left.slot - right.slot);
     if (recommendation) {
       const winnerIndex = orderedRuns.indexOf(recommendation.run);
@@ -259,28 +292,59 @@ export class DiscoveryWorkflow implements Workflow {
       const recommended = recommendation?.run === run;
       const shortlisted = shortlist.some((item) => item.run === run);
       const shouldAccept = recommended && config.selection === "accept" && !workflowBlocked;
-      let status: ExperimentRecord["status"] = run.preservationBlocked ? "blocked" : run.error ? "crash" : "discard";
+      let status: ExperimentRecord["status"] = batchRetryRequired || run.preservationBlocked || run.retentionBlocked ? "blocked" : run.error ? "crash" : "discard";
       let revision: string | undefined;
       let candidateRevision: string | undefined;
       let finalizationError: string | undefined;
-      if (run.candidate && !run.preservationBlocked) {
+      if (run.candidate && !batchRetryRequired && !run.preservationBlocked && !run.retentionBlocked) {
         try {
+          const predictedReason = shouldAccept ? "discovery-recommendation-accepted" : recommended ? "discovery-recommendation-preserved" : "discovery-prototype-rejected";
+          const operationId = workspaceDecisionOperationId(context, run.experimentId, run.candidate);
           await journalPhase(context, run.experimentId, "acceptance-intent", {
             action: shouldAccept ? "accept" : "discard",
+            operationId,
             recommended,
-            shortlisted
+            shortlisted,
+            recoveryMetadata: {
+              discovery: {
+                prototype: true,
+                slot: run.slot,
+                agent: run.agentId,
+                selection: config.selection,
+                recommended,
+                shortlisted,
+                ...(ranked.findIndex((item) => item.run === run) >= 0 ? { rank: ranked.findIndex((item) => item.run === run) + 1 } : {})
+              },
+              ...(run.failureClass ? { failureClass: run.failureClass } : {})
+            },
+            ...(run.agentRequest && run.agentResult ? {
+              finalization: agentFinalizationJournalData({ agent: run.agent, request: run.agentRequest, result: run.agentResult, evaluations: run.evaluations, accepted: shouldAccept, reason: predictedReason })
+            } : {})
           });
           if (shouldAccept) {
-            const accepted = await workspace.acceptCandidate({ campaign: context.campaign, candidate: run.candidate, signal: cleanupSignal });
+            const accepted = await applyWorkspaceDecision(context, workspace, run.experimentId, { action: "accept", candidate: run.candidate, operationId, signal: cleanupSignal });
             if (accepted.changed !== false) {
               status = "keep";
               revision = accepted.revision;
               candidateRevision = accepted.candidateRevision;
             } else {
-              await workspace.discardCandidate({ campaign: context.campaign, candidate: run.candidate, signal: cleanupSignal });
+              status = "discard";
+            }
+            if (run.agentRequest && run.agentResult) {
+              await finalizeAgentDecision(context, run.experimentId, {
+                agent: run.agent,
+                request: run.agentRequest,
+                result: run.agentResult,
+                evaluations: run.evaluations,
+                accepted: status === "keep",
+                reason: status === "keep" ? predictedReason : "discovery-recommendation-produced-no-change"
+              });
             }
           } else {
-            await workspace.discardCandidate({ campaign: context.campaign, candidate: run.candidate, signal: cleanupSignal });
+            await applyWorkspaceDecision(context, workspace, run.experimentId, { action: "discard", candidate: run.candidate, operationId, signal: cleanupSignal });
+            if (run.agentRequest && run.agentResult) {
+              await finalizeAgentDecision(context, run.experimentId, { agent: run.agent, request: run.agentRequest, result: run.agentResult, evaluations: run.evaluations, accepted: false, reason: predictedReason });
+            }
           }
         } catch (error) {
           status = "blocked";
@@ -321,18 +385,20 @@ export class DiscoveryWorkflow implements Workflow {
             ...(rank >= 0 ? { rank: rank + 1 } : {}),
             ...(candidateRevision ? { candidateRevision } : {}),
             ...(finalizationError ? { finalizationError } : {})
-          }
+          },
+          ...(batchRetryRequired ? { failureClass: "infrastructure" as const } : run.failureClass ? { failureClass: run.failureClass } : {})
         }
       };
-      const candidateBlocked = Boolean(run.preservationBlocked || finalizationError);
+      const candidateBlocked = Boolean(batchRetryRequired || run.preservationBlocked || run.retentionBlocked || finalizationError);
       if (candidateBlocked) {
         workflowBlocked = true;
-        await journalPhase(context, run.experimentId, "blocked", { record, candidateRetained: Boolean(run.candidate) });
+        await journalPhase(context, run.experimentId, "blocked", { record, candidateRetained: Boolean(run.candidate), resumable: Boolean(run.candidate && batchRetryRequired), ...(batchRetryRequired ? { failureClass: "infrastructure" } : run.failureClass ? { failureClass: run.failureClass } : {}) });
       } else {
         await journalPhase(context, run.experimentId, "applied", { record });
       }
       experiments.push(record);
-      run.reservation.settle({ status, ...(run.agentResult?.usage?.costUsd !== undefined ? { actualCostUsd: run.agentResult.usage.costUsd } : {}) });
+      if (batchRetryRequired) run.reservation.cancel();
+      else run.reservation.settle({ status, ...(run.agentResult?.usage?.costUsd !== undefined ? { actualCostUsd: run.agentResult.usage.costUsd } : {}) });
       await context.appendRecord(record);
       if (!candidateBlocked) {
         await journalPhase(context, run.experimentId, "recorded", { status });
