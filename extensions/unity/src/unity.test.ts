@@ -13,6 +13,7 @@ import {
   UnityEngine,
   UnityScenarioRunner,
   type UnityProcessRunner,
+  redactUnitySecrets,
   unityEditorPid,
   unityImportArgs,
   unityLogHasErrors,
@@ -105,6 +106,25 @@ test("Unity import rejects compiler errors hidden behind a zero launcher exit", 
     assert.equal(result.ok, false);
     assert.equal(result.metrics?.import_ok, 0);
     assert.match(result.stderr, /compiler or batch-mode errors/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("Unity import removes Hub access tokens from returned and preserved logs", async () => {
+  const root = await fixtureProject();
+  const secret = "unity-hub-secret-token";
+  const fake: UnityProcessRunner = async (_binary, args) => {
+    const rawLogPath = args[args.lastIndexOf("-logFile") + 1]!;
+    await writeFile(rawLogPath, `Unity command line\n-accessToken\n${secret}\nImport complete\n`, "utf8");
+    return { exitCode: 0, stdout: `launcher --access-token ${secret} completed`, stderr: `-accessToken=${secret}`, timedOut: false };
+  };
+  try {
+    assert.doesNotMatch(redactUnitySecrets(`-accessToken\n${secret}`), new RegExp(secret));
+    const result = await new UnityEngine(fake).build({ campaign: campaign(root), projectRoot: root, candidate: { id: "candidate", root, metadata: {} }, experimentId: "import-secret", signal: new AbortController().signal });
+    assert.equal(result.ok, true);
+    assert.doesNotMatch(`${result.stdout}\n${result.stderr}`, new RegExp(secret));
+    const importArtifact = result.artifacts?.find((artifact) => artifact.label === "Unity import log");
+    assert.ok(importArtifact);
+    assert.doesNotMatch(await readFile(importArtifact.path, "utf8"), new RegExp(secret));
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 

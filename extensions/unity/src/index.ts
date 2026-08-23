@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { access, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
@@ -330,11 +331,15 @@ async function processLogs(directory: string, prefix: string, result: UnityProce
   await mkdir(directory, { recursive: true });
   const stdoutPath = resolve(directory, `${prefix}.stdout.log`);
   const stderrPath = resolve(directory, `${prefix}.stderr.log`);
-  await Promise.all([writeFile(stdoutPath, result.stdout, "utf8"), writeFile(stderrPath, result.stderr, "utf8")]);
+  await Promise.all([writeFile(stdoutPath, redactUnitySecrets(result.stdout), "utf8"), writeFile(stderrPath, redactUnitySecrets(result.stderr), "utf8")]);
   return [
     { kind: "log", path: stdoutPath, mediaType: "text/plain", label: `${prefix} stdout`, metadata: { evidenceAuthority: ENGINE_EVIDENCE_AUTHORITY, engine: "unity" } },
     { kind: "log", path: stderrPath, mediaType: "text/plain", label: `${prefix} stderr`, metadata: { evidenceAuthority: ENGINE_EVIDENCE_AUTHORITY, engine: "unity" } }
   ];
+}
+
+export function redactUnitySecrets(content: string): string {
+  return content.replace(/((?:--?)?access[-_]?token(?:=|\s+))([^\s]+)/gi, "$1[REDACTED]");
 }
 
 function pipelineServerBusy(result: UnityProcessResult): boolean {
@@ -442,10 +447,14 @@ export class UnityEngine implements EngineDriver {
     const output = resolve(context.candidate.root, ".factory", "runs", context.experimentId, "engine-evidence");
     await mkdir(output, { recursive: true });
     const logPath = resolve(output, "unity-import.log");
+    const privateLogRoot = await mkdtemp(resolve(tmpdir(), "gamefactory-unity-import-"));
+    const privateLogPath = resolve(privateLogRoot, "unity-import.raw.log");
     try {
-      const result = await this.runProcess(settings.cli, unityImportArgs(root, settings.timeoutSeconds, logPath), root, context.signal, settings.timeoutSeconds + 15);
+      const rawResult = await this.runProcess(settings.cli, unityImportArgs(root, settings.timeoutSeconds, privateLogPath), root, context.signal, settings.timeoutSeconds + 15);
+      const result = { ...rawResult, stdout: redactUnitySecrets(rawResult.stdout), stderr: redactUnitySecrets(rawResult.stderr) };
       const artifacts = await processLogs(output, "unity-import", result);
-      const importLog = await readFile(logPath, "utf8").catch(() => "");
+      const importLog = redactUnitySecrets(await readFile(privateLogPath, "utf8").catch(() => ""));
+      if (importLog) await writeFile(logPath, importLog, "utf8");
       if (importLog) artifacts.push({ kind: "log", path: logPath, mediaType: "text/plain", label: "Unity import log", metadata: { evidenceAuthority: ENGINE_EVIDENCE_AUTHORITY, engine: "unity" } });
       const hiddenErrors = unityLogHasErrors(`${result.stdout}\n${result.stderr}\n${importLog}`);
       const ok = result.exitCode === 0 && !result.timedOut && !hiddenErrors;
@@ -463,6 +472,8 @@ export class UnityEngine implements EngineDriver {
       };
     } catch (error) {
       return { ok: false, exitCode: null, stdout: "", stderr: error instanceof Error ? error.message : String(error), artifacts: [], metrics: { import_ok: 0, unity_process_launch_failed: 1 } };
+    } finally {
+      await rm(privateLogRoot, { recursive: true, force: true });
     }
   }
 }
