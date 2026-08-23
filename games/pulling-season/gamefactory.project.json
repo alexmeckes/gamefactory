@@ -22,8 +22,8 @@
       "title": "One embodied oversized-crop harvest",
       "order": 10,
       "consumesClaims": ["loop.core"],
-      "playerOutcome": "Read one oversized crop, physically extract it through shipping input, understand why it emerged intact or damaged, and face another harvest choice.",
-      "primaryRisk": "The prototype fakes gardening with a context prompt, scripted animation, invisible state change, or static presentation instead of a causal physical interaction.",
+      "playerOutcome": "Read one oversized crop and its soil, commit to a safer-now or riskier-later harvest plan, physically extract it through shipping input, understand why it emerged intact or damaged, and immediately face another harvest-plan decision informed by that result.",
+      "primaryRisk": "The slice presents crop cues and labels but resolves the harvest with a context prompt, scripted animation, opaque randomness, invisible state change, or nonpersistent reward instead of a causal physical wager.",
       "nonGoals": [
         "Networking or cooperative play",
         "Production art or imitation of another game's assets",
