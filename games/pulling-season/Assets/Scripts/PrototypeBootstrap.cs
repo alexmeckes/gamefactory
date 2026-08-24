@@ -271,15 +271,17 @@ namespace PullingSeason
             var camera = player.GetComponentInChildren<Camera>(true).transform;
             var root = new GameObject("FieldReadout");
             root.transform.SetParent(camera, false);
-            // One compact safe-band prompt replaces debug telemetry in the player
-            // view. The larger type remains readable at the 960x540 evidence viewport
-            // without covering the crop, hands, soil socket, or extracted result.
-            Panel("GuidanceStrip", root.transform, new Vector3(0f, 0.405f, 0.86f), new Vector3(1.08f, 0.064f, 1f), panel);
+            // The only camera-space UI is a contextual action sentence in the top
+            // safe band. At 960x540 its larger type stays readable while the crop,
+            // hands, soil socket, extracted body, and next bed remain unobscured.
+            var strip = Panel("GuidanceStrip", root.transform, new Vector3(0f, 0.405f, 0.86f),
+                new Vector3(1.10f, 0.090f, 1f), panel);
             var guidance = CameraText("Guidance", root.transform, "", new Vector3(0f, 0.407f, 0.82f),
-                TextAnchor.MiddleCenter, 0.020f, new Color(0.90f, 0.96f, 0.78f));
+                TextAnchor.MiddleCenter, 0.028f, Color.white);
+            guidance.fontSize = 96;
             guidance.fontStyle = FontStyle.Bold;
             var display = root.AddComponent<PrototypeDisplay>();
-            display.Configure(crop, nextDecision, guidance);
+            display.Configure(crop, nextDecision, guidance, strip.GetComponent<Renderer>());
         }
 
         private static void AddCropSign(Transform world, Material wood)

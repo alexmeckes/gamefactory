@@ -7,12 +7,20 @@ namespace PullingSeason
         [SerializeField] private HarvestCrop crop;
         [SerializeField] private NextHarvestDecision nextDecision;
         [SerializeField] private TextMesh guidanceText;
+        [SerializeField] private Renderer guidancePanel;
 
-        public void Configure(HarvestCrop targetCrop, NextHarvestDecision targetNextDecision, TextMesh targetGuidanceText)
+        private static readonly Color NeutralPanel = new Color(0.035f, 0.055f, 0.05f);
+        private static readonly Color LatePanel = new Color(0.16f, 0.075f, 0.025f);
+        private static readonly Color HarmedPanel = new Color(0.19f, 0.035f, 0.025f);
+        private static readonly Color DecisionPanel = new Color(0.055f, 0.13f, 0.055f);
+
+        public void Configure(HarvestCrop targetCrop, NextHarvestDecision targetNextDecision,
+            TextMesh targetGuidanceText, Renderer targetGuidancePanel)
         {
             crop = targetCrop;
             nextDecision = targetNextDecision;
             guidanceText = targetGuidanceText;
+            guidancePanel = targetGuidancePanel;
         }
 
         private void LateUpdate()
@@ -22,25 +30,34 @@ namespace PullingSeason
             if (guidanceText == null) return;
 
             var harmed = crop.Condition.Contains("slip") || crop.Condition.Contains("strain") || crop.Condition.Contains("bruis");
-            guidanceText.color = harmed ? new Color(1f, 0.58f, 0.38f) : new Color(0.90f, 0.96f, 0.78f);
+            var decisionReady = crop.Acknowledged && nextDecision != null && nextDecision.DecisionAvailable;
+            guidanceText.color = harmed
+                ? new Color(1f, 0.72f, 0.50f)
+                : (decisionReady ? new Color(0.88f, 1f, 0.63f) : Color.white);
 
-            if (crop.Acknowledged && nextDecision != null && nextDecision.DecisionAvailable)
-                guidanceText.text = "NEXT BED READY  •  inspect the changed crop";
+            if (guidancePanel != null)
+                guidancePanel.material.color = decisionReady
+                    ? DecisionPanel
+                    : (harmed ? HarmedPanel : (crop.GrowthStage == "Late" ? LatePanel : NeutralPanel));
+
+            if (decisionReady)
+                guidanceText.text = "NEXT BED CHANGED  |  READ ITS SOIL + CROWN";
             else if (crop.Harvested && crop.GripActive)
                 guidanceText.text = harmed
-                    ? "HELD / BRUISED  •  SPACE accept"
-                    : "HELD  •  A/D steady  •  W/S bruises  •  SPACE accept";
+                    ? "HELD + BRUISED  |  SPACE ACCEPT"
+                    : "HELD  |  KEEP A/D STRAIGHT  |  SPACE ACCEPT";
             else if (crop.Harvested)
-                guidanceText.text = (harmed ? "BRUISED  •  sideways strain" : "INTACT  •  straight pull")
-                    + "  •  E lift  •  SPACE accept";
+                guidanceText.text = harmed
+                    ? "BRUISED - SIDE LOAD  |  SPACE ACCEPT"
+                    : "INTACT - STRAIGHT PULL  |  SPACE ACCEPT";
             else if (crop.Condition.Contains("slip"))
-                guidanceText.text = "SLIPPED / BRUISED  •  E regrip  •  A pull";
+                guidanceText.text = "SLIPPED + BRUISED  |  E REGRIP  |  A PULL";
             else if (crop.GripActive)
-                guidanceText.text = "GRIPPED  •  A pull  •  W/S strains";
+                guidanceText.text = "GRIPPED  |  A PULL STRAIGHT  |  W/S STRAIN";
             else if (crop.GrowthStage == "Late")
-                guidanceText.text = "LATE / DRY ROOTS  •  D approach  •  E grip";
+                guidanceText.text = "LATE: DRY + HEAVY  |  D APPROACH  |  E GRIP";
             else
-                guidanceText.text = "EARLY / LOOSE SOIL  •  D approach  •  E grip  •  G grow";
+                guidanceText.text = "D APPROACH  |  E GRIP  |  G GROW LATE";
         }
     }
 }

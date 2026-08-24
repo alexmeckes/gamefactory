@@ -1,6 +1,6 @@
 {
   "apiVersion": "gamefactory.dev/v1",
-  "id": "pulling-season-embodied-v16",
+  "id": "pulling-season-embodied-v17",
   "objective": "Prove one small player-complete Pulling Season experience in Unity 6 through shipping Input System events before visual production. Require a visible first-person actor, spatial approach, sustained player-caused crop extraction, visible physical consequence, and another harvest decision. Reject direct helper replay, context-button harvesting, invisible state, static scene plates, and presentation-only prototypes.",
   "projectRoot": ".",
   "workflow": "autoresearch",
@@ -240,7 +240,7 @@
   "acceptance": {
     "primaryMetric": "embodied_proof",
     "direction": "maximize",
-    "minimumDelta": 1,
+    "minimumDelta": 0,
     "comparison": "at-least",
     "hardGates": ["unity.scenario"]
   },

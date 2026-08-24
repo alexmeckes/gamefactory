@@ -62,6 +62,18 @@ test("acceptance honors direction and minimum delta", () => {
   ).accepted, true);
 });
 
+test("binary proof may plateau at pass when its hard gate remains satisfied", () => {
+  const proof = { evaluator: "unity.scenario", version: "1", status: "pass" as const, metrics: { embodied_proof: 1 }, violations: [], artifacts: [] };
+  const decision = decideAcceptance(
+    { primaryMetric: "embodied_proof", direction: "maximize", minimumDelta: 0, comparison: "at-least", hardGates: ["unity.scenario"] },
+    [proof],
+    [proof]
+  );
+  assert.equal(decision.accepted, true);
+  assert.equal(decision.baselineValue, 1);
+  assert.equal(decision.candidateValue, 1);
+});
+
 test("acceptance enforces declared hard and human evaluator gates", () => {
   const quality = { ...evaluation(0.8), evaluator: "quality" };
   const human = { ...evaluation(1), evaluator: "playtest.human" };
