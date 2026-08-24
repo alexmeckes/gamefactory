@@ -327,6 +327,21 @@ namespace GameFactory.UnityBridge
 
         private static Task NextUpdate()
         {
+            return NextGameFrame();
+        }
+
+        private static async Task NextGameFrame()
+        {
+            var startingFrame = Time.frameCount;
+            do
+            {
+                await NextEditorUpdate();
+            }
+            while (EditorApplication.isPlaying && Time.frameCount <= startingFrame);
+        }
+
+        private static Task NextEditorUpdate()
+        {
             var completion = new TaskCompletionSource<bool>();
             void Tick()
             {

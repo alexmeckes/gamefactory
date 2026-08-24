@@ -1,6 +1,6 @@
 {
   "apiVersion": "gamefactory.dev/v1",
-  "id": "pulling-season-embodied-v15",
+  "id": "pulling-season-embodied-v16",
   "objective": "Prove one small player-complete Pulling Season experience in Unity 6 through shipping Input System events before visual production. Require a visible first-person actor, spatial approach, sustained player-caused crop extraction, visible physical consequence, and another harvest decision. Reject direct helper replay, context-button harvesting, invisible state, static scene plates, and presentation-only prototypes.",
   "projectRoot": ".",
   "workflow": "autoresearch",
@@ -43,7 +43,7 @@
         "enforceWriteContracts": true,
         "reuseCheckpoints": true,
         "maximumConcurrency": 2,
-        "maximumTotalAttempts": 11,
+        "maximumTotalAttempts": 18,
         "nodes": [
           {
             "id": "core-game-director",
@@ -121,6 +121,7 @@
             "timeoutSeconds": 300,
             "maximumAttempts": 3,
             "dependsOn": ["embodied-prototype-builder", "gameplay-evidence"],
+            "when": { "node": "gameplay-evidence", "outcomes": ["pass"] },
             "refreshAfterRepair": true,
             "instructions": "Review only trusted Unity engine frames and the causal trace. Block static plates, invisible or illegible player action, a crop that self-animates without input, one-button harvesting, unclear extraction feedback, a missing persistent crop consequence, or no readable next decision. Do not demand production polish.",
             "repair": {
@@ -174,7 +175,7 @@
               "projectEvidence.motionEvidence"
             ],
             "requiredOutputFieldsOn": ["pass"],
-            "instructions": "Decide from the authoritative projectSlice, frozen loop.core, evaluator-verified Unity embodied report, trace, and engine captures. Pass only if the complete causal harvest exists visibly in the running engine through shipping input. Bind projectEvidence to the current specRevision and specFingerprint and cite preserved evaluator artifacts for every evidence role. Do not claim the game is fun without human evidence.",
+            "instructions": "Decide from the authoritative projectSlice, frozen loop.core, evaluator-verified Unity embodied report, trace, and engine captures. Pass only if the complete causal harvest exists visibly in the running engine through shipping input. Bind projectEvidence to the current specRevision and specFingerprint and cite preserved evaluator artifacts for every evidence role. The immutable scenarios intentionally acknowledge immediately after extraction: a visible persistent physical result through acknowledgement satisfies loop.core, while additional post-extraction regrip or carrying is an opportunity and cannot force revision. Do not claim the game is fun without human evidence.",
             "repair": {
               "target": "embodied-prototype-builder",
               "outcomes": ["revise"],

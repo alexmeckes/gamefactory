@@ -17,7 +17,6 @@ namespace PullingSeason
         private Vector3 cameraRest;
         private Vector3 leftRest;
         private Vector3 rightRest;
-        private Vector3 plannedPosition;
         private float motionClock;
 
         public Transform GripAnchor => gripAnchor != null ? gripAnchor : transform;
@@ -36,9 +35,10 @@ namespace PullingSeason
             body = GetComponent<Rigidbody>();
             body.isKinematic = true;
             body.useGravity = false;
-            body.interpolation = RigidbodyInterpolation.Interpolate;
+            // Input is consumed and evidenced from the visible pose in Update.
+            // Interpolation can leave the Transform one physics pose behind.
+            body.interpolation = RigidbodyInterpolation.None;
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
-            plannedPosition = body.position;
             if (cameraRig != null) cameraRest = cameraRig.localPosition;
             if (leftHand != null) leftRest = leftHand.localPosition;
             if (rightHand != null) rightRest = rightHand.localPosition;
@@ -62,19 +62,16 @@ namespace PullingSeason
             if (movement.sqrMagnitude > 0.01f)
             {
                 movement.Normalize();
-                plannedPosition += movement * distancePerInputUpdate;
+                // Rebase every move on the pose Unity actually accepted. If a
+                // collision blocks one axis, later corrective input must be able to
+                // move along or away from the obstacle instead of repeatedly aiming
+                // at the same unreachable cached position.
+                var acceptedPosition = body.position;
+                var nextPosition = acceptedPosition + movement * distancePerInputUpdate;
 
-                // The factory drives the shipping Input System from editor updates. A
-                // kinematic MovePosition can remain pending until a later physics tick,
-                // hiding real player motion from both the crop and the evidence capture.
-                // Setting the kinematic rigidbody pose keeps its collider authoritative
-                // while making every consumed input update immediately observable.
-                body.position = plannedPosition;
+                body.position = nextPosition;
+                transform.position = nextPosition;
                 motionClock += 0.28f;
-            }
-            else
-            {
-                plannedPosition = body.position;
             }
 
             AnimateEmbodiment(movement.sqrMagnitude > 0.01f);

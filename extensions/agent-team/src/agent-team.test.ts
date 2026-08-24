@@ -545,7 +545,7 @@ test("reviewer output-contract failures retry locally without rerunning upstream
         graphCommand("discover", { role: "scout", permissions: "read" }),
         graphCommand("builder", { role: "implementer", permissions: "write", dependsOn: ["discover"] }),
         graphCommand("contract-retry-reviewer", { role: "critic", permissions: "read", authority: "propose", dependsOn: ["builder"] })
-      ], { claimIds: ["loop.first-errand"] }),
+      ], { claimIds: ["loop.first-errand"], maximumTotalAttempts: 3 }),
       candidate: { id: "candidate", root, metadata: {} }, experimentId: "exp-contract-retry", history: [], signal: new AbortController().signal
     });
     const metadata = result.metadata as { executionRetries: number; nodes: Record<string, { attempts: number; outputContractRetries: number }> };

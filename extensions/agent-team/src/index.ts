@@ -2889,12 +2889,14 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
     let activationAttempt = 0;
     let lastOutputContractError: AgentTeamOutputContractError | undefined;
     let outputContractInputs: PriorOutput[] = [];
+    let outputContractRetryPending = false;
     const retryOutputContract = async (error: AgentTeamOutputContractError, run: ContributorRun): Promise<boolean> => {
       lastOutputContractError = error;
       if (!state.config.readOnly || remainingOutputContractRetries <= 0 || executionRetries >= config.maximumExecutionRetries) return false;
       remainingOutputContractRetries -= 1;
       remainingAttempts += 1;
       state.outputContractRetries += 1;
+      outputContractRetryPending = true;
       const feedback = priorOutput(run, config.handoffCharacters);
       feedback.summary = `OUTPUT CONTRACT REJECTED — preserve the evidence, but do not repeat this invalid verdict: ${error.message}`;
       outputContractInputs = [feedback];
@@ -2912,7 +2914,10 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
     };
     while (remainingAttempts > 0) {
       if (activationAttempt > 0 && executionRetries >= config.maximumExecutionRetries) break;
-      reserveAttempt();
+      // A bounded formatting retry repairs only the reviewer's structured output;
+      // it must not consume the graph budget reserved for real creative repair.
+      if (outputContractRetryPending) outputContractRetryPending = false;
+      else reserveAttempt();
       if (activationAttempt > 0) executionRetries += 1;
       activationAttempt += 1;
       remainingAttempts -= 1;

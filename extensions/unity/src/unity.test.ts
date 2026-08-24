@@ -379,6 +379,8 @@ test("Unity bridge registers a Pipeline command and injects Input System control
   assert.match(source, /InputSystem\.FindControl/);
   assert.match(source, /QueueDeltaStateEvent/);
   assert.match(source, /QueueStateEvent/);
+  assert.match(source, /Time\.frameCount/);
+  assert.match(source, /NextEditorUpdate/);
   assert.match(source, /factory-owned-unity-bridge/);
   assert.match(source, /CaptureScreenshot|RenderFrame/);
 });

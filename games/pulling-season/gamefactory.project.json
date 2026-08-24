@@ -57,7 +57,7 @@
       },
       "attempts": [
         {
-          "id": "embodied-v15",
+          "id": "embodied-v16",
           "campaign": "embodied-campaign.json",
           "config": "factory.json"
         }
