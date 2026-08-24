@@ -82,7 +82,7 @@ namespace PullingSeason
 
         private void AnimateEmbodiment(bool moving)
         {
-            var gripping = crop != null && crop.GripActive && !crop.Harvested;
+            var gripping = crop != null && crop.GripActive;
             var bob = moving ? Mathf.Sin(motionClock) * 0.018f : 0f;
             if (cameraRig != null)
                 cameraRig.localPosition = Vector3.Lerp(cameraRig.localPosition, cameraRest + Vector3.up * bob, 0.22f);

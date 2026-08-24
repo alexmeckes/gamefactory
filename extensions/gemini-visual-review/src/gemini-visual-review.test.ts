@@ -5,7 +5,15 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
 import { LocalCredentialStore, type ArtifactReference, type Campaign, type CredentialCipher, type Evaluation } from "@gamefactory/core";
-import { GeminiVisualEvaluator, GeminiVisualReviewAgent } from "./index.js";
+import { GeminiVisualEvaluator, GeminiVisualReviewAgent, representativeIndices } from "./index.js";
+
+test("representative evidence sampling spans complete multi-scenario sequences", () => {
+  const indices = representativeIndices(120, 10);
+  assert.deepEqual(indices, [0, 13, 26, 40, 53, 66, 79, 93, 106, 119]);
+  assert.ok(indices.some((index) => index < 30));
+  assert.ok(indices.some((index) => index >= 30 && index < 67));
+  assert.ok(indices.some((index) => index >= 67));
+});
 
 class FixtureCipher implements CredentialCipher {
   async seal(value: string): Promise<string> { return Buffer.from(value).toString("base64"); }

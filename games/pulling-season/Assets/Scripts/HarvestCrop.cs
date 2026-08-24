@@ -40,6 +40,9 @@ namespace PullingSeason
         private Quaternion soilRestRotation;
         private float lastSoilMilestone;
         private float feedbackClock;
+        private SpringJoint resultGrip;
+        private float resultLateralDistance;
+        private bool damagedAfterHarvest;
 
         private float RequiredPullDistance => GrowthStage == "Late" ? 1.70f : 1.20f;
 
@@ -85,7 +88,7 @@ namespace PullingSeason
 
         private void Update()
         {
-            if (gripLine != null && GripActive && grippingPlayer != null && !Harvested)
+            if (gripLine != null && GripActive && grippingPlayer != null)
             {
                 gripLine.enabled = true;
                 gripLine.SetPosition(0, grippingPlayer.GripAnchor.position);
@@ -120,14 +123,17 @@ namespace PullingSeason
 
         private void LateUpdate()
         {
-            if (!GripActive || Harvested || grippingPlayer == null) return;
+            if (!GripActive || grippingPlayer == null) return;
 
             var currentGripPosition = grippingPlayer.transform.position;
             var playerDelta = Vector3.ProjectOnPlane(currentGripPosition - lastGripPosition, Vector3.up);
             lastGripPosition = currentGripPosition;
             if (playerDelta.sqrMagnitude < 0.000001f) return;
 
-            ApplyObservedPlayerMotion(currentGripPosition - playerDelta, playerDelta.normalized, playerDelta.magnitude);
+            if (Harvested)
+                ApplyResultHandling(playerDelta.normalized, playerDelta.magnitude);
+            else
+                ApplyObservedPlayerMotion(currentGripPosition - playerDelta, playerDelta.normalized, playerDelta.magnitude);
         }
 
         public void CommitLate()
@@ -146,10 +152,16 @@ namespace PullingSeason
 
         public void TryGrip(FirstPersonPullController player)
         {
-            if (Harvested || player == null) return;
+            if (player == null || Acknowledged) return;
             if (Vector3.Distance(player.transform.position, transform.position) > gripRange)
             {
                 Condition = "Too far - move closer";
+                return;
+            }
+
+            if (Harvested)
+            {
+                GripExtractedResult(player);
                 return;
             }
 
@@ -240,15 +252,78 @@ namespace PullingSeason
         public void AcknowledgeResult()
         {
             if (!Harvested || Acknowledged) return;
+            ReleaseExtractedResult();
             Acknowledged = true;
-            Condition = damaged ? "ACKNOWLEDGED: bruised by lateral strain" : "ACKNOWLEDGED: intact pull";
+            Condition = damaged
+                ? (damagedAfterHarvest ? "ACKNOWLEDGED: bruised during carry" : "ACKNOWLEDGED: bruised by lateral strain")
+                : "ACKNOWLEDGED: intact pull";
             if (nextDecision != null) nextDecision.Reveal(damaged, GrowthStage);
+        }
+
+        private void GripExtractedResult(FirstPersonPullController player)
+        {
+            ReleaseExtractedResult();
+            grippingPlayer = player;
+            GripActive = true;
+            lastGripPosition = player.transform.position;
+            resultLateralDistance = 0f;
+
+            // The result remains a collision-active rigidbody. E adds a compliant
+            // physical attachment to the visible hand anchor; it never changes the
+            // harvested flag, pull progress, or acknowledgement state.
+            resultGrip = gameObject.AddComponent<SpringJoint>();
+            resultGrip.connectedBody = player.GetComponent<Rigidbody>();
+            resultGrip.autoConfigureConnectedAnchor = false;
+            resultGrip.anchor = new Vector3(0f, 0.72f, 0f);
+            resultGrip.connectedAnchor = player.transform.InverseTransformPoint(player.GripAnchor.position);
+            resultGrip.spring = GrowthStage == "Late" ? 72f : 58f;
+            resultGrip.damper = 9f;
+            resultGrip.minDistance = 0f;
+            resultGrip.maxDistance = 0.18f;
+            resultGrip.tolerance = 0.015f;
+            resultGrip.enableCollision = false;
+            Condition = damaged ? "Holding bruised result - move straight" : "Holding intact result - move straight";
+        }
+
+        private void ApplyResultHandling(Vector3 movementDirection, float distance)
+        {
+            if (resultGrip == null || grippingPlayer == null || Acknowledged) return;
+
+            var handForward = Vector3.ProjectOnPlane(grippingPlayer.GripAnchor.forward, Vector3.up).normalized;
+            var straightness = Mathf.Abs(Vector3.Dot(movementDirection, handForward));
+            if (straightness >= 0.75f)
+            {
+                Condition = damaged ? "Carrying bruised result" : "Carrying intact result - steady";
+                return;
+            }
+
+            resultLateralDistance += distance;
+            Condition = "Result wobbling - correct your carry";
+            if (resultLateralDistance < 0.16f) return;
+
+            damaged = true;
+            damagedAfterHarvest = true;
+            Condition = "Result bruised after harvest - sideways handling";
+            ShowDamage();
+            if (soilBurst != null) soilBurst.Emit(8);
+            cropBody.AddTorque(new Vector3(movementDirection.z * 2.2f, 0f, -movementDirection.x * 2.2f), ForceMode.Impulse);
+        }
+
+        private void ReleaseExtractedResult()
+        {
+            GripActive = false;
+            grippingPlayer = null;
+            if (resultGrip == null) return;
+            resultGrip.spring = 0f;
+            resultGrip.connectedBody = null;
+            Destroy(resultGrip);
+            resultGrip = null;
         }
 
         private void Extract(Vector3 away)
         {
             Harvested = true;
-            GripActive = false;
+            ReleaseExtractedResult();
             PullProgress = 1f;
             Condition = damaged
                 ? "Harvested bruised - lateral tear visible"

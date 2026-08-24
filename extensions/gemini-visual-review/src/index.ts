@@ -79,6 +79,13 @@ interface EvidenceInput {
   metadata: Record<string, unknown>;
 }
 
+export function representativeIndices(length: number, maximum: number): number[] {
+  if (length <= 0 || maximum <= 0) return [];
+  if (length <= maximum) return Array.from({ length }, (_, index) => index);
+  if (maximum === 1) return [0];
+  return Array.from({ length: maximum }, (_, index) => Math.round(index * (length - 1) / (maximum - 1)));
+}
+
 interface Finding {
   id: string;
   severity: Severity;
@@ -288,11 +295,23 @@ async function collectEvidence(input: Parameters<Evaluator["evaluate"]>[0], conf
   // model ever receiving the target image.
   sources.unshift(...contracts.targetPaths.map((target) => ({ path: target.path, label: `Approved scene target: ${target.path}`, role: "target" as const, metadata: { authority: "production-target" }, trustedPath: false, ...(target.expectedSha256 ? { expectedSha256: target.expectedSha256 } : {}) })));
 
+  const targetSources = sources.filter((source) => source.role === "target");
+  const runtimeImageSources = sources.filter((source) => source.role === "runtime" && mediaType(source.path, source.declared)?.startsWith("image/"));
+  const runtimeOtherSources = sources.filter((source) => source.role === "runtime" && !mediaType(source.path, source.declared)?.startsWith("image/"));
+  const targetImageCount = targetSources.filter((source) => mediaType(source.path, source.declared)?.startsWith("image/")).length;
+  const runtimeImageCapacity = Math.max(0, config.maximumImages - targetImageCount);
+  const representativeRuntimeImages = representativeIndices(runtimeImageSources.length, runtimeImageCapacity).map((index) => runtimeImageSources[index]!);
+  // Long engine sequences are ordered chronologically and often grouped by
+  // scenario. Even sampling preserves approach, interaction, consequence, and
+  // continuation across the complete run instead of silently reviewing only
+  // the first few pre-action frames.
+  const selectedSources = [...targetSources, ...representativeRuntimeImages, ...runtimeOtherSources];
+
   const media: EvidenceInput[] = [];
   const canonicalSeen = new Set<string>();
   let totalBytes = 0;
   let runtimeImages = 0;
-  for (const source of sources) {
+  for (const source of selectedSources) {
     if (media.filter((item) => item.kind === "image").length >= config.maximumImages && media.some((item) => item.kind === "video")) break;
     const path = source.trustedPath ? await realpath(source.path) : await canonicalCandidatePath(input.candidate.root, source.path, source.label);
     if (canonicalSeen.has(path)) continue;
@@ -359,7 +378,7 @@ function reviewPrompt(campaign: Campaign, config: Settings, media: EvidenceInput
     "You are an independent multimodal game-build critic. Judge only the supplied running-engine evidence and contracts; never infer quality from source code or concept art alone.",
     checkpoint,
     "Inspect complete sequences, connect visible feedback to the verified trace, and distinguish objective blockers from subjective opportunities.",
-    "Every finding must cite one or more exact evidence IDs and classify its owner as implementation, target, or spec. Use implementation only when the approved contracts are coherent and the runtime failed to realize them; use target when the approved screen direction itself is infeasible or incoherent; use spec only when runtime evidence falsifies a consumed product claim. Use timestampSeconds for video findings and null for still/frame findings. Repairs must be the smallest coherent correction and must name the regression evidence to recapture.",
+    "Every finding must cite one or more exact evidence IDs from the supplied inventory; never invent, shorten, or extrapolate an ID. Classify its owner as implementation, target, or spec. Use implementation only when the approved contracts are coherent and the runtime failed to realize them; use target when the approved screen direction itself is infeasible or incoherent; use spec only when runtime evidence falsifies a consumed product claim. Use timestampSeconds for video findings and null for still/frame findings. Repairs must be the smallest coherent correction and must name the regression evidence to recapture.",
     `Campaign objective: ${campaign.objective}`,
     `Checkpoint: ${config.checkpoint}`,
     `Evidence inventory: ${JSON.stringify(inventory)}`,
