@@ -41,11 +41,11 @@ namespace PullingSeason
                     : (harmed ? HarmedPanel : (crop.GrowthStage == "Late" ? LatePanel : NeutralPanel));
 
             if (decisionReady)
-                guidanceText.text = "NEXT BED CHANGED  |  READ ITS SOIL + CROWN";
+                guidanceText.text = "NEXT BED READY  |  READ SOIL + CROWN";
             else if (crop.Harvested && crop.GripActive)
                 guidanceText.text = harmed
                     ? "HELD + BRUISED  |  SPACE ACCEPT"
-                    : "HELD  |  KEEP A/D STRAIGHT  |  SPACE ACCEPT";
+                    : "HELD  |  A/D STEADY  |  SPACE ACCEPT";
             else if (crop.Harvested)
                 guidanceText.text = harmed
                     ? "BRUISED - SIDE LOAD  |  SPACE ACCEPT"
@@ -53,11 +53,11 @@ namespace PullingSeason
             else if (crop.Condition.Contains("slip"))
                 guidanceText.text = "SLIPPED + BRUISED  |  E REGRIP  |  A PULL";
             else if (crop.GripActive)
-                guidanceText.text = "GRIPPED  |  A PULL STRAIGHT  |  W/S STRAIN";
+                guidanceText.text = "GRIPPED  |  A PULL  |  W/S STRAINS";
             else if (crop.GrowthStage == "Late")
-                guidanceText.text = "LATE: DRY + HEAVY  |  D APPROACH  |  E GRIP";
+                guidanceText.text = "LATE: DRY + HEAVY  |  D THEN E";
             else
-                guidanceText.text = "D APPROACH  |  E GRIP  |  G GROW LATE";
+                guidanceText.text = "D APPROACH  |  E GRIP  |  G GROW";
         }
     }
 }

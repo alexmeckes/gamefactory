@@ -43,7 +43,7 @@ namespace PullingSeason
             Primitive("Ground", PrimitiveType.Plane, world.transform, Vector3.zero, new Vector3(2.8f, 1f, 2.2f), grass, true);
             AddField(world.transform, soil, looseSoil, wood, crack);
 
-            var nextCropObject = AddNextCrop(world.transform, soil, leaf, dormant, available);
+            var nextCropObject = AddNextCrop(world.transform, soil, leaf, dormant, available, panel);
             var nextDecision = nextCropObject.GetComponent<NextHarvestDecision>();
 
             var cropObject = new GameObject("Crop");
@@ -207,11 +207,15 @@ namespace PullingSeason
             return root;
         }
 
-        private static GameObject AddNextCrop(Transform world, Material soil, Material leaf, Material dormant, Material available)
+        private static GameObject AddNextCrop(Transform world, Material soil, Material leaf, Material dormant,
+            Material available, Material panel)
         {
             var root = new GameObject("NextCrop");
             root.transform.SetParent(world);
-            root.transform.localPosition = new Vector3(3.3f, 0.08f, 2.45f);
+            // Keep the continuation in the shipping camera's forward field after
+            // every scenario finishes pulling left. It remains a separate spatial
+            // crop, not a HUD-only state change.
+            root.transform.localPosition = new Vector3(2.35f, 0.08f, 1.75f);
             Primitive("NextBed", PrimitiveType.Cylinder, root.transform, Vector3.zero, new Vector3(1.1f, 0.05f, 1.1f), soil, true);
             var bulb = Primitive("CueBulb", PrimitiveType.Sphere, root.transform, new Vector3(0f, 0.52f, 0f), new Vector3(0.82f, 0.92f, 0.82f), dormant);
             for (var index = 0; index < 4; index++)
@@ -222,8 +226,21 @@ namespace PullingSeason
             }
             var beacon = Primitive("DecisionBeacon", PrimitiveType.Cylinder, root.transform, new Vector3(0f, 1.75f, 0f), new Vector3(0.38f, 0.035f, 0.38f), available);
             beacon.SetActive(false);
-            var label = WorldText("DecisionLabel", root.transform, "NEXT BED\nObserve after harvest", new Vector3(0f, 1.65f, -0.55f), 0.055f, new Color(0.72f, 0.77f, 0.66f));
-            label.transform.rotation = Quaternion.LookRotation((label.transform.position - new Vector3(-3f, 1.5f, 0f)).normalized);
+
+            // This board replaces the former tiny distant label. Its text is part
+            // of the field and faces the starting/pulling lane, so the first crop,
+            // hands, soil socket, and physical result stay clear of camera chrome.
+            var viewer = new Vector3(-3f, 1.50f, 0f);
+            var board = Primitive("DecisionBoard", PrimitiveType.Cube, root.transform,
+                new Vector3(0f, 2.38f, 0f), new Vector3(3.25f, 0.92f, 0.06f), panel);
+            var boardAway = (board.transform.position - viewer).normalized;
+            board.transform.rotation = Quaternion.LookRotation(boardAway);
+            var label = WorldText("DecisionLabel", root.transform, "NEXT HARVEST\nOBSERVE AFTER THIS PULL",
+                Vector3.zero, 0.115f, new Color(0.72f, 0.77f, 0.66f));
+            label.fontSize = 96;
+            label.fontStyle = FontStyle.Bold;
+            label.transform.position = board.transform.position - boardAway * 0.035f;
+            label.transform.rotation = board.transform.rotation;
             var decision = root.AddComponent<NextHarvestDecision>();
             decision.Configure(bulb.GetComponent<Renderer>(), dormant, available, beacon, label);
             return root;
@@ -274,9 +291,9 @@ namespace PullingSeason
             // The only camera-space UI is a contextual action sentence in the top
             // safe band. At 960x540 its larger type stays readable while the crop,
             // hands, soil socket, extracted body, and next bed remain unobscured.
-            var strip = Panel("GuidanceStrip", root.transform, new Vector3(0f, 0.405f, 0.86f),
-                new Vector3(1.10f, 0.090f, 1f), panel);
-            var guidance = CameraText("Guidance", root.transform, "", new Vector3(0f, 0.407f, 0.82f),
+            var strip = Panel("GuidanceStrip", root.transform, new Vector3(0f, 0.418f, 0.86f),
+                new Vector3(0.94f, 0.068f, 1f), panel);
+            var guidance = CameraText("Guidance", root.transform, "", new Vector3(0f, 0.420f, 0.82f),
                 TextAnchor.MiddleCenter, 0.028f, Color.white);
             guidance.fontSize = 96;
             guidance.fontStyle = FontStyle.Bold;

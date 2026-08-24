@@ -14,6 +14,7 @@ namespace PullingSeason
 
         private Vector3 beaconRestScale;
         private Vector3 cueRestPosition;
+        private Vector3 cueRestScale;
         private Quaternion cueRestRotation;
         private float revealClock;
 
@@ -32,11 +33,12 @@ namespace PullingSeason
             DecisionAvailable = false;
             if (cueBeacon != null) cueBeacon.SetActive(false);
             if (cueRenderer != null && dormantMaterial != null) cueRenderer.material = dormantMaterial;
-            if (decisionLabel != null) decisionLabel.text = "NEXT BED\nObserve after harvest";
+            if (decisionLabel != null) decisionLabel.text = "NEXT HARVEST\nOBSERVE AFTER THIS PULL";
             if (cueBeacon != null) beaconRestScale = cueBeacon.transform.localScale;
             if (cueRenderer != null)
             {
                 cueRestPosition = cueRenderer.transform.localPosition;
+                cueRestScale = cueRenderer.transform.localScale;
                 cueRestRotation = cueRenderer.transform.localRotation;
             }
         }
@@ -66,6 +68,12 @@ namespace PullingSeason
             {
                 if (availableMaterial != null) cueRenderer.material = availableMaterial;
                 cueRenderer.material.color = lessonColor;
+                cueRenderer.transform.localScale = Vector3.Scale(cueRestScale,
+                    previousDamaged
+                        ? new Vector3(0.82f, 0.72f, 0.82f)
+                        : (previousStage == "Late"
+                            ? new Vector3(1.20f, 1.12f, 1.20f)
+                            : new Vector3(0.94f, 0.90f, 0.94f)));
                 cueRenderer.transform.localRotation = cueRestRotation
                     * Quaternion.Euler(previousDamaged ? 0f : -5f, 0f, previousDamaged ? 18f : 0f);
             }
@@ -79,10 +87,10 @@ namespace PullingSeason
             if (decisionLabel != null)
             {
                 decisionLabel.text = previousDamaged
-                    ? "NEXT DECISION\nWet soil + shallow crown\nPull straight, or wait?"
+                    ? "NEXT HARVEST\nWET SOIL + SHALLOW CROWN\nPULL STRAIGHT / WAIT"
                     : (previousStage == "Late"
-                        ? "NEXT DECISION\nDry cracks + broad crown\nTake early, or risk weight?"
-                        : "NEXT DECISION\nFirm soil + small crown\nTake safe, or grow once?");
+                        ? "NEXT HARVEST\nDRY CRACKS + BROAD CROWN\nTAKE EARLY / RISK WEIGHT"
+                        : "NEXT HARVEST\nFIRM SOIL + SMALL CROWN\nTAKE SAFE / GROW ONCE");
                 decisionLabel.color = new Color(1f, 0.92f, 0.52f);
             }
         }
