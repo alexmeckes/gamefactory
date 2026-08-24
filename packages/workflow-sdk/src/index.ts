@@ -194,6 +194,9 @@ export async function applyWorkspaceDecision(
   const result: { revision?: string; candidateRevision?: string; changed?: boolean } = input.action === "accept"
     ? await workspace.acceptCandidate({ campaign: context.campaign, candidate: input.candidate, signal, operationId: input.operationId })
     : await workspace.discardCandidate({ campaign: context.campaign, candidate: input.candidate, signal, operationId: input.operationId }).then(() => ({}));
+  if (input.action === "accept" && result.changed === false && !result.revision && input.candidate.baseRevision) {
+    result.revision = input.candidate.baseRevision;
+  }
   await journalPhase(context, experimentId, "workspace-applied", {
     action: input.action,
     operationId: input.operationId,
@@ -351,10 +354,12 @@ export async function recoverWorkflow(
         } else if (workspaceData.action !== action || workspaceData.operationId !== operationId) {
           throw new Error("Workspace acknowledgement does not match its decision intent");
         }
-        const accepted = action === "accept" && workspaceResult.changed !== false;
+        const accepted = action === "accept";
         const reason = accepted
-          ? typeof storedFinalization.reason === "string" ? storedFinalization.reason : "candidate-accepted"
-          : action === "accept" ? "candidate-produced-no-change" : typeof storedFinalization.reason === "string" ? storedFinalization.reason : "candidate-rejected";
+          ? workspaceResult.changed === false
+            ? "candidate-accepted-no-change"
+            : typeof storedFinalization.reason === "string" ? storedFinalization.reason : "candidate-accepted"
+          : typeof storedFinalization.reason === "string" ? storedFinalization.reason : "candidate-rejected";
         const reconciledFinalization = { ...storedFinalization, accepted, reason };
         if (state.latestPhase === "agent-finalized" && asObject(state.latestEntry.data).accepted !== accepted) {
           throw new Error("Agent finalization acknowledgement does not match the applied workspace decision");

@@ -297,3 +297,41 @@ test("autoresearch can create the first measurable candidate from an inconclusiv
     await rm(projectRoot, { recursive: true, force: true });
   }
 });
+
+test("autoresearch keeps an accepted no-op and binds evidence to the existing revision", async () => {
+  const projectRoot = await mkdtemp(resolve(tmpdir(), "gamefactory-accepted-no-op-"));
+  const extensionRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  const campaign: Campaign = {
+    apiVersion: "gamefactory.dev/v1",
+    id: "accepted-no-op",
+    objective: "verify an already-correct revision",
+    projectRoot,
+    workflow: "autoresearch",
+    requires: ["workspace:mock.workspace", "agent:mock.agent", "evaluator:mock.score"],
+    parameters: {
+      workspace: "mock.workspace",
+      agent: "mock.agent",
+      evaluators: ["mock.score"],
+      mockNoChange: true,
+      autoresearch: { stopAfterAccepted: true }
+    },
+    acceptance: { primaryMetric: "score", direction: "maximize", minimumDelta: 0, comparison: "at-least" },
+    budget: { maximumExperiments: 1 }
+  };
+  const runner = new FactoryRunner({
+    cwd: projectRoot,
+    config: { apiVersion: "gamefactory.dev/v1", extensions: [resolve(extensionRoot, "../mock"), extensionRoot] },
+    logger: new MemoryLogger()
+  });
+  try {
+    await runner.initialize();
+    const result = await runner.run(campaign);
+    assert.equal(result.status, "complete");
+    assert.deepEqual(result.experiments.map((record) => record.status), ["baseline", "keep"]);
+    assert.equal(result.experiments[1]?.revision, "mock-base");
+    assert.match(result.experiments[1]?.summary ?? "", /already satisfies the accepted evidence contract/);
+  } finally {
+    await runner.dispose();
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});

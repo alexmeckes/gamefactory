@@ -26,10 +26,19 @@ export class MockWorkspace implements WorkspaceDriver {
     const root = resolve(campaign.projectRoot, CANDIDATES, experimentId);
     await rm(root, { recursive: true, force: true });
     await mkdir(root, { recursive: true });
-    return { id: experimentId, root, metadata: { isolated: true } };
+    return {
+      id: experimentId,
+      root,
+      ...(campaign.parameters?.mockNoChange === true ? { baseRevision: "mock-base" } : {}),
+      metadata: { isolated: true }
+    };
   }
 
   async acceptCandidate({ campaign, candidate, operationId }: Parameters<WorkspaceDriver["acceptCandidate"]>[0]): Promise<{ revision?: string; changed?: boolean }> {
+    if (campaign.parameters?.mockNoChange === true) {
+      await rm(candidate.root, { recursive: true, force: true });
+      return { changed: false };
+    }
     const key = createHash("sha256").update(operationId ?? `${campaign.id}/${candidate.id}/${candidate.root}`).digest("hex");
     const decisionPath = resolve(campaign.projectRoot, DECISIONS, `${key}.json`);
     let stored: { score: number; revision: string; applied: boolean } | undefined;

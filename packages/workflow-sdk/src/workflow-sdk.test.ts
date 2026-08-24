@@ -183,6 +183,33 @@ test("recovery records a finalized decision without replaying workspace mutation
   }
 });
 
+test("recovery preserves an accepted no-op as a keep on the base revision", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "workflow-recovery-no-op-"));
+  const journal = new WorkflowJournal(resolve(root, "journal.jsonl"));
+  const campaign: Campaign = { apiVersion: "gamefactory.dev/v1", id: "recovery-no-op", objective: "recover", projectRoot: root, workflow: "test", requires: [], acceptance: { primaryMetric: "score", direction: "maximize" } };
+  const candidate: Candidate = { id: "exp-no-op", root: resolve(root, "candidate"), baseRevision: "existing-revision", metadata: {} };
+  const records: ExperimentRecord[] = [];
+  let finalizes = 0;
+  const workspace: WorkspaceDriver = { id: "workspace", async createCandidate() { return candidate; }, async acceptCandidate() { return { changed: false }; }, async discardCandidate() {} };
+  const agent: AgentDriver = { id: "agent", async run() { return { summary: "unused" }; }, async finalize(request) { finalizes += 1; assert.equal(request.accepted, true); assert.equal(request.reason, "candidate-accepted-no-change"); } };
+  try {
+    await appendRecoveryPhase(journal, campaign, candidate.id, "reserved", { startedAt: "2026-01-01T00:00:00.000Z" });
+    await appendRecoveryPhase(journal, campaign, candidate.id, "candidate-created", { candidate });
+    await appendRecoveryPhase(journal, campaign, candidate.id, "acceptance-intent", {
+      action: "accept",
+      operationId: "op-no-op",
+      finalization: { agentId: agent.id, candidate, accepted: true, reason: "candidate-accepted", evaluations: [], result: { summary: "already correct" } }
+    });
+    const result = await recoverWorkflow(recoveryFixture(journal, campaign, records, agent), workspace);
+    assert.equal(result.blocked, undefined);
+    assert.equal(finalizes, 1);
+    assert.equal(records[0]?.status, "keep");
+    assert.equal(records[0]?.revision, candidate.baseRevision);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("recovery retains meaningful pre-decision work for a bounded resume", async () => {
   const root = await mkdtemp(resolve(tmpdir(), "workflow-recovery-predecision-"));
   const journal = new WorkflowJournal(resolve(root, "journal.jsonl"));

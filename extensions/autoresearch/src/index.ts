@@ -207,14 +207,13 @@ export class AutoresearchWorkflow implements Workflow {
         let acceptance: Awaited<ReturnType<WorkspaceDriver["acceptCandidate"]>> | Record<string, never>;
         if (accepted) {
           acceptance = await applyWorkspaceDecision(context, workspace, experimentId, { action: "accept", candidate, operationId });
-          if (acceptance.changed === false) accepted = false;
           await finalizeAgentDecision(context, experimentId, {
             agent,
             request: agentRequest,
             result: agentResult,
             evaluations,
-            accepted,
-            reason: accepted ? "candidate-accepted" : "candidate-produced-no-change"
+            accepted: true,
+            reason: acceptance.changed === false ? "candidate-accepted-no-change" : "candidate-accepted"
           });
         } else {
           acceptance = await applyWorkspaceDecision(context, workspace, experimentId, { action: "discard", candidate, operationId });
@@ -228,7 +227,7 @@ export class AutoresearchWorkflow implements Workflow {
           status: accepted ? "keep" : "discard",
           candidateId: candidate.id,
           ...(acceptance.revision ? { revision: acceptance.revision } : {}),
-          summary: `${agentResult.summary} ${acceptance.changed === false ? "Candidate produced no meaningful change." : decision.reason}`,
+          summary: `${agentResult.summary} ${acceptance.changed === false ? "The current revision already satisfies the accepted evidence contract." : decision.reason}`,
           metrics: flattenMetrics(evaluations),
           evaluations,
           ...((agentResult.contributors?.length ?? 0) > 0 || (agentResult.artifacts?.length ?? 0) > 0 ? {
