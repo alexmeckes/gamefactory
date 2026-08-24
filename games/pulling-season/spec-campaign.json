@@ -20,6 +20,22 @@
     ".factory/**"
   ],
   "parameters": {
+    "resume": {
+      "projectRevisionCarryForwardPaths": [
+        "bridges/unity/**",
+        "extensions/agent-team/**",
+        "extensions/gemini-visual-review/**",
+        "extensions/unity/**",
+        "packages/project-sdk/**",
+        "games/pulling-season/Assets/**",
+        "games/pulling-season/Packages/packages-lock.json",
+        "games/pulling-season/ProjectSettings/**",
+        "games/pulling-season/contracts/**",
+        "games/pulling-season/embodied-campaign.json",
+        "games/pulling-season/gamefactory.project.json",
+        "games/pulling-season/spec-campaign.json"
+      ]
+    },
     "workspace": "git.worktree",
     "agent": "agent.team",
     "evaluators": ["game.spec"],

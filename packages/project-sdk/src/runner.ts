@@ -604,10 +604,19 @@ export class ProjectRunner {
       if (latestRevision && baseRevision && latestRevision !== baseRevision) {
         const runEvents = events.filter((event) => event.projectRunId === projectRunId);
         const blockedRepair = runEvents.some((event) => event.type === "project-blocked");
-        if (!blockedRepair && (runEvents.length !== 1 || runEvents[0]?.type !== "project-started")) throw new Error(`Project revision changed outside the recorded journey: expected ${latestRevision}, found ${baseRevision}.`);
+        const phaseStarted = runEvents.some((event) => event.type === "phase-started" || event.type === "spec-started" || event.type === "slice-started");
         const reconciliationLease = join(".factory", "projects", this.project.id, "run.lock");
         const reconciliationLeasePath = resolveFactoryStatePath({ cwd: this.project.root, ...(this.options.dataRoot ? { dataRoot: this.options.dataRoot } : {}) }, reconciliationLease, reconciliationLease, "project lease");
-        const supersedeReason = blockedRepair ? "superseded-after-blocked-repair" : "superseded-before-execution";
+        // A clean committed revision may be a repair after the prior process died
+        // between phase-start and project-blocked. Acquiring the exact project
+        // lease first proves that no live runner still owns that journey; the new
+        // lineage will still re-evaluate unit fingerprints and campaign resume
+        // contracts before reusing any durable result.
+        const supersedeReason = blockedRepair
+          ? "superseded-after-blocked-repair"
+          : phaseStarted
+            ? "superseded-after-interrupted-repair"
+            : "superseded-before-execution";
         const releaseReconciliation = await acquireProjectLease(reconciliationLeasePath, `${projectRunId}:${supersedeReason}`);
         try {
           await this.journal.append({

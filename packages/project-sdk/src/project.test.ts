@@ -118,6 +118,48 @@ test("project runner supersedes a revision-stale run that never started a phase"
   }
 });
 
+test("project runner supersedes a revision-stale interrupted phase only after acquiring its lease", async () => {
+  const { root, manifestPath } = await fixture();
+  try {
+    await writeFile(join(root, ".gitignore"), ".factory/\n", "utf8");
+    await execFileAsync("git", ["init"], { cwd: root });
+    await execFileAsync("git", ["config", "user.email", "factory@example.test"], { cwd: root });
+    await execFileAsync("git", ["config", "user.name", "GameFactory Test"], { cwd: root });
+    await execFileAsync("git", ["add", "."], { cwd: root });
+    await execFileAsync("git", ["commit", "-m", "initial"], { cwd: root });
+    const oldRevision = (await execFileAsync("git", ["rev-parse", "HEAD"], { cwd: root })).stdout.trim();
+    const project = await loadProject(manifestPath);
+    const runner = new ProjectRunner(project, {
+      cwd: root,
+      logger: new MemoryLogger(),
+      executeCampaign: async () => ({
+        campaignId: "project-campaign",
+        status: "complete",
+        startedAt: "2026-01-01T00:00:00.000Z",
+        finishedAt: "2026-01-01T00:00:01.000Z",
+        bestMetrics: { score: 3 },
+        summary: "accepted",
+        experiments: [{ campaignId: "project-campaign", experimentId: "candidate", startedAt: "2026-01-01T00:00:00.000Z", finishedAt: "2026-01-01T00:00:01.000Z", status: "keep", revision: "pending", summary: "kept", metrics: { score: 3 }, evaluations: [] }],
+      }),
+    });
+    await runner.journal.append({ projectId: project.id, projectRunId: "interrupted-run", type: "project-started", idempotencyKey: "interrupted-run:started", manifestFingerprint: runner.manifestFingerprint, actor: { kind: "factory" }, sourceRevision: oldRevision });
+    await runner.journal.append({ projectId: project.id, projectRunId: "interrupted-run", type: "phase-started", idempotencyKey: "interrupted-run:proof:started", manifestFingerprint: runner.manifestFingerprint, phaseId: "proof", phaseAttemptId: "proof-v1", actor: { kind: "factory" }, sourceRevision: oldRevision });
+    await writeFile(join(root, "revision-change.txt"), "interrupted repair\n", "utf8");
+    await execFileAsync("git", ["add", "revision-change.txt"], { cwd: root });
+    await execFileAsync("git", ["commit", "-m", "repair"], { cwd: root });
+
+    const result = await runner.run();
+    const events = await runner.journal.read();
+    const superseded = events.find((event) => event.projectRunId === "interrupted-run" && event.type === "project-finished");
+
+    assert.equal(result.status, "complete");
+    assert.notEqual(result.projectRunId, "interrupted-run");
+    assert.equal((superseded?.data as Record<string, unknown>).status, "superseded-after-interrupted-repair");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("project runner starts a new lineage after a committed repair to a blocked run", async () => {
   const { root, manifestPath } = await fixture();
   try {
