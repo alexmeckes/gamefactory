@@ -116,8 +116,8 @@
     },
     {
       "id": "production-encounter",
-      "playerOutcome": "Replay the accepted harvest as one coherent, animated, readable, and original production encounter.",
-      "primaryRisk": "Visual production copies surface traits, hides accepted causality, or turns the physical world into a static plate.",
+      "playerOutcome": "Replay the human-approved harvest as a coherent, original production encounter whose crop, soil, hands, motion, sound, interface, physical consequence, and next decision remain readable at the shipping camera.",
+      "primaryRisk": "Production polish becomes a pile of disconnected assets, hides or regresses the accepted physical harvest, imitates protected reference content, or is accepted from still images without fresh engine play evidence.",
       "claimIds": [
         "loop.core",
         "visual.production-fidelity"
