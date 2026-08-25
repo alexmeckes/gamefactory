@@ -45,6 +45,8 @@ namespace PullingSeason
         private bool damagedAfterHarvest;
 
         private float RequiredPullDistance => GrowthStage == "Late" ? 1.70f : 1.20f;
+        public float Tension01 { get; private set; }
+        public bool Damaged => damaged;
 
         public void Configure(NextHarvestDecision targetNextDecision, Transform targetVisual, Renderer targetBulbRenderer,
             Material targetEarlyMaterial, Material targetLateMaterial, Material targetDamagedMaterial,
@@ -88,6 +90,9 @@ namespace PullingSeason
 
         private void Update()
         {
+            var restingTension = GripActive && !Harvested ? (GrowthStage == "Late" ? 0.38f : 0.18f) : 0f;
+            Tension01 = Mathf.MoveTowards(Tension01, restingTension, Time.deltaTime * 0.8f);
+
             if (gripLine != null && GripActive && grippingPlayer != null)
             {
                 gripLine.enabled = true;
@@ -179,6 +184,20 @@ namespace PullingSeason
             }
         }
 
+        public bool CanGrip(FirstPersonPullController player)
+        {
+            return player != null && !Acknowledged && Vector3.Distance(player.transform.position, transform.position) <= gripRange;
+        }
+
+        public void ReleaseGrip(FirstPersonPullController player)
+        {
+            if (player == null || grippingPlayer != player) return;
+            ReleaseExtractedResult();
+            Tension01 = 0f;
+            if (!Harvested)
+                Condition = damaged ? "Released - root bruised" : "Released - root settled";
+        }
+
         private void ApplyObservedPlayerMotion(Vector3 playerPositionBeforeMove, Vector3 movementDirection, float distance)
         {
             if (!GripActive || Harvested || grippingPlayer == null) return;
@@ -187,6 +206,7 @@ namespace PullingSeason
             var alignment = Vector3.Dot(movementDirection, away);
             if (alignment >= 0.8f)
             {
+                Tension01 = Mathf.Clamp01((GrowthStage == "Late" ? 0.42f : 0.22f) + PullProgress * 0.48f);
                 PullProgress = Mathf.Clamp01(PullProgress + distance / RequiredPullDistance);
                 Condition = damaged ? "Pulling - bruised root" : (GrowthStage == "Late" ? "Pulling - dense roots holding" : "Pulling - soil releasing");
                 rootDeflection = Vector3.Lerp(rootDeflection, Vector3.zero, 0.18f);
@@ -198,6 +218,7 @@ namespace PullingSeason
 
             mishandledDistance += distance;
             damaged = true;
+            Tension01 = 1f;
             Condition = "Lateral strain - fibers tearing";
             rootDeflection = Vector3.ClampMagnitude(rootDeflection + movementDirection * distance * 0.22f, 0.14f);
             MoveRootedCrop();
@@ -324,6 +345,7 @@ namespace PullingSeason
         {
             Harvested = true;
             ReleaseExtractedResult();
+            Tension01 = 0f;
             PullProgress = 1f;
             Condition = damaged
                 ? "Harvested bruised - lateral tear visible"

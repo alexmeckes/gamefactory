@@ -1,12 +1,14 @@
 # Pulling Season
 
-Pulling Season is a fresh Unity 6 GameFactory project for proving one causal, physical oversized-crop harvest before broader production.
+Pulling Season is a Unity 6 GameFactory project for building one deep, physical oversized-crop harvest through a gameplay Gauntlet and then an authored production Gauntlet.
 
 ## Current slice
 
-The first slice is deliberately limited to one field, one crop, one approach/grab/pull sequence, a persistent intact-or-damaged crop result, and one visible follow-up decision. It explicitly excludes networking, broad progression, content catalogs, and final art.
+The first slice remains deliberately limited to one field and one crop, but it is no longer accepted merely because automation can complete it. Two coherent gameplay candidates are developed in isolated worktrees. Each candidate uses parallel specialists for game direction, controls, physical feedback, and onboarding; one protected integrator owns its Unity revision; trusted evidence captures it; independent critics attack causality, first-minute clarity, and gameplay depth; and one judge issues a bounded repair brief. The selected candidate then stops for direct human play approval.
 
-The immutable Unity scenario is `contracts/first-session.scenario.json`. Candidate code may change `Assets/**` and `ProjectSettings/**`; it may not change the scenario, package manifest, frozen specification, or factory-owned Unity bridge.
+The second slice begins only after that human approval. It approves a whole-screen target before asset work, fans out environment, crop, motion/audio, and interface direction, integrates through one protected Unity owner, and runs fresh gameplay regression plus harsh production reviews. Accepted upstream gameplay is checkpointed; a late visual defect repairs production, while genuine product invalidation returns through an explicit spec-amendment path.
+
+The immutable v3 Unity scenarios use recognizable shipping input boundaries: forward movement, mouse interaction, backward or lateral correction, and acknowledgement. They are causal and regression evidence, not a substitute for a person deciding whether the controls make sense.
 
 ## Commands
 
@@ -16,4 +18,4 @@ npm run factory -- project doctor games/pulling-season/gamefactory.project.json
 npm run factory -- project run games/pulling-season/gamefactory.project.json
 ```
 
-The project stops for human approval after trusted Unity and Gemini embodied evidence accepts the first playable. A production encounter is planned in the GameSpec but is intentionally not yet executable.
+The project stops for human approval after the gameplay Gauntlet and again after the production Gauntlet. See [the reusable Gauntlet contract](../../docs/gauntlet.md) for the orchestration rationale.

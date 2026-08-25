@@ -1,0 +1,300 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "id": "pulling-season-gameplay-gauntlet-v1",
+  "objective": "Replace the technically causal Pulling Season harness with a human-testable 60-to-90-second harvest encounter. Produce two genuinely different, coherent gameplay candidates; select the stronger one from trusted Unity evidence and harsh domain reviews; and stop for human play approval before production art. Automation may prove causality, determinism, and regression safety, but it must never claim that controls make sense or that the game is fun.",
+  "projectRoot": ".",
+  "workflow": "tournament",
+  "requires": [
+    "workflow:tournament",
+    "workspace:git.worktree",
+    "agent:agent.team",
+    "agent:unity.evidence",
+    "agent:gemini.visual-embodied",
+    "engine:unity.engine",
+    "evaluator:unity.scenario"
+  ],
+  "mutablePaths": [
+    "Assets/**",
+    "ProjectSettings/**",
+    "Packages/packages-lock.json",
+    "design/**",
+    "evidence/**"
+  ],
+  "immutablePaths": [
+    "concept.md",
+    "game-spec.json",
+    "gamefactory.project.json",
+    "contracts/**",
+    "Packages/manifest.json",
+    "factory.json",
+    "*-campaign.json",
+    "*-gauntlet.json",
+    ".git/**",
+    ".factory/**"
+  ],
+  "parameters": {
+    "tournament": {
+      "workspace": "git.worktree",
+      "agents": ["agent.team"],
+      "evaluators": [{"id": "unity.scenario", "cost": 10}],
+      "candidateCount": 2,
+      "concurrency": 1,
+      "director": {
+        "agent": "agent.team",
+        "model": "gpt-5.6-sol",
+        "reasoningEffort": "xhigh",
+        "advisorReasoningEffort": "xhigh",
+        "timeoutSeconds": 1800,
+        "maxOutputCharacters": 24000,
+        "context": [
+          {"path": "game-spec.json", "kind": "other", "mediaType": "application/json", "label": "Frozen product contract"},
+          {"path": "evidence/gameplay-gauntlet-baseline.md", "kind": "other", "mediaType": "text/markdown", "label": "Rejected prototype lessons"}
+        ]
+      }
+    },
+    "agentTeam": {
+      "provider": "openai-codex-app-server",
+      "billingMode": "subscription",
+      "threadRetention": "ephemeral",
+      "maximumParallel": 4,
+      "maxOutputCharacters": 24000,
+      "handoffCharacters": 8000,
+      "historyLimit": 2,
+      "graph": {
+        "enforceWriteContracts": true,
+        "reuseCheckpoints": true,
+        "maximumConcurrency": 4,
+        "maximumTotalAttempts": 28,
+        "maximumRepairAttempts": 2,
+        "context": [
+          {"path": "game-spec.json", "kind": "other", "mediaType": "application/json", "label": "Frozen GameSpec revision 2"},
+          {"path": "Assets/Scripts/FirstPersonPullController.cs", "kind": "other", "mediaType": "text/plain", "label": "Current shipping-input implementation"},
+          {"path": "Assets/Scripts/HarvestCrop.cs", "kind": "other", "mediaType": "text/plain", "label": "Current harvest state and physics implementation"}
+        ],
+        "nodes": [
+          {
+            "id": "harvest-game-director",
+            "skills": ["frame-core-game"],
+            "adapter": "codex-app-server",
+            "role": "planner",
+            "permissions": "read",
+            "authority": "propose",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "inheritContext": true,
+            "maximumAttempts": 1,
+            "instructions": "Define one opinionated harvest-gameplay hypothesis for this tournament candidate. It must create a prediction, a physical commitment, continuous correction, a legible consequence, and an immediately tempting next decision within 60-to-90 seconds. State what the player notices, decides, does with their body and camera, learns, and wants to try next. Exclude production art and feature-list expansion. Return a compact structured brief with thesis, player verbs, decision, skill curve, failure recovery, falsifiers, and explicit cuts."
+          },
+          {
+            "id": "controls-camera-specialist",
+            "adapter": "codex-app-server",
+            "role": "scout",
+            "permissions": "read",
+            "authority": "propose",
+            "model": "gpt-5.6-luna",
+            "reasoningEffort": "high",
+            "inheritContext": true,
+            "maximumAttempts": 1,
+            "instructions": "Design a first-time-comprehensible first-person control and camera language for physically harvesting one crop. Prefer familiar continuous controls, contextual affordance, visible hand/crop contact, forgiving reacquisition, and no automation-shaped key choreography. Explain how a player discovers early-versus-late commitment in the world. Return control mapping, camera behavior, onboarding beats, failure recovery, and five human playtest questions."
+          },
+          {
+            "id": "physics-feedback-specialist",
+            "skills": ["choreograph-game-motion"],
+            "adapter": "codex-app-server",
+            "role": "scout",
+            "permissions": "read",
+            "authority": "propose",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "high",
+            "inheritContext": true,
+            "maximumAttempts": 1,
+            "instructions": "Design the smallest physically expressive pull model that supports continuous correction rather than a progress bar in disguise. Tie camera, hands, crop bend, soil deformation, audio, particles, resistance, slip, damage, extraction, and post-extraction handling to player-caused state. Identify counterfactual tests that distinguish correct pulling, lateral mishandling, passive waiting, and decoy animation."
+          },
+          {
+            "id": "onboarding-depth-specialist",
+            "adapter": "codex-app-server",
+            "role": "scout",
+            "permissions": "read",
+            "authority": "propose",
+            "model": "gpt-5.6-luna",
+            "reasoningEffort": "high",
+            "inheritContext": true,
+            "maximumAttempts": 1,
+            "instructions": "Attack the candidate as a first-time player and as a systems designer. Find how the opening can teach through staging and response rather than text, and how one crop can contain at least two meaningful counterfactual plans. Reject a scripted key demo, binary context prompt, invisible meter, automatic outcome, or cosmetic next-crop reveal. Return likely confusion points, degeneracies, required in-world cues, and the minimum continuation that demonstrates learning."
+          },
+          {
+            "id": "gameplay-slice-planner",
+            "skills": ["plan-playable-slice"],
+            "adapter": "codex-app-server",
+            "role": "planner",
+            "permissions": "read",
+            "authority": "propose",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "inheritContext": false,
+            "timeoutSeconds": 1500,
+            "dependsOn": ["harvest-game-director", "controls-camera-specialist", "physics-feedback-specialist", "onboarding-depth-specialist"],
+            "instructions": "Synthesize the strongest coherent candidate, resolving contradictions rather than accumulating suggestions. Define one complete 60-to-90-second player journey, scene staging, shipping controls, state model, timing-and-handling counterfactuals, recovery, continuation, sparse UI budget, instrumentation, and exact Unity evidence obligations. Explicitly separate what automation can establish from questions that require the later human gate. Output a bounded implementation contract, not prose brainstorming."
+          },
+          {
+            "id": "gameplay-integrator",
+            "adapter": "codex-app-server",
+            "role": "implementer",
+            "permissions": "write",
+            "authority": "mutate-candidate",
+            "writePaths": ["Assets/**", "ProjectSettings/**", "design/gameplay/**"],
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "inheritContext": false,
+            "timeoutSeconds": 5400,
+            "dependsOn": ["gameplay-slice-planner"],
+            "instructions": "Own the entire Unity candidate revision. Implement the planned human-playable harvest as one coherent game, not a test harness. Preserve Assets/Scenes/Main.unity and observable paths World/Player, World/Crop, and World/NextCrop. Preserve public observation members required by the immutable v3 scenarios. Those scenarios define stable shipping boundaries: W approaches a crop staged ahead, left mouse grips while held, backward or lateral movement physically pulls, right mouse performs the visibly discoverable one-step wait/grow commitment, and Space acknowledges only after a visible result. The human experience must teach these through familiar affordance and in-world staging rather than explaining the automation sequence. The screen may contain only concise contextual guidance; telemetry stays in evidence. Make timing, pull direction, correction, extraction, condition, result handling, and the next decision visible and causally linked. Run compile/import checks before yielding. Do not edit contracts, manifests, bridge code, or evidence producers."
+          },
+          {
+            "id": "trusted-unity-evidence",
+            "adapter": "agent-driver",
+            "driver": "unity.evidence",
+            "role": "worker",
+            "permissions": "read",
+            "writePaths": ["evidence/**", "Assets/**/*.meta", "ProjectSettings/**", "Packages/packages-lock.json"],
+            "inheritContext": false,
+            "timeoutSeconds": 1500,
+            "dependsOn": ["gameplay-integrator"],
+            "refreshAfterRepair": true,
+            "instructions": "From the current candidate fingerprint, refresh Unity import, compiler health, trusted host-bridge shipping-input replay, counterfactual no-input quiescence, causal traces, and continuous engine-camera captures for every immutable v3 scenario. Fail closed on stale artifacts, compiler/log errors, untrusted producers, passive state changes, or missing visible consequences. This proves mechanics and causality only."
+          },
+          {
+            "id": "embodied-causality-critic",
+            "skills": ["review-embodied-gameplay"],
+            "adapter": "codex-app-server",
+            "role": "critic",
+            "permissions": "read",
+            "authority": "propose",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "high",
+            "inheritContext": false,
+            "dependsOn": ["trusted-unity-evidence"],
+            "refreshAfterRepair": true,
+            "instructions": "Harshly inspect trusted traces and frame sequences. Try to prove the crop resolves by waiting, a single context action, an animation decoy, hidden state, or unrelated displacement. Score 0-100 for input_causality, continuous_correction, physical_consequence, recovery, and continuation. Return evidence-linked blockers and bounded repair recommendations. Do not judge final art or claim fun."
+          },
+          {
+            "id": "first-minute-critic",
+            "adapter": "codex-app-server",
+            "role": "critic",
+            "permissions": "read",
+            "authority": "propose",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "inheritContext": false,
+            "dependsOn": ["trusted-unity-evidence"],
+            "refreshAfterRepair": true,
+            "instructions": "Review the complete opening capture sequence as a hostile first-time-player proxy. Score 0-100 for visual_orientation, control_affordance, decision_readability, feedback_legibility, error_recovery, and desire_to_retry. Reject instruction walls, unexplained special keys, prompt-following without observation, and consequences that need telemetry to understand. Label every conclusion as capture-supported inference; these scores are not human evidence."
+          },
+          {
+            "id": "gameplay-depth-critic",
+            "adapter": "codex-app-server",
+            "role": "critic",
+            "permissions": "read",
+            "authority": "propose",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "inheritContext": false,
+            "dependsOn": ["trusted-unity-evidence"],
+            "refreshAfterRepair": true,
+            "instructions": "Judge whether the implemented encounter expresses an actual game rather than a scripted automation visual. Compare the early, late-controlled, and late-recovery evidence counterfactually. Score 0-100 for meaningful_prediction, execution_skill, alternate_plans, consequence_attribution, learning_transfer, and replay_potential. Reject if the next decision is only a label, if one route dominates, or if the implementation merely lengthens a progress bar. Do not claim fun."
+          },
+          {
+            "id": "gemini-embodied-review",
+            "adapter": "agent-driver",
+            "driver": "gemini.visual-embodied",
+            "role": "critic",
+            "permissions": "read",
+            "inheritContext": false,
+            "timeoutSeconds": 420,
+            "maximumAttempts": 2,
+            "dependsOn": ["trusted-unity-evidence"],
+            "refreshAfterRepair": true,
+            "instructions": "Review only the trusted Unity capture sequence and causal trace. Be severe about whether the player, hands, crop, soil, movement, grip, pull, slip, extraction, result, and next decision form one readable embodied action. Block static plates, debug-text dependence, self-animation, illegible contact, or a visually disconnected state machine. Judge gameplay communication, not production polish or fun."
+          },
+          {
+            "id": "gameplay-gauntlet-judge",
+            "skills": ["review-embodied-gameplay"],
+            "adapter": "codex-app-server",
+            "role": "judge",
+            "permissions": "read",
+            "authority": "approve",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "inheritContext": false,
+            "timeoutSeconds": 1800,
+            "dependsOn": ["trusted-unity-evidence", "embodied-causality-critic", "first-minute-critic", "gameplay-depth-critic", "gemini-embodied-review"],
+            "requiredOutputFields": [
+              "projectEvidence.scenarios",
+              "projectEvidence.interactionTrace",
+              "projectEvidence.embodiedGameplay",
+              "projectEvidence.engineCapture",
+              "projectEvidence.motionEvidence"
+            ],
+            "requiredOutputFieldsOn": ["pass"],
+            "refreshAfterRepair": true,
+            "instructions": "Arbitrate the independent reviews into one prioritized verdict. Pass only when the current fingerprint has trusted causal evidence, the opening is plausibly readable without an instruction wall, at least two plans produce materially different stakes, physical correction affects the outcome, the result remains understandable in-world, and the continuation demands a new application of learning. On revise, issue one coherent repair brief with at most three blocking changes; never concatenate every critic suggestion. Bind accepted projectEvidence to GameSpec revision 2 and the current candidate fingerprint. Explicitly mark controls, comprehension, game feel, and fun as pending human play even on pass.",
+            "repair": {
+              "target": "gameplay-integrator",
+              "outcomes": ["revise"],
+              "maximumAttempts": 2,
+              "allowedPaths": ["Assets/**", "ProjectSettings/**", "design/gameplay/**"],
+              "preserve": []
+            }
+          }
+        ]
+      }
+    },
+    "geminiVisualReview": {
+      "checkpoint": "embodied",
+      "model": "gemini-3.7-flash",
+      "credentialName": "google.gemini",
+      "apiKeyEnvironment": "GEMINI_API_KEY",
+      "minimumImages": 6,
+      "maximumImages": 12,
+      "minimumScore": 68,
+      "failureSeverities": ["blocker"],
+      "requireEmbodiedTrace": true,
+      "maximumReviews": 2,
+      "contractPaths": ["game-spec.json"]
+    },
+    "unity": {
+      "cli": "C:/Program Files/Unity Hub/resources/cli/unity.exe",
+      "bridgePath": "C:/Users/alexm/OneDrive/Documents/ChatGPT/gamefactory/bridges/unity/com.gamefactory.bridge",
+      "importCheck": true,
+      "timeoutSeconds": 900,
+      "command": "gamefactory_run_scenario",
+      "prepareCommand": "gamefactory_prepare_playmode",
+      "connectedEditor": false,
+      "embodiedProof": {
+        "minimumDurationSeconds": 4,
+        "minimumShippingInputEvents": 8,
+        "minimumDisplacementUnits": 1,
+        "minimumSpatialInteractions": 2,
+        "minimumStateConsequences": 2,
+        "minimumDistinctFrames": 6
+      },
+      "scenarios": [
+        {"id": "early-human-controls", "provider": "unity.pipeline/v1", "version": "3", "path": "contracts/early-human-controls-v3.scenario.json"},
+        {"id": "late-human-controls", "provider": "unity.pipeline/v1", "version": "3", "path": "contracts/late-human-controls-v3.scenario.json"},
+        {"id": "late-recovery-human-controls", "provider": "unity.pipeline/v1", "version": "3", "path": "contracts/late-recovery-human-controls-v3.scenario.json"}
+      ]
+    }
+  },
+  "acceptance": {
+    "primaryMetric": "embodied_proof",
+    "direction": "maximize",
+    "minimumDelta": 0,
+    "comparison": "at-least",
+    "hardGates": ["unity.scenario"]
+  },
+  "budget": {
+    "maximumExperiments": 2,
+    "maximumConsecutiveCrashes": 2,
+    "wallTimeMinutes": 210
+  }
+}

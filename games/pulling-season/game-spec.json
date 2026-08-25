@@ -2,7 +2,7 @@
   "apiVersion": "gamefactory.game-spec/v1",
   "kind": "GameSpec",
   "projectId": "pulling-season",
-  "revision": 1,
+  "revision": 2,
   "status": "frozen",
   "concept": "# Pulling Season\n\n## User direction (verbatim)\n\nlook at the game how to fish on steam and the art style there - i want to make something similar\n\ngive me a few potential ideas of a similar vein , maybe gardening theme ?\n\nlets do that\n\n## Selected co-created concept\n\nPulling Season is a first-person physics gardening comedy about raising oversized, temperamental produce and deciding when and how to harvest it. The player is an underqualified gardener who reads visible crop and soil cues, chooses between safer early value and riskier late value, then physically wrestles crops out of the ground with movement, leverage, ropes, and simple tools. Harvested produce remains a world object whose damage and handling affect the result. The first proof is single-player and uses one small field, one crop, and one complete harvest decision before any networking, broad progression, content catalog, or final visual production.\n",
   "thesis": "Reading the ground, gambling on one more growth step, and then physically managing the pull can turn one oversized crop into a funny, attributable harvest story: timing changes potential value and resistance, handling changes damage, and the persistent result teaches the next plan.",
@@ -20,25 +20,29 @@
         "Unsignaled randomness dominates the opening result strongly enough that counterfactual player plans cannot be attributed to their timing and handling.",
         "Success or damage is communicated only by text, a score, or hidden state rather than by visible crop, soil, motion, and condition feedback tied to the player's action.",
         "The extracted crop disappears into inventory or becomes consequence-free before its placement and continued handling can affect the acknowledged result.",
-        "After the result, no changed harvest-plan decision lets the player apply what the first crop taught them."
+        "After the result, no changed harvest-plan decision lets the player apply what the first crop taught them.",
+        "A first-time player cannot discover the camera, movement, grip, pull, release, and acknowledgement vocabulary from the running game without reading an automation-specific key sequence.",
+        "The opening minute proves only that scripted controls can flip observable state; it does not require a prediction, a physical correction, or a meaningful handling choice from the player."
       ]
     },
     {
       "id": "visual.production-fidelity",
       "category": "visual",
       "statement": "If the accepted harvest advances to production, it should use an original, coherent whole-screen direction that keeps crop, soil, player action, physical consequence, and state-linked motion independently readable without copying another game's protected characters, props, layouts, assets, or branding.",
-      "status": "open",
+      "status": "required",
       "falsifiers": [
         "The runtime world is primarily a static plate or monolithic generated image rather than independently rendered interactive elements.",
         "Production presentation obscures the accepted physical causality or replaces it with presentation-only transitions.",
-        "The direction depends on recognizable protected content from a reference game rather than an original authored identity."
+        "The direction depends on recognizable protected content from a reference game rather than an original authored identity.",
+        "The shipping view reads as a debug harness, test fixture, or graybox dominated by explanatory text instead of an authored playable encounter.",
+        "A production reviewer cannot independently identify the crop, hands, soil state, intended action, physical response, condition result, and next decision at gameplay scale."
       ]
     }
   ],
   "decisions": [
     {
       "id": "core.coupled-harvest-plan",
-      "status": "accepted",
+      "status": "deferred",
       "question": "What is the one repeated consequential decision for Pulling Season?",
       "resolution": "At each readable harvest window, commit to a coupled plan: take the safer smaller crop now or allow one more growth step for greater potential value and resistance, then choose an extraction approach suited to the visible crop and soil cues. Timing changes the stakes; physical execution determines whether the wager survives contact with the world.",
       "affectedClaims": [
@@ -83,10 +87,20 @@
     },
     {
       "id": "future.production-direction",
-      "status": "deferred",
+      "status": "accepted",
       "question": "Which exact whole-screen art, audio, motion, camera, and interface direction should production use?",
-      "resolution": "Choose and approve an original whole-screen direction only after real-engine evidence accepts the embodied harvest.",
+      "resolution": "After human acceptance of the redesigned gameplay slice, develop and compare original whole-screen directions at the shipping camera, approve one target, and expand it through a protected production integrator. Reference games may set a craft bar and mood vocabulary, but their protected characters, props, layouts, branding, and assets must not be copied.",
       "affectedClaims": [
+        "visual.production-fidelity"
+      ]
+    },
+    {
+      "id": "process.human-play-before-production",
+      "status": "accepted",
+      "question": "What evidence is required before visual production begins?",
+      "resolution": "Trusted automation remains a causal and regression check, but it cannot accept controls, comprehension, game feel, or fun. A human must play and approve the complete gameplay slice before the production encounter starts; later production repairs must preserve that accepted gameplay checkpoint or explicitly return to a new gameplay revision.",
+      "affectedClaims": [
+        "loop.core",
         "visual.production-fidelity"
       ]
     }
@@ -126,19 +140,26 @@
     "How should cooperation, crop variety, weather, tools, handling destinations, economy, and long-term progression expand only if loop.core is accepted?",
     "Which original whole-screen art direction should later express the comedy without imitating protected content from a reference game?"
   ],
+  "supersedes": {
+    "revision": 1,
+    "sha256": "0a3c44e33ce06281b5a23e2ae73a1cd9b30a91729ef0c207b38091d425e2b7cb"
+  },
   "change": {
-    "kind": "initial",
-    "rationale": "Initial convergence freezes only loop.core for first-playable. It preserves the supplied concept, commits to a coupled timing-and-handling harvest plan with attributable persistent consequence, and leaves the exact extraction solution and downstream production decisions open.",
+    "kind": "user-amendment",
+    "rationale": "The causal prototype demonstrated that Unity input, state observation, and capture plumbing work, but the user rejected it as a game: the controls did not make sense, the screen was dominated by prototype text, and the result tested automation-visible state more strongly than player judgment, correction, and feel. Revision 2 therefore requires first-time comprehensibility and an actual human gameplay gate, promotes production fidelity to required, and preserves accepted gameplay as a checkpoint rather than letting late reviewers restart the entire lineage.",
     "evidence": [
-      "The supplied concept directly requires visible crop and soil cues, safer early value versus riskier late value, physical extraction, persistent produce damage, and a single-player first proof.",
-      "The project slice contract consumes only loop.core and requires one embodied oversized-crop harvest, an understandable intact-or-damaged consequence, and another harvest choice.",
-      "An explicitly synthetic counterfactual walkthrough with illustrative crop-size, root-resistance, and soil-moisture values produced distinct early-steady, late-steady, and late-corrective outcomes. This supports falsifiability but is not human evidence of fun."
+      "The user reported that the prototype controls did not make sense during direct play.",
+      "The user reported that the prototype contained excessive on-screen text and questioned what gameplay was actually being tested.",
+      "The user explicitly rejected the resulting depth as 'pretty much nothing' and asked for the orchestration to pursue the original Gauntlet intent more closely.",
+      "Revision 18's trusted Unity evidence remains useful as technical baseline evidence only; it is not human acceptance of controls, comprehension, game feel, or fun."
     ],
     "affectedClaims": [
-      "loop.core"
+      "loop.core",
+      "visual.production-fidelity"
     ],
     "affectedSlices": [
-      "first-playable"
+      "first-playable",
+      "production-encounter"
     ]
   }
 }

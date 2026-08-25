@@ -1,0 +1,29 @@
+{
+  "apiVersion": "gamefactory.unity-scenario/v1",
+  "id": "early-human-controls",
+  "scenePath": "Assets/Scenes/Main.unity",
+  "actorPath": "World/Player",
+  "targetPath": "World/Crop",
+  "interactionRange": 3.5,
+  "captureEveryFrames": 8,
+  "captureWidth": 1280,
+  "captureHeight": 720,
+  "stateObservations": [
+    {"id": "grip-active", "path": "World/Crop", "component": "PullingSeason.HarvestCrop", "member": "GripActive", "state": "grip-contact"},
+    {"id": "pull-progress", "path": "World/Crop", "component": "PullingSeason.HarvestCrop", "member": "PullProgress", "state": "sustained-pull"},
+    {"id": "crop-extracted", "path": "World/Crop", "component": "PullingSeason.HarvestCrop", "member": "Harvested", "state": "core-consequence"},
+    {"id": "crop-condition", "path": "World/Crop", "component": "PullingSeason.HarvestCrop", "member": "Condition", "state": "crop-condition"},
+    {"id": "acknowledged", "path": "World/Crop", "component": "PullingSeason.HarvestCrop", "member": "Acknowledged", "state": "result-acknowledged"},
+    {"id": "next-decision", "path": "World/NextCrop", "component": "PullingSeason.NextHarvestDecision", "member": "DecisionAvailable", "state": "next-decision-available"}
+  ],
+  "steps": [
+    {"control": "<Keyboard>/w", "pressed": true, "value": 1, "frames": 60, "settleFrames": 0, "interaction": false},
+    {"control": "<Keyboard>/w", "pressed": false, "value": 0, "frames": 1, "settleFrames": 5, "interaction": false},
+    {"control": "<Mouse>/leftButton", "pressed": true, "value": 1, "frames": 2, "settleFrames": 3, "interaction": true},
+    {"control": "<Keyboard>/s", "pressed": true, "value": 1, "frames": 55, "settleFrames": 0, "interaction": true},
+    {"control": "<Keyboard>/s", "pressed": false, "value": 0, "frames": 1, "settleFrames": 20, "interaction": false},
+    {"control": "<Mouse>/leftButton", "pressed": false, "value": 0, "frames": 1, "settleFrames": 8, "interaction": true},
+    {"control": "<Keyboard>/space", "pressed": true, "value": 1, "frames": 2, "settleFrames": 5, "interaction": true},
+    {"control": "<Keyboard>/space", "pressed": false, "value": 0, "frames": 1, "settleFrames": 30, "interaction": false}
+  ]
+}

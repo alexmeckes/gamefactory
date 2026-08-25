@@ -1,0 +1,38 @@
+{
+  "apiVersion": "gamefactory.unity-scenario/v1",
+  "id": "late-recovery-human-controls",
+  "scenePath": "Assets/Scenes/Main.unity",
+  "actorPath": "World/Player",
+  "targetPath": "World/Crop",
+  "interactionRange": 3.5,
+  "captureEveryFrames": 8,
+  "captureWidth": 1280,
+  "captureHeight": 720,
+  "stateObservations": [
+    {"id": "growth-stage", "path": "World/Crop", "component": "PullingSeason.HarvestCrop", "member": "GrowthStage", "state": "late-harvest-commitment"},
+    {"id": "grip-active", "path": "World/Crop", "component": "PullingSeason.HarvestCrop", "member": "GripActive", "state": "grip-contact"},
+    {"id": "pull-progress", "path": "World/Crop", "component": "PullingSeason.HarvestCrop", "member": "PullProgress", "state": "sustained-pull"},
+    {"id": "crop-condition", "path": "World/Crop", "component": "PullingSeason.HarvestCrop", "member": "Condition", "state": "crop-condition"},
+    {"id": "crop-extracted", "path": "World/Crop", "component": "PullingSeason.HarvestCrop", "member": "Harvested", "state": "core-consequence"},
+    {"id": "acknowledged", "path": "World/Crop", "component": "PullingSeason.HarvestCrop", "member": "Acknowledged", "state": "result-acknowledged"},
+    {"id": "next-decision", "path": "World/NextCrop", "component": "PullingSeason.NextHarvestDecision", "member": "DecisionAvailable", "state": "next-decision-available"}
+  ],
+  "steps": [
+    {"control": "<Mouse>/rightButton", "pressed": true, "value": 1, "frames": 2, "settleFrames": 4, "interaction": true},
+    {"control": "<Mouse>/rightButton", "pressed": false, "value": 0, "frames": 1, "settleFrames": 14, "interaction": false},
+    {"control": "<Keyboard>/w", "pressed": true, "value": 1, "frames": 60, "settleFrames": 0, "interaction": false},
+    {"control": "<Keyboard>/w", "pressed": false, "value": 0, "frames": 1, "settleFrames": 5, "interaction": false},
+    {"control": "<Mouse>/leftButton", "pressed": true, "value": 1, "frames": 2, "settleFrames": 3, "interaction": true},
+    {"control": "<Keyboard>/a", "pressed": true, "value": 1, "frames": 18, "settleFrames": 0, "interaction": true},
+    {"control": "<Keyboard>/a", "pressed": false, "value": 0, "frames": 1, "settleFrames": 8, "interaction": false},
+    {"control": "<Mouse>/leftButton", "pressed": false, "value": 0, "frames": 1, "settleFrames": 5, "interaction": true},
+    {"control": "<Keyboard>/d", "pressed": true, "value": 1, "frames": 14, "settleFrames": 0, "interaction": false},
+    {"control": "<Keyboard>/d", "pressed": false, "value": 0, "frames": 1, "settleFrames": 5, "interaction": false},
+    {"control": "<Mouse>/leftButton", "pressed": true, "value": 1, "frames": 2, "settleFrames": 3, "interaction": true},
+    {"control": "<Keyboard>/s", "pressed": true, "value": 1, "frames": 82, "settleFrames": 0, "interaction": true},
+    {"control": "<Keyboard>/s", "pressed": false, "value": 0, "frames": 1, "settleFrames": 24, "interaction": false},
+    {"control": "<Mouse>/leftButton", "pressed": false, "value": 0, "frames": 1, "settleFrames": 8, "interaction": true},
+    {"control": "<Keyboard>/space", "pressed": true, "value": 1, "frames": 2, "settleFrames": 5, "interaction": true},
+    {"control": "<Keyboard>/space", "pressed": false, "value": 0, "frames": 1, "settleFrames": 30, "interaction": false}
+  ]
+}

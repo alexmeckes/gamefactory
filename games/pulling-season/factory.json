@@ -3,6 +3,7 @@
   "name": "pulling-season-unity",
   "extensions": [
     "../../extensions/autoresearch",
+    "../../extensions/tournament",
     "../../extensions/git",
     "../../extensions/agent-team",
     "../../extensions/game-spec",
@@ -11,6 +12,7 @@
   ],
   "capabilities": [
     "workflow:autoresearch",
+    "workflow:tournament",
     "workspace:git.worktree",
     "agent:agent.team",
     "evaluator:game.spec",

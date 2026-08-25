@@ -35,10 +35,11 @@
         "Assets/**",
         "ProjectSettings/**",
         "Packages/packages-lock.json",
+        "design/**",
         "evidence/**"
       ],
       "evidence": {
-        "scenarios": ["early-controlled", "late-controlled", "late-mishandled-recovery"],
+        "scenarios": ["early-human-controls", "late-human-controls", "late-recovery-human-controls"],
         "requireInteractionTrace": true,
         "requireEmbodiedGameplay": true,
         "requireEngineCapture": true,
@@ -59,6 +60,68 @@
         {
           "id": "embodied-v18",
           "campaign": "embodied-campaign.json",
+          "config": "factory.json",
+          "status": "superseded"
+        },
+        {
+          "id": "gameplay-gauntlet-v1",
+          "campaign": "gameplay-gauntlet.json",
+          "config": "factory.json"
+        }
+      ]
+    },
+    {
+      "id": "production-encounter",
+      "title": "Authored harvest encounter",
+      "order": 20,
+      "dependsOn": ["first-playable"],
+      "consumesClaims": ["loop.core", "visual.production-fidelity"],
+      "playerOutcome": "Replay the human-approved harvest as a coherent, original production encounter whose crop, soil, hands, motion, sound, interface, physical consequence, and next decision remain readable at the shipping camera.",
+      "primaryRisk": "Production polish becomes a pile of disconnected assets, hides or regresses the accepted physical harvest, imitates protected reference content, or is accepted from still images without fresh engine play evidence.",
+      "nonGoals": [
+        "A complete crop catalog or multi-hour progression system",
+        "Networking or cooperative play",
+        "Copying another game's protected characters, props, layouts, branding, or assets",
+        "Polishing screens and systems outside the approved encounter",
+        "Treating automated scores as human evidence of fun"
+      ],
+      "mutablePaths": [
+        "Assets/**",
+        "ProjectSettings/**",
+        "Packages/packages-lock.json",
+        "design/**",
+        "evidence/**"
+      ],
+      "evidence": {
+        "scenarios": ["early-human-controls", "late-human-controls", "late-recovery-human-controls"],
+        "requireInteractionTrace": true,
+        "requireEmbodiedGameplay": true,
+        "requireEngineCapture": true,
+        "requireMotionEvidence": true,
+        "targetApprovalNode": "scene-target-gate",
+        "requireRuntimeAssets": [
+          "environment-lighting-materials",
+          "crop-soil-props",
+          "hands-camera-motion",
+          "effects-audio",
+          "interface-accessibility"
+        ]
+      },
+      "attemptPolicy": {
+        "executionRetries": 2,
+        "creativeRepairs": 3,
+        "specAmendments": 1,
+        "advisorEscalations": 1
+      },
+      "gate": {
+        "requireAcceptedRevision": true,
+        "requireHumanApproval": true,
+        "allowBudgetExhaustedAfterAcceptance": true
+      },
+      "attempts": [
+        {
+          "id": "production-gauntlet-v1",
+          "campaign": "production-gauntlet.json",
           "config": "factory.json"
         }
       ]

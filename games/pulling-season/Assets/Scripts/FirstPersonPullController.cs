@@ -11,15 +11,20 @@ namespace PullingSeason
         [SerializeField] private Transform leftHand;
         [SerializeField] private Transform rightHand;
         [SerializeField] private Transform gripAnchor;
-        [SerializeField] private float distancePerInputUpdate = 0.02f;
+        [SerializeField] private float movementSpeed = 2.35f;
+        [SerializeField] private float mouseSensitivity = 0.095f;
 
         private Rigidbody body;
         private Vector3 cameraRest;
         private Vector3 leftRest;
         private Vector3 rightRest;
         private float motionClock;
+        private float yaw;
+        private float pitch;
+        private bool keyboardGripLatched;
 
         public Transform GripAnchor => gripAnchor != null ? gripAnchor : transform;
+        public bool IsNearCrop => crop != null && crop.CanGrip(this);
 
         public void Configure(HarvestCrop targetCrop, Transform targetCameraRig, Transform targetLeftHand, Transform targetRightHand, Transform targetGripAnchor)
         {
@@ -42,22 +47,51 @@ namespace PullingSeason
             if (cameraRig != null) cameraRest = cameraRig.localPosition;
             if (leftHand != null) leftRest = leftHand.localPosition;
             if (rightHand != null) rightRest = rightHand.localPosition;
+
+            yaw = cameraRig != null ? cameraRig.localEulerAngles.y : transform.eulerAngles.y;
+            transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+            if (cameraRig != null) cameraRig.localRotation = Quaternion.identity;
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
         }
 
         private void Update()
         {
             var keyboard = Keyboard.current;
+            var mouse = Mouse.current;
             if (keyboard == null || crop == null) return;
 
+            if (keyboard.escapeKey.wasPressedThisFrame)
+            {
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+            }
+            else if (mouse != null && mouse.leftButton.wasPressedThisFrame && Cursor.lockState != CursorLockMode.Locked)
+            {
+                Cursor.lockState = CursorLockMode.Locked;
+                Cursor.visible = false;
+            }
+
+            UpdateLook(mouse);
+
+            if (mouse != null && mouse.leftButton.wasPressedThisFrame) crop.TryGrip(this);
+            if (mouse != null && mouse.leftButton.wasReleasedThisFrame) crop.ReleaseGrip(this);
+            if (keyboard.eKey.wasPressedThisFrame)
+            {
+                keyboardGripLatched = !keyboardGripLatched;
+                if (keyboardGripLatched) crop.TryGrip(this);
+                else crop.ReleaseGrip(this);
+            }
             if (keyboard.gKey.wasPressedThisFrame) crop.CommitLate();
-            if (keyboard.eKey.wasPressedThisFrame) crop.TryGrip(this);
             if (keyboard.spaceKey.wasPressedThisFrame) crop.AcknowledgeResult();
 
-            var movement = Vector3.zero;
-            if (keyboard.dKey.isPressed) movement += Vector3.right;
-            if (keyboard.aKey.isPressed) movement += Vector3.left;
-            if (keyboard.wKey.isPressed) movement += Vector3.forward;
-            if (keyboard.sKey.isPressed) movement += Vector3.back;
+            var input = Vector2.zero;
+            if (keyboard.dKey.isPressed) input.x += 1f;
+            if (keyboard.aKey.isPressed) input.x -= 1f;
+            if (keyboard.wKey.isPressed) input.y += 1f;
+            if (keyboard.sKey.isPressed) input.y -= 1f;
+
+            var movement = transform.right * input.x + transform.forward * input.y;
 
             if (movement.sqrMagnitude > 0.01f)
             {
@@ -67,7 +101,7 @@ namespace PullingSeason
                 // move along or away from the obstacle instead of repeatedly aiming
                 // at the same unreachable cached position.
                 var acceptedPosition = body.position;
-                var nextPosition = acceptedPosition + movement * distancePerInputUpdate;
+                var nextPosition = acceptedPosition + movement * movementSpeed * Time.deltaTime;
 
                 body.position = nextPosition;
                 transform.position = nextPosition;
@@ -75,6 +109,17 @@ namespace PullingSeason
             }
 
             AnimateEmbodiment(movement.sqrMagnitude > 0.01f);
+        }
+
+        private void UpdateLook(Mouse mouse)
+        {
+            if (mouse == null || cameraRig == null || Cursor.lockState != CursorLockMode.Locked) return;
+
+            var delta = mouse.delta.ReadValue();
+            yaw += delta.x * mouseSensitivity;
+            pitch = Mathf.Clamp(pitch - delta.y * mouseSensitivity, -62f, 58f);
+            transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+            cameraRig.localRotation = Quaternion.Euler(pitch, 0f, 0f);
         }
 
         private void AnimateEmbodiment(bool moving)

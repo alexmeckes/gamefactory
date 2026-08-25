@@ -28,7 +28,6 @@ namespace PullingSeason
             var rope = MakeMaterial("Grip Tether", new Color(1f, 0.84f, 0.35f), true);
             var dormant = MakeMaterial("Dormant Bed", new Color(0.26f, 0.31f, 0.22f));
             var available = MakeMaterial("Available Bed", new Color(0.70f, 0.77f, 0.18f));
-            var panel = MakeMaterial("Readout Panel", new Color(0.035f, 0.055f, 0.05f), true);
 
             RenderSettings.ambientLight = new Color(0.43f, 0.48f, 0.50f);
             RenderSettings.fog = true;
@@ -43,7 +42,7 @@ namespace PullingSeason
             Primitive("Ground", PrimitiveType.Plane, world.transform, Vector3.zero, new Vector3(2.8f, 1f, 2.2f), grass, true);
             AddField(world.transform, soil, looseSoil, wood, crack);
 
-            var nextCropObject = AddNextCrop(world.transform, soil, leaf, dormant, available, panel);
+            var nextCropObject = AddNextCrop(world.transform, soil, leaf, dormant, available);
             var nextDecision = nextCropObject.GetComponent<NextHarvestDecision>();
 
             var cropObject = new GameObject("Crop");
@@ -81,8 +80,7 @@ namespace PullingSeason
                 lateCues, damageMarks, gripLine, soilBurst, soilResponse.transform);
 
             var player = AddPlayer(world.transform, playerMaterial, glove, harvest);
-            AddDisplay(player, harvest, nextDecision, panel);
-            AddCropSign(world.transform, wood);
+            AddDisplay(player, harvest, nextDecision);
             world.SetActive(true);
         }
 
@@ -208,7 +206,7 @@ namespace PullingSeason
         }
 
         private static GameObject AddNextCrop(Transform world, Material soil, Material leaf, Material dormant,
-            Material available, Material panel)
+            Material available)
         {
             var root = new GameObject("NextCrop");
             root.transform.SetParent(world);
@@ -227,22 +225,8 @@ namespace PullingSeason
             var beacon = Primitive("DecisionBeacon", PrimitiveType.Cylinder, root.transform, new Vector3(0f, 1.75f, 0f), new Vector3(0.38f, 0.035f, 0.38f), available);
             beacon.SetActive(false);
 
-            // This board replaces the former tiny distant label. Its text is part
-            // of the field and faces the starting/pulling lane, so the first crop,
-            // hands, soil socket, and physical result stay clear of camera chrome.
-            var viewer = new Vector3(-3f, 1.50f, 0f);
-            var board = Primitive("DecisionBoard", PrimitiveType.Cube, root.transform,
-                new Vector3(0f, 2.38f, 0f), new Vector3(3.25f, 0.92f, 0.06f), panel);
-            var boardAway = (board.transform.position - viewer).normalized;
-            board.transform.rotation = Quaternion.LookRotation(boardAway);
-            var label = WorldText("DecisionLabel", root.transform, "NEXT HARVEST\nOBSERVE AFTER THIS PULL",
-                Vector3.zero, 0.115f, new Color(0.72f, 0.77f, 0.66f));
-            label.fontSize = 96;
-            label.fontStyle = FontStyle.Bold;
-            label.transform.position = board.transform.position - boardAway * 0.035f;
-            label.transform.rotation = board.transform.rotation;
             var decision = root.AddComponent<NextHarvestDecision>();
-            decision.Configure(bulb.GetComponent<Renderer>(), dormant, available, beacon, label);
+            decision.Configure(bulb.GetComponent<Renderer>(), dormant, available, beacon, null);
             return root;
         }
 
@@ -283,29 +267,13 @@ namespace PullingSeason
             return player;
         }
 
-        private static void AddDisplay(GameObject player, HarvestCrop crop, NextHarvestDecision nextDecision, Material panel)
+        private static void AddDisplay(GameObject player, HarvestCrop crop, NextHarvestDecision nextDecision)
         {
             var camera = player.GetComponentInChildren<Camera>(true).transform;
             var root = new GameObject("FieldReadout");
             root.transform.SetParent(camera, false);
-            // The only camera-space UI is a contextual action sentence in the top
-            // safe band. At 960x540 its larger type stays readable while the crop,
-            // hands, soil socket, extracted body, and next bed remain unobscured.
-            var strip = Panel("GuidanceStrip", root.transform, new Vector3(0f, 0.418f, 0.86f),
-                new Vector3(0.94f, 0.068f, 1f), panel);
-            var guidance = CameraText("Guidance", root.transform, "", new Vector3(0f, 0.420f, 0.82f),
-                TextAnchor.MiddleCenter, 0.028f, Color.white);
-            guidance.fontSize = 96;
-            guidance.fontStyle = FontStyle.Bold;
             var display = root.AddComponent<PrototypeDisplay>();
-            display.Configure(crop, nextDecision, guidance, strip.GetComponent<Renderer>());
-        }
-
-        private static void AddCropSign(Transform world, Material wood)
-        {
-            Primitive("ReadinessSignPost", PrimitiveType.Cube, world, new Vector3(-0.15f, 0.75f, -1.65f), new Vector3(0.08f, 1.45f, 0.08f), wood);
-            var label = WorldText("ReadinessSign", world, "CROWN + SOIL\nREAD BEFORE YOU PULL", new Vector3(-0.15f, 1.42f, -1.62f), 0.045f, new Color(0.15f, 0.08f, 0.035f));
-            label.transform.rotation = Quaternion.LookRotation((label.transform.position - new Vector3(-3f, 1.5f, 0f)).normalized);
+            display.Configure(crop, nextDecision);
         }
 
         private static Material MakeMaterial(string name, Color color, bool unlit = false)
@@ -333,32 +301,5 @@ namespace PullingSeason
             return result;
         }
 
-        private static GameObject Panel(string name, Transform parent, Vector3 position, Vector3 scale, Material material)
-        {
-            return Primitive(name, PrimitiveType.Quad, parent, position, scale, material);
-        }
-
-        private static TextMesh CameraText(string name, Transform parent, string text, Vector3 position, TextAnchor anchor, float size, Color color)
-        {
-            var result = WorldText(name, parent, text, position, size, color);
-            result.anchor = anchor;
-            result.alignment = anchor == TextAnchor.MiddleCenter ? TextAlignment.Center : TextAlignment.Left;
-            return result;
-        }
-
-        private static TextMesh WorldText(string name, Transform parent, string text, Vector3 position, float size, Color color)
-        {
-            var result = new GameObject(name);
-            result.transform.SetParent(parent, false);
-            result.transform.localPosition = position;
-            var mesh = result.AddComponent<TextMesh>();
-            mesh.text = text;
-            mesh.anchor = TextAnchor.MiddleCenter;
-            mesh.alignment = TextAlignment.Center;
-            mesh.fontSize = 64;
-            mesh.characterSize = size;
-            mesh.color = color;
-            return mesh;
-        }
     }
 }
