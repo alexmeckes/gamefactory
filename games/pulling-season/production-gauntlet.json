@@ -203,7 +203,7 @@
             "model": "gpt-5.6-sol",
             "reasoningEffort": "high",
             "inheritContext": false,
-            "dependsOn": ["accepted-gameplay-baseline", "production-unity-evidence"],
+            "dependsOn": ["accepted-gameplay-baseline", "production-integrator", "production-unity-evidence"],
             "refreshAfterRepair": true,
             "instructions": "Compare the current trusted production evidence with the accepted gameplay checkpoint. Reject any regression in controls, causality, correction, timing stakes, outcome attribution, recovery, or continuation. Distinguish a production defect from a product-level gameplay invalidation; never silently redefine the accepted loop."
           },
@@ -217,7 +217,7 @@
             "model": "gpt-5.6-sol",
             "reasoningEffort": "xhigh",
             "inheritContext": false,
-            "dependsOn": ["scene-target-gate", "production-unity-evidence"],
+            "dependsOn": ["scene-target-gate", "production-integrator", "production-unity-evidence"],
             "refreshAfterRepair": true,
             "instructions": "Inspect real engine captures at gameplay scale. Score 0-100 for environment_authorship, lighting, material_separation, depth, crop_focal_hierarchy, soil_readability, composition, and performance_consistency. Compare against the approved target hash, not source files or concept images. Return evidence-linked blockers only."
           },
@@ -231,7 +231,7 @@
             "model": "gpt-5.6-sol",
             "reasoningEffort": "xhigh",
             "inheritContext": false,
-            "dependsOn": ["scene-target-gate", "production-unity-evidence"],
+            "dependsOn": ["scene-target-gate", "production-integrator", "production-unity-evidence"],
             "refreshAfterRepair": true,
             "instructions": "Inspect the complete motion sequence and audio-event evidence. Score 0-100 for hand_contact, crop_deformation, soil_response, camera_feel, anticipation, strain, slip_and_recovery, extraction_impact, result_handling, effects_sync, and audio_sync. Reject decorative motion that is not state-linked or a polished crop that still feels like a progress bar."
           },
@@ -245,7 +245,7 @@
             "model": "gpt-5.6-luna",
             "reasoningEffort": "high",
             "inheritContext": false,
-            "dependsOn": ["scene-target-gate", "production-unity-evidence"],
+            "dependsOn": ["scene-target-gate", "production-integrator", "production-unity-evidence"],
             "refreshAfterRepair": true,
             "instructions": "Inspect every captured state for prompt overload, overlap, scaling, hierarchy, input clarity, contrast, reduced-motion implications, and whether the world carries meaning before text does. Enforce the approved text budget. Score 0-100 for first_glance_orientation, affordance, hierarchy, legibility, restraint, and accessibility."
           },
@@ -258,7 +258,7 @@
             "inheritContext": false,
             "timeoutSeconds": 480,
             "maximumAttempts": 3,
-            "dependsOn": ["scene-target-gate", "production-unity-evidence"],
+            "dependsOn": ["scene-target-gate", "production-integrator", "production-unity-evidence"],
             "refreshAfterRepair": true,
             "instructions": "Review the trusted production frames and embodied trace against the approved target and a high professional craft bar. Be harsh about coherence, authored specificity, tactile action, state readability, composition, motion continuity, and obvious placeholder residue. If approved local reference captures are present, compare anonymized crops side by side on declared dimensions without identifying brands or copying assets; otherwise explicitly mark external_reference_comparison as not_scored. Never call the game fun from media alone."
           },
@@ -273,7 +273,7 @@
             "reasoningEffort": "xhigh",
             "inheritContext": false,
             "timeoutSeconds": 2100,
-            "dependsOn": ["scene-target-gate", "production-unity-evidence", "gameplay-regression-critic", "environment-craft-critic", "hero-action-critic", "interface-comprehension-critic", "gemini-production-review"],
+            "dependsOn": ["scene-target-gate", "production-integrator", "production-unity-evidence", "gameplay-regression-critic", "environment-craft-critic", "hero-action-critic", "interface-comprehension-critic", "gemini-production-review"],
             "requiredOutputFields": [
               "projectEvidence.scenarios",
               "projectEvidence.interactionTrace",
@@ -290,8 +290,7 @@
               "target": "production-integrator",
               "outcomes": ["revise"],
               "maximumAttempts": 3,
-              "allowedPaths": ["Assets/**", "ProjectSettings/**", "design/runtime/**"],
-              "preserve": ["accepted-gameplay-baseline", "scene-target-gate"]
+              "allowedPaths": ["Assets/**", "ProjectSettings/**", "design/runtime/**"]
             }
           }
         ]

@@ -1,6 +1,6 @@
 {
   "apiVersion": "gamefactory.dev/v1",
-  "id": "pulling-season-gameplay-gauntlet-v1",
+  "id": "pulling-season-gameplay-gauntlet-v2",
   "objective": "Replace the technically causal Pulling Season harness with a human-testable 60-to-90-second harvest encounter. Produce two genuinely different, coherent gameplay candidates; select the stronger one from trusted Unity evidence and harsh domain reviews; and stop for human play approval before production art. Automation may prove causality, determinism, and regression safety, but it must never claim that controls make sense or that the game is fun.",
   "projectRoot": ".",
   "workflow": "tournament",
@@ -173,7 +173,7 @@
             "model": "gpt-5.6-sol",
             "reasoningEffort": "high",
             "inheritContext": false,
-            "dependsOn": ["trusted-unity-evidence"],
+            "dependsOn": ["gameplay-integrator", "trusted-unity-evidence"],
             "refreshAfterRepair": true,
             "instructions": "Harshly inspect trusted traces and frame sequences. Try to prove the crop resolves by waiting, a single context action, an animation decoy, hidden state, or unrelated displacement. Score 0-100 for input_causality, continuous_correction, physical_consequence, recovery, and continuation. Return evidence-linked blockers and bounded repair recommendations. Do not judge final art or claim fun."
           },
@@ -186,7 +186,7 @@
             "model": "gpt-5.6-sol",
             "reasoningEffort": "xhigh",
             "inheritContext": false,
-            "dependsOn": ["trusted-unity-evidence"],
+            "dependsOn": ["gameplay-integrator", "trusted-unity-evidence"],
             "refreshAfterRepair": true,
             "instructions": "Review the complete opening capture sequence as a hostile first-time-player proxy. Score 0-100 for visual_orientation, control_affordance, decision_readability, feedback_legibility, error_recovery, and desire_to_retry. Reject instruction walls, unexplained special keys, prompt-following without observation, and consequences that need telemetry to understand. Label every conclusion as capture-supported inference; these scores are not human evidence."
           },
@@ -199,7 +199,7 @@
             "model": "gpt-5.6-sol",
             "reasoningEffort": "xhigh",
             "inheritContext": false,
-            "dependsOn": ["trusted-unity-evidence"],
+            "dependsOn": ["gameplay-integrator", "trusted-unity-evidence"],
             "refreshAfterRepair": true,
             "instructions": "Judge whether the implemented encounter expresses an actual game rather than a scripted automation visual. Compare the early, late-controlled, and late-recovery evidence counterfactually. Score 0-100 for meaningful_prediction, execution_skill, alternate_plans, consequence_attribution, learning_transfer, and replay_potential. Reject if the next decision is only a label, if one route dominates, or if the implementation merely lengthens a progress bar. Do not claim fun."
           },
@@ -212,7 +212,7 @@
             "inheritContext": false,
             "timeoutSeconds": 420,
             "maximumAttempts": 2,
-            "dependsOn": ["trusted-unity-evidence"],
+            "dependsOn": ["gameplay-integrator", "trusted-unity-evidence"],
             "refreshAfterRepair": true,
             "instructions": "Review only the trusted Unity capture sequence and causal trace. Be severe about whether the player, hands, crop, soil, movement, grip, pull, slip, extraction, result, and next decision form one readable embodied action. Block static plates, debug-text dependence, self-animation, illegible contact, or a visually disconnected state machine. Judge gameplay communication, not production polish or fun."
           },
@@ -227,7 +227,7 @@
             "reasoningEffort": "xhigh",
             "inheritContext": false,
             "timeoutSeconds": 1800,
-            "dependsOn": ["trusted-unity-evidence", "embodied-causality-critic", "first-minute-critic", "gameplay-depth-critic", "gemini-embodied-review"],
+            "dependsOn": ["gameplay-integrator", "trusted-unity-evidence", "embodied-causality-critic", "first-minute-critic", "gameplay-depth-critic", "gemini-embodied-review"],
             "requiredOutputFields": [
               "projectEvidence.scenarios",
               "projectEvidence.interactionTrace",
