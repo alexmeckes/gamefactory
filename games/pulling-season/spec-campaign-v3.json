@@ -22,6 +22,17 @@
     ".factory/**"
   ],
   "parameters": {
+    "resume": {
+      "projectRevisionCarryForwardPaths": [
+        "extensions/agent-team/README.md",
+        "extensions/agent-team/src/agent-team.test.ts",
+        "extensions/agent-team/src/index.ts",
+        "games/pulling-season/gamefactory.project.json",
+        "games/pulling-season/gameplay-gauntlet.json",
+        "games/pulling-season/production-gauntlet.json",
+        "games/pulling-season/spec-campaign-v3.json"
+      ]
+    },
     "workspace": "git.worktree",
     "agent": "agent.team",
     "evaluators": ["game.spec"],

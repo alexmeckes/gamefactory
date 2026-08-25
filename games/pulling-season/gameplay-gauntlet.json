@@ -40,7 +40,8 @@
         "extensions/agent-team/src/index.ts",
         "games/pulling-season/gamefactory.project.json",
         "games/pulling-season/gameplay-gauntlet.json",
-        "games/pulling-season/production-gauntlet.json"
+        "games/pulling-season/production-gauntlet.json",
+        "games/pulling-season/spec-campaign-v3.json"
       ]
     },
     "tournament": {
