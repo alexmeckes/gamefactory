@@ -1,0 +1,99 @@
+{
+  "apiVersion": "gamefactory.dev/v1",
+  "id": "pulling-season-spec-v2",
+  "objective": "Validate and preserve the user-amended Pulling Season GameSpec revision 2 that rejects the automation-shaped prototype, requires a human-playable gameplay Gauntlet, and makes the downstream production encounter explicit. Do not reopen accepted product direction unless the current frozen specification is invalid.",
+  "projectRoot": ".",
+  "workflow": "autoresearch",
+  "requires": [
+    "workflow:autoresearch",
+    "workspace:git.worktree",
+    "agent:agent.team",
+    "evaluator:game.spec"
+  ],
+  "mutablePaths": ["game-spec.json"],
+  "immutablePaths": [
+    "concept.md",
+    "gamefactory.project.json",
+    "contracts/**",
+    "Packages/manifest.json",
+    "gameplay-gauntlet.json",
+    "production-gauntlet.json",
+    ".git/**",
+    ".factory/**"
+  ],
+  "parameters": {
+    "workspace": "git.worktree",
+    "agent": "agent.team",
+    "evaluators": ["game.spec"],
+    "autoresearch": {"stopAfterAccepted": true},
+    "gameSpec": {
+      "path": "game-spec.json",
+      "conceptPath": "concept.md",
+      "projectId": "pulling-season",
+      "requireFrozen": true,
+      "requiredClaims": ["loop.core", "visual.production-fidelity"],
+      "requiredSlices": ["first-playable", "production-encounter"],
+      "maximumConvergencePasses": 3
+    },
+    "agentTeam": {
+      "provider": "openai-codex-app-server",
+      "billingMode": "subscription",
+      "threadRetention": "ephemeral",
+      "maximumParallel": 2,
+      "maxOutputCharacters": 18000,
+      "handoffCharacters": 7000,
+      "historyLimit": 2,
+      "graph": {
+        "enforceWriteContracts": true,
+        "reuseCheckpoints": true,
+        "maximumTotalAttempts": 5,
+        "nodes": [
+          {
+            "id": "spec-owner",
+            "skills": ["converge-game-spec", "frame-core-game"],
+            "adapter": "codex-app-server",
+            "role": "planner",
+            "permissions": "write",
+            "authority": "mutate-spec",
+            "writePaths": ["game-spec.json"],
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "xhigh",
+            "maximumAttempts": 1,
+            "instructions": "Only if deterministic validation rejects the current frozen file, make the smallest valid amendment. Preserve the concept verbatim, revision lineage, the user's direct rejection evidence, required loop.core and visual.production-fidelity claims, the gameplay and production slices, and the decision that human play owns controls, comprehension, feel, and fun. Do not reset revision 2 to the original graybox scope or imitate protected reference content."
+          },
+          {
+            "id": "spec-critic",
+            "skills": ["converge-game-spec"],
+            "adapter": "codex-app-server",
+            "role": "critic",
+            "permissions": "read",
+            "authority": "approve",
+            "model": "gpt-5.6-sol",
+            "reasoningEffort": "high",
+            "dependsOn": ["spec-owner"],
+            "requiredOutputFields": ["outcome", "summary"],
+            "instructions": "Stress-test the amended GameSpec for attributable user evidence, embodied agency, meaningful counterfactual plans, human acceptance before production, original production direction, bounded scope, and valid revision lineage. Block only by citing an existing claim and do not treat desirable extra systems as requirements.",
+            "repair": {
+              "target": "spec-owner",
+              "outcomes": ["revise"],
+              "maximumAttempts": 2,
+              "allowedPaths": ["game-spec.json"]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "acceptance": {
+    "primaryMetric": "spec_valid",
+    "direction": "maximize",
+    "minimumDelta": 0,
+    "comparison": "at-least",
+    "hardGates": ["game.spec"]
+  },
+  "budget": {
+    "maximumExperiments": 2,
+    "maximumConsecutiveCrashes": 2,
+    "wallTimeMinutes": 45
+  }
+}
