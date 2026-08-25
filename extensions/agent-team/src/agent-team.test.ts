@@ -525,6 +525,37 @@ test("explicit reviewer authority accepts claim-linked nested blocker findings",
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test("advisory proposal rejection feeds a required downstream node without becoming a gate", async () => {
+  const root = await repository();
+  try {
+    const result = await new AgentTeam().run({
+      campaign: graphCampaign(root, [
+        graphCommand("nested-blocker-reviewer", { role: "planner", permissions: "read", authority: "propose", advisory: true }),
+        graphCommand("nested-plan-consumer", {
+          role: "implementer",
+          permissions: "write",
+          dependsOn: ["nested-blocker-reviewer"]
+        })
+      ], { claimIds: ["loop.first-errand"] }),
+      candidate: { id: "candidate", root, metadata: {} }, experimentId: "exp-advisory-blocker", history: [], signal: new AbortController().signal
+    });
+    assert.match(result.summary, /nested planning handoff consumed/);
+    const node = (result.metadata as { nodes: Record<string, { advisory?: boolean; outcome: string }> }).nodes["nested-blocker-reviewer"];
+    assert.equal(node?.advisory, true);
+    assert.equal(node?.outcome, "revise");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("advisory nodes must be read-only proposal authorities without repair ownership", () => {
+  assert.throws(() => validateAgentTeamConfiguration(graphCampaign(".", [
+    graphCommand("builder", { role: "implementer", permissions: "write", advisory: true })
+  ])), /advisory requires read permission and propose authority/);
+  assert.throws(() => validateAgentTeamConfiguration(graphCampaign(".", [
+    graphCommand("builder", { role: "implementer", permissions: "write" }),
+    graphCommand("reviewer", { role: "critic", permissions: "read", authority: "propose", advisory: true, dependsOn: ["builder"], repair: { target: "builder" } })
+  ])), /advisory node reviewer cannot own a repair edge/);
+});
+
 test("explicit reviewer authority rejects unknown claims in nested blocker findings", async () => {
   const root = await repository();
   try {

@@ -109,6 +109,7 @@ interface GraphNodeConfig extends ContributorConfig {
   maximumAttempts: number;
   outputContractRetries: number;
   required: boolean;
+  advisory: boolean;
   refreshAfterRepair: boolean;
   requiredOutputFields: string[];
   requiredOutputFieldsOn: string[];
@@ -965,6 +966,7 @@ function graphNode(value: unknown, index: number, defaults: Pick<ContributorConf
     throw new Error(`${location}.instructions must be a string with at most 100000 characters`);
   }
   if (record.required !== undefined && typeof record.required !== "boolean") throw new Error(`${location}.required must be a boolean`);
+  if (record.advisory !== undefined && typeof record.advisory !== "boolean") throw new Error(`${location}.advisory must be a boolean`);
   if (record.refreshAfterRepair !== undefined && typeof record.refreshAfterRepair !== "boolean") {
     throw new Error(`${location}.refreshAfterRepair must be a boolean`);
   }
@@ -974,6 +976,8 @@ function graphNode(value: unknown, index: number, defaults: Pick<ContributorConf
   if (typeof rawAuthority !== "string" || !AUTHORITIES.has(rawAuthority as NodeAuthority)) throw new Error(`${location}.authority is invalid`);
   const authority = rawAuthority as NodeAuthority;
   if ((authority === "mutate-candidate" || authority === "mutate-spec") === readOnly) throw new Error(`${location}.authority ${authority} conflicts with ${readOnly ? "read" : "write"} permission`);
+  const advisory = record.advisory === true;
+  if (advisory && (!readOnly || authority !== "propose")) throw new Error(`${location}.advisory requires read permission and propose authority`);
   if (record.requiredOutputFields !== undefined && (!Array.isArray(record.requiredOutputFields) || record.requiredOutputFields.length > 64 || record.requiredOutputFields.some((field) => typeof field !== "string" || !/^[A-Za-z][A-Za-z0-9_-]*(?:\.[A-Za-z][A-Za-z0-9_-]*)*$/.test(field)))) throw new Error(`${location}.requiredOutputFields contains an invalid field path`);
   const requiredOutputFields = [...new Set((record.requiredOutputFields ?? []) as string[])];
   if (record.writePaths !== undefined && record.driverWritePaths !== undefined) {
@@ -993,6 +997,7 @@ function graphNode(value: unknown, index: number, defaults: Pick<ContributorConf
     maximumAttempts: integer(record.maximumAttempts, 1, 1, 8, `${location}.maximumAttempts`),
     outputContractRetries: integer(record.outputContractRetries, base.adapter !== "agent-driver" && readOnly && (authority === "propose" || authority === "approve") ? 1 : 0, 0, 3, `${location}.outputContractRetries`),
     required: record.required !== false,
+    advisory,
     refreshAfterRepair: record.refreshAfterRepair === true,
     requiredOutputFields,
     requiredOutputFieldsOn: record.requiredOutputFieldsOn === undefined ? [] : outcomeList(record.requiredOutputFieldsOn, ["pass"], `${location}.requiredOutputFieldsOn`),
@@ -1079,6 +1084,7 @@ function validateGraph(nodes: GraphNodeConfig[], campaign: AgentRequest["campaig
     const immutable = node.writePaths.filter((path) => (campaign.immutablePaths ?? []).some((blocked) => simplePatternContains(blocked, path) || simplePatternContains(path, blocked)));
     if (immutable.length > 0) throw new Error(`graph node ${node.id} writePaths overlap campaign immutablePaths: ${immutable.join(", ")}`);
     if (node.repair) {
+      if (node.advisory) throw new Error(`graph advisory node ${node.id} cannot own a repair edge`);
       const target = byId.get(node.repair.target);
       if (!target) throw new Error(`graph node ${node.id} repairs unknown node ${node.repair.target}`);
       if (target.readOnly) throw new Error(`graph node ${node.id} repair target ${target.id} must have write permission`);
@@ -2099,6 +2105,7 @@ async function checkpointSemanticSha256(node: GraphNodeConfig, request: AgentReq
     outputContractRetries: node.outputContractRetries,
     maximumAttempts: node.maximumAttempts,
     required: node.required,
+    advisory: node.advisory,
     refreshAfterRepair: node.refreshAfterRepair,
     repair: node.repair,
     advisor: node.advisor ? {
@@ -2591,7 +2598,7 @@ function dependencyAllows(node: GraphNodeConfig, states: Map<string, GraphNodeSt
   return node.dependsOn.every((dependency) => {
     if (conditioned.has(dependency)) return true;
     const state = states.get(dependency)!;
-    return state.status === "complete" && !REJECTING_CONTROL_OUTCOMES.has(state.outcome.toLowerCase());
+    return state.status === "complete" && (state.config.advisory || !REJECTING_CONTROL_OUTCOMES.has(state.outcome.toLowerCase()));
   });
 }
 
@@ -3201,7 +3208,7 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
   }
   const requiredFailures = [...states.values()].filter((state) => state.config.required && (
     state.status === "failed"
-    || (state.status === "complete" && REJECTING_CONTROL_OUTCOMES.has(state.outcome.toLowerCase()))
+    || (state.status === "complete" && !state.config.advisory && REJECTING_CONTROL_OUTCOMES.has(state.outcome.toLowerCase()))
     || (state.status === "skipped" && (
       conditionAllows(state.config, states)
       || state.config.dependsOn.some((dependency) => states.get(dependency)!.status === "failed")
@@ -3297,6 +3304,7 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
           readOnly: node.readOnly,
           ...(node.writePaths.length > 0 ? { writePaths: node.writePaths } : {}),
           authority: node.authority,
+          advisory: node.advisory,
           dependsOn: node.dependsOn,
           status: state.status,
           outcome: state.outcome,
