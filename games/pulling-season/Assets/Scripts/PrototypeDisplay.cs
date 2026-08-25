@@ -6,9 +6,9 @@ namespace PullingSeason
     {
         [SerializeField] private HarvestCrop crop;
         [SerializeField] private NextHarvestDecision nextDecision;
+
         private FirstPersonPullController player;
         private GUIStyle promptStyle;
-        private GUIStyle hintStyle;
         private Texture2D whiteTexture;
         private float startedAt;
 
@@ -22,7 +22,7 @@ namespace PullingSeason
         {
             player = GetComponentInParent<FirstPersonPullController>();
             startedAt = Time.time;
-            whiteTexture = new Texture2D(1, 1);
+            whiteTexture = new Texture2D(1, 1) { name = "FieldReadoutPixel" };
             whiteTexture.SetPixel(0, 0, Color.white);
             whiteTexture.Apply();
         }
@@ -31,36 +31,39 @@ namespace PullingSeason
         {
             if (crop == null) return;
             EnsureStyles();
-
-            DrawRect(new Rect(Screen.width * 0.5f - 2f, Screen.height * 0.5f - 2f, 4f, 4f), new Color(1f, 0.92f, 0.62f, 0.9f));
+            DrawReticle();
 
             var prompt = CurrentPrompt();
-            if (!string.IsNullOrEmpty(prompt))
-            {
-                var width = Mathf.Min(430f, Screen.width - 32f);
-                var rect = new Rect((Screen.width - width) * 0.5f, Screen.height - 66f, width, 36f);
-                DrawRect(rect, new Color(0.025f, 0.035f, 0.028f, 0.82f));
-                GUI.Label(rect, prompt, promptStyle);
-            }
+            if (string.IsNullOrEmpty(prompt)) return;
 
-            if (crop.GripActive && !crop.Harvested)
-            {
-                var bar = new Rect(Screen.width * 0.5f - 90f, Screen.height - 87f, 180f, 7f);
-                DrawRect(bar, new Color(0f, 0f, 0f, 0.55f));
-                var color = crop.Tension01 > 0.82f ? new Color(0.95f, 0.25f, 0.12f) : new Color(0.88f, 0.72f, 0.22f);
-                DrawRect(new Rect(bar.x + 1f, bar.y + 1f, (bar.width - 2f) * crop.Tension01, bar.height - 2f), color);
-            }
+            var width = Mathf.Min(330f, Screen.width - 32f);
+            var rect = new Rect((Screen.width - width) * 0.5f, Screen.height - 58f, width, 30f);
+            DrawRect(rect, new Color(0.025f, 0.03f, 0.022f, 0.76f));
+            GUI.Label(rect, prompt, promptStyle);
+        }
 
-            if (Time.time - startedAt < 4.5f)
-                GUI.Label(new Rect(18f, Screen.height - 42f, 260f, 24f), "WASD move  ·  mouse look", hintStyle);
+        private void DrawReticle()
+        {
+            var center = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+            var color = crop.RouteWarning
+                ? new Color(1f, 0.24f, 0.08f, 0.94f)
+                : (player != null && player.IsNearCrop
+                    ? new Color(1f, 0.82f, 0.32f, 0.94f)
+                    : new Color(0.96f, 0.94f, 0.76f, 0.78f));
+            DrawRect(new Rect(center.x - 9f, center.y - 1f, 6f, 2f), color);
+            DrawRect(new Rect(center.x + 3f, center.y - 1f, 6f, 2f), color);
+            DrawRect(new Rect(center.x - 1f, center.y - 9f, 2f, 6f), color);
+            DrawRect(new Rect(center.x - 1f, center.y + 3f, 2f, 6f), color);
         }
 
         private string CurrentPrompt()
         {
-            if (crop.Acknowledged && nextDecision != null && nextDecision.DecisionAvailable) return "Another bed is ready";
-            if (crop.Harvested) return crop.Damaged ? "Bruised  ·  Space to finish" : "Clean harvest  ·  Space to finish";
-            if (crop.GripActive) return crop.Damaged ? "Ease off and pull straight" : "Pull backward — keep the stem centered";
-            if (player != null && player.IsNearCrop) return "Hold left mouse to grip";
+            if (crop.Acknowledged && nextDecision != null && nextDecision.DecisionAvailable) return string.Empty;
+            if (crop.Harvested) return "SPACE  •  MARK THE HARVEST";
+            if (crop.RouteWarning) return "SIDESTEP  •  UNWIND THE RED LINE";
+            if (crop.GripActive) return string.Empty;
+            if (player != null && player.IsNearCrop) return "HOLD LMB  •  TAKE THE STRAP";
+            if (crop.GrowthStage == "Early" && Time.time - startedAt < 10f) return "RMB  •  LET IT GROW ONCE";
             return string.Empty;
         }
 
@@ -70,15 +73,9 @@ namespace PullingSeason
             promptStyle = new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.MiddleCenter,
-                fontSize = 17,
+                fontSize = 14,
                 fontStyle = FontStyle.Bold,
-                normal = { textColor = new Color(0.96f, 0.94f, 0.82f) }
-            };
-            hintStyle = new GUIStyle(GUI.skin.label)
-            {
-                alignment = TextAnchor.MiddleLeft,
-                fontSize = 13,
-                normal = { textColor = new Color(1f, 1f, 1f, 0.72f) }
+                normal = { textColor = new Color(0.98f, 0.94f, 0.78f) }
             };
         }
 

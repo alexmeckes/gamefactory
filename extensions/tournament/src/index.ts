@@ -1,5 +1,5 @@
 import { isAbsolute, relative, resolve } from "node:path";
-import { decideAcceptance, flattenMetrics, isInfrastructureFailure } from "@gamefactory/core";
+import { decideAcceptance, flattenMetrics, isCandidateInvalidation, isInfrastructureFailure, shouldRetainCandidate } from "@gamefactory/core";
 import type {
   AgentDriver,
   AgentRequest,
@@ -89,7 +89,7 @@ interface CandidateRun {
   error?: string;
   preservationBlocked?: boolean;
   retentionBlocked?: boolean;
-  failureClass?: "infrastructure" | "execution";
+  failureClass?: "infrastructure" | "execution" | "validation";
 }
 
 interface RankedCandidate {
@@ -407,7 +407,12 @@ async function executeCandidate(
       evaluations,
       error: errorMessage(outcomeError),
       ...(isArtifactPreservationFailure(outcomeError) ? { preservationBlocked: true } : {}),
-      ...(isInfrastructureFailure(outcomeError) ? { retentionBlocked: true, failureClass: "infrastructure" as const } : { failureClass: "execution" as const })
+      ...(shouldRetainCandidate(outcomeError) ? { retentionBlocked: true } : {}),
+      failureClass: isInfrastructureFailure(outcomeError)
+        ? "infrastructure" as const
+        : isCandidateInvalidation(outcomeError)
+          ? "validation" as const
+          : "execution" as const
     };
   }
 }
@@ -568,6 +573,11 @@ export class TournamentWorkflow implements Workflow {
         ? await runDirector({ context, driver: directorDriver, config: config.director, phase: "synthesis", round, roundSize, history, baseline: activeBaseline, runs, ranked })
         : undefined;
       const roundRetryRequired = runs.some((run) => run.preservationBlocked || run.retentionBlocked);
+      const roundFailureClass = runs.some((run) => run.preservationBlocked || run.failureClass === "infrastructure")
+        ? "infrastructure" as const
+        : runs.some((run) => run.failureClass === "validation")
+          ? "validation" as const
+          : undefined;
       const winner: RankedCandidate | undefined = context.signal.aborted || roundRetryRequired ? undefined : ranked[0];
       const cleanupSignal = new AbortController().signal;
       const losers: CandidateRun[] = runs.filter((run) => run !== winner?.run).sort((left, right) => left.slot - right.slot);
@@ -683,7 +693,7 @@ export class TournamentWorkflow implements Workflow {
               ...(synthesis ? { directorSynthesis: synthesis } : {})
             },
             ...(run.agentResult?.metadata ? { agent: run.agentResult.metadata } : {}),
-            ...(roundRetryRequired ? { failureClass: "infrastructure" as const } : run.failureClass ? { failureClass: run.failureClass } : {})
+            ...(roundFailureClass ? { failureClass: roundFailureClass } : run.failureClass ? { failureClass: run.failureClass } : {})
           }
         };
 
@@ -691,12 +701,12 @@ export class TournamentWorkflow implements Workflow {
         const candidateBlocked = Boolean(roundRetryRequired || run.preservationBlocked || run.retentionBlocked || finalizationError);
         if (candidateBlocked) {
           roundBlocked = true;
-          await journalPhase(context, run.experimentId, "blocked", { record, candidateRetained: Boolean(run.candidate), resumable: Boolean(run.candidate && roundRetryRequired), ...(roundRetryRequired ? { failureClass: "infrastructure" } : run.failureClass ? { failureClass: run.failureClass } : {}) });
+          await journalPhase(context, run.experimentId, "blocked", { record, candidateRetained: Boolean(run.candidate), resumable: Boolean(run.candidate && roundRetryRequired), ...(roundFailureClass ? { failureClass: roundFailureClass } : run.failureClass ? { failureClass: run.failureClass } : {}) });
         } else {
           await journalPhase(context, run.experimentId, "applied", { record });
         }
         experiments.push(record);
-        if (roundRetryRequired) run.reservation.cancel();
+        if (roundFailureClass === "infrastructure") run.reservation.cancel();
         else run.reservation.settle({ status, ...(run.agentResult?.usage?.costUsd !== undefined ? { actualCostUsd: run.agentResult.usage.costUsd } : {}) });
         await context.appendRecord(record);
         if (!candidateBlocked) {
@@ -706,7 +716,9 @@ export class TournamentWorkflow implements Workflow {
         await context.emit({ type: "experiment:finish", record, at: record.finishedAt });
       }
 
-      if (roundBlocked) return campaignResult(context, experiments, "blocked", "At least one candidate was retained because evidence preservation or finalization could not be confirmed.");
+      if (roundBlocked) return campaignResult(context, experiments, "blocked", roundFailureClass === "validation"
+        ? "At least one candidate was invalidated by trusted review and retained as a bounded repair base; it cannot be promoted unchanged."
+        : "At least one candidate was retained because evidence preservation, infrastructure, or finalization could not be confirmed.");
 
       round += 1;
     }

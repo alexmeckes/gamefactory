@@ -10,6 +10,9 @@ namespace PullingSeason
         [SerializeField] private Material dormantMaterial;
         [SerializeField] private Material availableMaterial;
         [SerializeField] private GameObject cueBeacon;
+        [SerializeField] private GameObject earlyLessonCue;
+        [SerializeField] private GameObject lateLessonCue;
+        [SerializeField] private GameObject damagedLessonCue;
         [SerializeField] private TextMesh decisionLabel;
 
         private Vector3 beaconRestScale;
@@ -19,21 +22,28 @@ namespace PullingSeason
         private float revealClock;
 
         public void Configure(Renderer targetCueRenderer, Material targetDormantMaterial, Material targetAvailableMaterial,
-            GameObject targetCueBeacon, TextMesh targetDecisionLabel)
+            GameObject targetCueBeacon, GameObject targetEarlyLessonCue, GameObject targetLateLessonCue,
+            GameObject targetDamagedLessonCue, TextMesh targetDecisionLabel)
         {
             cueRenderer = targetCueRenderer;
             dormantMaterial = targetDormantMaterial;
             availableMaterial = targetAvailableMaterial;
             cueBeacon = targetCueBeacon;
+            earlyLessonCue = targetEarlyLessonCue;
+            lateLessonCue = targetLateLessonCue;
+            damagedLessonCue = targetDamagedLessonCue;
             decisionLabel = targetDecisionLabel;
         }
 
         private void Awake()
         {
             DecisionAvailable = false;
-            if (cueBeacon != null) cueBeacon.SetActive(false);
+            SetCueActive(cueBeacon, false);
+            SetCueActive(earlyLessonCue, false);
+            SetCueActive(lateLessonCue, false);
+            SetCueActive(damagedLessonCue, false);
             if (cueRenderer != null && dormantMaterial != null) cueRenderer.material = dormantMaterial;
-            if (decisionLabel != null) decisionLabel.text = "NEXT HARVEST\nOBSERVE AFTER THIS PULL";
+            if (decisionLabel != null) decisionLabel.text = string.Empty;
             if (cueBeacon != null) beaconRestScale = cueBeacon.transform.localScale;
             if (cueRenderer != null)
             {
@@ -49,30 +59,34 @@ namespace PullingSeason
             revealClock += Time.deltaTime;
             if (cueBeacon != null)
             {
-                var pulse = 1f + Mathf.Sin(revealClock * 6f) * 0.18f;
+                var pulse = 1f + Mathf.Sin(revealClock * 5.2f) * 0.14f;
                 cueBeacon.transform.localScale = beaconRestScale * pulse;
-                cueBeacon.transform.Rotate(0f, 90f * Time.deltaTime, 0f, Space.Self);
+                cueBeacon.transform.Rotate(0f, 70f * Time.deltaTime, 0f, Space.Self);
             }
             if (cueRenderer != null)
-                cueRenderer.transform.localPosition = cueRestPosition + Vector3.up * (0.07f + Mathf.Sin(revealClock * 4f) * 0.05f);
+                cueRenderer.transform.localPosition = cueRestPosition + Vector3.up * (0.06f + Mathf.Sin(revealClock * 3.6f) * 0.04f);
         }
 
         public void Reveal(bool previousDamaged, string previousStage)
         {
             DecisionAvailable = true;
-            if (cueBeacon != null) cueBeacon.SetActive(true);
+            SetCueActive(cueBeacon, true);
+            SetCueActive(earlyLessonCue, !previousDamaged && previousStage == "Early");
+            SetCueActive(lateLessonCue, !previousDamaged && previousStage == "Late");
+            SetCueActive(damagedLessonCue, previousDamaged);
+
             var lessonColor = previousDamaged
-                ? new Color(0.95f, 0.26f, 0.10f)
-                : (previousStage == "Late" ? new Color(1f, 0.72f, 0.16f) : new Color(0.56f, 0.88f, 0.20f));
+                ? new Color(0.98f, 0.28f, 0.09f)
+                : (previousStage == "Late" ? new Color(1f, 0.70f, 0.14f) : new Color(0.52f, 0.90f, 0.24f));
             if (cueRenderer != null)
             {
                 if (availableMaterial != null) cueRenderer.material = availableMaterial;
                 cueRenderer.material.color = lessonColor;
                 cueRenderer.transform.localScale = Vector3.Scale(cueRestScale,
                     previousDamaged
-                        ? new Vector3(0.82f, 0.72f, 0.82f)
+                        ? new Vector3(0.82f, 0.70f, 0.82f)
                         : (previousStage == "Late"
-                            ? new Vector3(1.20f, 1.12f, 1.20f)
+                            ? new Vector3(1.22f, 1.16f, 1.22f)
                             : new Vector3(0.94f, 0.90f, 0.94f)));
                 cueRenderer.transform.localRotation = cueRestRotation
                     * Quaternion.Euler(previousDamaged ? 0f : -5f, 0f, previousDamaged ? 18f : 0f);
@@ -81,18 +95,21 @@ namespace PullingSeason
             {
                 var beaconRenderer = cueBeacon.GetComponent<Renderer>();
                 if (beaconRenderer != null) beaconRenderer.material.color = lessonColor;
-                cueBeacon.transform.localScale = beaconRestScale * (previousDamaged ? 1.35f : 1f);
-                beaconRestScale = cueBeacon.transform.localScale;
+                beaconRestScale *= previousDamaged ? 1.28f : 1f;
             }
+
             if (decisionLabel != null)
             {
                 decisionLabel.text = previousDamaged
-                    ? "NEXT HARVEST\nWET SOIL + SHALLOW CROWN\nPULL STRAIGHT / WAIT"
-                    : (previousStage == "Late"
-                        ? "NEXT HARVEST\nDRY CRACKS + BROAD CROWN\nTAKE EARLY / RISK WEIGHT"
-                        : "NEXT HARVEST\nFIRM SOIL + SMALL CROWN\nTAKE SAFE / GROW ONCE");
+                    ? "FOLLOW THE OPEN SEAM"
+                    : (previousStage == "Late" ? "DENSE ROOTS / CLEAN LINE" : "SMALL NOW / LARGER LATER");
                 decisionLabel.color = new Color(1f, 0.92f, 0.52f);
             }
+        }
+
+        private static void SetCueActive(GameObject cue, bool active)
+        {
+            if (cue != null) cue.SetActive(active);
         }
     }
 }

@@ -8,8 +8,8 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.Controls;
 using UnityEngine.InputSystem.LowLevel;
+using UnityEngine.InputSystem.Controls;
 using UnityEngine.SceneManagement;
 
 namespace GameFactory.UnityBridge
@@ -19,6 +19,9 @@ namespace GameFactory.UnityBridge
         private const string ScenarioApi = "gamefactory.unity-scenario/v1";
         private const string TraceApi = "gamefactory.embodied-trace/v1";
         private const string Producer = "factory-owned-unity-bridge";
+        private const int EvidenceFramesPerSecond = 60;
+        private const int CounterfactualFrames = 90;
+        private const float QuiescencePositionTolerance = 0.01f;
         private static bool running;
 
         [CliCommand("gamefactory_prepare_playmode", "Prepare a domain-reload-safe GameFactory evidence run", MainThreadRequired = true)]
@@ -49,6 +52,7 @@ namespace GameFactory.UnityBridge
             running = true;
             var pressedControls = new List<InputControl>();
             PlayModeSettings previous = null;
+            var previousCaptureDeltaTime = Time.captureDeltaTime;
             try
             {
                 var envelope = ReadJson<RequestEnvelope>(request, "request");
@@ -60,6 +64,7 @@ namespace GameFactory.UnityBridge
                 Directory.CreateDirectory(envelope.outputDirectory);
                 EditorSceneManager.OpenScene(contract.scenePath, OpenSceneMode.Single);
                 await EnterPlayMode();
+                Time.captureDeltaTime = 1f / EvidenceFramesPerSecond;
                 var result = await Execute(envelope, contract, pressedControls);
                 File.WriteAllText(output, JsonUtility.ToJson(result, true));
                 return $"GameFactory scenario {contract.id} completed with status {result.status}.";
@@ -78,6 +83,7 @@ namespace GameFactory.UnityBridge
             }
             finally
             {
+                Time.captureDeltaTime = previousCaptureDeltaTime;
                 foreach (var control in pressedControls)
                 {
                     try { QueueControlValue(control, 0f); } catch { }
@@ -102,7 +108,25 @@ namespace GameFactory.UnityBridge
             var frameIndex = 0;
             var captureIndex = 0;
             await NextUpdate();
-            Capture(contract, envelope.outputDirectory, trace, artifacts, null, new List<TraceEvent>(), ref captureIndex);
+            var quiescentActor = FindRequired(contract.actorPath, "actor");
+            var quiescentOrigin = quiescentActor.transform.position;
+            Capture(contract, envelope.outputDirectory, trace, artifacts, null, new List<TraceEvent>(), frameIndex, ref captureIndex);
+
+            // Establish a no-input counterfactual before shipping input. Passive
+            // motion or state progression cannot then masquerade as input-caused.
+            for (var frame = 0; frame < CounterfactualFrames; frame++)
+            {
+                await NextUpdate();
+                frameIndex++;
+                if (contract.captureEveryFrames > 0 && frameIndex % contract.captureEveryFrames == 0)
+                    Capture(contract, envelope.outputDirectory, trace, artifacts, null, new List<TraceEvent>(), frameIndex, ref captureIndex);
+            }
+            var quiescentStates = ObserveStates(contract.stateObservations);
+            if (Changed(previousStates, quiescentStates))
+                violations.Add(new Violation { code = "unity.bridge.counterfactual-state-change", message = "Observed gameplay state changed before any shipping input.", severity = "error" });
+            if (Vector3.Distance(quiescentOrigin, quiescentActor.transform.position) > QuiescencePositionTolerance)
+                violations.Add(new Violation { code = "unity.bridge.counterfactual-displacement", message = "The player actor moved before any shipping input.", severity = "error" });
+            previousStates = quiescentStates;
 
             foreach (var step in contract.steps)
             {
@@ -119,7 +143,7 @@ namespace GameFactory.UnityBridge
                     await NextUpdate();
                     frameIndex++;
                     if (contract.captureEveryFrames > 0 && frameIndex % contract.captureEveryFrames == 0)
-                        Capture(contract, envelope.outputDirectory, trace, artifacts, input, new List<TraceEvent>(), ref captureIndex);
+                        Capture(contract, envelope.outputDirectory, trace, artifacts, input, new List<TraceEvent>(), frameIndex, ref captureIndex);
                 }
 
                 var latency = 0;
@@ -148,7 +172,7 @@ namespace GameFactory.UnityBridge
                         latencyFrames = latency
                     });
                 }
-                Capture(contract, envelope.outputDirectory, trace, artifacts, input, events, ref captureIndex);
+                Capture(contract, envelope.outputDirectory, trace, artifacts, input, events, frameIndex, ref captureIndex);
                 previousStates = nextStates;
             }
 
@@ -185,7 +209,16 @@ namespace GameFactory.UnityBridge
 
             if (control is ButtonControl button)
             {
-                InputSystem.QueueDeltaStateEvent(button, value);
+                // Button controls are commonly stored as one-bit fields inside a
+                // device state block. QueueDeltaStateEvent<T> uses sizeof(T), so
+                // passing a float either writes four bytes into a one-bit control
+                // or rejects bitfield controls outright. Build a full device state
+                // event and let the control encode its value into the correct bit.
+                using (StateEvent.From(button.device, out var eventPtr))
+                {
+                    button.WriteValueIntoEvent(value, eventPtr);
+                    InputSystem.QueueEvent(eventPtr);
+                }
                 return;
             }
 
@@ -198,7 +231,7 @@ namespace GameFactory.UnityBridge
             throw new InvalidOperationException($"Unsupported shipping input control '{control.path}'. Expected a button or axis control.");
         }
 
-        private static void Capture(ScenarioContract contract, string outputDirectory, EmbodiedTrace trace, List<Artifact> artifacts, TraceInput input, List<TraceEvent> events, ref int captureIndex)
+        private static void Capture(ScenarioContract contract, string outputDirectory, EmbodiedTrace trace, List<Artifact> artifacts, TraceInput input, List<TraceEvent> events, int frameIndex, ref int captureIndex)
         {
             var actor = FindRequired(contract.actorPath, "actor");
             var framePath = Path.Combine(outputDirectory, $"frame-{captureIndex:D4}.png");
@@ -214,7 +247,7 @@ namespace GameFactory.UnityBridge
             });
             trace.samples.Add(new TraceSample
             {
-                time = Time.realtimeSinceStartupAsDouble,
+                time = frameIndex / (double)EvidenceFramesPerSecond,
                 input = input ?? new TraceInput { delivery = "unity-input-system", kind = "initial", control = "", pressed = false, value = 0 },
                 actor = new TraceActor
                 {

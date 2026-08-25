@@ -5,7 +5,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import test from "node:test";
-import { BudgetController, FactoryRunner, MemoryLogger } from "@gamefactory/core";
+import { BudgetController, CandidateInvalidatedError, FactoryRunner, MemoryLogger } from "@gamefactory/core";
 import type { AgentDriver, Campaign, Candidate, Evaluation, Evaluator, ExperimentRecord, FactoryTraceEventInput, WorkflowContext, WorkspaceDriver } from "@gamefactory/core";
 import { TournamentWorkflow } from "./index.js";
 
@@ -237,6 +237,58 @@ test("tournament bounds agent concurrency, stops its evaluator waterfall, and se
       { id: "tournament-r0001-c001", accepted: true }
     ]);
     assert.deepEqual(records.map((record) => record.status), ["baseline", "discard", "crash", "keep"]);
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("tournament retains a trusted-review-invalidated candidate as a repair base", async () => {
+  const projectRoot = await mkdtemp(resolve(tmpdir(), "gamefactory-tournament-validation-retain-"));
+  const records: ExperimentRecord[] = [];
+  const discarded: string[] = [];
+  const workspace: WorkspaceDriver = {
+    id: "validation.workspace",
+    async createCandidate({ experimentId }) { return { id: experimentId, root: resolve(projectRoot, experimentId), metadata: {} }; },
+    async acceptCandidate() { throw new Error("invalidated candidate must not be accepted"); },
+    async discardCandidate({ candidate }) { discarded.push(candidate.id); }
+  };
+  const agent: AgentDriver = {
+    id: "validation.agent",
+    async run() { throw new CandidateInvalidatedError("trusted evidence rejected the candidate"); }
+  };
+  const evaluator: Evaluator = {
+    id: "validation.score",
+    version: "1",
+    async evaluate() { return { evaluator: "validation.score", version: "1", status: "pass", metrics: { score: 0 }, violations: [], artifacts: [] }; }
+  };
+  const testCampaign: Campaign = {
+    ...campaign(projectRoot),
+    id: "validation-retain-contract",
+    requires: [],
+    parameters: { tournament: { workspace: workspace.id, agents: [agent.id], evaluators: [evaluator.id], candidateCount: 1, concurrency: 1 } },
+    budget: { maximumExperiments: 1 }
+  };
+  const capabilities = new Map<string, unknown>([[`workspace:${workspace.id}`, workspace], [`agent:${agent.id}`, agent], [`evaluator:${evaluator.id}`, evaluator]]);
+  const context: WorkflowContext = {
+    campaign: testCampaign,
+    signal: new AbortController().signal,
+    startedAt: new Date().toISOString(),
+    get: <T>(kind: Parameters<WorkflowContext["get"]>[0], id: string) => capabilities.get(`${kind}:${id}`) as T,
+    getAll: <T>() => [...capabilities.values()] as T[],
+    appendRecord: async (record) => { records.push(record); },
+    readRecords: async () => [],
+    preserveArtifacts: async (artifacts) => artifacts,
+    emit: async () => undefined,
+    budget: new BudgetController(testCampaign.budget),
+    logger: new MemoryLogger()
+  };
+  try {
+    const result = await new TournamentWorkflow().run(context);
+    assert.equal(result.status, "blocked");
+    assert.deepEqual(discarded, []);
+    assert.equal(records.at(-1)?.status, "blocked");
+    assert.equal(records.at(-1)?.metadata?.failureClass, "validation");
+    assert.match(result.summary, /retained as a bounded repair base/);
   } finally {
     await rm(projectRoot, { recursive: true, force: true });
   }

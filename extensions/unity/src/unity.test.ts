@@ -198,8 +198,8 @@ test("Unity embodied verification rejects static proxy evidence and accepts fact
       apiVersion: EMBODIED_TRACE_PROTOCOL,
       producer: UNITY_EVIDENCE_PRODUCER,
       samples: [
-        { time: 0, input: { delivery: "unity-input-system", control: "<Keyboard>/d" }, actor: { visible: true, position: { x: 0, y: 0, z: 0 } }, events: [] },
-        { time: 1.5, input: { delivery: "unity-input-system", control: "<Keyboard>/e" }, actor: { visible: true, position: { x: 2, y: 0, z: 0 } }, events: [
+        { time: 0, input: { delivery: "unity-input-system", kind: "control", control: "<Keyboard>/d" }, actor: { visible: true, position: { x: 0, y: 0, z: 0 } }, events: [] },
+        { time: 1.5, input: { delivery: "unity-input-system", kind: "control", control: "<Keyboard>/e" }, actor: { visible: true, position: { x: 2, y: 0, z: 0 } }, events: [
           { kind: "spatial-interaction", outcome: "applied" },
           { kind: "state-change", cause: "player-input", state: "delivered" }
         ] }
@@ -243,8 +243,8 @@ test("Unity scenario runner preserves engine-authoritative evidence from the bri
       apiVersion: EMBODIED_TRACE_PROTOCOL,
       producer: UNITY_EVIDENCE_PRODUCER,
       samples: [
-        { time: 0, input: { delivery: "unity-input-system", control: "<Keyboard>/d" }, actor: { visible: true, position: { x: 0, y: 0, z: 0 } }, events: [] },
-        { time: 2, input: { delivery: "unity-input-system", control: "<Keyboard>/e" }, actor: { visible: true, position: { x: 3, y: 0, z: 0 } }, events: [
+        { time: 0, input: { delivery: "unity-input-system", kind: "control", control: "<Keyboard>/d" }, actor: { visible: true, position: { x: 0, y: 0, z: 0 } }, events: [] },
+        { time: 2, input: { delivery: "unity-input-system", kind: "control", control: "<Keyboard>/e" }, actor: { visible: true, position: { x: 3, y: 0, z: 0 } }, events: [
           { kind: "spatial-interaction", outcome: "applied" },
           { kind: "state-change", cause: "player-input", state: "activated" }
         ] }
@@ -379,8 +379,21 @@ test("Unity bridge registers a Pipeline command and injects Input System control
   assert.match(source, /InputSystem\.FindControl/);
   assert.match(source, /QueueDeltaStateEvent/);
   assert.match(source, /QueueStateEvent/);
+  assert.match(source, /StateEvent\.From\(button\.device/);
+  assert.match(source, /button\.WriteValueIntoEvent\(value, eventPtr\)/);
+  assert.doesNotMatch(source, /QueueDeltaStateEvent\(button, value\)/);
+  assert.match(source, /CounterfactualFrames = 90/);
+  assert.match(source, /counterfactual-state-change/);
+  assert.match(source, /counterfactual-displacement/);
+  assert.match(source, /Time\.captureDeltaTime = 1f \/ EvidenceFramesPerSecond/);
+  assert.match(source, /time = frameIndex \/ \(double\)EvidenceFramesPerSecond/);
+  assert.doesNotMatch(source, /time = Time\.realtimeSinceStartupAsDouble/);
   assert.match(source, /Time\.frameCount/);
   assert.match(source, /NextEditorUpdate/);
   assert.match(source, /factory-owned-unity-bridge/);
   assert.match(source, /CaptureScreenshot|RenderFrame/);
+
+  const controller = await readFile(resolve(process.cwd(), "games", "pulling-season", "Assets", "Scripts", "FirstPersonPullController.cs"), "utf8");
+  assert.match(controller, /PreventRootedCropOverlap/);
+  assert.match(controller, /rootedCropClearance = 1\.25f/);
 });

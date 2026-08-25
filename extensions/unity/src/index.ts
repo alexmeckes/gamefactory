@@ -615,7 +615,7 @@ export async function verifyUnityEmbodiedArtifacts(
       displacement = Math.max(displacement, Math.hypot(actorPosition.x - origin.x, actorPosition.y - origin.y, actorPosition.z - origin.z));
     }
     const input = object(sample.input);
-    if (input.delivery === "unity-input-system" && typeof input.control === "string") shippingInputs += 1;
+    if (input.delivery === "unity-input-system" && input.kind === "control" && typeof input.control === "string" && input.control.length > 0) shippingInputs += 1;
     if (Array.isArray(sample.events)) for (const rawEvent of sample.events) {
       const event = object(rawEvent);
       if (event.kind === "spatial-interaction" && event.outcome === "applied") spatialInteractions += 1;
