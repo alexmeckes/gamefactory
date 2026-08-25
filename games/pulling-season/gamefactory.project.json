@@ -24,6 +24,12 @@
       {
         "id": "spec-v3",
         "campaign": "spec-campaign-v3.json",
+        "config": "factory.json",
+        "status": "superseded"
+      },
+      {
+        "id": "spec-v4",
+        "campaign": "spec-campaign-v3.json",
         "config": "factory.json"
       }
     ]
