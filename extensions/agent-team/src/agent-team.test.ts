@@ -120,6 +120,14 @@ if (["alpha", "beta", "large-alpha", "large-beta"].includes(request.nodeId)) {
       opportunities: [{ classification: "opportunity", finding: "Explore a second coherent direction." }]
     }
   }));
+} else if (request.nodeId === "positive-advisory") {
+  console.log(JSON.stringify({ summary: "no accepted claim is falsified", outcome: "positive", findings: [{ findingClass: "opportunity", issue: "consider a later polish pass" }] }));
+} else if (request.nodeId === "delegated-builder") {
+  assert.match(request.instructions, /Authoritative host-driver boundary/);
+  assert.ok(request.instructions.includes("host-evidence (fixture.host-evidence)"));
+  assert.match(request.instructions, /return complete/);
+  await writeFile("value.txt", "delegated implementation complete\\n", "utf8");
+  console.log(JSON.stringify({ summary: "implementation complete; host verification pending", outcome: "complete" }));
 } else if (["contract-retry-reviewer", "contract-exhausted-reviewer"].includes(request.nodeId)) {
   if (request.attempt > 1) {
     const rejected = request.inputs.find((input) => input.nodeId === request.nodeId);
@@ -543,6 +551,47 @@ test("advisory proposal rejection feeds a required downstream node without becom
     const node = (result.metadata as { nodes: Record<string, { advisory?: boolean; outcome: string }> }).nodes["nested-blocker-reviewer"];
     assert.equal(node?.advisory, true);
     assert.equal(node?.outcome, "revise");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("advisory positive aliases normalize to pass without invalidating downstream work", async () => {
+  const root = await repository();
+  try {
+    const result = await new AgentTeam().run({
+      campaign: graphCampaign(root, [
+        graphCommand("positive-advisory", { role: "planner", permissions: "read", authority: "propose", advisory: true }),
+        graphCommand("writer-a", { role: "implementer", permissions: "write", dependsOn: ["positive-advisory"] })
+      ], { claimIds: ["loop.first-errand"] }),
+      candidate: { id: "candidate", root, metadata: {} }, experimentId: "exp-positive-advisory", history: [], signal: new AbortController().signal
+    });
+    assert.equal(await readFile(resolve(root, "writer-a.txt"), "utf8"), "written\n");
+    const metadata = result.metadata as { nodes: Record<string, { outcome: string }> };
+    assert.equal(metadata.nodes["positive-advisory"]?.outcome, "pass");
+    const contribution = result.contributors?.find((item) => item.agentId === "positive-advisory");
+    assert.equal(contribution?.metadata?.outcome, "pass");
+    assert.equal(contribution?.metadata?.reportedOutcome, "positive");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("writer prompts delegate host-only verification to direct downstream agent drivers", async () => {
+  const root = await repository();
+  const driver: AgentDriver = {
+    id: "fixture.host-evidence",
+    async run() {
+      assert.equal(await readFile(resolve(root, "value.txt"), "utf8"), "delegated implementation complete\n");
+      return { summary: "host evidence passed", artifacts: [], metadata: { outcome: "pass" } };
+    }
+  };
+  try {
+    const result = await new AgentTeam(() => driver).run({
+      campaign: graphCampaign(root, [
+        graphCommand("delegated-builder", { role: "implementer", permissions: "write" }),
+        { id: "host-evidence", adapter: "agent-driver", driver: driver.id, role: "worker", permissions: "read", dependsOn: ["delegated-builder"] }
+      ]),
+      candidate: { id: "candidate", root, metadata: {} }, experimentId: "exp-delegated-host-evidence", history: [], signal: new AbortController().signal
+    });
+    assert.match(result.summary, /host evidence passed/);
+    assert.equal((result.metadata as { nodes: Record<string, { outcome: string }> }).nodes["delegated-builder"]?.outcome, "complete");
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 

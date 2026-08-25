@@ -377,7 +377,8 @@ const CONTROL_OUTCOME_ALIASES = new Map<string, string>([
   ["needswork", "revise"],
   ["rejected", "reject"],
   ["passed", "pass"],
-  ["approved", "pass"]
+  ["approved", "pass"],
+  ["positive", "pass"]
 ]);
 const REJECTING_CONTROL_OUTCOMES = new Set(["revise", "reject", "fail", "failed", "blocked", "target_revision", "spec_amendment", "crash", "error"]);
 const POSITIVE_CONTROL_OUTCOMES = new Set(["pass", "complete", "ready"]);
@@ -2718,7 +2719,22 @@ function authorityOutputInstruction(config: GraphAgentTeamConfig, node: GraphNod
   return [
     `Authority: ${node.authority}. Classify every finding as blocker or opportunity. New scope is an opportunity and cannot force revision.`,
     `If outcome is rejecting (for example revise, reject, fail, or needs_work), payload.findings must be an array with at least one object shaped like { findingClass: \"blocker\", claimIds: [\"claim.id\"], issue: \"...\", evidence: [...] }.`,
-    `Every blocker must cite at least one of these existing claimIds: ${claimIds}. If no existing claim is falsified, return a positive outcome and report the concern as an opportunity instead.`
+    `Every blocker must cite at least one of these existing claimIds: ${claimIds}. If no existing claim is falsified, return outcome pass and report the concern as an opportunity instead. Use pass exactly; do not invent a synonym.`
+  ].join(" ");
+}
+
+function delegatedHostDriverInstruction(config: GraphAgentTeamConfig, node: GraphNodeConfig): string | undefined {
+  if (node.readOnly) return undefined;
+  const downstreamDrivers = config.nodes.filter((candidate) => (
+    candidate.adapter === "agent-driver" && candidate.dependsOn.includes(node.id)
+  ));
+  if (downstreamDrivers.length === 0) return undefined;
+  const owners = downstreamDrivers.map((candidate) => `${candidate.id} (${candidate.driver})`).join(", ");
+  return [
+    `Authoritative host-driver boundary: ${owners} run after this writer and exclusively own their host-side execution and evidence verdicts.`,
+    "Do not invoke or emulate those host drivers, engine licensing helpers, or provider services from the candidate sandbox.",
+    "Run safe local or static checks that are available to this node, but never claim the delegated runtime evidence passed.",
+    "If implementation is complete and only a delegated host check is unavailable here, return complete with that verification explicitly pending; do not return blocked or fail for the sandbox limitation. The downstream driver must fail closed if the candidate is invalid."
   ].join(" ");
 }
 
@@ -2934,6 +2950,12 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
         ...(reason.source ? { source: reason.source } : {}),
         ...(reason.repairAttempt !== undefined ? { repairAttempt: reason.repairAttempt } : {})
       };
+      const hostDriverBoundary = delegatedHostDriverInstruction(config, state.config);
+      const instructionLayers = [
+        state.config.instructions ?? INSTRUCTIONS[state.config.role],
+        hostDriverBoundary,
+        authorityOutputInstruction(config, state.config)
+      ].filter((layer): layer is string => typeof layer === "string" && layer.length > 0);
       const run = await invokeContributor(state.config, state.config.role, state.config.readOnly, request, [
         ...graphInputs(state.config, states, config.handoffCharacters, config.maximumHandoffArtifacts),
         ...extraInputs,
@@ -2943,10 +2965,9 @@ async function runGraph(config: GraphAgentTeamConfig, request: AgentRequest): Pr
         nodeId: state.config.id,
         attempt,
         instructions: state.config.advisor ? [
-          state.config.instructions ?? INSTRUCTIONS[state.config.role],
-          authorityOutputInstruction(config, state.config),
+          ...instructionLayers,
           `A bounded advisor escalation is available. If you cannot produce a sufficiently supported result, return one of these escalation outcomes: ${state.config.advisor.outcomes.join(", ")}. Preserve your partial findings, evidence, assumptions, and exact remaining gap for the advisor. Use escalation only for a material capability or uncertainty gap, not ordinary difficulty.`
-        ].join("\n\n") : [state.config.instructions ?? INSTRUCTIONS[state.config.role], authorityOutputInstruction(config, state.config)].join("\n\n"),
+        ].join("\n\n") : instructionLayers.join("\n\n"),
         context: [...(state.config.inheritContext ? config.context : []), ...state.config.context],
         historyLimit: config.historyLimit,
         reason: invocationReason,
