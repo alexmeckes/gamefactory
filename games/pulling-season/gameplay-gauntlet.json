@@ -328,6 +328,6 @@
   "budget": {
     "maximumExperiments": 2,
     "maximumConsecutiveCrashes": 2,
-    "wallTimeMinutes": 210
+    "wallTimeMinutes": 360
   }
 }
