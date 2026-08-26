@@ -4,7 +4,7 @@ import { open, mkdir, readFile, stat, unlink } from "node:fs/promises";
 import { hostname, tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { promisify } from "node:util";
-import type { Campaign, CampaignResult, EngineDriver, FactoryConfig, FactoryRuntimeContext, Logger, Workflow } from "./types.js";
+import type { AgentDriver, Campaign, CampaignResult, EngineDriver, FactoryConfig, FactoryRuntimeContext, Logger, Workflow } from "./types.js";
 import type { FactoryTraceEvent } from "./trace.js";
 import { BudgetController } from "./budget.js";
 import { CapabilityRegistry } from "./registry.js";
@@ -170,6 +170,11 @@ export class FactoryRunner {
     for (const engine of this.registry.getAll<EngineDriver>("engine")) {
       const result = await engine.doctor({ campaign, projectRoot: campaign.projectRoot, signal: this.options.signal ?? new AbortController().signal });
       for (const item of result.checks) checks.push({ capability: `engine:${engine.id}/${item.name}`, ok: item.ok, message: item.message });
+    }
+    for (const agent of this.registry.getAll<AgentDriver>("agent")) {
+      if (!agent.doctor) continue;
+      const result = await agent.doctor({ campaign, projectRoot: campaign.projectRoot, signal: this.options.signal ?? new AbortController().signal });
+      for (const item of result.checks) checks.push({ capability: `agent:${agent.id}/${item.name}`, ok: item.ok, message: item.message });
     }
     return checks;
   }

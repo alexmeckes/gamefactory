@@ -15,6 +15,8 @@ import type {
   FactoryTraceEventInput,
   InvocationUsage,
   JournalJsonValue,
+  DoctorResult,
+  ProjectContext,
   PromptLayer,
   UsageBillingMode
 } from "@gamefactory/core";
@@ -3386,6 +3388,15 @@ export class AgentTeam implements AgentDriver {
   readonly id = "agent.team";
 
   constructor(private readonly resolveAgent?: (id: string) => AgentDriver) {}
+
+  doctor(context: ProjectContext): DoctorResult {
+    try {
+      validateAgentTeamConfiguration(context.campaign);
+      return { ok: true, checks: [{ name: "graph-config", ok: true, message: "Agent-team graph configuration is valid." }] };
+    } catch (error) {
+      return { ok: false, checks: [{ name: "graph-config", ok: false, message: error instanceof Error ? error.message : String(error) }] };
+    }
+  }
 
   async finalize(request: AgentRequest & { result: AgentResult; evaluations: import("@gamefactory/core").Evaluation[]; accepted: boolean; reason: string }): Promise<void> {
     const config = readConfig(request);

@@ -632,6 +632,17 @@ test("advisory nodes must be read-only proposal authorities without repair owner
   ])), /advisory node reviewer cannot own a repair edge/);
 });
 
+test("agent-team doctor rejects write contracts that overlap immutable campaign paths before candidate execution", () => {
+  const configured = graphCampaign(".", [
+    graphCommand("evidence-driver", { adapter: "agent-driver", driver: "fixture.evidence", role: "worker", permissions: "read", writePaths: ["evidence/**"] })
+  ]);
+  configured.mutablePaths = ["evidence/**"];
+  configured.immutablePaths = ["evidence/protected-context.md"];
+  const result = new AgentTeam().doctor({ campaign: configured, projectRoot: ".", signal: new AbortController().signal });
+  assert.equal(result.ok, false);
+  assert.match(result.checks[0]?.message ?? "", /writePaths overlap campaign immutablePaths/);
+});
+
 test("explicit reviewer authority rejects unknown claims in nested blocker findings", async () => {
   const root = await repository();
   try {

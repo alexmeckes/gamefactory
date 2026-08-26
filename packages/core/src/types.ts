@@ -205,6 +205,8 @@ export interface AgentDriver {
   id: string;
   /** Candidate-relative paths the driver may generate as a factory-owned side effect. */
   readonly writePaths?: readonly string[];
+  /** Validates campaign-specific agent configuration before any candidate is created. */
+  doctor?(context: ProjectContext): Promise<DoctorResult> | DoctorResult;
   run(request: AgentRequest): Promise<AgentResult>;
   /**
    * Finalizes durable work only after the enclosing workflow has made its
