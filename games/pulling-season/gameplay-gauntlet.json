@@ -1,7 +1,7 @@
 {
   "apiVersion": "gamefactory.dev/v1",
-  "id": "pulling-season-gameplay-gauntlet-v8",
-  "objective": "Pivot from the rejected prompt-driven strap harness while preserving its proven Unity input and causal substrate. Produce two genuinely different, coherent 60-to-90-second harvest candidates with distinct action grammars: one based on direct two-hand crop-and-soil manipulation and one based on embodied leverage or bracing. Each must expose a readable timing wager, continuous correction, persistent intact-or-damaged consequence, and an in-world next harvest-plan decision. Trusted automation must prove the immutable shipping-input boundaries and visible consequences without pretending its accelerated 4-to-7-second traces are a human first-minute playtest; human approval remains mandatory before production.",
+  "id": "pulling-season-gameplay-gauntlet-v9",
+  "objective": "Repair the retained Brace and Rock v8 candidate without adding a new mechanic or restarting its proven substrate. Preserve the grow-now versus grow-later wager, embodied two-hand extraction, intact-versus-bruised persistence, recovery counterfactual, and conditioned next-plan objects. Make the shipping camera visibly connect stance, hands, force line, crop socket, lateral slip, unload or replant, changed response, breakthrough, controlled landing, and continuation; replace the opening key wall with contextual teaching. Keep grip or an explicit applied tether spatially authoritative through late breakthrough, and let early movement exceed the immutable displacement threshold through natural staging rather than threshold padding. Recapture trusted 3/3 Unity evidence after every mutation. Automation may prove causality only; human comprehension, feel, retry desire, and fun remain mandatory approval questions.",
   "projectRoot": ".",
   "workflow": "tournament",
   "requires": [
@@ -33,8 +33,13 @@
     ".factory/**"
   ],
   "parameters": {
+    "git": {
+      "seedCommit": "2f860c49c43a5aa135d21837a036353392dc7e42"
+    },
     "resume": {
       "projectRevisionCarryForwardPaths": [
+        "extensions/git/src/git.test.ts",
+        "extensions/git/src/index.ts",
         "extensions/agent-team/README.md",
         "extensions/agent-team/src/agent-team.test.ts",
         "extensions/agent-team/src/index.ts",
@@ -45,6 +50,7 @@
         "packages/core/src/types.ts",
         "games/pulling-season/evidence/gameplay-gauntlet-v5-recovery.md",
         "games/pulling-season/evidence/gameplay-gauntlet-v7-pivot.md",
+        "games/pulling-season/evidence/gameplay-gauntlet-v8-retained-repair.md",
         "games/pulling-season/gamefactory.project.json",
         "games/pulling-season/gameplay-gauntlet.json",
         "games/pulling-season/production-gauntlet.json",
@@ -55,7 +61,7 @@
       "workspace": "git.worktree",
       "agents": ["agent.team"],
       "evaluators": [{"id": "unity.scenario", "cost": 10}],
-      "candidateCount": 2,
+      "candidateCount": 1,
       "concurrency": 1,
       "director": {
         "agent": "agent.team",
@@ -68,7 +74,8 @@
           {"path": "game-spec.json", "kind": "other", "mediaType": "application/json", "label": "Frozen product contract"},
           {"path": "evidence/gameplay-gauntlet-baseline.md", "kind": "other", "mediaType": "text/markdown", "label": "Rejected prototype lessons"},
           {"path": "evidence/gameplay-gauntlet-v5-recovery.md", "kind": "other", "mediaType": "text/markdown", "label": "Retained v5 candidate evidence and repair priorities"},
-          {"path": "evidence/gameplay-gauntlet-v7-pivot.md", "kind": "other", "mediaType": "text/markdown", "label": "Round-one failure classification and v8 pivot contract"}
+          {"path": "evidence/gameplay-gauntlet-v7-pivot.md", "kind": "other", "mediaType": "text/markdown", "label": "Round-one failure classification and v8 pivot contract"},
+          {"path": "evidence/gameplay-gauntlet-v8-retained-repair.md", "kind": "other", "mediaType": "text/markdown", "label": "Retained v8 candidate and exact v9 repair brief"}
         ]
       }
     },
@@ -85,11 +92,12 @@
         "reuseCheckpoints": true,
         "maximumConcurrency": 4,
         "maximumTotalAttempts": 36,
-        "maximumRepairAttempts": 3,
+        "maximumRepairAttempts": 1,
         "context": [
           {"path": "game-spec.json", "kind": "other", "mediaType": "application/json", "label": "Frozen GameSpec revision 2"},
           {"path": "evidence/gameplay-gauntlet-v5-recovery.md", "kind": "other", "mediaType": "text/markdown", "label": "Retained v5 candidate evidence and repair priorities"},
           {"path": "evidence/gameplay-gauntlet-v7-pivot.md", "kind": "other", "mediaType": "text/markdown", "label": "Rejected v7 evidence and evaluator correction"},
+          {"path": "evidence/gameplay-gauntlet-v8-retained-repair.md", "kind": "other", "mediaType": "text/markdown", "label": "Retained v8 candidate and exact v9 repair brief"},
           {"path": "Assets/Scripts/FirstPersonPullController.cs", "kind": "other", "mediaType": "text/plain", "label": "Current shipping-input implementation"},
           {"path": "Assets/Scripts/HarvestCrop.cs", "kind": "other", "mediaType": "text/plain", "label": "Current harvest state and physics implementation"}
         ],
@@ -106,7 +114,7 @@
             "reasoningEffort": "xhigh",
             "inheritContext": true,
             "maximumAttempts": 1,
-            "instructions": "Define one opinionated harvest-gameplay hypothesis for this tournament candidate. Round v7 invalidated both variants of the prompt-driven strap harness, so do not propose another rope, strap, seam-route, anchor-routing, prompt-chain, or radial progress-bar repair. Follow the Campaign Director's assigned hypothesis and preserve the immutable shipping-input boundaries while giving this candidate a genuinely distinct action grammar: direct two-hand crop-and-soil manipulation or embodied leverage/bracing. It must create a prediction, a physical commitment, continuous correction, a legible persistent consequence, and an immediately tempting next harvest-plan decision within a human 60-to-90-second encounter. State what the player notices, decides, does with their body and camera, learns, and wants to try next. Exclude production art and feature-list expansion. Return a compact structured brief with thesis, player verbs, decision, skill curve, failure recovery, falsifiers, and explicit cuts."
+            "instructions": "Direct one bounded repair of the seeded Brace and Rock candidate. Preserve its proven wager, two-hand physical extraction, persistent condition, recovery counterfactual, and next-plan objects. Do not invent a replacement grammar or add another mechanic. Resolve only the v8 blockers: contextual opening teaching, a shipping camera that keeps stance and socket causality readable, natural early displacement above the immutable threshold, and applied spatial authority through breakthrough. Return a compact repair hypothesis, player-visible causal sequence, falsifiers, and explicit cuts."
           },
           {
             "id": "controls-camera-specialist",
@@ -163,7 +171,7 @@
             "inheritContext": false,
             "timeoutSeconds": 1500,
             "dependsOn": ["harvest-game-director", "controls-camera-specialist", "physics-feedback-specialist", "onboarding-depth-specialist"],
-            "instructions": "Synthesize the assigned distinct action grammar into one coherent candidate, resolving contradictions rather than accumulating suggestions. Reject any return to the v7 strap, rope-route, anchor-route, prompt-chain, or monotonic pull-meter grammar. Define one complete human-paced 60-to-90-second player journey, scene staging, familiar shipping controls, state model, timing-and-handling counterfactuals, recovery, persistent result, in-world next decision, sparse UI budget, instrumentation, and exact Unity evidence obligations. Treat the immutable accelerated scenarios as causal regression probes, not as elapsed-time evidence or a human comprehension test. Output a bounded implementation contract, not prose brainstorming."
+            "instructions": "Synthesize one repair contract for the seeded Brace and Rock implementation. Preserve working systems and reject feature expansion. Specify the smallest camera, staging, contextual-teaching, and maintained-contact changes that make stance, socket response, correction, recovery, breakthrough, landing, condition, and the next decision readable in order. Require natural early displacement above 1.0 and an applied grip or explicit tether relationship at both late breakthroughs. Treat the immutable scenarios as causal regression probes, not human-duration evidence."
           },
           {
             "id": "gameplay-integrator",
@@ -177,7 +185,7 @@
             "inheritContext": false,
             "timeoutSeconds": 5400,
             "dependsOn": ["gameplay-slice-planner"],
-            "instructions": "Own the entire Unity candidate revision. Implement the planned human-playable harvest as one coherent game, not a test harness, and replace the rejected prompt-driven strap/rope/anchor-route grammar rather than cosmetically repairing it. Preserve Assets/Scenes/Main.unity and observable paths World/Player, World/Crop, and World/NextCrop. Preserve public observation members required by the immutable v3 scenarios. Those scenarios define stable shipping boundaries: W approaches a crop staged ahead, left mouse grips while held, backward or lateral movement physically pulls, right mouse performs the visibly discoverable one-step wait/grow commitment, and Space acknowledges only after a visible result. The candidate's assigned direct-manipulation or leverage/bracing grammar must remain physically legible under those inputs. The human experience must teach through affordance, hand contact, soil/crop response, and staging rather than explaining the automation sequence. The screen may contain only concise contextual guidance; telemetry stays in evidence. Make timing, correction, extraction, condition, persistent result handling, and two visibly different next-plan affordances causally linked. Run safe static checks available inside the candidate sandbox. Do not launch Unity, Unity Hub, or licensing helpers: the downstream trusted-unity-evidence host driver exclusively owns real import, compiler, Play Mode, and scenario verification. If implementation is complete, report Unity verification as pending that host lane rather than treating sandbox access as a blocker. Do not edit contracts, manifests, bridge code, or evidence producers."
+            "instructions": "Repair the seeded Brace and Rock Unity candidate; do not rewrite it or add another mechanic. Preserve Assets/Scenes/Main.unity, observable paths World/Player, World/Crop, and World/NextCrop, and all public observation members required by immutable v3 scenarios. Make the smallest coherent changes that remove the opening key wall, keep hands plus a stance or horizon reference and the crop socket visible through slip, unload or replant, breakthrough, controlled landing, condition, and continuation, and preserve an applied grip or explicit tether relationship through both late breakthroughs. Let early W movement naturally exceed 1.0 without padding metrics or changing thresholds. Keep existing grow timing, correction, persistent intact-versus-bruised outcomes, recovery, and two next-plan affordances. Run safe static checks only. Do not launch Unity or edit contracts, manifests, bridge code, or evidence producers; trusted host verification follows."
           },
           {
             "id": "trusted-unity-evidence",
@@ -275,7 +283,7 @@
             "repair": {
               "target": "gameplay-integrator",
               "outcomes": ["revise"],
-              "maximumAttempts": 3,
+              "maximumAttempts": 1,
               "allowedPaths": ["Assets/**", "ProjectSettings/**", "design/gameplay/**"],
               "preserve": []
             }
@@ -327,8 +335,8 @@
     "hardGates": ["unity.scenario"]
   },
   "budget": {
-    "maximumExperiments": 4,
+    "maximumExperiments": 1,
     "maximumConsecutiveCrashes": 2,
-    "wallTimeMinutes": 450
+    "wallTimeMinutes": 180
   }
 }

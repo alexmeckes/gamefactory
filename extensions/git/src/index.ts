@@ -92,6 +92,18 @@ function worktreeParent(repositoryRoot: string, campaign: Campaign, runtimeWorkt
   return parent;
 }
 
+function configuredSeedCommit(campaign: Campaign): string | undefined {
+  const parameters = campaign.parameters as Record<string, unknown> | undefined;
+  const git = parameters?.git && typeof parameters.git === "object" && !Array.isArray(parameters.git)
+    ? parameters.git as Record<string, unknown>
+    : undefined;
+  if (git?.seedCommit === undefined) return undefined;
+  if (typeof git.seedCommit !== "string" || !/^[0-9a-f]{40}$/i.test(git.seedCommit)) {
+    throw new Error("parameters.git.seedCommit must be an exact 40-character Git commit hash");
+  }
+  return git.seedCommit.toLowerCase();
+}
+
 function worktreeRoot(repositoryRoot: string, campaign: Campaign, experimentId: string, runtimeWorktreeRoot?: string): { parent: string; root: string } {
   const parent = worktreeParent(repositoryRoot, campaign, runtimeWorktreeRoot);
   const readable = `${campaign.id}-${experimentId}`.replace(/[^a-zA-Z0-9._-]+/g, "-").slice(0, 80);
@@ -249,21 +261,45 @@ export class GitWorktreeWorkspace implements WorkspaceDriver {
   async createCandidate({ campaign, experimentId, signal, runtime }: Parameters<WorkspaceDriver["createCandidate"]>[0]): Promise<Candidate> {
     const repositoryRoot = (await run("git", ["rev-parse", "--show-toplevel"], campaign.projectRoot, signal)).stdout;
     const baseRevision = (await run("git", ["rev-parse", "HEAD"], campaign.projectRoot, signal)).stdout;
+    const seedCommit = configuredSeedCommit(campaign);
     const managed = worktreeRoot(repositoryRoot, campaign, experimentId, runtime?.worktreeRoot);
     const worktree = managed.root;
     const ownerPath = `${worktree}.owner.json`;
+    const projectRelative = relative(repositoryRoot, campaign.projectRoot);
+    const root = resolve(worktree, projectRelative);
+    const candidate: Candidate = {
+      id: experimentId,
+      root,
+      baseRevision,
+      metadata: {
+        isolated: true,
+        provider: this.id,
+        worktreeRoot: worktree,
+        ownerPath,
+        managedParent: managed.parent,
+        repositoryRoot,
+        projectRelative,
+        ...(seedCommit ? { seedCommit } : {})
+      }
+    };
     await mkdir(dirname(worktree), { recursive: true });
     await claimWorktree(ownerPath);
     try {
       await removeWorktreeTransactionally(repositoryRoot, worktree);
       await run("git", ["worktree", "add", "--detach", worktree, baseRevision], repositoryRoot, signal);
+      if (seedCommit) {
+        await run("git", ["cat-file", "-e", `${seedCommit}^{commit}`], repositoryRoot, signal);
+        await run("git", ["cherry-pick", "--no-commit", seedCommit], worktree, signal);
+        const status = (await run("git", ["status", "--porcelain", "--untracked-files=all"], worktree, signal)).stdout;
+        enforcePaths(campaign, candidate, changedFiles(status).filter((path) => !isFactoryArtifact(path)));
+      }
     } catch (error) {
+      await run("git", ["cherry-pick", "--abort"], worktree, new AbortController().signal).catch(() => undefined);
+      await removeWorktreeTransactionally(repositoryRoot, worktree).catch(() => undefined);
       await rm(ownerPath, { force: true });
       throw error;
     }
-    const projectRelative = relative(repositoryRoot, campaign.projectRoot);
-    const root = resolve(worktree, projectRelative);
-    return { id: experimentId, root, baseRevision, metadata: { isolated: true, provider: this.id, worktreeRoot: worktree, ownerPath, managedParent: managed.parent, repositoryRoot, projectRelative } };
+    return candidate;
   }
 
   async acceptCandidate({ campaign, candidate, signal, operationId }: Parameters<WorkspaceDriver["acceptCandidate"]>[0]): Promise<{ revision?: string; candidateRevision?: string; changed?: boolean }> {

@@ -65,7 +65,7 @@
       },
       "attemptPolicy": {
         "executionRetries": 2,
-        "creativeRepairs": 3,
+        "creativeRepairs": 1,
         "specAmendments": 1,
         "advisorEscalations": 1
       },
@@ -119,6 +119,12 @@
         },
         {
           "id": "gameplay-gauntlet-v8",
+          "campaign": "gameplay-gauntlet.json",
+          "config": "factory.json",
+          "status": "superseded"
+        },
+        {
+          "id": "gameplay-gauntlet-v9",
           "campaign": "gameplay-gauntlet.json",
           "config": "factory.json"
         }

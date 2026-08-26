@@ -129,6 +129,69 @@ test("runtime worktree settings are portable and explicit campaign settings take
   }
 });
 
+test("Git workspace can seed a fresh candidate from an isolated retained commit", async () => {
+  const repository = await mkdtemp(resolve(tmpdir(), "gamefactory-git-seed-repo-"));
+  const externalRoot = await mkdtemp(resolve(tmpdir(), "gamefactory-git-seed-worktrees-"));
+  const projectRoot = resolve(repository, "game");
+  const signal = new AbortController().signal;
+  const workspace = new GitWorktreeWorkspace();
+  let candidate: Candidate | undefined;
+  try {
+    await mkdir(projectRoot);
+    await writeFile(resolve(projectRoot, "value.txt"), "base\n", "utf8");
+    await exec("git", ["init", "-q"], { cwd: repository });
+    await exec("git", ["add", "--all"], { cwd: repository });
+    await exec("git", ["-c", "user.name=Test", "-c", "user.email=test@localhost", "commit", "-qm", "initial"], { cwd: repository });
+    const mainBranch = (await exec("git", ["branch", "--show-current"], { cwd: repository })).stdout.trim();
+
+    await exec("git", ["switch", "-qc", "retained"], { cwd: repository });
+    await writeFile(resolve(projectRoot, "value.txt"), "retained\n", "utf8");
+    await exec("git", ["add", "--all"], { cwd: repository });
+    await exec("git", ["-c", "user.name=Test", "-c", "user.email=test@localhost", "commit", "-qm", "retained seed"], { cwd: repository });
+    const seedCommit = (await exec("git", ["rev-parse", "HEAD"], { cwd: repository })).stdout.trim();
+
+    await exec("git", ["switch", "-q", mainBranch], { cwd: repository });
+    await writeFile(resolve(projectRoot, "main.txt"), "current main\n", "utf8");
+    await exec("git", ["add", "--all"], { cwd: repository });
+    await exec("git", ["-c", "user.name=Test", "-c", "user.email=test@localhost", "commit", "-qm", "advance main"], { cwd: repository });
+    const mainRevision = (await exec("git", ["rev-parse", "HEAD"], { cwd: repository })).stdout.trim();
+
+    const campaign: Campaign = {
+      apiVersion: "gamefactory.dev/v1",
+      id: "seeded-worktree-contract",
+      objective: "repair retained value",
+      projectRoot,
+      workflow: "autoresearch",
+      requires: [],
+      mutablePaths: ["value.txt"],
+      acceptance: { primaryMetric: "score", direction: "maximize" },
+      parameters: { git: { worktreeRoot: externalRoot, seedCommit } }
+    };
+    candidate = await workspace.createCandidate({ campaign, experimentId: "seeded", signal });
+    assert.equal(candidate.baseRevision, mainRevision);
+    assert.equal(candidate.metadata.seedCommit, seedCommit);
+    assert.equal((await readFile(resolve(candidate.root, "value.txt"), "utf8")).trim(), "retained");
+    assert.equal((await readFile(resolve(candidate.root, "main.txt"), "utf8")).trim(), "current main");
+    assert.match((await exec("git", ["status", "--short"], { cwd: String(candidate.metadata.worktreeRoot) })).stdout, /value\.txt/);
+  } finally {
+    if (candidate) {
+      const campaign: Campaign = {
+        apiVersion: "gamefactory.dev/v1",
+        id: "seeded-worktree-contract",
+        objective: "cleanup",
+        projectRoot,
+        workflow: "autoresearch",
+        requires: [],
+        acceptance: { primaryMetric: "score", direction: "maximize" },
+        parameters: { git: { worktreeRoot: externalRoot } }
+      };
+      await workspace.discardCandidate({ campaign, candidate, signal }).catch(() => undefined);
+    }
+    await rm(repository, { recursive: true, force: true });
+    await rm(externalRoot, { recursive: true, force: true });
+  }
+});
+
 test("Git acceptance preserves a human-owned in-progress cherry-pick", async () => {
   const repository = await mkdtemp(resolve(tmpdir(), "gamefactory-git-human-cherry-pick-"));
   const projectRoot = resolve(repository, "game");
