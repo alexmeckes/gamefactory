@@ -112,13 +112,19 @@ function containsPath(pattern: string, path: string): boolean {
   return inner === prefix || inner.startsWith(`${prefix}/`);
 }
 
+export function permitsRevisionCarryForward(allowed: readonly string[], expected: string, latestAppliedRevision?: string): boolean {
+  return allowed.length > 0 && (latestAppliedRevision === undefined || latestAppliedRevision === expected);
+}
+
 async function assertCompatibleRevisionCarryForward(campaign: Campaign, expected: string, current: string, latestAppliedRevision?: string): Promise<void> {
   const raw = campaign.parameters?.resume;
   const settings = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : undefined;
   const allowed = Array.isArray(settings?.projectRevisionCarryForwardPaths) && settings.projectRevisionCarryForwardPaths.every((item) => typeof item === "string")
     ? settings.projectRevisionCarryForwardPaths as string[]
     : [];
-  if (!allowed.length || latestAppliedRevision !== expected) throw new Error(`Project revision changed outside the recorded campaign: expected ${expected}, found ${current}.`);
+  if (!permitsRevisionCarryForward(allowed, expected, latestAppliedRevision)) {
+    throw new Error(`Project revision changed outside the recorded campaign: expected ${expected}, found ${current}.`);
+  }
   try {
     await execFileAsync("git", ["-C", campaign.projectRoot, "merge-base", "--is-ancestor", expected, current], { windowsHide: true });
   } catch {

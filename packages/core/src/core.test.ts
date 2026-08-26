@@ -7,7 +7,7 @@ import { BudgetController } from "./budget.js";
 import { decideAcceptance } from "./decision.js";
 import { CapabilityRegistry } from "./registry.js";
 import { JsonlResultStore } from "./results.js";
-import { resolveCampaignRunIdentity } from "./runner.js";
+import { permitsRevisionCarryForward, resolveCampaignRunIdentity } from "./runner.js";
 import type { Campaign, Evaluation, ExperimentRecord, FactoryConfig } from "./types.js";
 
 const evaluation = (score: number): Evaluation => ({
@@ -24,6 +24,29 @@ test("operational revision carry-forward policy does not fork campaign identity"
   const config: FactoryConfig = { apiVersion: "gamefactory.dev/v1", extensions: [] };
   const resumed: Campaign = { ...campaign, parameters: { ...campaign.parameters, resume: { projectRevisionCarryForwardPaths: ["project-policy.json"] } } };
   assert.equal(resolveCampaignRunIdentity(resumed, config).runId, resolveCampaignRunIdentity(campaign, config).runId);
+});
+
+test("budget-only campaign changes remain resumable before a candidate is accepted", () => {
+  const campaign: Campaign = {
+    apiVersion: "gamefactory.dev/v1",
+    id: "budget-resume-fixture",
+    objective: "test",
+    projectRoot: ".",
+    workflow: "fixture",
+    requires: [],
+    parameters: {
+      workspace: "fixture",
+      resume: { projectRevisionCarryForwardPaths: ["campaign.json"] }
+    },
+    acceptance: { primaryMetric: "score", direction: "maximize" },
+    budget: { wallTimeMinutes: 10 }
+  };
+  const config: FactoryConfig = { apiVersion: "gamefactory.dev/v1", extensions: [] };
+  const extended: Campaign = { ...campaign, budget: { wallTimeMinutes: 20 } };
+  assert.equal(resolveCampaignRunIdentity(extended, config).runId, resolveCampaignRunIdentity(campaign, config).runId);
+  assert.equal(permitsRevisionCarryForward(["campaign.json"], "base-revision"), true);
+  assert.equal(permitsRevisionCarryForward([], "base-revision"), false);
+  assert.equal(permitsRevisionCarryForward(["campaign.json"], "base-revision", "different-applied-revision"), false);
 });
 
 test("registry registers and disposes capabilities", () => {
