@@ -108,6 +108,12 @@
         {
           "id": "gameplay-gauntlet-v5",
           "campaign": "gameplay-gauntlet.json",
+          "config": "factory.json",
+          "status": "superseded"
+        },
+        {
+          "id": "gameplay-gauntlet-v6",
+          "campaign": "gameplay-gauntlet.json",
           "config": "factory.json"
         }
       ]

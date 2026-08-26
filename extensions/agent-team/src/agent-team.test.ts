@@ -122,6 +122,15 @@ if (["alpha", "beta", "large-alpha", "large-beta"].includes(request.nodeId)) {
   }));
 } else if (request.nodeId === "positive-advisory") {
   console.log(JSON.stringify({ summary: "no accepted claim is falsified", outcome: "positive", findings: [{ findingClass: "opportunity", issue: "consider a later polish pass" }] }));
+} else if (request.nodeId === "optional-advisory-failure") {
+  console.error("optional specialist returned a malformed structured payload");
+  process.exitCode = 2;
+} else if (request.nodeId === "optional-advisory-consumer") {
+  const advisory = request.inputs.find((input) => input.nodeId === "optional-advisory-failure");
+  assert.equal(advisory.outcome, "failed");
+  assert.match(advisory.summary, /failed/i);
+  await writeFile("writer-a.txt", "continued with explicit optional failure\\n", "utf8");
+  console.log(JSON.stringify({ summary: "continued after optional specialist failure", outcome: "complete" }));
 } else if (request.nodeId === "delegated-builder") {
   assert.match(request.instructions, /Authoritative host-driver boundary/);
   assert.ok(request.instructions.includes("host-evidence (fixture.host-evidence)"));
@@ -570,6 +579,24 @@ test("advisory positive aliases normalize to pass without invalidating downstrea
     const contribution = result.contributors?.find((item) => item.agentId === "positive-advisory");
     assert.equal(contribution?.metadata?.outcome, "pass");
     assert.equal(contribution?.metadata?.reportedOutcome, "positive");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("failed optional advisory remains an attributable handoff without blocking required downstream work", async () => {
+  const root = await repository();
+  try {
+    const result = await new AgentTeam().run({
+      campaign: graphCampaign(root, [
+        graphCommand("optional-advisory-failure", { role: "scout", permissions: "read", authority: "propose", advisory: true, required: false }),
+        graphCommand("optional-advisory-consumer", { role: "implementer", permissions: "write", dependsOn: ["optional-advisory-failure"] })
+      ]),
+      candidate: { id: "candidate", root, metadata: {} }, experimentId: "exp-optional-advisory-failure", history: [], signal: new AbortController().signal
+    });
+    assert.match(result.summary, /continued after optional specialist failure/);
+    assert.equal(await readFile(resolve(root, "writer-a.txt"), "utf8"), "continued with explicit optional failure\n");
+    const metadata = result.metadata as { nodes: Record<string, { status: string; outcome: string }> };
+    assert.equal(metadata.nodes["optional-advisory-failure"]?.status, "failed");
+    assert.equal(metadata.nodes["optional-advisory-consumer"]?.status, "complete");
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 

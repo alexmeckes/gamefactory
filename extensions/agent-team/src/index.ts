@@ -232,6 +232,40 @@ interface ContributorRun {
   artifacts: ArtifactReference[];
 }
 
+function compactFailureFinding(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const finding = value as Record<string, unknown>;
+  const text = typeof finding.issue === "string" ? finding.issue : typeof finding.finding === "string" ? finding.finding : undefined;
+  if (!text) return undefined;
+  return {
+    ...(typeof finding.findingClass === "string" ? { findingClass: finding.findingClass.slice(0, 80) } : {}),
+    ...(typeof finding.classification === "string" ? { classification: finding.classification.slice(0, 80) } : {}),
+    ...(typeof finding.owner === "string" ? { owner: finding.owner.slice(0, 80) } : {}),
+    ...(Array.isArray(finding.claimIds) ? { claimIds: finding.claimIds.filter((item): item is string => typeof item === "string").slice(0, 6).map((item) => item.slice(0, 200)) } : {}),
+    issue: text.slice(0, 1000),
+    ...(Array.isArray(finding.evidence) ? { evidence: finding.evidence.filter((item): item is string => typeof item === "string").slice(0, 6).map((item) => item.slice(0, 500)) } : {})
+  };
+}
+
+function compactFailureFindings(value: unknown): unknown {
+  if (Array.isArray(value)) return value.slice(0, 8).flatMap((item) => compactFailureFinding(item) ?? []);
+  if (!value || typeof value !== "object") return undefined;
+  const groups = value as Record<string, unknown>;
+  return Object.fromEntries(["blockers", "opportunities"].flatMap((key) => {
+    const findings = Array.isArray(groups[key]) ? groups[key].slice(0, 8).flatMap((item) => compactFailureFinding(item) ?? []) : [];
+    return findings.length > 0 ? [[key, findings]] : [];
+  }));
+}
+
+function compactFailureStructuredOutput(value: StructuredNodeOutput): Record<string, unknown> {
+  const findings = compactFailureFindings(value.findings);
+  return {
+    ...(typeof value.summary === "string" ? { summary: value.summary.slice(0, 1500) } : {}),
+    ...(typeof value.outcome === "string" ? { outcome: value.outcome.slice(0, 80) } : {}),
+    ...(findings && (Array.isArray(findings) || Object.keys(findings as Record<string, unknown>).length > 0) ? { findings } : {})
+  };
+}
+
 export class AgentTeamExecutionError extends Error {
   readonly name: string = "AgentTeamExecutionError";
 
@@ -244,7 +278,12 @@ export class AgentTeamExecutionError extends Error {
   }
 
   get provenance(): Record<string, unknown> {
-    return { contributors: this.runs.map((run) => run.provenance) };
+    return {
+      contributors: this.runs.map((run) => ({
+        ...run.provenance,
+        ...(run.structured ? { structured: compactFailureStructuredOutput(run.structured) } : {})
+      }))
+    };
   }
 }
 
@@ -2599,6 +2638,7 @@ function dependencyAllows(node: GraphNodeConfig, states: Map<string, GraphNodeSt
   return node.dependsOn.every((dependency) => {
     if (conditioned.has(dependency)) return true;
     const state = states.get(dependency)!;
+    if (state.config.advisory && !state.config.required && terminal(state.status)) return true;
     return state.status === "complete" && (state.config.advisory || !REJECTING_CONTROL_OUTCOMES.has(state.outcome.toLowerCase()));
   });
 }

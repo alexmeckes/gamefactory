@@ -372,7 +372,26 @@ test("Sol campaign director frames distinct candidates and synthesizes evidence 
     async run(request) {
       candidateObjectives.push(request.campaign.objective);
       request.candidate.metadata.score = request.experimentId.endsWith("c002") ? 2 : 1;
-      return { summary: "candidate complete" };
+      const issue = request.experimentId.endsWith("c001") ? "root tension cue is invisible" : "second candidate preserves visible correction";
+      if (request.experimentId.endsWith("c001")) {
+        throw Object.assign(new Error("candidate invalidated after critic review"), {
+          artifacts: [],
+          provenance: { contributors: [{ contributorId: "gameplay-critic", stage: "critic", status: "complete", summary: issue, outcome: "revise", structured: { outcome: "revise", findings: [{ findingClass: "blocker", claimIds: ["loop.core"], issue, evidence: ["frame-12"] }] } }] }
+        });
+      }
+      return {
+        summary: "candidate complete",
+        contributors: [{
+          agentId: "gameplay-critic",
+          role: "critic",
+          status: "complete",
+          startedAt: new Date().toISOString(),
+          finishedAt: new Date().toISOString(),
+          summary: issue,
+          artifacts: [],
+          metadata: { structured: { outcome: request.experimentId.endsWith("c001") ? "revise" : "pass", findings: [{ findingClass: "blocker", claimIds: ["loop.core"], issue, evidence: ["frame-12"] }] } }
+        }]
+      };
     }
   };
   const directorAgent: AgentDriver = {
@@ -424,7 +443,8 @@ test("Sol campaign director frames distinct candidates and synthesizes evidence 
     assert.match(candidateObjectives[0] ?? "", /Tactile clarity[\s\S]*legible manipulation/);
     assert.match(candidateObjectives[1] ?? "", /Topological surprise[\s\S]*surprising knot machine/);
     assert.match(directorInstructions[1] ?? "", /deterministicRanking/);
-    assert.deepEqual(records.filter((record) => record.status !== "baseline").map((record) => record.status), ["discard", "keep"]);
+    assert.match(directorInstructions[1] ?? "", /root tension cue is invisible/);
+    assert.deepEqual(records.filter((record) => record.status !== "baseline").map((record) => record.status), ["crash", "keep"]);
     const tournamentMetadata = records.find((record) => record.status === "keep")?.metadata?.tournament as { directorFraming?: { actualModel?: string }; directorSynthesis?: { outcome?: string; recommendation?: string } };
     assert.equal(tournamentMetadata.directorFraming?.actualModel, "gpt-5.6-sol");
     assert.equal(tournamentMetadata.directorSynthesis?.outcome, "deepen");

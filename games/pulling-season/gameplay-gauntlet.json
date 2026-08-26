@@ -1,6 +1,6 @@
 {
   "apiVersion": "gamefactory.dev/v1",
-  "id": "pulling-season-gameplay-gauntlet-v5",
+  "id": "pulling-season-gameplay-gauntlet-v6",
   "objective": "Replace the technically causal Pulling Season harness with a human-testable 60-to-90-second harvest encounter. Produce two genuinely different, coherent gameplay candidates; select the stronger one from trusted Unity evidence and harsh domain reviews; and stop for human play approval before production art. Automation may prove causality, determinism, and regression safety, but it must never claim that controls make sense or that the game is fun.",
   "projectRoot": ".",
   "workflow": "tournament",
@@ -25,6 +25,8 @@
     "game-spec.json",
     "gamefactory.project.json",
     "contracts/**",
+    "evidence/gameplay-gauntlet-baseline.md",
+    "evidence/gameplay-gauntlet-v5-recovery.md",
     "Packages/manifest.json",
     "factory.json",
     "*-campaign.json",
@@ -38,6 +40,9 @@
         "extensions/agent-team/README.md",
         "extensions/agent-team/src/agent-team.test.ts",
         "extensions/agent-team/src/index.ts",
+        "extensions/tournament/src/index.ts",
+        "extensions/tournament/src/integration.test.ts",
+        "games/pulling-season/evidence/gameplay-gauntlet-v5-recovery.md",
         "games/pulling-season/gamefactory.project.json",
         "games/pulling-season/gameplay-gauntlet.json",
         "games/pulling-season/production-gauntlet.json",
@@ -59,7 +64,8 @@
         "maxOutputCharacters": 24000,
         "context": [
           {"path": "game-spec.json", "kind": "other", "mediaType": "application/json", "label": "Frozen product contract"},
-          {"path": "evidence/gameplay-gauntlet-baseline.md", "kind": "other", "mediaType": "text/markdown", "label": "Rejected prototype lessons"}
+          {"path": "evidence/gameplay-gauntlet-baseline.md", "kind": "other", "mediaType": "text/markdown", "label": "Rejected prototype lessons"},
+          {"path": "evidence/gameplay-gauntlet-v5-recovery.md", "kind": "other", "mediaType": "text/markdown", "label": "Retained v5 candidate evidence and repair priorities"}
         ]
       }
     },
@@ -75,10 +81,11 @@
         "enforceWriteContracts": true,
         "reuseCheckpoints": true,
         "maximumConcurrency": 4,
-        "maximumTotalAttempts": 28,
+        "maximumTotalAttempts": 36,
         "maximumRepairAttempts": 2,
         "context": [
           {"path": "game-spec.json", "kind": "other", "mediaType": "application/json", "label": "Frozen GameSpec revision 2"},
+          {"path": "evidence/gameplay-gauntlet-v5-recovery.md", "kind": "other", "mediaType": "text/markdown", "label": "Retained v5 candidate evidence and repair priorities"},
           {"path": "Assets/Scripts/FirstPersonPullController.cs", "kind": "other", "mediaType": "text/plain", "label": "Current shipping-input implementation"},
           {"path": "Assets/Scripts/HarvestCrop.cs", "kind": "other", "mediaType": "text/plain", "label": "Current harvest state and physics implementation"}
         ],
@@ -104,10 +111,11 @@
             "permissions": "read",
             "authority": "propose",
             "advisory": true,
+            "required": false,
             "model": "gpt-5.6-luna",
             "reasoningEffort": "high",
             "inheritContext": true,
-            "maximumAttempts": 1,
+            "maximumAttempts": 2,
             "instructions": "Design a first-time-comprehensible first-person control and camera language for physically harvesting one crop. Prefer familiar continuous controls, contextual affordance, visible hand/crop contact, forgiving reacquisition, and no automation-shaped key choreography. Explain how a player discovers early-versus-late commitment in the world. Return control mapping, camera behavior, onboarding beats, failure recovery, and five human playtest questions."
           },
           {
@@ -118,10 +126,11 @@
             "permissions": "read",
             "authority": "propose",
             "advisory": true,
+            "required": false,
             "model": "gpt-5.6-sol",
             "reasoningEffort": "high",
             "inheritContext": true,
-            "maximumAttempts": 1,
+            "maximumAttempts": 2,
             "instructions": "Design the smallest physically expressive pull model that supports continuous correction rather than a progress bar in disguise. Tie camera, hands, crop bend, soil deformation, audio, particles, resistance, slip, damage, extraction, and post-extraction handling to player-caused state. Identify counterfactual tests that distinguish correct pulling, lateral mishandling, passive waiting, and decoy animation."
           },
           {
@@ -131,10 +140,11 @@
             "permissions": "read",
             "authority": "propose",
             "advisory": true,
+            "required": false,
             "model": "gpt-5.6-luna",
             "reasoningEffort": "high",
             "inheritContext": true,
-            "maximumAttempts": 1,
+            "maximumAttempts": 2,
             "instructions": "Attack the candidate as a first-time player and as a systems designer. Find how the opening can teach through staging and response rather than text, and how one crop can contain at least two meaningful counterfactual plans. Reject a scripted key demo, binary context prompt, invisible meter, automatic outcome, or cosmetic next-crop reveal. Return likely confusion points, degeneracies, required in-world cues, and the minimum continuation that demonstrates learning."
           },
           {
@@ -279,7 +289,7 @@
       "minimumScore": 68,
       "failureSeverities": ["blocker"],
       "requireEmbodiedTrace": true,
-      "maximumReviews": 2,
+      "maximumReviews": 4,
       "contractPaths": ["game-spec.json"]
     },
     "unity": {

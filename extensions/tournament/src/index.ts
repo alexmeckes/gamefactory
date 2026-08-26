@@ -178,6 +178,44 @@ function shortList(value: unknown, maximumItems = 12): string[] {
     : [];
 }
 
+function compactContributorEvidence(result: AgentResult | undefined): unknown[] {
+  const failure = asObject(asObject(result?.metadata).failure);
+  const contributors: unknown[] = (result?.contributors?.length ?? 0) > 0
+    ? result!.contributors!
+    : Array.isArray(failure.contributors)
+      ? failure.contributors
+      : [];
+  return contributors.slice(-16).map((rawContributor) => {
+    const contributor = asObject(rawContributor);
+    const metadata = asObject(contributor.metadata);
+    const structured = Object.keys(asObject(contributor.structured)).length > 0 ? asObject(contributor.structured) : asObject(metadata.structured);
+    const flatFindings = Array.isArray(structured.findings)
+      ? structured.findings
+      : Object.values(asObject(structured.findings)).flatMap((value) => Array.isArray(value) ? value : []);
+    const findings = flatFindings
+      .slice(0, 4)
+      .flatMap((raw) => {
+        const finding = asObject(raw);
+        const issue = shortText(finding.issue, shortText(finding.finding), 600);
+        if (!issue) return [];
+        return [{
+          findingClass: shortText(finding.findingClass, shortText(finding.classification), 80),
+          claimIds: shortList(finding.claimIds, 6),
+          issue,
+          evidence: shortList(finding.evidence, 3)
+        }];
+      });
+    return {
+      agentId: shortText(contributor.agentId, shortText(contributor.contributorId), 200),
+      role: shortText(contributor.role, shortText(contributor.stage), 80),
+      status: shortText(contributor.status, "unknown", 80),
+      summary: shortText(contributor.summary, "", 500),
+      outcome: shortText(structured.outcome, shortText(metadata.outcome, shortText(contributor.outcome)), 80),
+      ...(findings.length > 0 ? { findings } : {})
+    };
+  });
+}
+
 function directorBrief(result: AgentResult, config: TournamentDirectorParameters, phase: DirectorBrief["phase"], round: number): DirectorBrief {
   const contribution = [...(result.contributors ?? [])].reverse().find((item) => item.status === "complete");
   const contributionMetadata = asObject(contribution?.metadata);
@@ -267,7 +305,7 @@ async function runDirector(input: {
   const rootNode = `experiment:${experimentId}`;
   const previous = previousDirectorSynthesis(history);
   const recentHistory = history.slice(-16).map((record) => ({ id: record.experimentId, status: record.status, summary: record.summary, metrics: record.metrics }));
-  const roundEvidence = (input.runs ?? []).map((run) => ({ experimentId: run.experimentId, slot: run.slot, agentSummary: run.agentResult?.summary ?? "", error: run.error, evaluations: run.evaluations.map((evaluation) => ({ evaluator: evaluation.evaluator, status: evaluation.status, metrics: evaluation.metrics, summary: evaluation.summary, violations: evaluation.violations.map((item) => item.message) })) }));
+  const roundEvidence = (input.runs ?? []).map((run) => ({ experimentId: run.experimentId, slot: run.slot, agentSummary: run.agentResult?.summary ?? "", error: run.error, failureClass: run.failureClass, contributors: compactContributorEvidence(run.agentResult), evaluations: run.evaluations.map((evaluation) => ({ evaluator: evaluation.evaluator, status: evaluation.status, metrics: evaluation.metrics, summary: evaluation.summary, violations: evaluation.violations.map((item) => item.message) })) }));
   const ranked = (input.ranked ?? []).map((item, index) => ({ rank: index + 1, experimentId: item.run.experimentId, slot: item.run.slot, primaryMetric: item.value, decision: item.decision.reason }));
   const evidence = JSON.stringify({ originalObjective: context.campaign.objective, round, roundSize, baseline: flattenMetrics(input.baseline), recentHistory, previousSynthesis: previous, roundEvidence, deterministicRanking: ranked }, null, 2).slice(0, 60_000);
   const framingInstructions = `Act as the read-only Sol Campaign Director across candidate teams and rounds. Frame ${roundSize} genuinely contrasting, bounded candidate hypotheses for round ${round}. Use prior results and the baseline, but do not optimize the visible metric blindly. Decide where specialists or optional capabilities may be useful without forcing them. You advise; the deterministic tournament alone owns budgets, evaluation, acceptance, cleanup, and recovery. Return JSON only with summary, outcome (ready or needs_advisor), and hypotheses: an array of exactly ${roundSize} objects containing slot, title, hypothesis, assumptions, successSignals, and avoid. A candidate assignment must preserve creative latitude rather than prescribe an implementation. Evidence:\n${evidence}`;
