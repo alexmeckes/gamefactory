@@ -85,7 +85,7 @@
         "reuseCheckpoints": true,
         "maximumConcurrency": 4,
         "maximumTotalAttempts": 36,
-        "maximumRepairAttempts": 2,
+        "maximumRepairAttempts": 3,
         "context": [
           {"path": "game-spec.json", "kind": "other", "mediaType": "application/json", "label": "Frozen GameSpec revision 2"},
           {"path": "evidence/gameplay-gauntlet-v5-recovery.md", "kind": "other", "mediaType": "text/markdown", "label": "Retained v5 candidate evidence and repair priorities"},
@@ -275,7 +275,7 @@
             "repair": {
               "target": "gameplay-integrator",
               "outcomes": ["revise"],
-              "maximumAttempts": 2,
+              "maximumAttempts": 3,
               "allowedPaths": ["Assets/**", "ProjectSettings/**", "design/gameplay/**"],
               "preserve": []
             }
@@ -327,8 +327,8 @@
     "hardGates": ["unity.scenario"]
   },
   "budget": {
-    "maximumExperiments": 3,
+    "maximumExperiments": 4,
     "maximumConsecutiveCrashes": 2,
-    "wallTimeMinutes": 360
+    "wallTimeMinutes": 450
   }
 }
