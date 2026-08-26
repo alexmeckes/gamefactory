@@ -151,6 +151,32 @@ function nextRound(experiments: ExperimentRecord[]): number {
   return maximum + 1;
 }
 
+function retainedRound(item: { record?: ExperimentRecord; reserved: Record<string, unknown> }): number | undefined {
+  const tournament = asObject(item.record?.metadata?.tournament);
+  const value = typeof tournament.round === "number" ? tournament.round : item.reserved.round;
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : undefined;
+}
+
+function retainedSlot(item: { record?: ExperimentRecord; reserved: Record<string, unknown> }): number | undefined {
+  const tournament = asObject(item.record?.metadata?.tournament);
+  const value = typeof tournament.slot === "number" ? tournament.slot : item.reserved.slot;
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : undefined;
+}
+
+function retainedDirectorFraming(
+  candidates: Array<{ record?: ExperimentRecord; reserved: Record<string, unknown> }>,
+  round: number
+): DirectorBrief | undefined {
+  for (const item of candidates) {
+    const tournament = asObject(item.record?.metadata?.tournament);
+    const value = asObject(tournament.directorFraming ?? item.reserved.directorFraming);
+    if (value.phase === "framing" && value.round === round && (value.status === "complete" || value.status === "failed")) {
+      return value as unknown as DirectorBrief;
+    }
+  }
+  return undefined;
+}
+
 function rankCandidates(context: WorkflowContext, baseline: Evaluation[], runs: CandidateRun[]): RankedCandidate[] {
   const primaryMetric = context.campaign.acceptance.primaryMetric;
   const ranked: RankedCandidate[] = [];
@@ -528,31 +554,39 @@ export class TournamentWorkflow implements Workflow {
     }
     let activeBaseline: Evaluation[] = baseline;
 
-    let round = nextRound(experiments);
+    const pendingRounds = recovery.resumableCandidates.flatMap((item) => {
+      const value = retainedRound(item);
+      return value === undefined ? [] : [value];
+    });
+    let round = pendingRounds.length > 0 ? Math.min(...pendingRounds) : nextRound(experiments);
     while (!context.signal.aborted) {
       const resumableBySlot = new Map(recovery.resumableCandidates.flatMap((item) => {
-        const tournament = asObject(item.record?.metadata?.tournament);
-        const itemRound = typeof tournament.round === "number" ? tournament.round : item.reserved.round;
-        const slot = typeof tournament.slot === "number" ? tournament.slot : item.reserved.slot;
-        return itemRound === round && typeof slot === "number" && Number.isSafeInteger(slot) ? [[slot, item] as const] : [];
+        const itemRound = retainedRound(item);
+        const slot = retainedSlot(item);
+        return itemRound === round && slot !== undefined ? [[slot, item] as const] : [];
       }));
       const remaining = context.budget.remainingExperiments();
-      const roundSize = Math.min(config.candidateCount, Math.max(remaining, resumableBySlot.size));
+      const requestedRoundSize = Math.min(config.candidateCount, Math.max(remaining, resumableBySlot.size));
+      const roundSlotSet = new Set(resumableBySlot.keys());
+      for (let slot = 1; roundSlotSet.size < requestedRoundSize && slot <= config.candidateCount; slot += 1) roundSlotSet.add(slot);
+      const roundSlots = [...roundSlotSet].sort((left, right) => left - right);
+      const roundSize = roundSlots.length;
       if (roundSize <= 0) return campaignResult(context, experiments, "budget-exhausted", "maximum experiments reached");
       const allowance = context.budget.canStart(roundSize);
       if (!allowance.allowed) return campaignResult(context, experiments, "budget-exhausted", allowance.reason ?? "Budget exhausted.");
 
       const history = [...experiments];
-      const framing = config.director && directorDriver
-        ? await runDirector({ context, driver: directorDriver, config: config.director, phase: "framing", round, roundSize, history, baseline: activeBaseline })
-        : undefined;
-      const specifications = Array.from({ length: roundSize }, (_, index) => {
-        const slot = index + 1;
+      const framing = resumableBySlot.size > 0
+        ? retainedDirectorFraming([...resumableBySlot.values()], round)
+        : config.director && directorDriver
+          ? await runDirector({ context, driver: directorDriver, config: config.director, phase: "framing", round, roundSize, history, baseline: activeBaseline })
+          : undefined;
+      const specifications = roundSlots.map((slot) => {
         const resume = resumableBySlot.get(slot);
         const retainedAgentId = asObject(resume?.record?.metadata?.tournament).agent;
         const agent = typeof retainedAgentId === "string"
           ? { id: retainedAgentId, driver: context.get<AgentDriver>("agent", retainedAgentId) }
-          : agents[index % agents.length];
+          : agents[(slot - 1) % agents.length];
         if (!agent) throw new Error("Tournament has no agent driver.");
         return {
           experimentId: resume ? `${resume.logicalExperimentId}-attempt-${String(resume.attemptNumber + 1).padStart(4, "0")}` : `tournament-r${String(round).padStart(4, "0")}-c${String(slot).padStart(3, "0")}`,
@@ -581,7 +615,7 @@ export class TournamentWorkflow implements Workflow {
       for (const specification of specifications) {
         if (specification.resume) await journalPhase(context, specification.resume.sourceExperimentId, "cleaned", { resumedAs: specification.experimentId, candidateRetained: true });
         const attemptStartedAt = new Date().toISOString();
-        await journalPhase(context, specification.experimentId, "reserved", { round, slot: specification.slot, startedAt: specification.resume?.startedAt ?? attemptStartedAt, attemptStartedAt, logicalExperimentId: specification.resume?.logicalExperimentId ?? specification.experimentId, attemptNumber: (specification.resume?.attemptNumber ?? 0) + 1 });
+        await journalPhase(context, specification.experimentId, "reserved", { round, slot: specification.slot, startedAt: specification.resume?.startedAt ?? attemptStartedAt, attemptStartedAt, logicalExperimentId: specification.resume?.logicalExperimentId ?? specification.experimentId, attemptNumber: (specification.resume?.attemptNumber ?? 0) + 1, ...(framing ? { directorFraming: framing } : {}) });
         await context.emit({
           type: "experiment:start",
           campaignId: context.campaign.id,
@@ -590,7 +624,7 @@ export class TournamentWorkflow implements Workflow {
         });
       }
 
-      const runs = await mapBounded(specifications, Math.min(config.concurrency, roundSize), async (specification) =>
+      const runs = await mapBounded(specifications, Math.min(config.concurrency, roundSize), async (specification, index) =>
         executeCandidate(
           context,
           workspace,
@@ -601,7 +635,7 @@ export class TournamentWorkflow implements Workflow {
           round,
           specification.slot,
           history,
-          reservations[specification.slot - 1]!,
+          reservations[index]!,
           specification.campaign,
           specification.resume
         ));

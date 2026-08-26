@@ -5,7 +5,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import test from "node:test";
-import { BudgetController, CandidateInvalidatedError, FactoryRunner, MemoryLogger } from "@gamefactory/core";
+import { BudgetController, CandidateInvalidatedError, FactoryRunner, MemoryLogger, WorkflowJournal } from "@gamefactory/core";
 import type { AgentDriver, Campaign, Candidate, Evaluation, Evaluator, ExperimentRecord, FactoryTraceEventInput, WorkflowContext, WorkspaceDriver } from "@gamefactory/core";
 import { TournamentWorkflow } from "./index.js";
 
@@ -289,6 +289,126 @@ test("tournament retains a trusted-review-invalidated candidate as a repair base
     assert.equal(records.at(-1)?.status, "blocked");
     assert.equal(records.at(-1)?.metadata?.failureClass, "validation");
     assert.match(result.summary, /retained as a bounded repair base/);
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("tournament resumes a retained validation candidate in its original round and slot", async () => {
+  const projectRoot = await mkdtemp(resolve(tmpdir(), "gamefactory-tournament-validation-resume-"));
+  const journalStore = new WorkflowJournal(resolve(projectRoot, "journal.jsonl"));
+  const runId = "validation-resume-run";
+  const fingerprints = { campaign: "validation-resume", config: "validation-resume" };
+  const campaignId = "validation-resume-contract";
+  const retained: Candidate = { id: "tournament-r0001-c002", root: resolve(projectRoot, "retained-candidate"), metadata: {} };
+  const framing = {
+    phase: "framing",
+    round: 1,
+    status: "complete",
+    summary: "Preserve the retained plan.",
+    outcome: "complete",
+    configuredModel: "test",
+    configuredReasoningEffort: "low",
+    hypotheses: [{ slot: 2, title: "Retained plan", hypothesis: "Repair the existing candidate.", assumptions: [], successSignals: ["same candidate"], avoid: ["new candidate"] }],
+    learnings: [],
+    artifactCount: 0
+  };
+  const blockedRecord: ExperimentRecord = {
+    campaignId,
+    experimentId: retained.id,
+    startedAt: "2026-08-26T00:00:00.000Z",
+    finishedAt: "2026-08-26T00:01:00.000Z",
+    status: "blocked",
+    candidateId: retained.id,
+    summary: "Trusted review requested repair.",
+    metrics: { score: 0 },
+    evaluations: [],
+    metadata: { failureClass: "validation", tournament: { round: 1, slot: 2, agent: "resume.agent", directorFraming: framing } }
+  };
+  const baseline: ExperimentRecord = {
+    campaignId,
+    experimentId: "baseline",
+    startedAt: "2026-08-25T23:59:00.000Z",
+    finishedAt: "2026-08-25T23:59:30.000Z",
+    status: "baseline",
+    summary: "Measured baseline.",
+    metrics: { score: 0 },
+    evaluations: [{ evaluator: "resume.score", version: "1", status: "pass", metrics: { score: 0 }, violations: [], artifacts: [] }],
+    metadata: { tournament: { baseline: true } }
+  };
+  const append = (phase: "reserved" | "candidate-created" | "blocked", data: unknown) => journalStore.append({
+    runId,
+    campaignId,
+    experimentId: retained.id,
+    phase,
+    idempotencyKey: `${retained.id}:${phase}`,
+    fingerprints,
+    data: JSON.parse(JSON.stringify(data))
+  });
+  const records = [baseline, blockedRecord];
+  const directorPhases: unknown[] = [];
+  let acceptedCandidate: string | undefined;
+  const workspace: WorkspaceDriver = {
+    id: "resume.workspace",
+    async createCandidate() { throw new Error("resume must not create a replacement candidate"); },
+    async acceptCandidate({ candidate }) { acceptedCandidate = candidate.id; return { revision: "accepted-retained" }; },
+    async discardCandidate() { throw new Error("the repaired candidate should win"); }
+  };
+  const agent: AgentDriver = {
+    id: "resume.agent",
+    async run(request) {
+      assert.equal(request.candidate.id, retained.id);
+      assert.equal(request.experimentId, "tournament-r0001-c002-attempt-0002");
+      assert.match(request.campaign.objective, /Retained plan/);
+      request.candidate.metadata.score = 1;
+      return { summary: "Repaired retained candidate." };
+    }
+  };
+  const director: AgentDriver = { id: "resume.director", async run(request) { directorPhases.push(request.candidate.metadata.phase); throw new Error("advisory synthesis unavailable"); } };
+  const evaluator: Evaluator = {
+    id: "resume.score",
+    version: "1",
+    async evaluate(input) { return { evaluator: "resume.score", version: "1", status: "pass", metrics: { score: input.candidate ? Number(input.candidate.metadata.score ?? 0) : 0 }, violations: [], artifacts: [] }; }
+  };
+  const testCampaign: Campaign = {
+    ...campaign(projectRoot),
+    id: campaignId,
+    requires: [],
+    parameters: { tournament: { workspace: workspace.id, agents: [agent.id], evaluators: [evaluator.id], candidateCount: 3, concurrency: 1, director: { agent: director.id, model: "test", reasoningEffort: "low", advisorReasoningEffort: false } } },
+    budget: { maximumExperiments: 2 }
+  };
+  const capabilities = new Map<string, unknown>([[`workspace:${workspace.id}`, workspace], [`agent:${agent.id}`, agent], [`agent:${director.id}`, director], [`evaluator:${evaluator.id}`, evaluator]]);
+  const context: WorkflowContext = {
+    campaign: testCampaign,
+    signal: new AbortController().signal,
+    startedAt: new Date().toISOString(),
+    get: <T>(kind: Parameters<WorkflowContext["get"]>[0], id: string) => capabilities.get(`${kind}:${id}`) as T,
+    getAll: <T>() => [...capabilities.values()] as T[],
+    appendRecord: async (record) => { records.push(record); },
+    readRecords: async () => [...records],
+    preserveArtifacts: async (artifacts) => artifacts,
+    journal: {
+      runId,
+      fingerprints,
+      append: (input) => journalStore.append({ ...input, runId, campaignId, fingerprints }),
+      appendRecovered: (input) => journalStore.append(input),
+      recover: () => journalStore.recover()
+    },
+    emit: async () => undefined,
+    budget: new BudgetController(testCampaign.budget),
+    logger: new MemoryLogger()
+  };
+  try {
+    await append("reserved", { round: 1, slot: 2, startedAt: blockedRecord.startedAt, logicalExperimentId: retained.id, attemptNumber: 1, directorFraming: framing });
+    await append("candidate-created", { candidate: retained });
+    await append("blocked", { record: blockedRecord, candidateRetained: true, resumable: true, failureClass: "validation" });
+    const result = await new TournamentWorkflow().run(context);
+    assert.equal(result.status, "budget-exhausted");
+    assert.deepEqual(directorPhases, ["synthesis"]);
+    assert.equal(acceptedCandidate, retained.id);
+    const repaired = records.find((record) => record.experimentId.endsWith("-attempt-0002"));
+    assert.equal((repaired?.metadata?.tournament as { round?: number; slot?: number } | undefined)?.round, 1);
+    assert.equal((repaired?.metadata?.tournament as { round?: number; slot?: number } | undefined)?.slot, 2);
   } finally {
     await rm(projectRoot, { recursive: true, force: true });
   }
