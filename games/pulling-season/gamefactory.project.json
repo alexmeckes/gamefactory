@@ -114,6 +114,12 @@
         {
           "id": "gameplay-gauntlet-v7",
           "campaign": "gameplay-gauntlet.json",
+          "config": "factory.json",
+          "status": "superseded"
+        },
+        {
+          "id": "gameplay-gauntlet-v8",
+          "campaign": "gameplay-gauntlet.json",
           "config": "factory.json"
         }
       ]
