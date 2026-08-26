@@ -1,6 +1,6 @@
 {
   "apiVersion": "gamefactory.dev/v1",
-  "id": "pulling-season-gameplay-gauntlet-v6",
+  "id": "pulling-season-gameplay-gauntlet-v7",
   "objective": "Replace the technically causal Pulling Season harness with a human-testable 60-to-90-second harvest encounter. Produce two genuinely different, coherent gameplay candidates; select the stronger one from trusted Unity evidence and harsh domain reviews; and stop for human play approval before production art. Automation may prove causality, determinism, and regression safety, but it must never claim that controls make sense or that the game is fun.",
   "projectRoot": ".",
   "workflow": "tournament",

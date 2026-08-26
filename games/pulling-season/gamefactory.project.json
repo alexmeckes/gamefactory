@@ -112,7 +112,7 @@
           "status": "superseded"
         },
         {
-          "id": "gameplay-gauntlet-v6",
+          "id": "gameplay-gauntlet-v7",
           "campaign": "gameplay-gauntlet.json",
           "config": "factory.json"
         }
