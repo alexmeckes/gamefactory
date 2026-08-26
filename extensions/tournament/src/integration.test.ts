@@ -300,6 +300,7 @@ test("tournament resumes a retained validation candidate in its original round a
   const runId = "validation-resume-run";
   const fingerprints = { campaign: "validation-resume", config: "validation-resume" };
   const campaignId = "validation-resume-contract";
+  const older: Candidate = { id: "tournament-r0001-c001", root: resolve(projectRoot, "older-retained-candidate"), metadata: {} };
   const retained: Candidate = { id: "tournament-r0001-c002", root: resolve(projectRoot, "retained-candidate"), metadata: {} };
   const framing = {
     phase: "framing",
@@ -325,6 +326,15 @@ test("tournament resumes a retained validation candidate in its original round a
     evaluations: [],
     metadata: { failureClass: "validation", tournament: { round: 1, slot: 2, agent: "resume.agent", directorFraming: framing } }
   };
+  const olderBlockedRecord: ExperimentRecord = {
+    ...blockedRecord,
+    experimentId: older.id,
+    startedAt: "2026-08-25T23:30:00.000Z",
+    finishedAt: "2026-08-26T00:01:00.000Z",
+    candidateId: older.id,
+    summary: "Older candidate exhausted its repair allowance.",
+    metadata: { failureClass: "validation", tournament: { round: 1, slot: 1, agent: "resume.agent", directorFraming: framing } }
+  };
   const baseline: ExperimentRecord = {
     campaignId,
     experimentId: "baseline",
@@ -336,16 +346,16 @@ test("tournament resumes a retained validation candidate in its original round a
     evaluations: [{ evaluator: "resume.score", version: "1", status: "pass", metrics: { score: 0 }, violations: [], artifacts: [] }],
     metadata: { tournament: { baseline: true } }
   };
-  const append = (phase: "reserved" | "candidate-created" | "blocked", data: unknown) => journalStore.append({
+  const append = (candidate: Candidate, phase: "reserved" | "candidate-created" | "blocked", data: unknown) => journalStore.append({
     runId,
     campaignId,
-    experimentId: retained.id,
+    experimentId: candidate.id,
     phase,
-    idempotencyKey: `${retained.id}:${phase}`,
+    idempotencyKey: `${candidate.id}:${phase}`,
     fingerprints,
     data: JSON.parse(JSON.stringify(data))
   });
-  const records = [baseline, blockedRecord];
+  const records = [baseline, olderBlockedRecord, blockedRecord];
   const directorPhases: unknown[] = [];
   let acceptedCandidate: string | undefined;
   const workspace: WorkspaceDriver = {
@@ -375,7 +385,7 @@ test("tournament resumes a retained validation candidate in its original round a
     id: campaignId,
     requires: [],
     parameters: { tournament: { workspace: workspace.id, agents: [agent.id], evaluators: [evaluator.id], candidateCount: 3, concurrency: 1, director: { agent: director.id, model: "test", reasoningEffort: "low", advisorReasoningEffort: false } } },
-    budget: { maximumExperiments: 2 }
+    budget: { maximumExperiments: 3 }
   };
   const capabilities = new Map<string, unknown>([[`workspace:${workspace.id}`, workspace], [`agent:${agent.id}`, agent], [`agent:${director.id}`, director], [`evaluator:${evaluator.id}`, evaluator]]);
   const context: WorkflowContext = {
@@ -399,9 +409,12 @@ test("tournament resumes a retained validation candidate in its original round a
     logger: new MemoryLogger()
   };
   try {
-    await append("reserved", { round: 1, slot: 2, startedAt: blockedRecord.startedAt, logicalExperimentId: retained.id, attemptNumber: 1, directorFraming: framing });
-    await append("candidate-created", { candidate: retained });
-    await append("blocked", { record: blockedRecord, candidateRetained: true, resumable: true, failureClass: "validation" });
+    await append(older, "reserved", { round: 1, slot: 1, startedAt: olderBlockedRecord.startedAt, logicalExperimentId: older.id, attemptNumber: 1, directorFraming: framing });
+    await append(older, "candidate-created", { candidate: older });
+    await append(older, "blocked", { record: olderBlockedRecord, candidateRetained: true, resumable: true, failureClass: "validation" });
+    await append(retained, "reserved", { round: 1, slot: 2, startedAt: blockedRecord.startedAt, logicalExperimentId: retained.id, attemptNumber: 1, directorFraming: framing });
+    await append(retained, "candidate-created", { candidate: retained });
+    await append(retained, "blocked", { record: blockedRecord, candidateRetained: true, resumable: true, failureClass: "validation" });
     const result = await new TournamentWorkflow().run(context);
     assert.equal(result.status, "budget-exhausted");
     assert.deepEqual(directorPhases, ["synthesis"]);
@@ -409,6 +422,8 @@ test("tournament resumes a retained validation candidate in its original round a
     const repaired = records.find((record) => record.experimentId.endsWith("-attempt-0002"));
     assert.equal((repaired?.metadata?.tournament as { round?: number; slot?: number } | undefined)?.round, 1);
     assert.equal((repaired?.metadata?.tournament as { round?: number; slot?: number } | undefined)?.slot, 2);
+    const olderState = (await journalStore.recover()).experiments.find((item) => item.experimentId === older.id);
+    assert.equal(olderState?.latestPhase, "blocked");
   } finally {
     await rm(projectRoot, { recursive: true, force: true });
   }

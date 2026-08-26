@@ -554,13 +554,16 @@ export class TournamentWorkflow implements Workflow {
     }
     let activeBaseline: Evaluation[] = baseline;
 
-    const pendingRounds = recovery.resumableCandidates.flatMap((item) => {
+    const resumableCandidates = [...recovery.resumableCandidates]
+      .sort((left, right) => Date.parse(right.startedAt) - Date.parse(left.startedAt) || right.logicalExperimentId.localeCompare(left.logicalExperimentId))
+      .slice(0, context.budget.remainingExperiments());
+    const pendingRounds = resumableCandidates.flatMap((item) => {
       const value = retainedRound(item);
       return value === undefined ? [] : [value];
     });
     let round = pendingRounds.length > 0 ? Math.min(...pendingRounds) : nextRound(experiments);
     while (!context.signal.aborted) {
-      const resumableBySlot = new Map(recovery.resumableCandidates.flatMap((item) => {
+      const resumableBySlot = new Map(resumableCandidates.flatMap((item) => {
         const itemRound = retainedRound(item);
         const slot = retainedSlot(item);
         return itemRound === round && slot !== undefined ? [[slot, item] as const] : [];
