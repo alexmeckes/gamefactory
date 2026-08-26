@@ -327,7 +327,7 @@
     "hardGates": ["unity.scenario"]
   },
   "budget": {
-    "maximumExperiments": 2,
+    "maximumExperiments": 3,
     "maximumConsecutiveCrashes": 2,
     "wallTimeMinutes": 360
   }
