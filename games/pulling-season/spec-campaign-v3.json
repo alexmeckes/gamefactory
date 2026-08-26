@@ -24,6 +24,8 @@
   "parameters": {
     "resume": {
       "projectRevisionCarryForwardPaths": [
+        "extensions/git/src/git.test.ts",
+        "extensions/git/src/index.ts",
         "extensions/agent-team/README.md",
         "extensions/agent-team/src/agent-team.test.ts",
         "extensions/agent-team/src/index.ts",
@@ -34,6 +36,7 @@
         "packages/core/src/types.ts",
         "games/pulling-season/evidence/gameplay-gauntlet-v5-recovery.md",
         "games/pulling-season/evidence/gameplay-gauntlet-v7-pivot.md",
+        "games/pulling-season/evidence/gameplay-gauntlet-v8-retained-repair.md",
         "games/pulling-season/gamefactory.project.json",
         "games/pulling-season/gameplay-gauntlet.json",
         "games/pulling-season/production-gauntlet.json",
