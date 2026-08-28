@@ -1,0 +1,96 @@
+{
+  "impactProposal": {
+    "trigger": "Direct user direction after playing the Revision 2 implementation: the build proved one physical pull but did not constitute an actual game.",
+    "evidence": [
+      "The user said the build had nothing beyond pulling a vegetable.",
+      "The user requested multiple growing plots.",
+      "The user specified turnip, beet, and long carrot as three escalating harvests.",
+      "The user specified Q to water, E to loosen, or conserving supplies.",
+      "The user requested meaningful rarity and traits.",
+      "The user reported awkward carrying and excessive explanatory UI.",
+      "The user rejected realistic visual drift in favor of simple low-poly presentation."
+    ],
+    "affectedClaims": ["loop.core", "visual.production-fidelity"],
+    "newClaims": ["loop.plot-allocation", "content.crops-traits", "system.condition-recovery", "system.season-progression", "experience.comprehension"],
+    "affectedSlices": ["first-playable", "complete-shift", "replayable-season", "production-encounter"],
+    "alternativesConsidered": [
+      "Keep Revision 2 frozen and treat every new system as an implementation backlog. Rejected because the canonical contract would continue to define the thin prototype as success.",
+      "Start a separate game concept. Rejected because the physical oversized-crop harvest remains the distinctive promise and the user asked to deepen it.",
+      "Add unrelated crop catalog, crafting, NPC, or open-world breadth. Rejected because these do not solve the missing repeated decision around the pull.",
+      "Amend locally around a three-plot allocation loop. Selected because it preserves the accepted physical mechanic while making order, preparation, condition, recovery, and replay causally connected."
+    ],
+    "recommendation": "Adopt Revision 3 and build the complete-shift slice next while retaining the physical pull, current yard work, condition handling, and selected low-poly target as reusable upstream work."
+  },
+  "coreGame": {
+    "status": "pass",
+    "thesis": "Choose which of three visible crops to resolve, which to let grow, and where to spend scarce preparation; physically preserve that wager through crop-specific extraction; then trade the visible result for money or recovery before the remaining plots advance.",
+    "playerFantasy": "A scrappy produce wrangler who reads a messy yard, forms a plan, and barely turns temperamental oversized crops into a profitable season.",
+    "repeatedDecision": "Resolve one plot now or let it grow, allocate water or loosening or conserve, then choose Market value or Compost recovery after seeing the physical condition.",
+    "information": ["crop family", "growth size", "visible trait", "soil state", "remaining water", "remaining loosening", "other plot states", "market pressure", "carried condition"],
+    "uncertainty": "Exact extraction tolerance remains unknown, but directional risk is readable and the underlying outcome is deterministic for the current state and input.",
+    "causalFeedback": ["crop lift and rotation", "leaf bend", "soil displacement", "tension and correction cue", "visible bruise or break", "stable carried result", "market value", "compost recovery", "other crops visibly growing"],
+    "carriedState": ["remaining supplies", "remaining plot growth", "coins", "compost recovery", "condition history", "upgrade", "shift and season progress"],
+    "nextRoundPull": "Leaving crops behind changes their value and danger immediately; completing a shift buys one decision-changing upgrade and remixes the next soil and trait set.",
+    "firstSession": [
+      "The player starts with three visible plots, two water charges, and two loosening charges.",
+      "The turnip is Common in loose loam, the beet is Fork-Crowned in dry crust, and the long carrot is Seed-Bearing in dense clay.",
+      "The player conserves supplies and pulls the turnip now, correcting left and catching it intact for modest Market value.",
+      "Resolving the turnip visibly grows the beet and carrot; both gain potential value and resistance.",
+      "The player loosens the beet but overcorrects, cracking its root, then chooses Compost to restore one care charge.",
+      "The carrot grows once more, becomes Prize potential and fragile, receives the recovered preparation, and requires staged extraction and a deliberate catch.",
+      "The shift result records all three crops, pays the contract, offers one upgrade, saves, and presents a remixed second shift."
+    ],
+    "examples": [
+      "Watering the dry long carrot early can preserve a high-value late pull but leaves less protection for the beet.",
+      "Selling a damaged beet yields some coins now; composting it forfeits payout but can rescue the remaining carrot plan.",
+      "Taking every crop early protects condition but may miss the contract; leaving every crop late creates resistance the player may be unable to prepare for."
+    ],
+    "counterfactuals": [
+      "If the player harvests the carrot before the easy turnip, the turnip grows into more value but consumes later tolerance that may make a fixed easy-to-hard order suboptimal.",
+      "If the player spends both preparation types on one crop, it should become safer while another visible crop becomes a harder unresolved problem.",
+      "If the player catches cleanly after a rough extraction, they preserve some value; if they drop the same crop, the carried condition worsens and changes delivery value.",
+      "If the player composts an intact crop, they gain recovery but surrender a clearly meaningful payout."
+    ],
+    "nonGoals": ["multiplayer", "open world", "large crop catalog", "crafting tree", "real-time calendar", "automation", "realistic rendering", "copied reference-game content"],
+    "falsifiers": [
+      "The optimal action is to water and loosen every crop.",
+      "The optimal order is fixed across every visible combination.",
+      "Traits and rarity do not change predictions or technique.",
+      "The pull can be solved without spatial correction.",
+      "Damage does not alter a later decision.",
+      "A shift feels like three disconnected versions of the same chore.",
+      "The player has no reason to begin the second shift except accumulating numbers."
+    ],
+    "assumptions": [
+      "Three crops and three shifts provide enough combinatorial variety for a bounded small game.",
+      "Growth-by-resolution is immediately understandable with visible transformation and concise audio.",
+      "Stable carrying preserves consequence without reproducing the reported awkwardness.",
+      "One upgrade between shifts is enough progression to change later decisions without burying the pull."
+    ],
+    "openQuestions": [
+      "Exact crop-specific correction patterns",
+      "Immediate versus next-shift Compost recovery",
+      "Final bounded upgrade list",
+      "Contract and payout tuning",
+      "Strongest deterministic soil and trait combinations"
+    ]
+  },
+  "specReview": {
+    "mode": "amendment",
+    "pass": "pass",
+    "findings": [
+      {"classification": "blocker", "status": "resolved", "finding": "Revision 2 defined one completed pull as the final bounded player outcome despite direct user rejection of that scope."},
+      {"classification": "blocker", "status": "resolved", "finding": "The physical pull had no connected allocation, recovery, run, progression, save, or completion structure."},
+      {"classification": "assumption-risk", "status": "open", "finding": "Three crop families must create enough technique and combination variety across three shifts."},
+      {"classification": "assumption-risk", "status": "open", "finding": "Compost recovery must be tuned so it remains a meaningful alternative without dominating Market."},
+      {"classification": "assumption-risk", "status": "open", "finding": "Growth-by-resolution must read as intentional waiting rather than a surprising state change."}
+    ],
+    "assumptions": ["A first complete shift fits roughly eight to fifteen minutes", "Two water and two loosening charges are a useful tuning baseline", "Four to six upgrades are sufficient"],
+    "opportunities": ["Additional crops after acceptance", "Weather after acceptance", "Cooperative extraction after acceptance", "More yard layouts after acceptance"],
+    "evidenceRefs": ["direct-user-play-feedback", "direct-user-three-crop-direction", "direct-user-multiple-plots", "direct-user-rarity-traits", "direct-user-lowpoly-correction", "revision-2-spec", "simple-lowpoly-v3-target"],
+    "affectedClaims": ["loop.core", "loop.plot-allocation", "content.crops-traits", "system.condition-recovery", "system.season-progression", "experience.comprehension", "visual.production-fidelity"],
+    "affectedSlices": ["first-playable", "complete-shift", "replayable-season", "production-encounter"],
+    "reusableSlices": ["physical extraction causality", "crop condition persistence", "three-plot yard layout", "Market and Compost destinations", "simple-lowpoly-v3 visual target", "trusted interaction scenarios as regression checks"],
+    "nextSlice": "complete-shift"
+  }
+}

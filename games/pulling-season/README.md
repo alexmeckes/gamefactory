@@ -1,14 +1,14 @@
 # Pulling Season
 
-Pulling Season is a Unity 6 GameFactory project for building one deep, physical oversized-crop harvest through a gameplay Gauntlet and then an authored production Gauntlet.
+Pulling Season is a Unity 6 first-person physics gardening comedy about managing three plots of oversized, temperamental produce through a three-shift season.
 
-## Current slice
+## Current product contract
 
-The first slice remains deliberately limited to one field and one crop, but it is no longer accepted merely because automation can complete it. Two coherent gameplay candidates are developed in isolated worktrees. Each candidate uses parallel specialists for game direction, controls, physical feedback, and onboarding; one protected integrator owns its Unity revision; trusted evidence captures it; independent critics attack causality, first-minute clarity, and gameplay depth; and one judge issues a bounded repair brief. The selected candidate then stops for direct human play approval.
+Revision 3 preserves the embodied crop pull and adds the actual small game around it: three simultaneous turnip, beet, and long-carrot plots; limited water and loosening; growth driven by harvest order; visible traits and earned quality; stable carrying; Market versus Compost recovery; three escalating shifts; bounded upgrades; save/resume; completion; and replay.
 
-The second slice begins only after that human approval. It approves a whole-screen target before asset work, fans out environment, crop, motion/audio, and interface direction, integrates through one protected Unity owner, and runs fresh gameplay regression plus harsh production reviews. Accepted upstream gameplay is checkpointed; a late visual defect repairs production, while genuine product invalidation returns through an explicit spec-amendment path.
+Read [GAME_DESIGN.md](GAME_DESIGN.md) for the human-facing design and [game-spec.json](game-spec.json) for the frozen machine-readable contract. The next bounded slice is `complete-shift`.
 
-The immutable v3 Unity scenarios use recognizable shipping input boundaries: forward movement, mouse interaction, backward or lateral correction, and acknowledgement. They are causal and regression evidence, not a substitute for a person deciding whether the controls make sense.
+Trusted Unity scenarios remain causal and regression evidence. They are not a substitute for a person deciding whether controls, comprehension, game feel, art direction, or fun work.
 
 ## Commands
 

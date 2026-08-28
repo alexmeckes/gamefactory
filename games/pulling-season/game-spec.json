@@ -2,164 +2,273 @@
   "apiVersion": "gamefactory.game-spec/v1",
   "kind": "GameSpec",
   "projectId": "pulling-season",
-  "revision": 2,
+  "revision": 3,
   "status": "frozen",
   "concept": "# Pulling Season\n\n## User direction (verbatim)\n\nlook at the game how to fish on steam and the art style there - i want to make something similar\n\ngive me a few potential ideas of a similar vein , maybe gardening theme ?\n\nlets do that\n\n## Selected co-created concept\n\nPulling Season is a first-person physics gardening comedy about raising oversized, temperamental produce and deciding when and how to harvest it. The player is an underqualified gardener who reads visible crop and soil cues, chooses between safer early value and riskier late value, then physically wrestles crops out of the ground with movement, leverage, ropes, and simple tools. Harvested produce remains a world object whose damage and handling affect the result. The first proof is single-player and uses one small field, one crop, and one complete harvest decision before any networking, broad progression, content catalog, or final visual production.\n",
-  "thesis": "Reading the ground, gambling on one more growth step, and then physically managing the pull can turn one oversized crop into a funny, attributable harvest story: timing changes potential value and resistance, handling changes damage, and the persistent result teaches the next plan.",
+  "thesis": "Pulling Season is a short first-person gardening game about triaging three temperamental plots with limited supplies. Harvesting one plot visibly advances the crops left behind, so order changes value and resistance; readable crop, trait, and soil cues inform preparation; embodied pulling and correction determine condition; Market versus Compost turns that condition into money or recovery; and the completed shift buys persistent improvements before a harder, rearranged next shift.",
   "claims": [
     {
       "id": "loop.core",
       "category": "loop",
-      "statement": "Within the opening session, the player reads visible but incomplete crop-readiness and soil-resistance cues, chooses a harvest plan that trades a safer smaller harvest now against a larger riskier harvest after one more clearly signaled growth step, commits to an approach, and personally extracts the crop through sustained movement and spatially responsive pulling or leverage. Chosen timing and physical handling causally affect the crop's potential value, extraction resistance, and intact or damaged condition; the harvested crop remains a physical world object whose continued handling can still affect that condition through result acknowledgement; and a changed cue set immediately presents another harvest-plan decision on which the player can apply the outcome.",
+      "statement": "During every harvest resolution, the player reads visible but incomplete crop, trait, growth, and soil cues; commits to harvesting now or leaving the crop to gain one clearly signaled growth step; chooses whether to spend water, spend a loosening charge, or conserve supplies; and personally extracts the crop through sustained first-person grip, movement, and spatial correction. Growth timing changes potential value and resistance, preparation changes the physical problem, and execution changes intact or damaged condition. The crop remains a handled world object until the player resolves it at Market or Compost, and that outcome changes the resources available for the remaining plots or next shift.",
       "status": "required",
       "falsifiers": [
-        "The player is not shown enough directional crop and soil information to make a plausible early-versus-late or extraction-approach prediction before committing.",
-        "Harvesting now and waiting produce equivalent stakes, or one timing is always correct regardless of the visible cues.",
-        "The crop can be extracted by waiting, selecting a menu result, or pressing one context button without sustained spatial action from shipping input.",
-        "Under the same crop state, materially different pull direction, timing, positioning, or leverage cannot produce a different physical response or condition outcome.",
-        "Unsignaled randomness dominates the opening result strongly enough that counterfactual player plans cannot be attributed to their timing and handling.",
-        "Success or damage is communicated only by text, a score, or hidden state rather than by visible crop, soil, motion, and condition feedback tied to the player's action.",
-        "The extracted crop disappears into inventory or becomes consequence-free before its placement and continued handling can affect the acknowledged result.",
-        "After the result, no changed harvest-plan decision lets the player apply what the first crop taught them.",
-        "A first-time player cannot discover the camera, movement, grip, pull, release, and acknowledgement vocabulary from the running game without reading an automation-specific key sequence.",
-        "The opening minute proves only that scripted controls can flip observable state; it does not require a prediction, a physical correction, or a meaningful handling choice from the player."
+        "A crop can be resolved by one context press, a menu result, waiting in real time, or a scripted animation without sustained spatial input and correction.",
+        "Harvesting now and leaving a crop for one growth step produce equivalent stakes, or one choice is always correct regardless of visible cues and remaining plots.",
+        "Watering, loosening, and conserving produce indistinguishable physical or strategic consequences.",
+        "Materially different pull direction, timing, stance, or correction cannot change crop response or condition under the same state.",
+        "Unsignaled outcome randomness prevents the player from attributing success or damage to timing, preparation, and handling.",
+        "Condition is communicated only through text or score rather than visible crop, soil, motion, audio, and handling consequences.",
+        "The extracted crop disappears into inventory or becomes consequence-free before delivery.",
+        "Resolving a crop does not change the next meaningful plot decision."
+      ]
+    },
+    {
+      "id": "loop.plot-allocation",
+      "category": "loop",
+      "statement": "A shift presents three simultaneously visible and reachable plots whose crops compete for limited water, limited loosening charges, harvest order, and risk. Resolving one plot advances each deliberately unharvested crop by one visible growth step, increasing its possible value and changing its extraction problem. The player may inspect and move between plots before committing, and no fixed sequence makes the allocation decision for them.",
+      "status": "required",
+      "falsifiers": [
+        "Only one plot is meaningfully available at a time.",
+        "The other plots are decorative, inaccessible, or reveal no information before the current harvest completes.",
+        "Supplies are abundant enough that every crop should always receive every preparation action.",
+        "Harvest order does not alter the growth, resistance, risk, value, or available resources of later crops.",
+        "A dominant fixed order solves all visible crop and soil combinations.",
+        "Real-time waiting, rather than an explicit plot resolution, advances growth."
+      ]
+    },
+    {
+      "id": "content.crops-traits",
+      "category": "content",
+      "statement": "The complete first shift contains an escalating turnip, beet, and long carrot. Each family has a distinct gameplay-scale silhouette, extraction behavior, damage profile, and relationship to soil or preparation. Visible traits such as Dew-Veined, Fork-Crowned, and Seed-Bearing alter a real decision or physical response. Common, Choice, and Prize quality is attributable to growth opportunity, visible traits, preparation, and preserved condition rather than appearing as an opaque reward roll.",
+      "status": "required",
+      "falsifiers": [
+        "Turnip, beet, and long carrot differ mainly by color, name, or payout while sharing the same extraction problem.",
+        "Traits are labels or icons with no mechanical consequence the player can learn.",
+        "Rarity is assigned after extraction by an unexplained random roll.",
+        "The player cannot identify crop family, meaningful trait, or approximate growth state at gameplay distance.",
+        "Later crops fail to demand more planning, preparation, correction, or handling care than the opening turnip.",
+        "One trait, rarity, or crop is strictly superior in every visible situation."
+      ]
+    },
+    {
+      "id": "system.condition-recovery",
+      "category": "system",
+      "statement": "Extracted produce visibly retains intact, bruised, cracked, broken, or compost-grade condition while carried and placed. Market converts crop family, growth, quality, and condition into coins. Compost sacrifices immediate payout to restore a bounded care resource or improve the next soil state, making a damaged harvest a recoverable setback and an intact crop a genuine opportunity cost rather than an automatic destination.",
+      "status": "required",
+      "falsifiers": [
+        "Market and Compost lead to equivalent resources or one destination is always correct.",
+        "Damage merely subtracts score without changing the carried crop, delivery decision, or subsequent plan.",
+        "A damaged crop ends the run or leaves no meaningful recovery path.",
+        "The player can duplicate recovery resources by repeatedly dropping, collecting, or redelivering one crop.",
+        "Carrying is so unstable or physically awkward that routine delivery becomes harder to understand than extraction.",
+        "The resolved crop leaves no visible or summarized trace in the shift result."
+      ]
+    },
+    {
+      "id": "system.season-progression",
+      "category": "system",
+      "statement": "A complete small-game season contains three escalating shifts. Each shift resolves three plots, ends with a readable result and at most one practical upgrade decision, and carries coins, supplies, upgrades, and current season state into the next shift through save/resume. Later shifts remix crop traits and soil combinations, increase the contract pressure, and preserve the same core vocabulary. Completing the third shift closes the season and unlocks a replayable challenge shift or clean restart without requiring an endless content catalog.",
+      "status": "required",
+      "falsifiers": [
+        "The game ends after one vegetable without a completed three-plot shift and next-shift decision.",
+        "Later shifts repeat the same crop, soil, and trait arrangement without changing allocation pressure.",
+        "Upgrades are cosmetic, mandatory linear gates, or pure numerical inflation that remove physical decisions.",
+        "Save/resume loses completed plot results, coins, supplies, upgrades, or current shift progression.",
+        "Restart behavior is unclear or risks trapping the player in an invalid saved state.",
+        "The season has no explicit completion state, result, or reason to replay."
+      ]
+    },
+    {
+      "id": "experience.comprehension",
+      "category": "experience",
+      "statement": "A first-time player can discover movement, camera, inspection, Q to water, E to loosen, conserving supplies, grip, pull, correction, stable carrying, Market, Compost, and restart from the running game. World shape, motion, sound, and short contextual prompts carry the explanation; the shipping view is not dominated by tutorial prose, debug labels, or automation terminology.",
+      "status": "required",
+      "falsifiers": [
+        "A first-time player needs an external key sequence or developer explanation to complete the opening turnip.",
+        "More than one compact status block, one contextual prompt, and essential crop tabs routinely obscure the playfield.",
+        "The player cannot tell which plot, crop, soil, or destination is actionable without reading paragraphs.",
+        "Camera motion, hand placement, or carried-crop pose obscures the route or causes routine nausea or collision confusion.",
+        "The opening minute proves scripted inputs can change state but does not ask for a prediction, physical correction, or handling choice."
       ]
     },
     {
       "id": "visual.production-fidelity",
       "category": "visual",
-      "statement": "If the accepted harvest advances to production, it should use an original, coherent whole-screen direction that keeps crop, soil, player action, physical consequence, and state-linked motion independently readable without copying another game's protected characters, props, layouts, assets, or branding.",
+      "statement": "Production uses an original, coherent, deliberately simple low-poly whole-screen direction: chunky faceted silhouettes, exaggerated produce and hands, broad flat colors, sparse texture, restrained lighting, and compact utilitarian interface. Crop, soil, player action, physical consequence, destinations, and state-linked motion remain independently readable without realistic PBR drift or copying another game's protected characters, props, setting, layouts, assets, or branding.",
       "status": "required",
       "falsifiers": [
         "The runtime world is primarily a static plate or monolithic generated image rather than independently rendered interactive elements.",
-        "Production presentation obscures the accepted physical causality or replaces it with presentation-only transitions.",
-        "The direction depends on recognizable protected content from a reference game rather than an original authored identity.",
-        "The shipping view reads as a debug harness, test fixture, or graybox dominated by explanatory text instead of an authored playable encounter.",
-        "A production reviewer cannot independently identify the crop, hands, soil state, intended action, physical response, condition result, and next decision at gameplay scale."
+        "Materials, lighting, foliage, grime, or post-processing make the result read as realistic or cinematic rather than intentionally simple low-poly.",
+        "Production presentation obscures or replaces the accepted physical causality.",
+        "The direction depends on recognizable protected content from a reference game rather than an original farm identity.",
+        "A reviewer cannot identify crop, hands, soil state, intended action, condition result, remaining plots, and delivery routes at gameplay scale."
       ]
     }
   ],
   "decisions": [
     {
       "id": "core.coupled-harvest-plan",
-      "status": "deferred",
+      "status": "accepted",
       "question": "What is the one repeated consequential decision for Pulling Season?",
-      "resolution": "At each readable harvest window, commit to a coupled plan: take the safer smaller crop now or allow one more growth step for greater potential value and resistance, then choose an extraction approach suited to the visible crop and soil cues. Timing changes the stakes; physical execution determines whether the wager survives contact with the world.",
-      "affectedClaims": [
-        "loop.core"
-      ]
+      "resolution": "Choose which visible plot to resolve now, which crop to leave for one more growth step, and which limited preparation resource to commit; then preserve that wager through crop-specific physical extraction and choose money or recovery after seeing the condition.",
+      "affectedClaims": ["loop.core", "loop.plot-allocation"]
+    },
+    {
+      "id": "core.explicit-growth-advance",
+      "status": "accepted",
+      "question": "How does waiting create stakes without an idle timer?",
+      "resolution": "Resolving one plot advances each deliberately unharvested crop by one visible growth step. Growth never requires standing idle or waiting for wall-clock time.",
+      "affectedClaims": ["loop.core", "loop.plot-allocation", "content.crops-traits"]
     },
     {
       "id": "core.directional-uncertainty",
       "status": "accepted",
       "question": "What must the player know before committing?",
-      "resolution": "Crop readiness and soil resistance must be signaled directionally well enough to support a prediction, while exact tolerance remains uncertain and learnable through immediate physical feedback. The opening evidence should use deterministic underlying state rather than opaque outcome randomness.",
-      "affectedClaims": [
-        "loop.core"
-      ]
+      "resolution": "Crop, trait, growth, and soil cues support a directional prediction while exact tolerance remains uncertain and learnable through immediate physical feedback. Underlying state is deterministic for a given shift seed; opaque outcome randomness does not decide the pull.",
+      "affectedClaims": ["loop.core", "content.crops-traits"]
     },
     {
-      "id": "core.persistent-consequence",
+      "id": "system.finite-preparation",
       "status": "accepted",
-      "question": "What carries the completed harvest into the next decision?",
-      "resolution": "The crop's visible size, damage, and placement persist as physical consequence through acknowledgement of the result, and the next cue set changes enough that the player can reconsider timing or approach using what just happened.",
-      "affectedClaims": [
-        "loop.core"
-      ]
+      "question": "What creates a second decision before pulling?",
+      "resolution": "The player starts each shift with fewer water and loosening charges than the number of possible uses. Q waters, E loosens, and taking neither action conserves the resource. Cues and crop behavior make each preparation situational rather than universally beneficial.",
+      "affectedClaims": ["loop.core", "loop.plot-allocation", "experience.comprehension"]
+    },
+    {
+      "id": "content.three-crop-escalation",
+      "status": "accepted",
+      "question": "What content makes the first complete shift feel like a game?",
+      "resolution": "Three adjacent plots contain turnip, beet, and long carrot. Turnip teaches direct lift and correction, beet emphasizes rocking or lateral release, and long carrot is deeper and more condition-sensitive, while soil and traits prevent the sequence from becoming a fixed solution.",
+      "affectedClaims": ["loop.plot-allocation", "content.crops-traits"]
+    },
+    {
+      "id": "system.visible-traits-earned-quality",
+      "status": "accepted",
+      "question": "How do traits and rarity stay interesting rather than becoming labels?",
+      "resolution": "Traits visibly alter preparation value, growth opportunity, extraction response, or damage risk. Common, Choice, and Prize summarize the crop's visible potential and preserved condition; they are not independent loot rolls.",
+      "affectedClaims": ["content.crops-traits", "system.condition-recovery"]
+    },
+    {
+      "id": "system.market-or-compost",
+      "status": "accepted",
+      "question": "What meaningful follow-up commitment occurs after extraction?",
+      "resolution": "Deliver to Market for condition-sensitive coins or sacrifice the crop at Compost for bounded recovery that can improve a remaining plot or the next shift. Both destinations remain physical places in the yard.",
+      "affectedClaims": ["loop.core", "system.condition-recovery"]
+    },
+    {
+      "id": "interaction.stable-carry",
+      "status": "accepted",
+      "question": "How physical should carrying be?",
+      "resolution": "After a deliberate catch, the crop settles into a stable two-handed carry pose with readable weight sway and deliberate place/drop actions. Routine walking does not require continuously fighting a loose physics joint, but collisions and an intentional drop can still worsen condition.",
+      "affectedClaims": ["system.condition-recovery", "experience.comprehension"]
+    },
+    {
+      "id": "system.three-shift-season",
+      "status": "accepted",
+      "question": "What is the complete bounded run structure?",
+      "resolution": "A season is three escalating three-plot shifts with a contract result and at most one practical upgrade between shifts. Shift state saves and resumes. The third result completes the season and opens a replayable challenge shift or clean restart.",
+      "affectedClaims": ["system.season-progression"]
+    },
+    {
+      "id": "visual.simple-lowpoly",
+      "status": "accepted",
+      "question": "What visual contract replaces the realistic drift?",
+      "resolution": "Use original chunky low-poly meshes, broad flat shared materials, exaggerated proportions, sparse surface detail, restrained lighting, and minimal contextual UI. Reference games inform only the high-level craft bar; protected content is not copied.",
+      "affectedClaims": ["visual.production-fidelity", "experience.comprehension"]
     },
     {
       "id": "engine.unity",
       "status": "accepted",
-      "question": "Which project host should prove the first slice?",
-      "resolution": "Use the project's configured Unity 6 host, Input System, and GameFactory evidence bridge for this slice without making the product thesis depend on a Unity-specific mechanic.",
-      "affectedClaims": [
-        "loop.core"
-      ]
+      "question": "Which host ships the small game?",
+      "resolution": "Use Unity 6 and the Input System while keeping the product thesis independent of Unity-specific implementation details.",
+      "affectedClaims": ["loop.core", "experience.comprehension"]
     },
     {
-      "id": "scope.single-player-proof",
+      "id": "scope.single-player-small-game",
       "status": "accepted",
-      "question": "Does the first proof require cooperative multiplayer?",
-      "resolution": "No. Prove one player-complete harvest and expose the next decision before considering cooperation.",
-      "affectedClaims": [
-        "loop.core"
-      ]
+      "question": "How far does Revision 3 expand?",
+      "resolution": "Ship one polished single-player yard, three crop families, three plots per shift, three escalating shifts, a bounded upgrade set, save/resume, restart, season completion, and replayable combinations before adding networking, a large crop catalog, open-world structure, crafting, or narrative systems.",
+      "affectedClaims": ["loop.plot-allocation", "content.crops-traits", "system.season-progression"]
     },
     {
-      "id": "future.production-direction",
+      "id": "process.human-play-gates",
       "status": "accepted",
-      "question": "Which exact whole-screen art, audio, motion, camera, and interface direction should production use?",
-      "resolution": "After human acceptance of the redesigned gameplay slice, develop and compare original whole-screen directions at the shipping camera, approve one target, and expand it through a protected production integrator. Reference games may set a craft bar and mood vocabulary, but their protected characters, props, layouts, branding, and assets must not be copied.",
-      "affectedClaims": [
-        "visual.production-fidelity"
-      ]
-    },
-    {
-      "id": "process.human-play-before-production",
-      "status": "accepted",
-      "question": "What evidence is required before visual production begins?",
-      "resolution": "Trusted automation remains a causal and regression check, but it cannot accept controls, comprehension, game feel, or fun. A human must play and approve the complete gameplay slice before the production encounter starts; later production repairs must preserve that accepted gameplay checkpoint or explicitly return to a new gameplay revision.",
-      "affectedClaims": [
-        "loop.core",
-        "visual.production-fidelity"
-      ]
+      "question": "What evidence can accept the game?",
+      "resolution": "Deterministic automation checks causality and regressions, but only direct human play can accept controls, comprehension, game feel, art direction, or fun. Automated evidence must never be presented as human approval.",
+      "affectedClaims": ["loop.core", "experience.comprehension", "visual.production-fidelity"]
     }
   ],
   "slices": [
     {
       "id": "first-playable",
-      "playerOutcome": "Read one oversized crop and its soil, commit to a safer-now or riskier-later harvest plan, physically extract it through shipping input, understand why it emerged intact or damaged, and immediately face another harvest-plan decision informed by that result.",
-      "primaryRisk": "The slice presents crop cues and labels but resolves the harvest with a context prompt, scripted animation, opaque randomness, invisible state change, or nonpersistent reward instead of a causal physical wager.",
-      "claimIds": [
-        "loop.core"
-      ]
+      "playerOutcome": "Read one turnip and its soil, decide whether to prepare and harvest or leave it to grow, physically extract and catch it, understand why it remained intact or became damaged, and resolve it at Market or Compost using compact discoverable controls.",
+      "primaryRisk": "The crop still behaves like a context-button prototype, an opaque timing bar, an awkward loose carry joint, or a tutorial screen instead of a readable physical wager.",
+      "claimIds": ["loop.core", "system.condition-recovery", "experience.comprehension"]
+    },
+    {
+      "id": "complete-shift",
+      "playerOutcome": "Survey three simultaneous turnip, beet, and long-carrot plots; allocate limited water and loosening; choose harvest order as unresolved crops visibly grow; execute three distinct pulls; use Market and Compost strategically; and finish with a legible shift result and upgrade choice.",
+      "primaryRisk": "The extra plots and content form three disconnected chores, all preparation is optimal, crop order is predetermined, or traits and rarity decorate the same pull rather than creating a connected allocation problem.",
+      "claimIds": ["loop.core", "loop.plot-allocation", "content.crops-traits", "system.condition-recovery", "experience.comprehension"]
+    },
+    {
+      "id": "replayable-season",
+      "playerOutcome": "Complete three escalating shifts, preserve coins, supplies, upgrades, and current progress through save/resume, adapt to changed trait and soil combinations, meet the final contract, and deliberately enter a challenge shift or clean restart.",
+      "primaryRisk": "Progression becomes grind or linear stat inflation, later shifts repeat solved content, save/restart is unreliable, or the season has no satisfying completion and replay boundary.",
+      "claimIds": ["loop.plot-allocation", "content.crops-traits", "system.condition-recovery", "system.season-progression", "experience.comprehension"]
     },
     {
       "id": "production-encounter",
-      "playerOutcome": "Replay the human-approved harvest as a coherent, original production encounter whose crop, soil, hands, motion, sound, interface, physical consequence, and next decision remain readable at the shipping camera.",
-      "primaryRisk": "Production polish becomes a pile of disconnected assets, hides or regresses the accepted physical harvest, imitates protected reference content, or is accepted from still images without fresh engine play evidence.",
-      "claimIds": [
-        "loop.core",
-        "visual.production-fidelity"
-      ]
+      "playerOutcome": "Play the complete season in an original simple low-poly yard whose crops, soil, hands, preparation, motion, sound, condition, destinations, progression, and next decision remain readable at the shipping camera with restrained UI.",
+      "primaryRisk": "Visual production drifts toward realism, becomes disconnected asset clutter, obscures the physical loop, imitates protected reference content, or is accepted from still images without fresh direct play.",
+      "claimIds": ["loop.core", "loop.plot-allocation", "content.crops-traits", "system.condition-recovery", "system.season-progression", "experience.comprehension", "visual.production-fidelity"]
     }
   ],
   "assumptions": [
-    "A first-person camera can make crop scale, pull direction, leverage, and post-extraction handling legible with a compact control set.",
-    "One clearly signaled growth step can expose the early-versus-late wager without requiring a calendar, timer-driven season, or progression system.",
-    "One crop type, one small field, one completed harvest, and one newly presented decision are enough to test the repeated loop without requiring a second completed harvest.",
-    "Provisional geometry, material contrast, motion, and concise audio can communicate directional readiness, soil resistance, and damage before final visual production.",
-    "A deterministic crop state can preserve player uncertainty by exposing incomplete cues while still allowing reviewers to attribute counterfactual outcomes to chosen timing and handling.",
-    "Exaggerated but state-linked physical response can produce comedy in the graybox without making visual polish a condition of embodied acceptance."
+    "A complete first shift with three plots can be learned and finished in roughly eight to fifteen minutes without rushing a first-time player.",
+    "Starting with approximately two water and two loosening charges creates understandable scarcity; exact counts remain a tuning variable rather than a product requirement.",
+    "Advancing unresolved crops when another plot is resolved makes waiting legible without a real-time clock or calendar.",
+    "Turnip, beet, and long carrot provide enough shape and extraction variety for the complete small game when traits, soils, growth states, and condition multiply their decisions.",
+    "A stable carry pose can preserve embodiment and consequence while removing the awkwardness of continuously wrestling a loose physics joint.",
+    "A small bounded upgrade set can change preparation, tolerance, recovery, or handling choices without erasing crop-specific technique.",
+    "Deterministically seeded shift combinations can support replayability while keeping outcomes attributable to the player.",
+    "The selected simple-lowpoly-v3 screen and component targets can guide production without becoming runtime image plates."
   ],
   "openQuestions": [
-    "Which direct extraction model best supports readable, continuous correction: free pull vectors, rocking, body bracing, leverage, ropes or tools, or another equally falsifiable approach?",
-    "Which combination of crop shape, motion, soil deformation, material, audio, and sparse interface cues communicates readiness and resistance without explanation-heavy panels?",
-    "What magnitude of added value and resistance makes the late harvest tempting without making early or late play dominant?",
-    "How should the next cue set change after an intact, damaged, or mishandled crop so the next decision reflects learning without introducing progression?",
-    "How should cooperation, crop variety, weather, tools, handling destinations, economy, and long-term progression expand only if loop.core is accepted?",
-    "Which original whole-screen art direction should later express the comedy without imitating protected content from a reference game?"
+    "Which exact beet correction pattern and long-carrot staged extraction best distinguish them from the turnip while using the same compact input vocabulary?",
+    "Should Compost restore a chosen care charge immediately, improve one remaining plot, or bank a soil benefit for the next shift without dominating Market?",
+    "Which four to six practical upgrades change decisions most cleanly without becoming mandatory numerical tiers?",
+    "What contract values make one intact late crop tempting without making cautious early harvest or recovery play nonviable?",
+    "Which deterministic trait and soil combinations create the strongest second and third shifts without requiring additional crop families?",
+    "What concise audio and motion cues communicate readiness, strain, correction, root damage, catch damage, and quality without adding explanatory UI?"
   ],
   "supersedes": {
-    "revision": 1,
-    "sha256": "4bed95d52588a6291310fec511ffec21b702817d9f3361defbfcd97dc2c3054c"
+    "revision": 2,
+    "sha256": "0662e3740deb7394fd60f8336d94a3cccd527cdbf893c85dff0a767cf81ee753"
   },
   "change": {
     "kind": "user-amendment",
-    "rationale": "The causal prototype demonstrated that Unity input, state observation, and capture plumbing work, but the user rejected it as a game: the controls did not make sense, the screen was dominated by prototype text, and the result tested automation-visible state more strongly than player judgment, correction, and feel. Revision 2 therefore requires first-time comprehensibility and an actual human gameplay gate, promotes production fidelity to required, and preserves accepted gameplay as a checkpoint rather than letting late reviewers restart the entire lineage.",
+    "rationale": "Revision 2 intentionally froze a one-crop proof, but direct user play and repeated direction established that a successful pull alone is not an actual small game. Revision 3 preserves the accepted physical harvest thesis while adding the minimum connected game around it: three simultaneous plots, finite preparation, explicit growth-by-order, distinct crops and visible traits, earned quality, stable carrying, Market versus Compost recovery, a three-shift season, bounded upgrades, save/resume, restart, completion, replay, restrained UI, and an original deliberately simple low-poly visual contract.",
     "evidence": [
-      "The user reported that the prototype controls did not make sense during direct play.",
-      "The user reported that the prototype contained excessive on-screen text and questioned what gameplay was actually being tested.",
-      "The user explicitly rejected the resulting depth as 'pretty much nothing' and asked for the orchestration to pursue the original Gauntlet intent more closely.",
-      "Revision 18's trusted Unity evidence remains useful as technical baseline evidence only; it is not human acceptance of controls, comprehension, game feel, or fun."
+      "The user reported that carrying felt awkward and requested less explanatory UI.",
+      "The user reported that the build contained nothing beyond pulling a vegetable and asked for an actual game.",
+      "The user specified three escalating harvests: turnip, beet, and long carrot.",
+      "The user specified Q to water, E to loosen soil, or conserving supplies.",
+      "The user required multiple plots rather than a single growing plot.",
+      "The user requested rarity and traits that make growing choices interesting.",
+      "The user rejected realistic visual drift and selected a chunkier, flatter low-poly direction.",
+      "The direct-development branch established a three-plot yard, Market and Compost routes, crop condition, and a selected simple-lowpoly-v3 target that can be preserved as upstream work."
     ],
     "affectedClaims": [
       "loop.core",
+      "loop.plot-allocation",
+      "content.crops-traits",
+      "system.condition-recovery",
+      "system.season-progression",
+      "experience.comprehension",
       "visual.production-fidelity"
     ],
-    "affectedSlices": [
-      "first-playable",
-      "production-encounter"
-    ]
+    "affectedSlices": ["first-playable", "complete-shift", "replayable-season", "production-encounter"]
   }
 }
